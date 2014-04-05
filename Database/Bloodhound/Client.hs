@@ -24,7 +24,6 @@ import GHC.Generics (Generic)
 import Network.HTTP.Conduit
 import qualified Network.HTTP.Types.Method as NHTM
 import qualified Network.HTTP.Types.Status as NHTS
-import qualified Control.Exception as E
 
 data Version = Version { number          :: T.Text
                        , build_hash      :: T.Text
@@ -53,8 +52,6 @@ instance (FromJSON a, ToJSON a) => FromJSON (Status a) where
 
 -- instance ToJSON (Status a)
 -- instance FromJSON (Status a)
-
-muhServer = "http://localhost:9200"
 
 -- bloo <- (liftM responseBody $ parseUrl "http://localhost:9200/" >>= \r -> withManager (httpLbs r))
 
