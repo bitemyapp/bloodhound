@@ -169,6 +169,9 @@ deleteIndex (Server server) indexName =
     method = NHTM.methodDelete
     body = Nothing
 
+respIsTwoHunna :: Reply -> Bool
+respIsTwoHunna resp = (NHTS.statusCode $ responseStatus resp) == 200
+
 indexExists :: Server -> IndexName -> IO Bool
 indexExists (Server server) indexName =
   exists where
@@ -176,11 +179,7 @@ indexExists (Server server) indexName =
     method = NHTM.methodHead
     body = Nothing
     reply = dispatch url method body
-    exists = do
-      resp <- reply
-      if (NHTS.statusCode $ responseStatus resp) == 200
-        then return True
-        else return False
+    exists = fmap respIsTwoHunna reply 
 
 data OpenCloseIndex = OpenIndex | CloseIndex deriving (Show)
 
@@ -244,6 +243,16 @@ getDocument (Server server) indexName mappingName docId =
     url = joinPath [server, indexName, mappingName, docId]
     method = NHTM.methodGet
     body = Nothing
+
+documentExists :: Server -> IndexName -> MappingName
+                  -> DocumentID -> IO Bool
+documentExists (Server server) indexName mappingName docId =
+  exists where
+    url = joinPath [server, indexName, mappingName, docId]
+    method = NHTM.methodHead
+    body = Nothing
+    reply = dispatch url method body
+    exists = fmap respIsTwoHunna reply
 
 -- getStatus :: String -> IO (Maybe (Status Version))
 -- getStatus server = do
