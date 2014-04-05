@@ -1,13 +1,22 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Bloodhound.Client where
+module Database.Bloodhound.Client
+       ( createIndex
+       , deleteIndex
+       , IndexSettings(..)
+       , Server(..)
+       , defaultIndexSettings
+       , indexDocument
+       )
+       where
 
 import Control.Applicative
 import Control.Monad (liftM)
 import Data.Aeson
 import Data.Aeson.TH (deriveJSON)
 import qualified Data.ByteString.Lazy.Char8 as L
+import Data.List (intersperse)
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import Data.Time.Clock as DTC
@@ -59,12 +68,6 @@ pathFromType index docType = "/" ++ index ++ docType
 -- Kinda hate this too.
 rollUp :: [String] -> String
 rollUp = Prelude.concat
-
-getStatus :: String -> IO (Maybe (Status Version))
-getStatus server = do
-  request <- parseUrl $ server ++ rootPath
-  response <- withManager $ httpLbs request
-  return $ (decode $ responseBody response)
 
 main = simpleHttp "http://localhost:9200/events/event/_search?q=hostname:localhost&size=1" >>= L.putStrLn
 
@@ -146,6 +149,15 @@ dispatch url method body = do
 
 type IndexName = String
 
+joinPath :: [String] -> String
+joinPath path = concat $ intersperse "/" path
+
+getStatus :: Server -> IO (Maybe (Status Version))
+getStatus (Server server) = do
+  request <- parseUrl $ server ++ rootPath
+  response <- withManager $ httpLbs request
+  return $ (decode $ responseBody response)
+
 createIndex :: Server -> IndexSettings -> IndexName -> IO Reply
 createIndex (Server server) indexSettings indexName =
   dispatch url method body where
@@ -193,12 +205,49 @@ openIndex = openOrCloseIndexes OpenIndex
 closeIndex :: Server -> IndexName -> IO Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
-createMapping :: ToJSON a => Server -> IndexName -> a -> IO Reply
-createMapping (Server server) indexName mapping =
+type MappingName = String
+
+createMapping :: ToJSON a => Server -> IndexName
+                 -> MappingName -> a -> IO Reply
+createMapping (Server server) indexName mappingName mapping =
   dispatch url method body where
-    url = server ++ "/" ++ indexName ++ "/" ++ "_mapping"
+    url = server ++ "/" ++ indexName ++ "/"
+          ++ mappingName ++ "/" ++ "_mapping"
     method = NHTM.methodPut
     body = Just $ encode mapping
+
+deleteMapping :: Server -> IndexName -> MappingName -> IO Reply
+deleteMapping (Server server) indexName mappingName =
+  dispatch url method body where
+    url = server ++ "/" ++ indexName ++ "/" ++ mappingName ++ "/" ++ "_mapping"
+    method = NHTM.methodDelete
+    body = Nothing
+
+type DocumentID = String
+
+indexDocument :: ToJSON doc => Server -> IndexName -> MappingName
+                 -> doc -> DocumentID -> IO Reply
+indexDocument (Server server) indexName mappingName document docId =
+  dispatch url method body where
+    url = joinPath [server, indexName, mappingName, docId]
+    method = NHTM.methodPut
+    body = Just (encode document)
+
+deleteDocument :: Server -> IndexName -> MappingName
+                  -> DocumentID -> IO Reply
+deleteDocument (Server server) indexName mappingName docId =
+  dispatch url method body where
+    url = joinPath [server, indexName, mappingName, docId]
+    method = NHTM.methodDelete
+    body = Nothing
+
+getDocument :: Server -> IndexName -> MappingName
+               -> DocumentID -> IO Reply
+getDocument (Server server) indexName mappingName docId =
+  dispatch url method body where
+    url = joinPath [server, indexName, mappingName, docId]
+    method = NHTM.methodGet
+    body = Nothing
 
 -- getStatus :: String -> IO (Maybe (Status Version))
 -- getStatus server = do
