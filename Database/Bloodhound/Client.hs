@@ -58,16 +58,16 @@ muhServer = "http://localhost:9200"
 
 -- bloo <- (liftM responseBody $ parseUrl "http://localhost:9200/" >>= \r -> withManager (httpLbs r))
 
-rootPath :: String
-rootPath = rollUp $ ["/"]
+-- rootPath :: String
+-- rootPath = rollUp $ ["/"]
 
--- Kinda hate this.
-pathFromType :: String -> String -> String
-pathFromType index docType = "/" ++ index ++ docType
+-- -- Kinda hate this.
+-- pathFromType :: String -> String -> String
+-- pathFromType index docType = "/" ++ index ++ docType
 
--- Kinda hate this too.
-rollUp :: [String] -> String
-rollUp = Prelude.concat
+-- -- Kinda hate this too.
+-- rollUp :: [String] -> String
+-- rollUp = Prelude.concat
 
 main = simpleHttp "http://localhost:9200/events/event/_search?q=hostname:localhost&size=1" >>= L.putStrLn
 
@@ -154,28 +154,28 @@ joinPath path = concat $ intersperse "/" path
 
 getStatus :: Server -> IO (Maybe (Status Version))
 getStatus (Server server) = do
-  request <- parseUrl $ server ++ rootPath
+  request <- parseUrl $ joinPath [server]
   response <- withManager $ httpLbs request
   return $ (decode $ responseBody response)
 
 createIndex :: Server -> IndexSettings -> IndexName -> IO Reply
 createIndex (Server server) indexSettings indexName =
   dispatch url method body where
-    url = server ++ "/" ++ indexName
+    url = joinPath [server, indexName]
     method = NHTM.methodPut
     body = Just $ encode indexSettings
 
 deleteIndex :: Server -> IndexName -> IO Reply
 deleteIndex (Server server) indexName =
   dispatch url method body where
-    url = server ++ "/" ++ indexName
+    url = joinPath [server, indexName]
     method = NHTM.methodDelete
     body = Nothing
 
 indexExists :: Server -> IndexName -> IO Bool
 indexExists (Server server) indexName =
   exists where
-    url = server ++ "/" ++ indexName
+    url = joinPath [server, indexName]
     method = NHTM.methodHead
     body = Nothing
     reply = dispatch url method body
@@ -195,7 +195,7 @@ openOrCloseIndexes :: OpenCloseIndex -> Server -> IndexName -> IO Reply
 openOrCloseIndexes oci (Server server) indexName =
   dispatch url method body where
     ociString = stringifyOCIndex oci
-    url = server ++ "/" ++ indexName ++ "/" ++ ociString
+    url = joinPath [server, indexName, ociString]
     method = NHTM.methodPost
     body = Nothing
 
@@ -211,15 +211,14 @@ createMapping :: ToJSON a => Server -> IndexName
                  -> MappingName -> a -> IO Reply
 createMapping (Server server) indexName mappingName mapping =
   dispatch url method body where
-    url = server ++ "/" ++ indexName ++ "/"
-          ++ mappingName ++ "/" ++ "_mapping"
+    url = joinPath [server, indexName, mappingName, "_mapping"]
     method = NHTM.methodPut
     body = Just $ encode mapping
 
 deleteMapping :: Server -> IndexName -> MappingName -> IO Reply
 deleteMapping (Server server) indexName mappingName =
   dispatch url method body where
-    url = server ++ "/" ++ indexName ++ "/" ++ mappingName ++ "/" ++ "_mapping"
+    url = joinPath [server, indexName, mappingName, "_mapping"]
     method = NHTM.methodDelete
     body = Nothing
 

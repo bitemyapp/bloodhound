@@ -46,3 +46,4 @@ test-suite tests
                        hspec >= 1.9,
                        http-conduit,
                        http-types
+  default-language:    Haskell2010
