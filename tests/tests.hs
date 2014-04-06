@@ -55,7 +55,8 @@ main = hspec $ do
       let encoded = encode tweet
       created <- createExampleIndex
       docCreated <- indexDocument (Server "http://localhost:9200") "twitter" "tweet" tweet "1"
+
       docInserted <- getDocument (Server "http://localhost:9200") "twitter" "tweet" "1"
-      let newTweet = decode (responseBody docInserted) :: Maybe Tweet
+      let newTweet = decode (responseBody docInserted) :: Maybe (EsResult Tweet)
       deleted <- deleteExampleIndex
-      (Just tweet) `shouldBe` newTweet
+      (Just tweet) `shouldBe` (fmap _source newTweet)

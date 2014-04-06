@@ -11,6 +11,7 @@ module Database.Bloodhound.Client
        , getDocument
        , documentExists
        , deleteDocument
+       , EsResult(..)
        )
        where
 
@@ -21,25 +22,25 @@ import Data.Aeson.TH (deriveJSON)
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List (intersperse)
 import Data.Maybe (fromMaybe)
-import qualified Data.Text as T
-import Data.Time.Clock as DTC
+import Data.Text (Text)
+import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
 import Network.HTTP.Conduit
 import qualified Network.HTTP.Types.Method as NHTM
 import qualified Network.HTTP.Types.Status as NHTS
 
-data Version = Version { number          :: T.Text
-                       , build_hash      :: T.Text
-                       , build_timestamp :: DTC.UTCTime
+data Version = Version { number          :: Text
+                       , build_hash      :: Text
+                       , build_timestamp :: UTCTime
                        , build_snapshot  :: Bool
-                       , lucene_version  :: T.Text } deriving (Show, Generic)
+                       , lucene_version  :: Text } deriving (Show, Generic)
 
 data (FromJSON a, ToJSON a) => Status a =
                      Status { ok      :: Bool
                             , status  :: Int
-                            , name    :: T.Text
+                            , name    :: Text
                             , version :: a
-                            , tagline :: T.Text } deriving (Show)
+                            , tagline :: Text } deriving (Show)
 
 instance ToJSON Version
 instance FromJSON Version
@@ -71,7 +72,7 @@ instance (FromJSON a, ToJSON a) => FromJSON (Status a) where
 
 main = simpleHttp "http://localhost:9200/events/event/_search?q=hostname:localhost&size=1" >>= L.putStrLn
 
--- data Response = Response { blah :: T.Text } deriving (Show)
+-- data Response = Response { blah :: Text } deriving (Show)
 
 -- indexDocument :: ToJSON a => a -> IO Response
 -- indexDocument doc = ToJSON a
@@ -116,7 +117,7 @@ newtype Server = Server String deriving (Show)
 
 -- data ElasticsearchError = ElasticsearchError
 --                           { status :: Int
---                           , error  :: T.Text } deriving (Show, Generic)
+--                           , error  :: Text } deriving (Show, Generic)
 
 -- instance FromJSON ElasticsearchError
 
@@ -238,6 +239,23 @@ deleteDocument (Server server) indexName mappingName docId =
     url = joinPath [server, indexName, mappingName, docId]
     method = NHTM.methodDelete
     body = Nothing
+
+data EsResult a = EsResult { _index   :: Text
+                           , _type    :: Text
+                           , _id      :: Text
+                           , _version :: Int
+                           , found    :: Bool
+                           , _source  :: a } deriving (Eq, Show)
+
+instance (FromJSON a, ToJSON a) => FromJSON (EsResult a) where
+  parseJSON (Object v) = EsResult <$>
+                         v .: "_index"   <*>
+                         v .: "_type"    <*>
+                         v .: "_id"      <*>
+                         v .: "_version" <*>
+                         v .: "found"    <*>
+                         v .: "_source"
+  parseJSON _          = empty
 
 getDocument :: Server -> IndexName -> MappingName
                -> DocumentID -> IO Reply
