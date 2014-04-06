@@ -8,6 +8,9 @@ module Database.Bloodhound.Client
        , Server(..)
        , defaultIndexSettings
        , indexDocument
+       , getDocument
+       , documentExists
+       , deleteDocument
        )
        where
 
