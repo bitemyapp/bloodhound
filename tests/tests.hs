@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric, OverloadedStrings, TemplateHaskell #-}
 
 module Main where
 
@@ -6,16 +6,13 @@ import Database.Bloodhound.Client
 import Data.Aeson
 import Data.DeriveTH
 import Data.Maybe (fromJust)
-import Data.Time.Clock (UTCTime)
+import Data.Time.Calendar (Day(..))
+import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Network.HTTP.Conduit
 import qualified Network.HTTP.Types.Status as NHTS
-import System.Random
 import Test.Hspec
-import Test.QuickCheck
-import Test.QuickCheck.Gen
-import Test.QuickCheck.Instances
 
 
 testServer = Server "http://localhost:9200"
@@ -31,13 +28,11 @@ data Tweet = Tweet { user :: Text
 
 instance ToJSON Tweet
 instance FromJSON Tweet
-$(derive makeArbitrary ''Tweet)
 
-newTweet :: IO Tweet
-newTweet = do
-  g <- newStdGen
-  let seed = head (take 1 $ randoms g)
-  return (unGen arbitrary (mkStdGen seed) 100)
+exampleTweet = Tweet { user     = "bitemyapp"
+                     , postDate = UTCTime (ModifiedJulianDay 55000)
+                                  (secondsToDiffTime 10)
+                     , message  = "Use haskell!" }
 
 main :: IO ()
 main = hspec $ do
@@ -51,11 +46,10 @@ main = hspec $ do
       validateStatus deleteResp 200
   describe "document API" $ do
     it "indexes, gets, and then deletes the generated document" $ do
-      tweet <- newTweet
+      let tweet = exampleTweet
       let encoded = encode tweet
       created <- createExampleIndex
       docCreated <- indexDocument (Server "http://localhost:9200") "twitter" "tweet" tweet "1"
-
       docInserted <- getDocument (Server "http://localhost:9200") "twitter" "tweet" "1"
       let newTweet = decode (responseBody docInserted) :: Maybe (EsResult Tweet)
       deleted <- deleteExampleIndex
