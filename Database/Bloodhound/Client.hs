@@ -20,7 +20,7 @@ import Control.Monad (liftM)
 import Data.Aeson
 import Data.Aeson.TH (deriveJSON)
 import qualified Data.ByteString.Lazy.Char8 as L
-import Data.List (intersperse)
+import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
@@ -131,9 +131,7 @@ type Reply = Network.HTTP.Conduit.Response L.ByteString
 type Method = NHTM.Method
 
 responseIsError :: Reply -> Bool
-responseIsError resp = if (NHTS.statusCode (responseStatus resp)) > 299
-                       then True
-                       else False
+responseIsError resp = NHTS.statusCode (responseStatus resp) > 299
 
 emptyBody = L.pack ""
 
@@ -145,19 +143,18 @@ dispatch url method body = do
   let req = initReq { method = method
                     , requestBody = reqBody
                     , checkStatus = \_ _ _ -> Nothing}
-  response <- withManager $ httpLbs req
-  return response
+  withManager $ httpLbs req
 
 type IndexName = String
 
 joinPath :: [String] -> String
-joinPath path = concat $ intersperse "/" path
+joinPath path = intercalate "/" path
 
 getStatus :: Server -> IO (Maybe (Status Version))
 getStatus (Server server) = do
   request <- parseUrl $ joinPath [server]
   response <- withManager $ httpLbs request
-  return $ (decode $ responseBody response)
+  return $ decode (responseBody response)
 
 createIndex :: Server -> IndexSettings -> IndexName -> IO Reply
 createIndex (Server server) indexSettings indexName =
@@ -174,16 +171,17 @@ deleteIndex (Server server) indexName =
     body = Nothing
 
 respIsTwoHunna :: Reply -> Bool
-respIsTwoHunna resp = (NHTS.statusCode $ responseStatus resp) == 200
+respIsTwoHunna resp = NHTS.statusCode (responseStatus resp) == 200
+
+existentialQuery url = do
+  reply <- dispatch url NHTM.methodHead Nothing
+  return (reply, respIsTwoHunna reply)
 
 indexExists :: Server -> IndexName -> IO Bool
-indexExists (Server server) indexName =
-  exists where
+indexExists (Server server) indexName = do
+  (reply, exists) <- existentialQuery url
+  return exists where
     url = joinPath [server, indexName]
-    method = NHTM.methodHead
-    body = Nothing
-    reply = dispatch url method body
-    exists = fmap respIsTwoHunna reply 
 
 data OpenCloseIndex = OpenIndex | CloseIndex deriving (Show)
 
@@ -267,13 +265,10 @@ getDocument (Server server) indexName mappingName docId =
 
 documentExists :: Server -> IndexName -> MappingName
                   -> DocumentID -> IO Bool
-documentExists (Server server) indexName mappingName docId =
-  exists where
+documentExists (Server server) indexName mappingName docId = do
+  (reply, exists) <- existentialQuery url
+  return exists where
     url = joinPath [server, indexName, mappingName, docId]
-    method = NHTM.methodHead
-    body = Nothing
-    reply = dispatch url method body
-    exists = fmap respIsTwoHunna reply
 
 -- getStatus :: String -> IO (Maybe (Status Version))
 -- getStatus server = do
