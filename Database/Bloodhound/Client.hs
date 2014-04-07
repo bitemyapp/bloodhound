@@ -148,7 +148,7 @@ dispatch url method body = do
 type IndexName = String
 
 joinPath :: [String] -> String
-joinPath path = intercalate "/" path
+joinPath = intercalate "/"
 
 getStatus :: Server -> IO (Maybe (Status Version))
 getStatus (Server server) = do
@@ -269,6 +269,119 @@ documentExists (Server server) indexName mappingName docId = do
   (reply, exists) <- existentialQuery url
   return exists where
     url = joinPath [server, indexName, mappingName, docId]
+
+-- data Analyzer = AStandardAnalyzer StandardAnalyzer
+--               | SimpleAnalyzer -- just "simple"
+--               | WhitespaceAnalyzer
+--               | StopAnalyzer
+--               | KeywordAnalyzer
+--               | PatternAnalyzer
+--               | LanguageAnalyzer
+--               | SnowballAnalyzer
+--               | CustomAnalyzer
+
+-- data StandardAnalyzer =
+--   StandardAnalyzer
+--   { stopwords        :: Maybe [Text] -- default []
+--   , max_token_length :: Maybe Int -- default 255
+--   }
+
+-- DefaultField -> "default_field": ""
+-- Fields -> "fields": []
+
+type QueryString = Text
+-- status:active
+-- author:"John Smith"
+-- for book.title and book.date containing quick OR brown, book.\*:(quick brown)
+-- field title has no value or doesn't exist, _missing_:title
+-- field title has any non-null value, _exists:title
+
+data BooleanOperator = AND | OR deriving (Show)
+
+type DisMax = Bool -- "use_dis_max"
+newtype TieBreaker = TieBreaker Int deriving (Show)
+data QueryField = DefaultField Text | Fields [Text] DisMax TieBreaker deriving (Show)
+
+data QueryStringQuery =
+  QueryStringQuery { query                     :: QueryString
+                   , field     :: Maybe QueryField      -- default _all
+                   , defaultOperator           :: Maybe BooleanOperator -- default OR
+                   , analyzer                  :: Maybe Text   -- analyzer name
+                   , allowLeadingWildcard      :: Maybe Bool   -- default true
+                   , lowercaseExpandedTerms    :: Maybe Bool   -- default true
+                   , enablePositionIncrements  :: Maybe Bool   -- default true
+                   , fuzzyMaxExpansions        :: Maybe Int    -- default 50
+                   , fuzziness                 :: Maybe Text   -- Fuzziness -- default AUTO, add type later
+                   , fuzzyPrefixLength         :: Maybe Int    -- default 0
+                   , phraseSlop                :: Maybe Int    -- default 0, 0 means exact phrase matches
+                   , boost                     :: Maybe Double -- default 1.0
+                   , analyzeWildcard           :: Maybe Bool   -- default false, true forces wildcard analysis
+                   , autoGeneratePhraseQueries :: Maybe Bool   -- default false
+                   , minimumShouldMatch        :: Maybe Text   -- # "should" clauses in the boolean query should match
+                                                               -- Text to handle weird % and other cases. Needs type
+                   , lenient                   :: Maybe Bool   -- default false, true shuts off format based failures
+                   , locale                    :: Maybe Text   -- default ROOT, locale used for string conversions
+                     } deriving (Show)
+
+emptyQueryStringQuery = QueryStringQuery "" Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+queryStringQuery query = emptyQueryStringQuery { query = query }
+
+-- ugh
+type FieldName = Text
+
+type Cache = Bool -- caching on/off
+data Filter = AndFilter [Filter] (Maybe Cache)
+            | OrFilter [Filter] (Maybe Cache)
+            | BoolFilter BoolMatch (Maybe Cache)
+            | ExistsFilter FieldName -- always cached
+            | GeoBoundingBoxFilter FieldName GeoBoundingBoxConstraint GeoFilterType (Maybe Cache)
+            | GeoDistanceFilter FieldName LatLon Distance (Maybe Cache)
+              deriving (Show)
+
+-- I dunno.
+data Term = Term { termField :: Text
+                 , termValue :: Text } deriving (Show)
+
+data BoolMatch = MustMatch Term
+               | MustNotMatch Term
+               | ShouldMatch [Term] deriving (Show)
+
+-- "memory" or "indexed"
+data GeoFilterType = GeoFilterMemory | GeoFilterIndexed deriving (Show)
+
+data LatLon = LatLon { lat :: Double, lon :: Double } deriving (Show)
+data GeoBoundingBox = { topLeft :: LatLon
+                      , bottomRight :: LatLon } deriving (Show)
+
+data GeoBoundingBoxConstraint =
+  GeoBoundingBoxConstraint { geoField :: Text
+                           , constraintBox :: GeoBoundingBox
+                           } deriving (Show)
+
+data DistanceUnits = Miles
+                   | Yards
+                   | Feet
+                   | Inches
+                   | Kilometers
+                   | Meters
+                   | Centimeters
+                   | Millimeters
+                   | NauticalMiles deriving (Show)
+
+data DistanceType = Arc | SloppyArc | Plane deriving (Show)
+
+-- geo_point?
+data OptimizeBbox = GeoFilterType | NoOptimizeBbox deriving (Show)
+
+data Distance = { coefficient :: Double
+                , unit :: DistanceUnits } deriving (Show)
+-- This is turning into a fractal of horror
+-- data Fuzziness = FDateFuzziness DateFuzziness |
+
+-- data Query = Query { query :: () } deriving (Show)
+-- search :: Server -> IndexName -> Maybe MappingName
+--           -> Query -> IO Reply
+-- search = fuck
 
 -- getStatus :: String -> IO (Maybe (Status Version))
 -- getStatus server = do
