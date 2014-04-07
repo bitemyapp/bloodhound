@@ -1,0 +1,5 @@
+* Bloodhound
+
+Elasticsearch client and query DSL for Haskell
+
+** PRE-ALPHA, THERE IS NOTHING FOR YOU HERE

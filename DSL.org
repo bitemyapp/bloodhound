@@ -4,6 +4,10 @@
 
 bulk
 
+*** Example
+
+[Action] -> IO [Reply]
+
 ** Indexing
 
 create index
