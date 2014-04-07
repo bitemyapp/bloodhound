@@ -30,7 +30,8 @@ instance ToJSON Tweet
 instance FromJSON Tweet
 
 exampleTweet = Tweet { user     = "bitemyapp"
-                     , postDate = UTCTime (ModifiedJulianDay 55000)
+                     , postDate = UTCTime
+                                  (ModifiedJulianDay 55000)
                                   (secondsToDiffTime 10)
                      , message  = "Use haskell!" }
 
@@ -48,6 +49,7 @@ main = hspec $ do
     it "indexes, gets, and then deletes the generated document" $ do
       let tweet = exampleTweet
       let encoded = encode tweet
+      _ <- deleteExampleIndex
       created <- createExampleIndex
       docCreated <- indexDocument (Server "http://localhost:9200") "twitter" "tweet" tweet "1"
       docInserted <- getDocument (Server "http://localhost:9200") "twitter" "tweet" "1"
