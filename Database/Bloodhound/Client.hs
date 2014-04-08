@@ -97,8 +97,9 @@ mkReplicaCount n
 
 -- IndexSettings <$> mkShardCount 10 <*> mkReplicaCount 20
 
-data IndexSettings = IndexSettings { shards   :: ShardCount
-                                   , replicas :: ReplicaCount } deriving (Show, Generic)
+data IndexSettings =
+  IndexSettings { indexShards   :: ShardCount
+                , indexReplicas :: ReplicaCount } deriving (Show)
 
 instance ToJSON IndexSettings where
   toJSON (IndexSettings s r) = object ["settings" .= object ["shards" .= s, "replicas" .= r]]
@@ -356,8 +357,8 @@ data Term = Term { termField :: Text
                  , termValue :: Text } deriving (Show)
 
 instance ToJSON Term where
-  toJSON (Term termField termValue) = object ["term" .= object
-                                              [termField .= termValue]]
+  toJSON (Term field value) = object ["term" .= object
+                                      [field .= value]]
 
 data BoolMatch = MustMatch Term
                | MustNotMatch Term
@@ -402,7 +403,32 @@ data OptimizeBbox = GeoFilterType | NoOptimizeBbox deriving (Show)
 
 data Distance =
   Distance { coefficient :: Double
-           , unit :: DistanceUnits } deriving (Show)
+           , unit        :: DistanceUnits } deriving (Show)
+
+data FromJSON a => SearchResults a =
+  SearchResults { took       :: Int
+                , timedOut   :: Bool
+                , shards     :: ShardResults
+                , searchHits :: SearchHits a } deriving (Show)
+
+type Score = Double
+
+data FromJSON a => SearchHits a =
+  SearchHits { hitsTotal :: Int
+             , maxScore  :: Score
+             , hits      :: [Hits a] } deriving (Show)
+
+data FromJSON a => Hits a =
+  Hits { hitsIndex :: IndexName
+       , hitsType      :: MappingName
+       , hitDocumentID :: DocumentID
+       , hitScore      :: Score
+       , hitSource     :: a } deriving (Show)
+
+data ShardResults =
+  ShardResults { shardTotal       :: Int
+               , shardsSuccessful :: Int
+               , shardsFailed     :: Int } deriving (Show)
 
 -- This is turning into a fractal of horror
 -- data Fuzziness = FDateFuzziness DateFuzziness |
