@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Client
        ( createIndex
@@ -330,21 +329,44 @@ queryStringQuery query = emptyQueryStringQuery { query = query }
 type FieldName = Text
 
 type Cache = Bool -- caching on/off
-data Filter = AndFilter [Filter] (Maybe Cache)
-            | OrFilter [Filter] (Maybe Cache)
-            | BoolFilter BoolMatch (Maybe Cache)
+data Filter = AndFilter [Filter] Cache
+            | OrFilter [Filter] Cache
+            | BoolFilter BoolMatch Cache
             | ExistsFilter FieldName -- always cached
-            | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType (Maybe Cache)
-            | GeoDistanceFilter GeoConstraint Distance (Maybe Cache)
+            | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType Cache
+            | GeoDistanceFilter GeoConstraint Distance Cache
               deriving (Show)
+
+instance ToJSON Filter where
+  toJSON (AndFilter filters cache) =
+    object ["and" .= fmap toJSON filters
+           , "_cache" .= cache]
+  toJSON (OrFilter filters cache) =
+    object ["or" .= fmap toJSON filters
+           , "_cache" .= cache]
+  toJSON (ExistsFilter fieldName) =
+    object ["exists" .= object
+            ["field" .= fieldName]]
+  toJSON (BoolFilter boolMatch cache) =
+    object ["bool" .= toJSON boolMatch
+           , "_cache" .= cache]
 
 -- I dunno.
 data Term = Term { termField :: Text
                  , termValue :: Text } deriving (Show)
 
+instance ToJSON Term where
+  toJSON (Term termField termValue) = object ["term" .= object
+                                              [termField .= termValue]]
+
 data BoolMatch = MustMatch Term
                | MustNotMatch Term
                | ShouldMatch [Term] deriving (Show)
+
+instance ToJSON BoolMatch where
+  toJSON (MustMatch    term)  = object ["must" .= toJSON term]
+  toJSON (MustNotMatch term)  = object ["must_not" .= toJSON term]
+  toJSON (ShouldMatch  terms) = object ["should" .= fmap toJSON terms]
 
 -- "memory" or "indexed"
 data GeoFilterType = GeoFilterMemory | GeoFilterIndexed deriving (Show)

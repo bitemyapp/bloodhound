@@ -16,6 +16,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
+  default-extensions:  OverloadedStrings
   exposed-modules:     Database.Bloodhound.Client
   build-depends:       base          >=4.3 && <5,
                        bytestring    >= 0.10,
