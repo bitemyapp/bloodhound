@@ -55,4 +55,4 @@ main = hspec $ do
       docInserted <- getDocument (Server "http://localhost:9200") "twitter" "tweet" "1"
       let newTweet = decode (responseBody docInserted) :: Maybe (EsResult Tweet)
       deleted <- deleteExampleIndex
-      (Just tweet) `shouldBe` (fmap _source newTweet)
+      Just tweet `shouldBe` fmap _source newTweet

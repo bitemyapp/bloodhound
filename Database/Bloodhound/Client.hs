@@ -334,8 +334,8 @@ data Filter = AndFilter [Filter] (Maybe Cache)
             | OrFilter [Filter] (Maybe Cache)
             | BoolFilter BoolMatch (Maybe Cache)
             | ExistsFilter FieldName -- always cached
-            | GeoBoundingBoxFilter FieldName GeoBoundingBoxConstraint GeoFilterType (Maybe Cache)
-            | GeoDistanceFilter FieldName LatLon Distance (Maybe Cache)
+            | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType (Maybe Cache)
+            | GeoDistanceFilter GeoConstraint Distance (Maybe Cache)
               deriving (Show)
 
 -- I dunno.
@@ -350,13 +350,18 @@ data BoolMatch = MustMatch Term
 data GeoFilterType = GeoFilterMemory | GeoFilterIndexed deriving (Show)
 
 data LatLon = LatLon { lat :: Double, lon :: Double } deriving (Show)
-data GeoBoundingBox = { topLeft :: LatLon
-                      , bottomRight :: LatLon } deriving (Show)
+data GeoBoundingBox =
+  GeoBoundingBox { topLeft :: LatLon
+                 , bottomRight :: LatLon } deriving (Show)
 
 data GeoBoundingBoxConstraint =
-  GeoBoundingBoxConstraint { geoField :: Text
+  GeoBoundingBoxConstraint { geoField :: FieldName
                            , constraintBox :: GeoBoundingBox
                            } deriving (Show)
+
+data GeoConstraint =
+  GeoConstraint { geoField :: FieldName
+                , latLon :: LatLon } deriving (Show)
 
 data DistanceUnits = Miles
                    | Yards
@@ -373,8 +378,10 @@ data DistanceType = Arc | SloppyArc | Plane deriving (Show)
 -- geo_point?
 data OptimizeBbox = GeoFilterType | NoOptimizeBbox deriving (Show)
 
-data Distance = { coefficient :: Double
-                , unit :: DistanceUnits } deriving (Show)
+data Distance =
+  Distance { coefficient :: Double
+           , unit :: DistanceUnits } deriving (Show)
+
 -- This is turning into a fractal of horror
 -- data Fuzziness = FDateFuzziness DateFuzziness |
 
