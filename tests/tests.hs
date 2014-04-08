@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, OverloadedStrings, TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric, OverloadedStrings #-}
 
 module Main where
 
@@ -51,8 +51,11 @@ main = hspec $ do
       let encoded = encode tweet
       _ <- deleteExampleIndex
       created <- createExampleIndex
-      docCreated <- indexDocument (Server "http://localhost:9200") "twitter" "tweet" tweet "1"
-      docInserted <- getDocument (Server "http://localhost:9200") "twitter" "tweet" "1"
-      let newTweet = decode (responseBody docInserted) :: Maybe (EsResult Tweet)
+      docCreated <- indexDocument (Server "http://localhost:9200")
+                    "twitter" "tweet" tweet "1"
+      docInserted <- getDocument (Server "http://localhost:9200")
+                     "twitter" "tweet" "1"
+      let newTweet = decode
+                     (responseBody docInserted) :: Maybe (EsResult Tweet)
       deleted <- deleteExampleIndex
       Just tweet `shouldBe` fmap _source newTweet
