@@ -355,7 +355,7 @@ data GeoBoundingBox =
                  , bottomRight :: LatLon } deriving (Show)
 
 data GeoBoundingBoxConstraint =
-  GeoBoundingBoxConstraint { geoField :: FieldName
+  GeoBoundingBoxConstraint { geoBBField :: FieldName
                            , constraintBox :: GeoBoundingBox
                            } deriving (Show)
 
