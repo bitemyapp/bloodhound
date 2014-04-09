@@ -340,16 +340,16 @@ data Filter = AndFilter [Filter] Cache
 
 instance ToJSON Filter where
   toJSON (AndFilter filters cache) =
-    object ["and" .= fmap toJSON filters
+    object ["and"     .= fmap toJSON filters
            , "_cache" .= cache]
   toJSON (OrFilter filters cache) =
-    object ["or" .= fmap toJSON filters
+    object ["or"      .= fmap toJSON filters
            , "_cache" .= cache]
   toJSON (ExistsFilter fieldName) =
-    object ["exists" .= object
-            ["field" .= fieldName]]
+    object ["exists"  .= object
+            ["field"  .= fieldName]]
   toJSON (BoolFilter boolMatch cache) =
-    object ["bool" .= toJSON boolMatch
+    object ["bool"    .= toJSON boolMatch
            , "_cache" .= cache]
 
 -- I dunno.
@@ -360,31 +360,33 @@ instance ToJSON Term where
   toJSON (Term field value) = object ["term" .= object
                                       [field .= value]]
 
-data BoolMatch = MustMatch Term
+data BoolMatch = MustMatch    Term
                | MustNotMatch Term
                | ShouldMatch [Term] deriving (Show)
 
 instance ToJSON BoolMatch where
-  toJSON (MustMatch    term)  = object ["must" .= toJSON term]
+  toJSON (MustMatch    term)  = object ["must"     .= toJSON term]
   toJSON (MustNotMatch term)  = object ["must_not" .= toJSON term]
-  toJSON (ShouldMatch  terms) = object ["should" .= fmap toJSON terms]
+  toJSON (ShouldMatch  terms) = object ["should"   .= fmap toJSON terms]
 
 -- "memory" or "indexed"
 data GeoFilterType = GeoFilterMemory | GeoFilterIndexed deriving (Show)
 
-data LatLon = LatLon { lat :: Double, lon :: Double } deriving (Show)
+data LatLon = LatLon { lat :: Double
+                     , lon :: Double } deriving (Show)
+
 data GeoBoundingBox =
-  GeoBoundingBox { topLeft :: LatLon
+  GeoBoundingBox { topLeft     :: LatLon
                  , bottomRight :: LatLon } deriving (Show)
 
 data GeoBoundingBoxConstraint =
-  GeoBoundingBoxConstraint { geoBBField :: FieldName
+  GeoBoundingBoxConstraint { geoBBField    :: FieldName
                            , constraintBox :: GeoBoundingBox
                            } deriving (Show)
 
 data GeoConstraint =
   GeoConstraint { geoField :: FieldName
-                , latLon :: LatLon } deriving (Show)
+                , latLon   :: LatLon } deriving (Show)
 
 data DistanceUnits = Miles
                    | Yards
@@ -419,7 +421,7 @@ data FromJSON a => SearchHits a =
              , hits      :: [Hits a] } deriving (Show)
 
 data FromJSON a => Hits a =
-  Hits { hitsIndex :: IndexName
+  Hits { hitsIndex     :: IndexName
        , hitsType      :: MappingName
        , hitDocumentID :: DocumentID
        , hitScore      :: Score
