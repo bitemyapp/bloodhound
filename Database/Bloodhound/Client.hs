@@ -125,7 +125,7 @@ newtype Server = Server String deriving (Show)
 --   let (sts, err) = decode (responseBody resp) :: ElasticsearchError
 --   if T.isInfixOf "IndexAlreadyExistsException" error
 --     then IndexAlreadyExistsError
---     else 
+--     else
 
 type Reply = Network.HTTP.Conduit.Response L.ByteString
 type Method = NHTM.Method
@@ -300,33 +300,48 @@ data BooleanOperator = AND | OR deriving (Show)
 
 type DisMax = Bool -- "use_dis_max"
 newtype TieBreaker = TieBreaker Int deriving (Show)
-data QueryField = DefaultField Text | Fields [Text] DisMax TieBreaker deriving (Show)
+data QueryField = DefaultField Text
+                | Fields [Text] DisMax TieBreaker deriving (Show)
 
 data QueryStringQuery =
   QueryStringQuery { query                     :: QueryString
-                   , field     :: Maybe QueryField      -- default _all
-                   , defaultOperator           :: Maybe BooleanOperator -- default OR
-                   , analyzer                  :: Maybe Text   -- analyzer name
-                   , allowLeadingWildcard      :: Maybe Bool   -- default true
-                   , lowercaseExpandedTerms    :: Maybe Bool   -- default true
-                   , enablePositionIncrements  :: Maybe Bool   -- default true
-                   , fuzzyMaxExpansions        :: Maybe Int    -- default 50
-                   , fuzziness                 :: Maybe Text   -- Fuzziness -- default AUTO, add type later
+                     -- default _all
+                   , field                     :: Maybe QueryField
+                     -- default OR
+                   , defaultOperator           :: Maybe BooleanOperator
+                     -- analyzer name
+                   , analyzer                  :: Maybe Text
+                     -- default true
+                   , allowLeadingWildcard      :: Maybe Bool
+                     -- default true
+                   , lowercaseExpandedTerms    :: Maybe Bool
+                     -- default true
+                   , enablePositionIncrements  :: Maybe Bool
+                     -- default 50
+                   , fuzzyMaxExpansions        :: Maybe Int
+                     -- Fuzziness -- default AUTO, add type later
+                   , fuzziness                 :: Maybe Text
                    , fuzzyPrefixLength         :: Maybe Int    -- default 0
-                   , phraseSlop                :: Maybe Int    -- default 0, 0 means exact phrase matches
-                   , boost                     :: Maybe Double -- default 1.0
-                   , analyzeWildcard           :: Maybe Bool   -- default false, true forces wildcard analysis
-                   , autoGeneratePhraseQueries :: Maybe Bool   -- default false
-                   , minimumShouldMatch        :: Maybe Text   -- # "should" clauses in the boolean query should match
-                                                               -- Text to handle weird % and other cases. Needs type
-                   , lenient                   :: Maybe Bool   -- default false, true shuts off format based failures
-                   , locale                    :: Maybe Text   -- default ROOT, locale used for string conversions
+                     -- default 0, 0 means exact phrase matches
+                   , phraseSlop                :: Maybe Int
+                     -- default 1.0
+                   , boost                     :: Maybe Double
+                     -- default false, true forces wildcard analysis
+                   , analyzeWildcard           :: Maybe Bool
+                     -- default false
+                   , autoGeneratePhraseQueries :: Maybe Bool
+                     -- # "should" clauses in the boolean query should match
+                   , minimumShouldMatch        :: Maybe Text
+                     -- Text to handle weird % and other cases. Needs type
+                     -- default false, true shuts off format based failures
+                   , lenient                   :: Maybe Bool
+                     -- default ROOT, locale used for string conversions
+                   , locale                    :: Maybe Text
                      } deriving (Show)
 
 emptyQueryStringQuery = QueryStringQuery "" Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 queryStringQuery query = emptyQueryStringQuery { query = query }
 
--- ugh
 type FieldName = Text
 
 type Cache = Bool -- caching on/off
