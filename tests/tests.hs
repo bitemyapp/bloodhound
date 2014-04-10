@@ -16,40 +16,54 @@ import qualified Network.HTTP.Types.Status as NHTS
 import Test.Hspec
 
 
-testServer = Server "http://localhost:9200"
-testIndex = "twitter"
+testServer  = Server "http://localhost:9200"
+testIndex   = "twitter"
+testMapping = "tweet"
 validateStatus resp expected = (NHTS.statusCode $ responseStatus resp) `shouldBe` (expected :: Int)
 createExampleIndex = createIndex testServer defaultIndexSettings testIndex
 deleteExampleIndex = deleteIndex testServer testIndex
 
+data Location = Location { lat :: Double
+                         , lon :: Double } deriving (Eq, Generic, Show)
+
 data Tweet = Tweet { user     :: Text
                    , postDate :: UTCTime
-                   , message  :: Text }
+                   , message  :: Text
+                   , location :: Location }
            deriving (Eq, Generic, Show)
 
-instance ToJSON Tweet
+instance ToJSON   Tweet
 instance FromJSON Tweet
+instance ToJSON   Location
+instance FromJSON Location
+
+data TweetMapping = TweetMapping deriving (Eq, Show)
+
+instance ToJSON TweetMapping where
+  toJSON TweetMapping =
+    object ["tweet" .=
+            object ["properties" .=
+                    object ["location" .= object ["type" .= ("geo_point" :: Text)]]]]
 
 exampleTweet = Tweet { user     = "bitemyapp"
                      , postDate = UTCTime
                                   (ModifiedJulianDay 55000)
                                   (secondsToDiffTime 10)
-                     , message  = "Use haskell!" }
+                     , message  = "Use haskell!"
+                     , location = Location 40.12 (-71.34) }
 
 insertData :: IO ()
 insertData = do
   let encoded = encode exampleTweet
   _ <- deleteExampleIndex
   created <- createExampleIndex
-  docCreated <- indexDocument (Server "http://localhost:9200") "twitter" "tweet" exampleTweet "1"
-  _ <- refreshIndex testServer "twitter"
+  mappingCreated <- createMapping testServer testIndex testMapping TweetMapping
+  docCreated <- indexDocument testServer testIndex testMapping exampleTweet "1"
+  _ <- refreshIndex testServer testIndex
   return ()
 
-queryTweet :: IO (Either String Tweet)
-queryTweet = do
-  let queryFilter = BoolFilter (MustMatch (Term "user" "bitemyapp") False)
-                    <&&> IdentityFilter
-  let search = Search Nothing (Just queryFilter)
+searchTweet :: Search -> IO (Either String Tweet)
+searchTweet search = do
   reply <- searchByIndex testServer "twitter" search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
   let myTweet = fmap (hitSource . head . hits . searchHits) result
@@ -73,8 +87,26 @@ main = hspec $ do
       let newTweet = eitherDecode (responseBody docInserted) :: Either String (EsResult Tweet)
       fmap _source newTweet `shouldBe` Right exampleTweet
 
-  describe "document filtering" $ do
-    it "returns documents expected from composed filters" $ do
+  describe "filtering API" $ do
+    it "returns document for composed boolmatch and identity" $ do
       _ <- insertData
-      myTweet <- queryTweet
+      let queryFilter = BoolFilter (MustMatch (Term "user" "bitemyapp") False)
+                        <&&> IdentityFilter
+      let search = Search Nothing (Just queryFilter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for existential query" $ do
+      _ <- insertData
+      let search = Search Nothing (Just (ExistsFilter "user"))
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for geo boundingbox query" $ do
+      _ <- insertData
+      let box = GeoBoundingBox (LatLon 40.73 (-74.1)) (LatLon 40.10 (-71.12))
+      let bbConstraint = GeoBoundingBoxConstraint "tweet.location" box False
+      let geoFilter = GeoBoundingBoxFilter bbConstraint GeoFilterMemory
+      let search = Search Nothing (Just geoFilter)
+      myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet

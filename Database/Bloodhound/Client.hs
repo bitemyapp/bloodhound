@@ -4,6 +4,8 @@ module Database.Bloodhound.Client
        ( createIndex
        , deleteIndex
        , defaultIndexSettings
+       , createMapping
+       , deleteMapping
        , indexDocument
        , getDocument
        , documentExists
@@ -26,6 +28,11 @@ module Database.Bloodhound.Client
        , Seminearring(..)
        , BoolMatch(..)
        , Term(..)
+       , GeoConstraint(..)
+       , GeoBoundingBoxConstraint(..)
+       , GeoBoundingBox(..)
+       , GeoFilterType(..)
+       , LatLon(..)
        )
        where
 
@@ -158,6 +165,12 @@ indexExists (Server server) indexName = do
   return exists where
     url = joinPath [server, indexName]
 
+refreshIndex :: Server -> IndexName -> IO Reply
+refreshIndex (Server server) indexName = dispatch url method body where
+  url = joinPath [server, indexName, "_refresh"]
+  method = NHTM.methodPost
+  body = Nothing
+
 data OpenCloseIndex = OpenIndex | CloseIndex deriving (Show)
 
 stringifyOCIndex oci = case oci of
@@ -179,6 +192,24 @@ closeIndex :: Server -> IndexName -> IO Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
 type MappingName = String
+
+data FieldType = GeoPointType
+               | GeoShapeType
+               | FloatType
+               | IntegerType
+               | LongType
+               | ShortType
+               | ByteType deriving (Eq, Show)
+
+data FieldDefinition =
+  FieldDefinition { fieldType :: FieldType } deriving (Eq, Show)
+
+data MappingField =
+  MappingField   { fieldName       :: Text
+                 , fieldDefinition :: FieldDefinition } deriving (Eq, Show)
+
+data Mapping = Mapping { typeName :: Text
+                       , fields   :: [MappingField] } deriving (Eq, Show)
 
 createMapping :: ToJSON a => Server -> IndexName
                  -> MappingName -> a -> IO Reply
@@ -261,12 +292,6 @@ searchByType :: Server -> IndexName -> MappingName -> Search -> IO Reply
 searchByType (Server server) indexName mappingName search = dispatchSearch url search where
   url = joinPath [server, indexName, mappingName, "_search"]
 
-refreshIndex :: Server -> IndexName -> IO Reply
-refreshIndex (Server server) indexName = dispatch url method body where
-  url = joinPath [server, indexName, "_refresh"]
-  method = NHTM.methodPost
-  body = Nothing
-
 data Search = Search { queryBody  :: Maybe Query
                      , filterBody :: Maybe Filter } deriving (Show)
 
@@ -340,8 +365,8 @@ data Filter = AndFilter [Filter] Cache
             | IdentityFilter
             | BoolFilter BoolMatch
             | ExistsFilter FieldName -- always cached
-            | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType Cache
-            | GeoDistanceFilter GeoConstraint Distance Cache
+            | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType
+            | GeoDistanceFilter GeoConstraint Distance
               deriving (Show)
 
 class Monoid a => Seminearring a where
@@ -374,6 +399,28 @@ instance ToJSON Filter where
             ["field"  .= fieldName]]
   toJSON (BoolFilter boolMatch) =
     object ["bool"    .= toJSON boolMatch]
+  toJSON (GeoBoundingBoxFilter bbConstraint filterType) =
+    object ["geo_bounding_box" .= toJSON bbConstraint
+           , "type" .= toJSON filterType]
+
+instance ToJSON GeoBoundingBoxConstraint where
+  toJSON (GeoBoundingBoxConstraint geoBBField constraintBox cache) =
+    object [geoBBField .= toJSON constraintBox
+           , "_cache" .= cache]
+
+instance ToJSON GeoFilterType where
+  toJSON GeoFilterMemory  = "memory"
+  toJSON GeoFilterIndexed = "indexed"
+
+instance ToJSON GeoBoundingBox where
+  toJSON (GeoBoundingBox topLeft bottomRight) =
+    object ["top_left" .= toJSON topLeft
+           , "bottom_right" .= toJSON bottomRight]
+
+instance ToJSON LatLon where
+  toJSON (LatLon lat lon) =
+    object ["lat" .= lat
+           , "lon" .= lon]
 
 data Term = Term { termField :: Text
                  , termValue :: Text } deriving (Show)
@@ -397,6 +444,7 @@ instance ToJSON BoolMatch where
 -- "memory" or "indexed"
 data GeoFilterType = GeoFilterMemory | GeoFilterIndexed deriving (Show)
 
+
 data LatLon = LatLon { lat :: Double
                      , lon :: Double } deriving (Show)
 
@@ -407,6 +455,7 @@ data GeoBoundingBox =
 data GeoBoundingBoxConstraint =
   GeoBoundingBoxConstraint { geoBBField    :: FieldName
                            , constraintBox :: GeoBoundingBox
+                           , cache         :: Cache
                            } deriving (Show)
 
 data GeoConstraint =
@@ -426,7 +475,7 @@ data DistanceUnits = Miles
 data DistanceType = Arc | SloppyArc | Plane deriving (Show)
 
 -- geo_point?
-data OptimizeBbox = GeoFilterType | NoOptimizeBbox deriving (Show)
+data OptimizeBbox = OptimizeGeoFilterType GeoFilterType | NoOptimizeBbox deriving (Show)
 
 data Distance =
   Distance { coefficient :: Double

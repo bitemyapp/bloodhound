@@ -1,5 +1,15 @@
+* PRE-ALPHA, THERE IS NOTHING FOR YOU HERE
+
 * Bloodhound
 
 Elasticsearch client and query DSL for Haskell
 
-** PRE-ALPHA, THERE IS NOTHING FOR YOU HERE
+** Possible future functionality
+
+Runtime checking for cycles in data structures:
+
+check for n > 1 occurrences in DFS:
+
+http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-Dynamic.html
+
+http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-Dynamic-Map.html
