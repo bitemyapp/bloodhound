@@ -38,6 +38,7 @@ library
   default-language:    Haskell2010
 
 test-suite tests
+  default-extensions:  OverloadedStrings
   type: exitcode-stdio-1.0
   main-is: tests.hs
   -- ghc-options: -w -threaded -rtsopts -with-rtsopts=-N

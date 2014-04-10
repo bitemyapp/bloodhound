@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Main where
 
@@ -22,9 +22,9 @@ validateStatus resp expected = (NHTS.statusCode $ responseStatus resp) `shouldBe
 createExampleIndex = createIndex testServer defaultIndexSettings testIndex
 deleteExampleIndex = deleteIndex testServer testIndex
 
-data Tweet = Tweet { user :: Text
+data Tweet = Tweet { user     :: Text
                    , postDate :: UTCTime
-                   , message :: Text }
+                   , message  :: Text }
            deriving (Eq, Generic, Show)
 
 instance ToJSON Tweet
@@ -36,24 +36,43 @@ exampleTweet = Tweet { user     = "bitemyapp"
                                   (secondsToDiffTime 10)
                      , message  = "Use haskell!" }
 
+insertData :: IO ()
+insertData = do
+  let encoded = encode exampleTweet
+  _ <- deleteExampleIndex
+  created <- createExampleIndex
+  docCreated <- indexDocument (Server "http://localhost:9200") "twitter" "tweet" exampleTweet "1"
+  return ()
+
+queryTweet :: IO (Either String Tweet)
+queryTweet = do
+  let queryFilter = BoolFilter (MustMatch (Term "user" "bitemyapp") False)
+                    <||> IdentityFilter
+  let search = Search Nothing (Just queryFilter)
+  reply <- searchByIndex testServer "twitter" search
+  let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+  let myTweet = fmap (hitSource . head . hits . searchHits) result
+  return myTweet
+
 main :: IO ()
 main = hspec $ do
-  describe "index create/delete API" $ do
-    it "creates and then deletes the requested index" $ do
-      -- priming state.
-      _ <- deleteExampleIndex
-      resp <- createExampleIndex
-      deleteResp <- deleteExampleIndex
-      validateStatus resp 200
-      validateStatus deleteResp 200
+  -- describe "index create/delete API" $ do
+  --   it "creates and then deletes the requested index" $ do
+  --     -- priming state.
+  --     _ <- deleteExampleIndex
+  --     resp <- createExampleIndex
+  --     deleteResp <- deleteExampleIndex
+  --     validateStatus resp 200
+  --     validateStatus deleteResp 200
+
   describe "document API" $ do
     it "indexes, gets, and then deletes the generated document" $ do
-      let tweet = exampleTweet
-      let encoded = encode tweet
-      _ <- deleteExampleIndex
-      created <- createExampleIndex
-      docCreated <- indexDocument (Server "http://localhost:9200") "twitter" "tweet" tweet "1"
       docInserted <- getDocument (Server "http://localhost:9200") "twitter" "tweet" "1"
       let newTweet = eitherDecode (responseBody docInserted) :: Either String (EsResult Tweet)
-      deleted <- deleteExampleIndex
-      Right tweet `shouldBe` fmap _source newTweet
+      fmap _source newTweet `shouldBe` Right exampleTweet
+
+  describe "document filtering" $ do
+    it "returns documents expected from composed filters" $ do
+      _ <- insertData
+      myTweet <- queryTweet
+      myTweet `shouldBe` Right exampleTweet

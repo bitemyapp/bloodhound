@@ -10,7 +10,21 @@ module Database.Bloodhound.Client
        , getDocument
        , documentExists
        , deleteDocument
+       , Reply(..)
        , EsResult(..)
+       , Query(..)
+       , Search(..)
+       , searchAll
+       , searchByIndex
+       , searchByType
+       , SearchResult(..)
+       , SearchHits(..)
+       , ShardResult(..)
+       , Hit(..)
+       , Filter(..)
+       , Seminearring(..)
+       , BoolMatch(..)
+       , Term(..)
        )
        where
 
@@ -230,6 +244,29 @@ documentExists (Server server) indexName mappingName docId = do
   return exists where
     url = joinPath [server, indexName, mappingName, docId]
 
+
+dispatchSearch :: String -> Search -> IO Reply
+dispatchSearch url search = dispatch url NHTM.methodPost (Just (encode search))
+
+searchAll :: Server -> Search -> IO Reply
+searchAll (Server server) search = dispatchSearch url search where
+  url = joinPath [server, "_search"]
+
+searchByIndex :: Server -> IndexName -> Search -> IO Reply
+searchByIndex (Server server) indexName search = dispatchSearch url search where
+  url = joinPath [server, indexName, "_search"]
+
+searchByType :: Server -> IndexName -> MappingName -> Search -> IO Reply
+searchByType (Server server) indexName mappingName search = dispatchSearch url search where
+  url = joinPath [server, indexName, mappingName, "_search"]
+
+data Search = Search { queryBody  :: Maybe Query
+                     , filterBody :: Maybe Filter } deriving (Show)
+
+instance ToJSON Search where
+  toJSON (Search query filters) = object [--"query" .= fmap toJSON query,
+                                          "filter" .= fmap toJSON filters]
+
 type QueryString = Text
 -- status:active
 -- author:"John Smith"
@@ -243,6 +280,9 @@ type DisMax = Bool -- "use_dis_max"
 newtype TieBreaker = TieBreaker Int deriving (Show)
 data QueryField = DefaultField Text
                 | Fields [Text] DisMax TieBreaker deriving (Show)
+
+-- this is will go away later
+type Query = QueryStringQuery
 
 data QueryStringQuery =
   QueryStringQuery { query                     :: QueryString
@@ -291,7 +331,7 @@ defaultCache = False
 data Filter = AndFilter [Filter] Cache
             | OrFilter [Filter] Cache
             | IdentityFilter
-            | BoolFilter BoolMatch Cache
+            | BoolFilter BoolMatch
             | ExistsFilter FieldName -- always cached
             | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType Cache
             | GeoDistanceFilter GeoConstraint Distance Cache
@@ -325,9 +365,8 @@ instance ToJSON Filter where
   toJSON (ExistsFilter fieldName) =
     object ["exists"  .= object
             ["field"  .= fieldName]]
-  toJSON (BoolFilter boolMatch cache) =
-    object ["bool"    .= toJSON boolMatch
-           , "_cache" .= cache]
+  toJSON (BoolFilter boolMatch) =
+    object ["bool"    .= toJSON boolMatch]
 
 data Term = Term { termField :: Text
                  , termValue :: Text } deriving (Show)
@@ -336,14 +375,17 @@ instance ToJSON Term where
   toJSON (Term field value) = object ["term" .= object
                                       [field .= value]]
 
-data BoolMatch = MustMatch    Term
-               | MustNotMatch Term
-               | ShouldMatch [Term] deriving (Show)
+data BoolMatch = MustMatch    Term  Cache
+               | MustNotMatch Term  Cache
+               | ShouldMatch [Term] Cache deriving (Show)
 
 instance ToJSON BoolMatch where
-  toJSON (MustMatch    term)  = object ["must"     .= toJSON term]
-  toJSON (MustNotMatch term)  = object ["must_not" .= toJSON term]
-  toJSON (ShouldMatch  terms) = object ["should"   .= fmap toJSON terms]
+  toJSON (MustMatch    term  cache)  = object ["must"     .= toJSON term,
+                                               "_cache" .= cache]
+  toJSON (MustNotMatch term  cache)  = object ["must_not" .= toJSON term,
+                                               "_cache" .= cache]
+  toJSON (ShouldMatch  terms cache) = object ["should"   .= fmap toJSON terms,
+                                              "_cache" .= cache]
 
 -- "memory" or "indexed"
 data GeoFilterType = GeoFilterMemory | GeoFilterIndexed deriving (Show)
@@ -383,27 +425,58 @@ data Distance =
   Distance { coefficient :: Double
            , unit        :: DistanceUnits } deriving (Show)
 
-data FromJSON a => SearchResults a =
-  SearchResults { took       :: Int
-                , timedOut   :: Bool
-                , shards     :: ShardResults
-                , searchHits :: SearchHits a } deriving (Show)
+data FromJSON a => SearchResult a =
+  SearchResult { took       :: Int
+               , timedOut   :: Bool
+               , shards     :: ShardResult
+               , searchHits :: SearchHits a } deriving (Show)
 
 type Score = Double
 
 data FromJSON a => SearchHits a =
   SearchHits { hitsTotal :: Int
              , maxScore  :: Score
-             , hits      :: [Hits a] } deriving (Show)
+             , hits      :: [Hit a] } deriving (Show)
 
-data FromJSON a => Hits a =
-  Hits { hitsIndex     :: IndexName
-       , hitsType      :: MappingName
-       , hitDocumentID :: DocumentID
-       , hitScore      :: Score
-       , hitSource     :: a } deriving (Show)
+data FromJSON a => Hit a =
+  Hit { hitIndex      :: IndexName
+      , hitType       :: MappingName
+      , hitDocumentID :: DocumentID
+      , hitScore      :: Score
+      , hitSource     :: a } deriving (Show)
 
-data ShardResults =
-  ShardResults { shardTotal       :: Int
-               , shardsSuccessful :: Int
-               , shardsFailed     :: Int } deriving (Show)
+data ShardResult =
+  ShardResult { shardTotal       :: Int
+              , shardsSuccessful :: Int
+              , shardsFailed     :: Int } deriving (Show, Generic)
+
+instance (FromJSON a, ToJSON a) => FromJSON (SearchResult a) where
+  parseJSON (Object v) = SearchResult <$>
+                         v .: "took" <*>
+                         v .: "timed_out" <*>
+                         v .: "_shards" <*>
+                         v .: "hits"
+  parseJSON _          = empty
+
+instance (FromJSON a, ToJSON a) => FromJSON (SearchHits a) where
+  parseJSON (Object v) = SearchHits <$>
+                         v .: "total" <*>
+                         v .: "max_score"  <*>
+                         v .: "hits"
+  parseJSON _          = empty
+
+instance (FromJSON a, ToJSON a) => FromJSON (Hit a) where
+  parseJSON (Object v) = Hit <$>
+                         v .: "_index" <*>
+                         v .: "_type"  <*>
+                         v .: "_id" <*>
+                         v .: "_score" <*>
+                         v .: "_source"
+  parseJSON _          = empty
+
+instance FromJSON ShardResult where
+  parseJSON (Object v) = ShardResult <$>
+                         v .: "total"      <*>
+                         v .: "successful" <*>
+                         v .: "failed"
+  parseJSON _          = empty
