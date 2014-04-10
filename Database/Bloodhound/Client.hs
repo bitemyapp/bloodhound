@@ -62,7 +62,7 @@ data (FromJSON a, ToJSON a) => Status a =
                             , status  :: Int
                             , name    :: Text
                             , version :: a
-                            , tagline :: Text } deriving (Show)
+                            , tagline :: Text } deriving (Eq, Show)
 
 instance ToJSON Version
 instance FromJSON Version
@@ -78,8 +78,8 @@ instance (FromJSON a, ToJSON a) => FromJSON (Status a) where
 
 main = simpleHttp "http://localhost:9200/events/event/_search?q=hostname:localhost&size=1" >>= L.putStrLn
 
-newtype ShardCount   = ShardCount   Int deriving (Show, Generic)
-newtype ReplicaCount = ReplicaCount Int deriving (Show, Generic)
+newtype ShardCount   = ShardCount   Int deriving (Eq, Show, Generic)
+newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic)
 
 mkShardCount :: Int -> Maybe ShardCount
 mkShardCount n
@@ -95,7 +95,7 @@ mkReplicaCount n
 
 data IndexSettings =
   IndexSettings { indexShards   :: ShardCount
-                , indexReplicas :: ReplicaCount } deriving (Show)
+                , indexReplicas :: ReplicaCount } deriving (Eq, Show)
 
 instance ToJSON IndexSettings where
   toJSON (IndexSettings s r) = object ["settings" .= object ["shards" .= s, "replicas" .= r]]
@@ -105,9 +105,9 @@ instance ToJSON ShardCount
 
 defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
-data Strategy = RoundRobinStrat | RandomStrat | HeadStrat deriving (Show)
+data Strategy = RoundRobinStrat | RandomStrat | HeadStrat deriving (Eq, Show)
 
-newtype Server = Server String deriving (Show)
+newtype Server = Server String deriving (Eq, Show)
 
 type Reply = Network.HTTP.Conduit.Response L.ByteString
 type Method = NHTM.Method
@@ -171,7 +171,7 @@ refreshIndex (Server server) indexName = dispatch url method body where
   method = NHTM.methodPost
   body = Nothing
 
-data OpenCloseIndex = OpenIndex | CloseIndex deriving (Show)
+data OpenCloseIndex = OpenIndex | CloseIndex deriving (Eq, Show)
 
 stringifyOCIndex oci = case oci of
   OpenIndex  -> "_open"
@@ -293,7 +293,7 @@ searchByType (Server server) indexName mappingName search = dispatchSearch url s
   url = joinPath [server, indexName, mappingName, "_search"]
 
 data Search = Search { queryBody  :: Maybe Query
-                     , filterBody :: Maybe Filter } deriving (Show)
+                     , filterBody :: Maybe Filter } deriving (Eq, Show)
 
 instance ToJSON Search where
   toJSON (Search query filters) = object [--"query" .= fmap toJSON query,
@@ -306,12 +306,12 @@ type QueryString = Text
 -- field title has no value or doesn't exist, _missing_:title
 -- field title has any non-null value, _exists:title
 
-data BooleanOperator = AND | OR deriving (Show)
+data BooleanOperator = AND | OR deriving (Eq, Show)
 
 type DisMax = Bool -- "use_dis_max"
-newtype TieBreaker = TieBreaker Int deriving (Show)
+newtype TieBreaker = TieBreaker Int deriving (Eq, Show)
 data QueryField = DefaultField Text
-                | Fields [Text] DisMax TieBreaker deriving (Show)
+                | Fields [Text] DisMax TieBreaker deriving (Eq, Show)
 
 -- this is will go away later
 type Query = QueryStringQuery
@@ -350,7 +350,7 @@ data QueryStringQuery =
                    , lenient                   :: Maybe Bool
                      -- default ROOT, locale used for string conversions
                    , locale                    :: Maybe Text
-                     } deriving (Show)
+                     } deriving (Eq, Show)
 
 emptyQueryStringQuery = QueryStringQuery "" Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 queryStringQuery query = emptyQueryStringQuery { query = query }
@@ -367,7 +367,7 @@ data Filter = AndFilter [Filter] Cache
             | ExistsFilter FieldName -- always cached
             | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType
             | GeoDistanceFilter GeoConstraint Distance
-              deriving (Show)
+              deriving (Eq, Show)
 
 class Monoid a => Seminearring a where
   -- 0, +, *
@@ -423,7 +423,7 @@ instance ToJSON LatLon where
            , "lon" .= lon]
 
 data Term = Term { termField :: Text
-                 , termValue :: Text } deriving (Show)
+                 , termValue :: Text } deriving (Eq, Show)
 
 instance ToJSON Term where
   toJSON (Term field value) = object ["term" .= object
@@ -431,7 +431,7 @@ instance ToJSON Term where
 
 data BoolMatch = MustMatch    Term  Cache
                | MustNotMatch Term  Cache
-               | ShouldMatch [Term] Cache deriving (Show)
+               | ShouldMatch [Term] Cache deriving (Eq, Show)
 
 instance ToJSON BoolMatch where
   toJSON (MustMatch    term  cache)  = object ["must"     .= toJSON term,
@@ -442,25 +442,25 @@ instance ToJSON BoolMatch where
                                               "_cache" .= cache]
 
 -- "memory" or "indexed"
-data GeoFilterType = GeoFilterMemory | GeoFilterIndexed deriving (Show)
+data GeoFilterType = GeoFilterMemory | GeoFilterIndexed deriving (Eq, Show)
 
 
 data LatLon = LatLon { lat :: Double
-                     , lon :: Double } deriving (Show)
+                     , lon :: Double } deriving (Eq, Show)
 
 data GeoBoundingBox =
   GeoBoundingBox { topLeft     :: LatLon
-                 , bottomRight :: LatLon } deriving (Show)
+                 , bottomRight :: LatLon } deriving (Eq, Show)
 
 data GeoBoundingBoxConstraint =
   GeoBoundingBoxConstraint { geoBBField    :: FieldName
                            , constraintBox :: GeoBoundingBox
                            , cache         :: Cache
-                           } deriving (Show)
+                           } deriving (Eq, Show)
 
 data GeoConstraint =
   GeoConstraint { geoField :: FieldName
-                , latLon   :: LatLon } deriving (Show)
+                , latLon   :: LatLon } deriving (Eq, Show)
 
 data DistanceUnits = Miles
                    | Yards
@@ -470,41 +470,41 @@ data DistanceUnits = Miles
                    | Meters
                    | Centimeters
                    | Millimeters
-                   | NauticalMiles deriving (Show)
+                   | NauticalMiles deriving (Eq, Show)
 
-data DistanceType = Arc | SloppyArc | Plane deriving (Show)
+data DistanceType = Arc | SloppyArc | Plane deriving (Eq, Show)
 
 -- geo_point?
-data OptimizeBbox = OptimizeGeoFilterType GeoFilterType | NoOptimizeBbox deriving (Show)
+data OptimizeBbox = OptimizeGeoFilterType GeoFilterType | NoOptimizeBbox deriving (Eq, Show)
 
 data Distance =
   Distance { coefficient :: Double
-           , unit        :: DistanceUnits } deriving (Show)
+           , unit        :: DistanceUnits } deriving (Eq, Show)
 
 data FromJSON a => SearchResult a =
   SearchResult { took       :: Int
                , timedOut   :: Bool
                , shards     :: ShardResult
-               , searchHits :: SearchHits a } deriving (Show)
+               , searchHits :: SearchHits a } deriving (Eq, Show)
 
 type Score = Double
 
 data FromJSON a => SearchHits a =
   SearchHits { hitsTotal :: Int
              , maxScore  :: Score
-             , hits      :: [Hit a] } deriving (Show)
+             , hits      :: [Hit a] } deriving (Eq, Show)
 
 data FromJSON a => Hit a =
   Hit { hitIndex      :: IndexName
       , hitType       :: MappingName
       , hitDocumentID :: DocumentID
       , hitScore      :: Score
-      , hitSource     :: a } deriving (Show)
+      , hitSource     :: a } deriving (Eq, Show)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
               , shardsSuccessful :: Int
-              , shardsFailed     :: Int } deriving (Show, Generic)
+              , shardsFailed     :: Int } deriving (Eq, Show, Generic)
 
 instance (FromJSON a, ToJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) = SearchResult <$>

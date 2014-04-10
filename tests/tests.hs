@@ -64,7 +64,7 @@ insertData = do
 
 searchTweet :: Search -> IO (Either String Tweet)
 searchTweet search = do
-  reply <- searchByIndex testServer "twitter" search
+  reply <- searchByIndex testServer testIndex search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
   let myTweet = fmap (hitSource . head . hits . searchHits) result
   return myTweet
@@ -83,7 +83,7 @@ main = hspec $ do
   describe "document API" $ do
     it "indexes, gets, and then deletes the generated document" $ do
       _ <- insertData
-      docInserted <- getDocument (Server "http://localhost:9200") "twitter" "tweet" "1"
+      docInserted <- getDocument testServer testIndex testMapping "1"
       let newTweet = eitherDecode (responseBody docInserted) :: Either String (EsResult Tweet)
       fmap _source newTweet `shouldBe` Right exampleTweet
 
@@ -110,3 +110,14 @@ main = hspec $ do
       let search = Search Nothing (Just geoFilter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
+
+    it "doesn't return document for nonsensical boundingbox query" $ do
+      _ <- insertData
+      let box          = GeoBoundingBox (LatLon 0.73 (-4.1)) (LatLon 0.10 (-1.12))
+      let bbConstraint = GeoBoundingBoxConstraint "tweet.location" box False
+      let geoFilter    = GeoBoundingBoxFilter bbConstraint GeoFilterMemory
+      let search       = Search Nothing (Just geoFilter)
+      reply <- searchByIndex testServer testIndex search
+      let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+      let emptyHits = fmap (hits . searchHits) result
+      emptyHits `shouldBe` Right []
