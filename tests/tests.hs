@@ -48,7 +48,7 @@ insertData = do
 queryTweet :: IO (Either String Tweet)
 queryTweet = do
   let queryFilter = BoolFilter (MustMatch (Term "user" "bitemyapp") False)
-                    <||> IdentityFilter
+                    <&&> IdentityFilter
   let search = Search Nothing (Just queryFilter)
   reply <- searchByIndex testServer "twitter" search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
