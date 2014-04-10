@@ -42,6 +42,7 @@ insertData = do
   _ <- deleteExampleIndex
   created <- createExampleIndex
   docCreated <- indexDocument (Server "http://localhost:9200") "twitter" "tweet" exampleTweet "1"
+  _ <- refreshIndex testServer "twitter"
   return ()
 
 queryTweet :: IO (Either String Tweet)
@@ -56,17 +57,18 @@ queryTweet = do
 
 main :: IO ()
 main = hspec $ do
-  -- describe "index create/delete API" $ do
-  --   it "creates and then deletes the requested index" $ do
-  --     -- priming state.
-  --     _ <- deleteExampleIndex
-  --     resp <- createExampleIndex
-  --     deleteResp <- deleteExampleIndex
-  --     validateStatus resp 200
-  --     validateStatus deleteResp 200
+  describe "index create/delete API" $ do
+    it "creates and then deletes the requested index" $ do
+      -- priming state.
+      _ <- deleteExampleIndex
+      resp <- createExampleIndex
+      deleteResp <- deleteExampleIndex
+      validateStatus resp 200
+      validateStatus deleteResp 200
 
   describe "document API" $ do
     it "indexes, gets, and then deletes the generated document" $ do
+      _ <- insertData
       docInserted <- getDocument (Server "http://localhost:9200") "twitter" "tweet" "1"
       let newTweet = eitherDecode (responseBody docInserted) :: Either String (EsResult Tweet)
       fmap _source newTweet `shouldBe` Right exampleTweet

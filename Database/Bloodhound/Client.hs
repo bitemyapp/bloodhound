@@ -3,20 +3,21 @@
 module Database.Bloodhound.Client
        ( createIndex
        , deleteIndex
-       , IndexSettings(..)
-       , Server(..)
        , defaultIndexSettings
        , indexDocument
        , getDocument
        , documentExists
        , deleteDocument
+       , searchAll
+       , searchByIndex
+       , searchByType
+       , refreshIndex
+       , IndexSettings(..)
+       , Server(..)
        , Reply(..)
        , EsResult(..)
        , Query(..)
        , Search(..)
-       , searchAll
-       , searchByIndex
-       , searchByType
        , SearchResult(..)
        , SearchHits(..)
        , ShardResult(..)
@@ -259,6 +260,12 @@ searchByIndex (Server server) indexName search = dispatchSearch url search where
 searchByType :: Server -> IndexName -> MappingName -> Search -> IO Reply
 searchByType (Server server) indexName mappingName search = dispatchSearch url search where
   url = joinPath [server, indexName, mappingName, "_search"]
+
+refreshIndex :: Server -> IndexName -> IO Reply
+refreshIndex (Server server) indexName = dispatch url method body where
+  url = joinPath [server, indexName, "_refresh"]
+  method = NHTM.methodPost
+  body = Nothing
 
 data Search = Search { queryBody  :: Maybe Query
                      , filterBody :: Maybe Filter } deriving (Show)
