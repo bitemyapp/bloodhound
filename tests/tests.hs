@@ -5,6 +5,7 @@ module Main where
 import Database.Bloodhound.Client
 import Data.Aeson
 import Data.DeriveTH
+import Data.Either (Either(..))
 import Data.Maybe (fromJust)
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
@@ -51,11 +52,8 @@ main = hspec $ do
       let encoded = encode tweet
       _ <- deleteExampleIndex
       created <- createExampleIndex
-      docCreated <- indexDocument (Server "http://localhost:9200")
-                    "twitter" "tweet" tweet "1"
-      docInserted <- getDocument (Server "http://localhost:9200")
-                     "twitter" "tweet" "1"
-      let newTweet = decode
-                     (responseBody docInserted) :: Maybe (EsResult Tweet)
+      docCreated <- indexDocument (Server "http://localhost:9200") "twitter" "tweet" tweet "1"
+      docInserted <- getDocument (Server "http://localhost:9200") "twitter" "tweet" "1"
+      let newTweet = eitherDecode (responseBody docInserted) :: Either String (EsResult Tweet)
       deleted <- deleteExampleIndex
-      Just tweet `shouldBe` fmap _source newTweet
+      Right tweet `shouldBe` fmap _source newTweet

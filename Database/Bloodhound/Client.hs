@@ -21,6 +21,7 @@ import Data.Aeson.TH (deriveJSON)
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
+import Data.Monoid
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
@@ -53,32 +54,7 @@ instance (FromJSON a, ToJSON a) => FromJSON (Status a) where
                          v .: "tagline"
   parseJSON _          = empty
 
--- instance ToJSON (Status a)
--- instance FromJSON (Status a)
-
--- bloo <- (liftM responseBody $ parseUrl "http://localhost:9200/" >>= \r -> withManager (httpLbs r))
-
--- rootPath :: String
--- rootPath = rollUp $ ["/"]
-
--- -- Kinda hate this.
--- pathFromType :: String -> String -> String
--- pathFromType index docType = "/" ++ index ++ docType
-
--- -- Kinda hate this too.
--- rollUp :: [String] -> String
--- rollUp = Prelude.concat
-
 main = simpleHttp "http://localhost:9200/events/event/_search?q=hostname:localhost&size=1" >>= L.putStrLn
-
--- data Response = Response { blah :: Text } deriving (Show)
-
--- indexDocument :: ToJSON a => a -> IO Response
--- indexDocument doc = ToJSON a
-
--- nomenclature is because you're dropping the type baggage. All of this is compile-time erased.
--- newtype ShardCount   = ShardCount   { unShardCount   :: Int } deriving (Show, Generic)
--- newtype ReplicaCount = ReplicaCount { unReplicaCount :: Int } deriving (Show, Generic)
 
 newtype ShardCount   = ShardCount   Int deriving (Show, Generic)
 newtype ReplicaCount = ReplicaCount Int deriving (Show, Generic)
@@ -95,8 +71,6 @@ mkReplicaCount n
   | n > 1000 = Nothing -- ...
   | otherwise = Just (ReplicaCount n)
 
--- IndexSettings <$> mkShardCount 10 <*> mkReplicaCount 20
-
 data IndexSettings =
   IndexSettings { indexShards   :: ShardCount
                 , indexReplicas :: ReplicaCount } deriving (Show)
@@ -112,20 +86,6 @@ defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 data Strategy = RoundRobinStrat | RandomStrat | HeadStrat deriving (Show)
 
 newtype Server = Server String deriving (Show)
-
--- data Errors = IndexAlreadyExistsError | GenericError deriving (Show)
-
--- data ElasticsearchError = ElasticsearchError
---                           { status :: Int
---                           , error  :: Text } deriving (Show, Generic)
-
--- instance FromJSON ElasticsearchError
-
--- errorForResponse resp = do
---   let (sts, err) = decode (responseBody resp) :: ElasticsearchError
---   if T.isInfixOf "IndexAlreadyExistsException" error
---     then IndexAlreadyExistsError
---     else
 
 type Reply = Network.HTTP.Conduit.Response L.ByteString
 type Method = NHTM.Method
@@ -242,17 +202,17 @@ data EsResult a = EsResult { _index   :: Text
                            , _type    :: Text
                            , _id      :: Text
                            , _version :: Int
-                           , found    :: Bool
+                           , found    :: Maybe Bool
                            , _source  :: a } deriving (Eq, Show)
 
 instance (FromJSON a, ToJSON a) => FromJSON (EsResult a) where
   parseJSON (Object v) = EsResult <$>
-                         v .: "_index"   <*>
-                         v .: "_type"    <*>
-                         v .: "_id"      <*>
-                         v .: "_version" <*>
-                         v .: "found"    <*>
-                         v .: "_source"
+                         v .:  "_index"   <*>
+                         v .:  "_type"    <*>
+                         v .:  "_id"      <*>
+                         v .:  "_version" <*>
+                         v .:? "found"    <*>
+                         v .:  "_source"
   parseJSON _          = empty
 
 getDocument :: Server -> IndexName -> MappingName
@@ -269,25 +229,6 @@ documentExists (Server server) indexName mappingName docId = do
   (reply, exists) <- existentialQuery url
   return exists where
     url = joinPath [server, indexName, mappingName, docId]
-
--- data Analyzer = AStandardAnalyzer StandardAnalyzer
---               | SimpleAnalyzer -- just "simple"
---               | WhitespaceAnalyzer
---               | StopAnalyzer
---               | KeywordAnalyzer
---               | PatternAnalyzer
---               | LanguageAnalyzer
---               | SnowballAnalyzer
---               | CustomAnalyzer
-
--- data StandardAnalyzer =
---   StandardAnalyzer
---   { stopwords        :: Maybe [Text] -- default []
---   , max_token_length :: Maybe Int -- default 255
---   }
-
--- DefaultField -> "default_field": ""
--- Fields -> "fields": []
 
 type QueryString = Text
 -- status:active
@@ -345,13 +286,32 @@ queryStringQuery query = emptyQueryStringQuery { query = query }
 type FieldName = Text
 
 type Cache = Bool -- caching on/off
+defaultCache = False
+
 data Filter = AndFilter [Filter] Cache
             | OrFilter [Filter] Cache
+            | IdentityFilter
             | BoolFilter BoolMatch Cache
             | ExistsFilter FieldName -- always cached
             | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType Cache
             | GeoDistanceFilter GeoConstraint Distance Cache
               deriving (Show)
+
+class Monoid a => Seminearring a where
+  -- 0, +, *
+  (<||>) :: a -> a -> a
+  (<&&>) :: a -> a -> a
+  (<&&>) = mappend
+
+infixr 5 <||>
+infixr 5 <&&>
+
+instance Monoid Filter where
+  mempty = IdentityFilter
+  mappend a b = AndFilter [a, b] defaultCache
+
+instance Seminearring Filter where
+  a <||> b = OrFilter [a, b] defaultCache
 
 instance ToJSON Filter where
   toJSON (AndFilter filters cache) =
@@ -360,6 +320,8 @@ instance ToJSON Filter where
   toJSON (OrFilter filters cache) =
     object ["or"      .= fmap toJSON filters
            , "_cache" .= cache]
+  toJSON (IdentityFilter) =
+    object ["match_all" .= object []]
   toJSON (ExistsFilter fieldName) =
     object ["exists"  .= object
             ["field"  .= fieldName]]
@@ -367,7 +329,6 @@ instance ToJSON Filter where
     object ["bool"    .= toJSON boolMatch
            , "_cache" .= cache]
 
--- I dunno.
 data Term = Term { termField :: Text
                  , termValue :: Text } deriving (Show)
 
@@ -446,25 +407,3 @@ data ShardResults =
   ShardResults { shardTotal       :: Int
                , shardsSuccessful :: Int
                , shardsFailed     :: Int } deriving (Show)
-
--- This is turning into a fractal of horror
--- data Fuzziness = FDateFuzziness DateFuzziness |
-
--- data Query = Query { query :: () } deriving (Show)
--- search :: Server -> IndexName -> Maybe MappingName
---           -> Query -> IO Reply
--- search = fuck
-
--- getStatus :: String -> IO (Maybe (Status Version))
--- getStatus server = do
---   request <- parseUrl $ server ++ rootPath
---   response <- withManager $ httpLbs request
---   return $ (decode $ responseBody response)
-
--- mkServer -- (Maybe Server) for URL parsing?
-
--- data Cluster = Cluster { targets :: [Server]
---                        , strategy :: Strategy } deriving (Show)
-
--- target :: Cluster -> Server
--- target (Cluster targets HeadStrat) = head targets

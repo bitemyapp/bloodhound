@@ -46,7 +46,7 @@ test-suite tests
                        bloodhound,
                        http-conduit,
                        http-types,
-                       hspec                >= 1.9,
+                       hspec                >= 1.8,
                        QuickCheck           >= 2.5,
                        derive               >= 2.5,
                        text                 >= 0.11,
