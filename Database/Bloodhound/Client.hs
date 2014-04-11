@@ -14,6 +14,7 @@ module Database.Bloodhound.Client
        , searchByIndex
        , searchByType
        , refreshIndex
+       , mkSearch
        , IndexSettings(..)
        , Server(..)
        , Reply(..)
@@ -47,6 +48,9 @@ module Database.Bloodhound.Client
        , GreaterThanEq(..)
        , Regexp(..)
        , RegexpFlags(..)
+       , FieldName(..)
+       , CacheName(..)
+       , CacheKey(..)
        )
        where
 
@@ -314,6 +318,8 @@ data Search = Search { queryBody  :: Maybe Query
                      , trackSortScores :: Bool
                      , from :: Int
                      , size :: Int} deriving (Eq, Show)
+
+mkSearch query filter = Search query filter Nothing False 0 10
 
 pageSearch :: Int -> Int -> Search -> Search
 pageSearch from size search = search { from = from, size = size }
