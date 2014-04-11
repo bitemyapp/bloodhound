@@ -203,3 +203,9 @@ main = hspec $ do
       let search = Search Nothing (Just filter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
+
+    it "doesn't return document for non-matching regexp filter" $ do
+      _ <- insertData
+      let filter = RegexpFilter "user" (Regexp "boy") RegexpAll "test" False "key"
+      let search = Search Nothing (Just filter)
+      searchExpectNoResults search
