@@ -28,13 +28,14 @@ module Database.Bloodhound.Client
        , Seminearring(..)
        , BoolMatch(..)
        , Term(..)
-       , GeoConstraint(..)
+       , GeoPoint(..)
        , GeoBoundingBoxConstraint(..)
        , GeoBoundingBox(..)
        , GeoFilterType(..)
        , Distance(..)
        , DistanceUnit(..)
        , DistanceType(..)
+       , DistanceRange(..)
        , OptimizeBbox(..)
        , LatLon(..)
        )
@@ -371,7 +372,8 @@ data Filter = AndFilter [Filter] Cache
             | BoolFilter BoolMatch
             | ExistsFilter FieldName -- always cached
             | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType
-            | GeoDistanceFilter GeoConstraint Distance DistanceType OptimizeBbox Cache
+            | GeoDistanceFilter GeoPoint Distance DistanceType OptimizeBbox Cache
+            | GeoDistanceRangeFilter GeoPoint DistanceRange
               deriving (Eq, Show)
 
 class Monoid a => Seminearring a where
@@ -413,18 +415,24 @@ instance ToJSON Filter where
     object ["geo_bounding_box" .= toJSON bbConstraint
            , "type" .= toJSON filterType]
 
-  toJSON (GeoDistanceFilter (GeoConstraint geoField latLon)
+  toJSON (GeoDistanceFilter (GeoPoint geoField latLon)
           distance distanceType optimizeBbox cache) =
     object ["geo_distance" .=
             object ["distance" .= toJSON distance
                    , "distance_type" .= toJSON distanceType
                    , "optimize_bbox" .= optimizeBbox
                    , geoField .= toJSON latLon
-                   , "_cache" .= cache
-                   ]]
+                   , "_cache" .= cache]]                   
 
-instance ToJSON GeoConstraint where
-  toJSON (GeoConstraint geoField latLon) =
+  toJSON (GeoDistanceRangeFilter (GeoPoint geoField latLon)
+          (DistanceRange distanceFrom distanceTo)) =
+    object ["geo_distance_range" .=
+            object ["from" .= toJSON distanceFrom
+                   , "to"  .= toJSON distanceTo
+                   , geoField .= toJSON latLon]]
+
+instance ToJSON GeoPoint where
+  toJSON (GeoPoint geoField latLon) =
     object [geoField  .= toJSON latLon]
 
 showText :: Show a => a -> Text
@@ -513,9 +521,9 @@ data GeoBoundingBoxConstraint =
                            , bbConstraintcache :: Cache
                            } deriving (Eq, Show)
 
-data GeoConstraint =
-  GeoConstraint { geoField        :: FieldName
-                , latLon          :: LatLon} deriving (Eq, Show)
+data GeoPoint =
+  GeoPoint { geoField :: FieldName
+           , latLon   :: LatLon} deriving (Eq, Show)
 
 data DistanceUnit = Miles
                   | Yards
@@ -537,6 +545,10 @@ data OptimizeBbox = OptimizeGeoFilterType GeoFilterType
 data Distance =
   Distance { coefficient :: Double
            , unit        :: DistanceUnit } deriving (Eq, Show)
+
+data DistanceRange =
+  DistanceRange { distanceFrom :: Distance
+                , distanceTo   :: Distance } deriving (Eq, Show)
 
 data FromJSON a => SearchResult a =
   SearchResult { took       :: Int

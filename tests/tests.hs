@@ -69,6 +69,13 @@ searchTweet search = do
   let myTweet = fmap (hitSource . head . hits . searchHits) result
   return myTweet
 
+searchExpectNoResults :: Search -> IO ()
+searchExpectNoResults search = do
+  reply <- searchByIndex testServer testIndex search
+  let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+  let emptyHits = fmap (hits . searchHits) result
+  emptyHits `shouldBe` Right []
+
 main :: IO ()
 main = hspec $ do
   describe "index create/delete API" $ do
@@ -117,17 +124,31 @@ main = hspec $ do
       let bbConstraint = GeoBoundingBoxConstraint "tweet.location" box False
       let geoFilter    = GeoBoundingBoxFilter bbConstraint GeoFilterMemory
       let search       = Search Nothing (Just geoFilter)
-      reply <- searchByIndex testServer testIndex search
-      let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
-      let emptyHits = fmap (hits . searchHits) result
-      emptyHits `shouldBe` Right []
+      searchExpectNoResults search
 
     it "returns document for geo distance query" $ do
       _ <- insertData
-      let geoConstraint = GeoConstraint "tweet.location" (LatLon 40.12 (-71.34))
+      let geoPoint = GeoPoint "tweet.location" (LatLon 40.12 (-71.34))
       let distance = Distance 10.0 Miles
       let optimizeBbox = OptimizeGeoFilterType GeoFilterMemory
-      let geoFilter = GeoDistanceFilter geoConstraint distance SloppyArc optimizeBbox False
+      let geoFilter = GeoDistanceFilter geoPoint distance SloppyArc optimizeBbox False
       let search = Search Nothing (Just geoFilter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for geo distance range query" $ do
+      _ <- insertData
+      let geoPoint = GeoPoint "tweet.location" (LatLon 40.12 (-71.34))
+      let distanceRange = DistanceRange (Distance 0.0 Miles) (Distance 10.0 Miles)
+      let geoFilter = GeoDistanceRangeFilter geoPoint distanceRange
+      let search = Search Nothing (Just geoFilter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
+    it "doesn't return document for wild geo distance range query" $ do
+      _ <- insertData
+      let geoPoint = GeoPoint "tweet.location" (LatLon 40.12 (-71.34))
+      let distanceRange = DistanceRange (Distance 100.0 Miles) (Distance 1000.0 Miles)
+      let geoFilter = GeoDistanceRangeFilter geoPoint distanceRange
+      let search = Search Nothing (Just geoFilter)
+      searchExpectNoResults search
