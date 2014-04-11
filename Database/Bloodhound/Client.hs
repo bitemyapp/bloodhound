@@ -374,6 +374,7 @@ data Filter = AndFilter [Filter] Cache
             | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType
             | GeoDistanceFilter GeoPoint Distance DistanceType OptimizeBbox Cache
             | GeoDistanceRangeFilter GeoPoint DistanceRange
+            | GeoPolygonFilter FieldName [LatLon]
               deriving (Eq, Show)
 
 class Monoid a => Seminearring a where
@@ -430,6 +431,11 @@ instance ToJSON Filter where
             object ["from" .= toJSON distanceFrom
                    , "to"  .= toJSON distanceTo
                    , geoField .= toJSON latLon]]
+
+  toJSON (GeoPolygonFilter geoField latLons) =
+    object ["geo_polygon" .=
+            object [geoField .=
+                    object ["points" .= fmap toJSON latLons]]]
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint geoField latLon) =

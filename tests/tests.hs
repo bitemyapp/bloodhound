@@ -15,11 +15,14 @@ import Network.HTTP.Conduit
 import qualified Network.HTTP.Types.Status as NHTS
 import Test.Hspec
 
-
 testServer  = Server "http://localhost:9200"
 testIndex   = "twitter"
 testMapping = "tweet"
-validateStatus resp expected = (NHTS.statusCode $ responseStatus resp) `shouldBe` (expected :: Int)
+
+validateStatus resp expected =
+  (NHTS.statusCode $ responseStatus resp)
+  `shouldBe` (expected :: Int)
+
 createExampleIndex = createIndex testServer defaultIndexSettings testIndex
 deleteExampleIndex = deleteIndex testServer testIndex
 
@@ -78,6 +81,7 @@ searchExpectNoResults search = do
 
 main :: IO ()
 main = hspec $ do
+
   describe "index create/delete API" $ do
     it "creates and then deletes the requested index" $ do
       -- priming state.
@@ -91,7 +95,8 @@ main = hspec $ do
     it "indexes, gets, and then deletes the generated document" $ do
       _ <- insertData
       docInserted <- getDocument testServer testIndex testMapping "1"
-      let newTweet = eitherDecode (responseBody docInserted) :: Either String (EsResult Tweet)
+      let newTweet = eitherDecode
+                     (responseBody docInserted) :: Either String (EsResult Tweet)
       fmap _source newTweet `shouldBe` Right exampleTweet
 
   describe "filtering API" $ do
@@ -103,13 +108,13 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for existential query" $ do
+    it "returns document for existential filter" $ do
       _ <- insertData
       let search = Search Nothing (Just (ExistsFilter "user"))
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for geo boundingbox query" $ do
+    it "returns document for geo boundingbox filter" $ do
       _ <- insertData
       let box = GeoBoundingBox (LatLon 40.73 (-74.1)) (LatLon 40.10 (-71.12))
       let bbConstraint = GeoBoundingBoxConstraint "tweet.location" box False
@@ -118,7 +123,7 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
-    it "doesn't return document for nonsensical boundingbox query" $ do
+    it "doesn't return document for nonsensical boundingbox filter" $ do
       _ <- insertData
       let box          = GeoBoundingBox (LatLon 0.73 (-4.1)) (LatLon 0.10 (-1.12))
       let bbConstraint = GeoBoundingBoxConstraint "tweet.location" box False
@@ -126,7 +131,7 @@ main = hspec $ do
       let search       = Search Nothing (Just geoFilter)
       searchExpectNoResults search
 
-    it "returns document for geo distance query" $ do
+    it "returns document for geo distance filter" $ do
       _ <- insertData
       let geoPoint = GeoPoint "tweet.location" (LatLon 40.12 (-71.34))
       let distance = Distance 10.0 Miles
@@ -136,7 +141,7 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for geo distance range query" $ do
+    it "returns document for geo distance range filter" $ do
       _ <- insertData
       let geoPoint = GeoPoint "tweet.location" (LatLon 40.12 (-71.34))
       let distanceRange = DistanceRange (Distance 0.0 Miles) (Distance 10.0 Miles)
@@ -145,10 +150,31 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
-    it "doesn't return document for wild geo distance range query" $ do
+    it "doesn't return document for wild geo distance range filter" $ do
       _ <- insertData
       let geoPoint = GeoPoint "tweet.location" (LatLon 40.12 (-71.34))
       let distanceRange = DistanceRange (Distance 100.0 Miles) (Distance 1000.0 Miles)
       let geoFilter = GeoDistanceRangeFilter geoPoint distanceRange
+      let search = Search Nothing (Just geoFilter)
+      searchExpectNoResults search
+
+    it "returns document for geo polygon filter" $ do
+      _ <- insertData
+      let points = [LatLon 40.0 (-70.00),
+                    LatLon 40.0 (-72.00),
+                    LatLon 41.0 (-70.00),
+                    LatLon 41.0 (-72.00)]
+      let geoFilter = GeoPolygonFilter "tweet.location" points
+      let search = Search Nothing (Just geoFilter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
+    it "doesn't return document for bad geo polygon filter" $ do
+      _ <- insertData
+      let points = [LatLon 40.0 (-70.00),
+                    LatLon 40.0 (-71.00),
+                    LatLon 41.0 (-70.00),
+                    LatLon 41.0 (-71.00)]
+      let geoFilter = GeoPolygonFilter "tweet.location" points
       let search = Search Nothing (Just geoFilter)
       searchExpectNoResults search
