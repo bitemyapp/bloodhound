@@ -34,6 +34,10 @@ http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-filter.html
 
+*** Script based sorting
+
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_script_based_sorting
+
 *** Runtime checking for cycles in data structures
 
 check for n > 1 occurrences in DFS:

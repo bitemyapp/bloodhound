@@ -220,7 +220,7 @@ data FieldDefinition =
   FieldDefinition { fieldType :: FieldType } deriving (Eq, Show)
 
 data MappingField =
-  MappingField   { fieldName       :: Text
+  MappingField   { mappingFieldName       :: FieldName
                  , fieldDefinition :: FieldDefinition } deriving (Eq, Show)
 
 data Mapping = Mapping { typeName :: Text
@@ -308,78 +308,176 @@ searchByType (Server server) indexName mappingName search = dispatchSearch url s
   url = joinPath [server, indexName, mappingName, "_search"]
 
 data Search = Search { queryBody  :: Maybe Query
-                     , filterBody :: Maybe Filter } deriving (Eq, Show)
+                     , filterBody :: Maybe Filter
+                     , sortBody   :: Maybe Sort
+                       -- default False
+                     , trackSortScores :: Bool
+                     , from :: Int
+                     , size :: Int} deriving (Eq, Show)
+
+pageSearch :: Int -> Int -> Search -> Search
+pageSearch from size search = search { from = from, size = size }
+
+-- defaultFieldMaybeJSON :: Text -> Maybe a -> 
+maybeJson field (Just value) = [field .= toJSON value]
+maybeJson _ _ = []
+maybeJsonF field (Just value) = [field .= fmap toJSON value]
+maybeJsonF _ _ = []
 
 instance ToJSON Search where
-  toJSON (Search query filters) = object [--"query" .= fmap toJSON query,
-                                          "filter" .= fmap toJSON filters]
+  toJSON (Search query filter sort trackSortScores from size) =
+    object merged where
+      lQuery  = maybeJson  "query" query
+      lFilter = maybeJson  "filter" filter
+      lSort   = maybeJsonF "sort" sort
+      merged  = mconcat [[ "from" .= from
+                         , "size" .= size
+                         , "track_scores" .= trackSortScores]
+                        , lQuery
+                        , lFilter
+                        , lSort]
 
-type QueryString = Text
+type Sort = [SortSpec]
+
+data SortSpec = DefaultSortSpec DefaultSort
+              | GeoDistanceSortSpec SortOrder GeoPoint deriving (Eq, Show)
+
+instance ToJSON SortSpec where
+  toJSON (DefaultSortSpec
+          (DefaultSort (FieldName sortFieldName) sortOrder ignoreUnmapped
+           sortMode missingSort nestedFilter)) =
+    object [sortFieldName .= object merged] where
+      base = ["order" .= toJSON sortOrder
+             , "ignore_unmapped" .= ignoreUnmapped]
+      lSortMode = maybeJson "mode" sortMode
+      lMissingSort = maybeJson "missing" missingSort
+      lNestedFilter = maybeJson "nested_filter" nestedFilter
+      merged = mconcat [base, lSortMode, lMissingSort, lNestedFilter]
+
+instance ToJSON SortOrder where
+  toJSON Ascending  = String "asc"      
+  toJSON Descending = String "desc"
+
+instance ToJSON SortMode where
+  toJSON SortMin = String "min"
+  toJSON SortMax = String "max"
+  toJSON SortSum = String "sum"
+  toJSON SortAvg = String "avg"
+
+instance ToJSON Missing where
+  toJSON LastMissing = String "_last"
+  toJSON FirstMissing = String "_first"
+  toJSON (CustomMissing txt) = String txt
+
+data DefaultSort =
+  DefaultSort { sortFieldName  :: FieldName
+              , sortOrder      :: SortOrder
+                                  -- default False
+              , ignoreUnmapped :: Bool
+              , sortMode       :: Maybe SortMode
+              , missingSort    :: Maybe Missing
+              , nestedFilter   :: Maybe Filter } deriving (Eq, Show)
+
+data SortOrder = Ascending
+               | Descending deriving (Eq, Show)
+
+data Missing = LastMissing
+             | FirstMissing
+             | CustomMissing Text deriving (Eq, Show)
+
+data SortMode = SortMin
+              | SortMax
+              | SortSum
+              | SortAvg deriving (Eq, Show)
+
 -- status:active
 -- author:"John Smith"
 -- for book.title and book.date containing quick OR brown, book.\*:(quick brown)
 -- field title has no value or doesn't exist, _missing_:title
 -- field title has any non-null value, _exists:title
 
-data BooleanOperator = AND | OR deriving (Eq, Show)
+-- type DisMax = Bool -- "use_dis_max"
+-- newtype TieBreaker = TieBreaker Int deriving (Eq, Show)
+-- data QueryField = DefaultField Text
+--                 | Fields [Text] DisMax TieBreaker deriving (Eq, Show)
 
-type DisMax = Bool -- "use_dis_max"
-newtype TieBreaker = TieBreaker Int deriving (Eq, Show)
-data QueryField = DefaultField Text
-                | Fields [Text] DisMax TieBreaker deriving (Eq, Show)
+-- -- this is will go away later
 
--- this is will go away later
-type Query = QueryStringQuery
+-- data QueryStringQuery =
+--   QueryStringQuery { query                     :: Text
+--                      -- default _all
+--                    , field                     :: Maybe QueryField
+--                      -- default OR
+--                    , defaultOperator           :: Maybe BooleanOperator
+--                      -- analyzer name
+--                    , analyzer                  :: Maybe Text
+--                      -- default true
+--                    , allowLeadingWildcard      :: Maybe Bool
+--                      -- default true
+--                    , lowercaseExpandedTerms    :: Maybe Bool
+--                      -- default true
+--                    , enablePositionIncrements  :: Maybe Bool
+--                      -- default 50
+--                    , fuzzyMaxExpansions        :: Maybe Int
+--                      -- Fuzziness -- default AUTO, add type later
+--                    , fuzziness                 :: Maybe Text
+--                    , fuzzyPrefixLength         :: Maybe Int    -- default 0
+--                      -- default 0, 0 means exact phrase matches
+--                    , phraseSlop                :: Maybe Int
+--                      -- default 1.0
+--                    , boost                     :: Maybe Double
+--                      -- default false, true forces wildcard analysis
+--                    , analyzeWildcard           :: Maybe Bool
+--                      -- default false
+--                    , autoGeneratePhraseQueries :: Maybe Bool
+--                      -- # "should" clauses in the boolean query should match
+--                    , minimumShouldMatch        :: Maybe Text
+--                      -- Text to handle weird % and other cases. Needs type
+--                      -- default false, true shuts off format based failures
+--                    , lenient                   :: Maybe Bool
+--                      -- default ROOT, locale used for string conversions
+--                    , locale                    :: Maybe Text
+--                      } deriving (Eq, Show)
 
-data QueryStringQuery =
-  QueryStringQuery { query                     :: QueryString
-                     -- default _all
-                   , field                     :: Maybe QueryField
-                     -- default OR
-                   , defaultOperator           :: Maybe BooleanOperator
-                     -- analyzer name
-                   , analyzer                  :: Maybe Text
-                     -- default true
-                   , allowLeadingWildcard      :: Maybe Bool
-                     -- default true
-                   , lowercaseExpandedTerms    :: Maybe Bool
-                     -- default true
-                   , enablePositionIncrements  :: Maybe Bool
-                     -- default 50
-                   , fuzzyMaxExpansions        :: Maybe Int
-                     -- Fuzziness -- default AUTO, add type later
-                   , fuzziness                 :: Maybe Text
-                   , fuzzyPrefixLength         :: Maybe Int    -- default 0
-                     -- default 0, 0 means exact phrase matches
-                   , phraseSlop                :: Maybe Int
-                     -- default 1.0
-                   , boost                     :: Maybe Double
-                     -- default false, true forces wildcard analysis
-                   , analyzeWildcard           :: Maybe Bool
-                     -- default false
-                   , autoGeneratePhraseQueries :: Maybe Bool
-                     -- # "should" clauses in the boolean query should match
-                   , minimumShouldMatch        :: Maybe Text
-                     -- Text to handle weird % and other cases. Needs type
-                     -- default false, true shuts off format based failures
-                   , lenient                   :: Maybe Bool
-                     -- default ROOT, locale used for string conversions
-                   , locale                    :: Maybe Text
-                     } deriving (Eq, Show)
+-- emptyQueryStringQuery = QueryStringQuery "" Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+-- queryStringQuery query = emptyQueryStringQuery { query = query }
 
-emptyQueryStringQuery = QueryStringQuery "" Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-queryStringQuery query = emptyQueryStringQuery { query = query }
-
-type FieldName = Text
+-- type FieldName = Text
 
 type Cache     = Bool -- caching on/off
-type CacheName = Text
-type CacheKey  = Text
 defaultCache   = False
 
-type Existence = Bool
-type NullValue = Bool
 type PrefixValue = Text
+
+data BooleanOperator = And | Or deriving (Eq, Show)
+
+newtype QueryString = QueryString Text deriving (Eq, Show)
+newtype FieldName = FieldName Text deriving (Eq, Show)
+newtype CacheName = CacheName Text deriving (Eq, Show)
+newtype CacheKey  = CacheKey  Text deriving (Eq, Show)
+newtype Existence = Existence Bool deriving (Eq, Show)
+newtype NullValue = NullValue Bool deriving (Eq, Show)
+
+-- data QueryType = BooleanQueryType
+--                | PhraseQueryType
+--                | PhrasePrefixQueryType deriving (Eq, Show)
+type Boost = Double
+
+data Query = TermQuery Term (Maybe Boost)
+           | ConstantScoreFilter Filter Boost
+           | ConstantScoreQuery  Query  Boost
+             deriving (Eq, Show)
+
+instance ToJSON Query where
+  toJSON (TermQuery (Term termField termValue) boost) =
+    object ["term" .=
+            object [termField .= object merged]]
+    where
+      base = ["value" .= termValue]
+      boosted = case boost of
+        (Just boostValue) -> ["boost" .= boostValue]
+        Nothing           -> []
+      merged = mappend base boosted
 
 data Filter = AndFilter [Filter] Cache
             | OrFilter  [Filter] Cache
@@ -432,7 +530,7 @@ instance ToJSON Filter where
   toJSON (IdentityFilter) =
     object ["match_all" .= object []]
 
-  toJSON (ExistsFilter fieldName) =
+  toJSON (ExistsFilter (FieldName fieldName)) =
     object ["exists"  .= object
             ["field"  .= fieldName]]
 
@@ -443,7 +541,7 @@ instance ToJSON Filter where
     object ["geo_bounding_box" .= toJSON bbConstraint
            , "type" .= toJSON filterType]
 
-  toJSON (GeoDistanceFilter (GeoPoint geoField latLon)
+  toJSON (GeoDistanceFilter (GeoPoint (FieldName geoField) latLon)
           distance distanceType optimizeBbox cache) =
     object ["geo_distance" .=
             object ["distance" .= toJSON distance
@@ -452,14 +550,14 @@ instance ToJSON Filter where
                    , geoField .= toJSON latLon
                    , "_cache" .= cache]]                   
 
-  toJSON (GeoDistanceRangeFilter (GeoPoint geoField latLon)
+  toJSON (GeoDistanceRangeFilter (GeoPoint (FieldName geoField) latLon)
           (DistanceRange distanceFrom distanceTo)) =
     object ["geo_distance_range" .=
             object ["from" .= toJSON distanceFrom
                    , "to"  .= toJSON distanceTo
                    , geoField .= toJSON latLon]]
 
-  toJSON (GeoPolygonFilter geoField latLons) =
+  toJSON (GeoPolygonFilter (FieldName geoField) latLons) =
     object ["geo_polygon" .=
             object [geoField .=
                     object ["points" .= fmap toJSON latLons]]]
@@ -472,18 +570,18 @@ instance ToJSON Filter where
   toJSON (LimitFilter limit) =
     object ["limit" .= object ["value" .= limit]]
 
-  toJSON (MissingFilter fieldName existence nullValue) =
+  toJSON (MissingFilter (FieldName fieldName) (Existence existence) (NullValue nullValue)) =
     object ["missing" .=
             object ["field"       .= fieldName
                    , "existence"  .= existence
                    , "null_value" .= nullValue]]
 
-  toJSON (PrefixFilter fieldName fieldValue cache) =
+  toJSON (PrefixFilter (FieldName fieldName) fieldValue cache) =
     object ["prefix" .=
             object [fieldName .= fieldValue
                    , "_cache" .= cache]]
 
-  toJSON (RangeFilter fieldName (Left halfRange) rangeExecution cache) =
+  toJSON (RangeFilter (FieldName fieldName) (Left halfRange) rangeExecution cache) =
     object ["range" .=
             object [fieldName .=
                     object [key .= val]
@@ -492,7 +590,7 @@ instance ToJSON Filter where
     where
       (key, val) = halfRangeToKV halfRange
 
-  toJSON (RangeFilter fieldName (Right range) rangeExecution cache) =
+  toJSON (RangeFilter (FieldName fieldName) (Right range) rangeExecution cache) =
     object ["range" .=
             object [fieldName .=
                     object [lessKey .= lessVal
@@ -502,7 +600,8 @@ instance ToJSON Filter where
     where
       (lessKey, lessVal, greaterKey, greaterVal) = rangeToKV range
 
-  toJSON (RegexpFilter fieldName (Regexp regexText) flags cacheName cache cacheKey) =
+  toJSON (RegexpFilter (FieldName fieldName)
+          (Regexp regexText) flags (CacheName cacheName) cache (CacheKey cacheKey)) =
     object ["regexp" .=
             object [fieldName .=
                     object ["value"  .= regexText
@@ -512,7 +611,7 @@ instance ToJSON Filter where
                    , "_cache_key" .= cacheKey]]
 
 instance ToJSON GeoPoint where
-  toJSON (GeoPoint geoField latLon) =
+  toJSON (GeoPoint (FieldName geoField) latLon) =
     object [geoField  .= toJSON latLon]
 
 showText :: Show a => a -> Text
@@ -546,7 +645,7 @@ instance ToJSON OptimizeBbox where
   toJSON (OptimizeGeoFilterType gft) = toJSON gft
 
 instance ToJSON GeoBoundingBoxConstraint where
-  toJSON (GeoBoundingBoxConstraint geoBBField constraintBox cache) =
+  toJSON (GeoBoundingBoxConstraint (FieldName geoBBField) constraintBox cache) =
     object [geoBBField .= toJSON constraintBox
            , "_cache"  .= cache]
 
@@ -721,16 +820,16 @@ data ShardResult =
 
 instance (FromJSON a, ToJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) = SearchResult <$>
-                         v .: "took" <*>
+                         v .: "took"      <*>
                          v .: "timed_out" <*>
-                         v .: "_shards" <*>
+                         v .: "_shards"   <*>
                          v .: "hits"
   parseJSON _          = empty
 
 instance (FromJSON a, ToJSON a) => FromJSON (SearchHits a) where
   parseJSON (Object v) = SearchHits <$>
-                         v .: "total" <*>
-                         v .: "max_score"  <*>
+                         v .: "total"     <*>
+                         v .: "max_score" <*>
                          v .: "hits"
   parseJSON _          = empty
 
@@ -738,7 +837,7 @@ instance (FromJSON a, ToJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
                          v .: "_index" <*>
                          v .: "_type"  <*>
-                         v .: "_id" <*>
+                         v .: "_id"    <*>
                          v .: "_score" <*>
                          v .: "_source"
   parseJSON _          = empty
