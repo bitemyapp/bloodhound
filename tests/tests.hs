@@ -196,3 +196,10 @@ main = hspec $ do
       let search = Search Nothing (Just filter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for regexp filter" $ do
+      _ <- insertData
+      let filter = RegexpFilter "user" (Regexp "bite.*app") RegexpAll "test" False "key"
+      let search = Search Nothing (Just filter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet

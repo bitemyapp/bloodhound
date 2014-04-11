@@ -45,6 +45,8 @@ module Database.Bloodhound.Client
        , LessThanEq(..)
        , GreaterThan(..)
        , GreaterThanEq(..)
+       , Regexp(..)
+       , RegexpFlags(..)
        )
        where
 
@@ -370,8 +372,10 @@ queryStringQuery query = emptyQueryStringQuery { query = query }
 
 type FieldName = Text
 
-type Cache = Bool -- caching on/off
-defaultCache = False
+type Cache     = Bool -- caching on/off
+type CacheName = Text
+type CacheKey  = Text
+defaultCache   = False
 
 type Existence = Bool
 type NullValue = Bool
@@ -392,6 +396,7 @@ data Filter = AndFilter [Filter] Cache
             | MissingFilter FieldName Existence NullValue
             | PrefixFilter  FieldName PrefixValue Cache
             | RangeFilter   FieldName (Either HalfRange Range) RangeExecution Cache
+            | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
               deriving (Eq, Show)
 
 class Monoid a => Seminearring a where
@@ -497,6 +502,15 @@ instance ToJSON Filter where
     where
       (lessKey, lessVal, greaterKey, greaterVal) = rangeToKV range
 
+  toJSON (RegexpFilter fieldName (Regexp regexText) flags cacheName cache cacheKey) =
+    object ["regexp" .=
+            object [fieldName .=
+                    object ["value"  .= regexText
+                           , "flags" .= toJSON flags]
+                   , "_name"      .= cacheName
+                   , "_cache"     .= cache
+                   , "_cache_key" .= cacheKey]]
+
 instance ToJSON GeoPoint where
   toJSON (GeoPoint geoField latLon) =
     object [geoField  .= toJSON latLon]
@@ -585,6 +599,34 @@ data RangeExecution = RangeExecutionIndex
 instance ToJSON RangeExecution where
   toJSON RangeExecutionIndex     = "index"
   toJSON RangeExecutionFielddata = "fielddata"
+
+newtype Regexp = Regexp Text deriving (Eq, Show)
+data RegexpFlags = RegexpAll
+                 | Complement
+                 | Interval
+                 | Intersection
+                 | AnyString
+                 | CompInterval
+                 | CompIntersection
+                 | CompAnyString
+                 | IntervalIntersection
+                 | IntervalAnyString
+                 | IntersectionAnyString deriving (Eq, Show)
+
+instance ToJSON RegexpFlags where
+  toJSON RegexpAll             = String "ALL"
+  toJSON Complement            = String "COMPLEMENT"
+  toJSON Interval              = String "INTERVAL"
+  toJSON Intersection          = String "INTERSECTION"
+  toJSON AnyString             = String "ANYSTRING"
+  toJSON CompInterval          = String "COMPLEMENT|INTERVAL"
+  toJSON CompIntersection      = String "COMPLEMENT|INTERSECTION"
+  toJSON CompAnyString         = String "COMPLEMENT|ANYSTRING"
+  toJSON IntervalIntersection  = String "INTERVAL|INTERSECTION"
+  toJSON IntervalAnyString     = String "INTERVAL|ANYSTRING"
+  toJSON IntersectionAnyString = String "INTERSECTION|ANYSTRING"
+
+-- phew. Coulda used Agda style case breaking there but, you know, whatever. :)
 
 data Term = Term { termField :: Text
                  , termValue :: Text } deriving (Eq, Show)
