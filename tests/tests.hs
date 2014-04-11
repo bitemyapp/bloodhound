@@ -121,3 +121,13 @@ main = hspec $ do
       let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
       let emptyHits = fmap (hits . searchHits) result
       emptyHits `shouldBe` Right []
+
+    it "returns document for geo distance query" $ do
+      _ <- insertData
+      let geoConstraint = GeoConstraint "tweet.location" (LatLon 40.12 (-71.34))
+      let distance = Distance 10.0 Miles
+      let optimizeBbox = OptimizeGeoFilterType GeoFilterMemory
+      let geoFilter = GeoDistanceFilter geoConstraint distance SloppyArc optimizeBbox False
+      let search = Search Nothing (Just geoFilter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet

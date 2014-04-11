@@ -32,6 +32,10 @@ module Database.Bloodhound.Client
        , GeoBoundingBoxConstraint(..)
        , GeoBoundingBox(..)
        , GeoFilterType(..)
+       , Distance(..)
+       , DistanceUnit(..)
+       , DistanceType(..)
+       , OptimizeBbox(..)
        , LatLon(..)
        )
        where
@@ -45,6 +49,7 @@ import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
 import Network.HTTP.Conduit
@@ -366,7 +371,7 @@ data Filter = AndFilter [Filter] Cache
             | BoolFilter BoolMatch
             | ExistsFilter FieldName -- always cached
             | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType
-            | GeoDistanceFilter GeoConstraint Distance
+            | GeoDistanceFilter GeoConstraint Distance DistanceType OptimizeBbox Cache
               deriving (Eq, Show)
 
 class Monoid a => Seminearring a where
@@ -389,37 +394,86 @@ instance ToJSON Filter where
   toJSON (AndFilter filters cache) =
     object ["and"     .= fmap toJSON filters
            , "_cache" .= cache]
+
   toJSON (OrFilter filters cache) =
     object ["or"      .= fmap toJSON filters
            , "_cache" .= cache]
+
   toJSON (IdentityFilter) =
     object ["match_all" .= object []]
+
   toJSON (ExistsFilter fieldName) =
     object ["exists"  .= object
             ["field"  .= fieldName]]
+
   toJSON (BoolFilter boolMatch) =
     object ["bool"    .= toJSON boolMatch]
+
   toJSON (GeoBoundingBoxFilter bbConstraint filterType) =
     object ["geo_bounding_box" .= toJSON bbConstraint
            , "type" .= toJSON filterType]
 
+  toJSON (GeoDistanceFilter (GeoConstraint geoField latLon)
+          distance distanceType optimizeBbox cache) =
+    object ["geo_distance" .=
+            object ["distance" .= toJSON distance
+                   , "distance_type" .= toJSON distanceType
+                   , "optimize_bbox" .= optimizeBbox
+                   , geoField .= toJSON latLon
+                   , "_cache" .= cache
+                   ]]
+
+instance ToJSON GeoConstraint where
+  toJSON (GeoConstraint geoField latLon) =
+    object [geoField  .= toJSON latLon]
+
+showText :: Show a => a -> Text
+showText = T.pack . show
+
+instance ToJSON Distance where
+  toJSON (Distance coefficient unit) =
+    String boltedTogether where
+      coefText = showText coefficient
+      (String unitText) = (toJSON unit)
+      boltedTogether = mappend coefText unitText
+
+instance ToJSON DistanceUnit where
+  toJSON Miles         = String "mi"
+  toJSON Yards         = String "yd"
+  toJSON Feet          = String "ft"
+  toJSON Inches        = String "in"
+  toJSON Kilometers    = String "km"
+  toJSON Meters        = String "m"
+  toJSON Centimeters   = String "cm"
+  toJSON Millimeters   = String "mm"
+  toJSON NauticalMiles = String "nmi"
+
+instance ToJSON DistanceType where
+  toJSON Arc       = String "arc"
+  toJSON SloppyArc = String "sloppy_arc"
+  toJSON Plane     = String "plane"
+
+instance ToJSON OptimizeBbox where
+  toJSON NoOptimizeBbox = String "none"
+  toJSON (OptimizeGeoFilterType gft) = toJSON gft
+
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON (GeoBoundingBoxConstraint geoBBField constraintBox cache) =
     object [geoBBField .= toJSON constraintBox
-           , "_cache" .= cache]
+           , "_cache"  .= cache]
 
 instance ToJSON GeoFilterType where
-  toJSON GeoFilterMemory  = "memory"
-  toJSON GeoFilterIndexed = "indexed"
+  toJSON GeoFilterMemory  = String "memory"
+  toJSON GeoFilterIndexed = String "indexed"
 
 instance ToJSON GeoBoundingBox where
   toJSON (GeoBoundingBox topLeft bottomRight) =
-    object ["top_left" .= toJSON topLeft
+    object ["top_left"      .= toJSON topLeft
            , "bottom_right" .= toJSON bottomRight]
 
 instance ToJSON LatLon where
   toJSON (LatLon lat lon) =
-    object ["lat" .= lat
+    object ["lat"  .= lat
            , "lon" .= lon]
 
 data Term = Term { termField :: Text
@@ -434,15 +488,16 @@ data BoolMatch = MustMatch    Term  Cache
                | ShouldMatch [Term] Cache deriving (Eq, Show)
 
 instance ToJSON BoolMatch where
-  toJSON (MustMatch    term  cache)  = object ["must"     .= toJSON term,
-                                               "_cache" .= cache]
-  toJSON (MustNotMatch term  cache)  = object ["must_not" .= toJSON term,
-                                               "_cache" .= cache]
+  toJSON (MustMatch    term  cache) = object ["must"     .= toJSON term,
+                                              "_cache" .= cache]
+  toJSON (MustNotMatch term  cache) = object ["must_not" .= toJSON term,
+                                              "_cache" .= cache]
   toJSON (ShouldMatch  terms cache) = object ["should"   .= fmap toJSON terms,
                                               "_cache" .= cache]
 
 -- "memory" or "indexed"
-data GeoFilterType = GeoFilterMemory | GeoFilterIndexed deriving (Eq, Show)
+data GeoFilterType = GeoFilterMemory
+                   | GeoFilterIndexed deriving (Eq, Show)
 
 
 data LatLon = LatLon { lat :: Double
@@ -453,33 +508,35 @@ data GeoBoundingBox =
                  , bottomRight :: LatLon } deriving (Eq, Show)
 
 data GeoBoundingBoxConstraint =
-  GeoBoundingBoxConstraint { geoBBField    :: FieldName
-                           , constraintBox :: GeoBoundingBox
-                           , cache         :: Cache
+  GeoBoundingBoxConstraint { geoBBField        :: FieldName
+                           , constraintBox     :: GeoBoundingBox
+                           , bbConstraintcache :: Cache
                            } deriving (Eq, Show)
 
 data GeoConstraint =
-  GeoConstraint { geoField :: FieldName
-                , latLon   :: LatLon } deriving (Eq, Show)
+  GeoConstraint { geoField        :: FieldName
+                , latLon          :: LatLon} deriving (Eq, Show)
 
-data DistanceUnits = Miles
-                   | Yards
-                   | Feet
-                   | Inches
-                   | Kilometers
-                   | Meters
-                   | Centimeters
-                   | Millimeters
-                   | NauticalMiles deriving (Eq, Show)
+data DistanceUnit = Miles
+                  | Yards
+                  | Feet
+                  | Inches
+                  | Kilometers
+                  | Meters
+                  | Centimeters
+                  | Millimeters
+                  | NauticalMiles deriving (Eq, Show)
 
-data DistanceType = Arc | SloppyArc | Plane deriving (Eq, Show)
+data DistanceType = Arc
+                  | SloppyArc -- doesn't exist <1.0
+                  | Plane deriving (Eq, Show)
 
--- geo_point?
-data OptimizeBbox = OptimizeGeoFilterType GeoFilterType | NoOptimizeBbox deriving (Eq, Show)
+data OptimizeBbox = OptimizeGeoFilterType GeoFilterType
+                  | NoOptimizeBbox deriving (Eq, Show)
 
 data Distance =
   Distance { coefficient :: Double
-           , unit        :: DistanceUnits } deriving (Eq, Show)
+           , unit        :: DistanceUnit } deriving (Eq, Show)
 
 data FromJSON a => SearchResult a =
   SearchResult { took       :: Int
