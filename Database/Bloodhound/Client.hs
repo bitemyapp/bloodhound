@@ -38,6 +38,13 @@ module Database.Bloodhound.Client
        , DistanceRange(..)
        , OptimizeBbox(..)
        , LatLon(..)
+       , Range(..)
+       , HalfRange(..)
+       , RangeExecution(..)
+       , LessThan(..)
+       , LessThanEq(..)
+       , GreaterThan(..)
+       , GreaterThanEq(..)
        )
        where
 
@@ -366,8 +373,13 @@ type FieldName = Text
 type Cache = Bool -- caching on/off
 defaultCache = False
 
+type Existence = Bool
+type NullValue = Bool
+type PrefixValue = Text
+
 data Filter = AndFilter [Filter] Cache
-            | OrFilter [Filter] Cache
+            | OrFilter  [Filter] Cache
+            | NotFilter Filter   Cache
             | IdentityFilter
             | BoolFilter BoolMatch
             | ExistsFilter FieldName -- always cached
@@ -376,6 +388,10 @@ data Filter = AndFilter [Filter] Cache
             | GeoDistanceRangeFilter GeoPoint DistanceRange
             | GeoPolygonFilter FieldName [LatLon]
             | IdsFilter MappingName [DocumentID]
+            | LimitFilter Int
+            | MissingFilter FieldName Existence NullValue
+            | PrefixFilter  FieldName PrefixValue Cache
+            | RangeFilter   FieldName (Either HalfRange Range) RangeExecution Cache
               deriving (Eq, Show)
 
 class Monoid a => Seminearring a where
@@ -402,6 +418,11 @@ instance ToJSON Filter where
   toJSON (OrFilter filters cache) =
     object ["or"      .= fmap toJSON filters
            , "_cache" .= cache]
+
+  toJSON (NotFilter filter cache) =
+    object ["not" .=
+            object ["filter"  .= toJSON filter
+                   , "_cache" .= cache]]
 
   toJSON (IdentityFilter) =
     object ["match_all" .= object []]
@@ -442,6 +463,39 @@ instance ToJSON Filter where
     object ["ids" .=
             object ["type" .= mappingName
                    , "values" .= fmap T.pack values]]
+
+  toJSON (LimitFilter limit) =
+    object ["limit" .= object ["value" .= limit]]
+
+  toJSON (MissingFilter fieldName existence nullValue) =
+    object ["missing" .=
+            object ["field"       .= fieldName
+                   , "existence"  .= existence
+                   , "null_value" .= nullValue]]
+
+  toJSON (PrefixFilter fieldName fieldValue cache) =
+    object ["prefix" .=
+            object [fieldName .= fieldValue
+                   , "_cache" .= cache]]
+
+  toJSON (RangeFilter fieldName (Left halfRange) rangeExecution cache) =
+    object ["range" .=
+            object [fieldName .=
+                    object [key .= val]
+                   , "execution" .= toJSON rangeExecution
+                   , "_cache" .= cache]]
+    where
+      (key, val) = halfRangeToKV halfRange
+
+  toJSON (RangeFilter fieldName (Right range) rangeExecution cache) =
+    object ["range" .=
+            object [fieldName .=
+                    object [lessKey .= lessVal
+                           , greaterKey .= greaterVal]
+                   , "execution" .= toJSON rangeExecution
+                   , "_cache" .= cache]]
+    where
+      (lessKey, lessVal, greaterKey, greaterVal) = rangeToKV range
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint geoField latLon) =
@@ -495,6 +549,42 @@ instance ToJSON LatLon where
   toJSON (LatLon lat lon) =
     object ["lat"  .= lat
            , "lon" .= lon]
+
+-- lt, lte | gt, gte
+newtype LessThan      = LessThan      Double deriving (Eq, Show)
+newtype LessThanEq    = LessThanEq    Double deriving (Eq, Show)
+newtype GreaterThan   = GreaterThan   Double deriving (Eq, Show)
+newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Show)
+
+data HalfRange = HalfRangeLt  LessThan
+               | HalfRangeLte LessThanEq
+               | HalfRangeGt  GreaterThan
+               | HalfRangeGte GreaterThanEq deriving (Eq, Show)
+
+data Range = RangeLtGt   LessThan GreaterThan
+           | RangeLtGte  LessThan GreaterThanEq
+           | RangeLteGt  LessThanEq GreaterThan
+           | RangeLteGte LessThanEq GreaterThanEq deriving (Eq, Show)
+
+halfRangeToKV :: HalfRange -> (Text, Double)
+halfRangeToKV (HalfRangeLt  (LessThan n))      = ("lt",  n)
+halfRangeToKV (HalfRangeLte (LessThanEq n))    = ("lte", n)
+halfRangeToKV (HalfRangeGt  (GreaterThan n))   = ("gt",  n)
+halfRangeToKV (HalfRangeGte (GreaterThanEq n)) = ("gte", n)
+
+rangeToKV :: Range -> (Text, Double, Text, Double)
+rangeToKV (RangeLtGt   (LessThan m)   (GreaterThan n))   = ("lt",  m, "gt",  n)
+rangeToKV (RangeLtGte  (LessThan m)   (GreaterThanEq n)) = ("lt",  m, "gte", n)
+rangeToKV (RangeLteGt  (LessThanEq m) (GreaterThan n))   = ("lte", m, "gt",  n)
+rangeToKV (RangeLteGte (LessThanEq m) (GreaterThanEq n)) = ("lte", m, "gte", n)
+
+data RangeExecution = RangeExecutionIndex
+                    | RangeExecutionFielddata deriving (Eq, Show)
+
+-- index for smaller ranges, fielddata for longer ranges
+instance ToJSON RangeExecution where
+  toJSON RangeExecutionIndex     = "index"
+  toJSON RangeExecutionFielddata = "fielddata"
 
 data Term = Term { termField :: Text
                  , termValue :: Text } deriving (Eq, Show)

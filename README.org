@@ -4,6 +4,10 @@
 
 Elasticsearch client and query DSL for Haskell
 
+** Examples
+
+nope.jpg
+
 ** Possible future functionality
 
 *** GeoShapeFilter
@@ -21,6 +25,14 @@ http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-
 *** HasParent Filter
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-parent-filter.html
+
+*** Indices Filter
+
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-indices-filter.html
+
+*** Query Filter
+
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-filter.html
 
 *** Runtime checking for cycles in data structures
 

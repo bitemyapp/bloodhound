@@ -32,6 +32,7 @@ data Location = Location { lat :: Double
 data Tweet = Tweet { user     :: Text
                    , postDate :: UTCTime
                    , message  :: Text
+                   , age      :: Int
                    , location :: Location }
            deriving (Eq, Generic, Show)
 
@@ -53,6 +54,7 @@ exampleTweet = Tweet { user     = "bitemyapp"
                                   (ModifiedJulianDay 55000)
                                   (secondsToDiffTime 10)
                      , message  = "Use haskell!"
+                     , age      = 10000
                      , location = Location 40.12 (-71.34) }
 
 insertData :: IO ()
@@ -182,6 +184,15 @@ main = hspec $ do
     it "returns document for ids filter" $ do
       _ <- insertData
       let filter = IdsFilter "tweet" ["1"]
+      let search = Search Nothing (Just filter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for range filter" $ do
+      _ <- insertData
+      let filter = RangeFilter "age"
+                   (Right (RangeLtGt (LessThan 100000.0) (GreaterThan 1000.0)))
+                   RangeExecutionIndex False
       let search = Search Nothing (Just filter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
