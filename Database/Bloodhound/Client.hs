@@ -375,6 +375,7 @@ data Filter = AndFilter [Filter] Cache
             | GeoDistanceFilter GeoPoint Distance DistanceType OptimizeBbox Cache
             | GeoDistanceRangeFilter GeoPoint DistanceRange
             | GeoPolygonFilter FieldName [LatLon]
+            | IdsFilter MappingName [DocumentID]
               deriving (Eq, Show)
 
 class Monoid a => Seminearring a where
@@ -436,6 +437,11 @@ instance ToJSON Filter where
     object ["geo_polygon" .=
             object [geoField .=
                     object ["points" .= fmap toJSON latLons]]]
+
+  toJSON (IdsFilter mappingName values) =
+    object ["ids" .=
+            object ["type" .= mappingName
+                   , "values" .= fmap T.pack values]]
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint geoField latLon) =

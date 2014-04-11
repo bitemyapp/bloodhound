@@ -6,7 +6,23 @@ Elasticsearch client and query DSL for Haskell
 
 ** Possible future functionality
 
-Runtime checking for cycles in data structures:
+*** GeoShapeFilter
+
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-filter.html
+
+*** Geohash cell filter
+
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geohash-cell-filter.html
+
+*** HasChild Filter
+
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-child-filter.html
+
+*** HasParent Filter
+
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-parent-filter.html
+
+*** Runtime checking for cycles in data structures
 
 check for n > 1 occurrences in DFS:
 

@@ -178,3 +178,10 @@ main = hspec $ do
       let geoFilter = GeoPolygonFilter "tweet.location" points
       let search = Search Nothing (Just geoFilter)
       searchExpectNoResults search
+
+    it "returns document for ids filter" $ do
+      _ <- insertData
+      let filter = IdsFilter "tweet" ["1"]
+      let search = Search Nothing (Just filter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
