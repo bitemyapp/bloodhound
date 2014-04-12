@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, ExistentialQuantification #-}
+{-# LANGUAGE DeriveGeneric, ExistentialQuantification, StandaloneDeriving #-}
 
 module Database.Bloodhound.Client
        ( createIndex
@@ -62,6 +62,7 @@ import Control.Monad (liftM)
 import Data.Aeson
 import Data.Aeson.TH (deriveJSON)
 import qualified Data.ByteString.Lazy.Char8 as L
+import Data.ByteString.Builder
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Data.Monoid
@@ -262,24 +263,54 @@ deleteDocument (Server server) (IndexName indexName)
     method = NHTM.methodDelete
     body = Nothing
 
--- bulk :: Server -> [BulkOperation a] -> IO Reply
--- bulk (Server server) bulkOps = dispatch url method body where
---   url = joinPath [server, "_bulk"]
---   method = NHTM.methodPost
---   body = Just (L.intercalate "\n" . fmap encode $ bulkOps)
+bulk :: Server -> [BulkOperation] -> IO Reply
+bulk (Server server) bulkOps = dispatch url method body where
+  url = joinPath [server, "_bulk"]
+  method = NHTM.methodPost
+  blobs = concat $ fmap getStreamChunk bulkOps
+  body = Just $ toLazyByteString $ mash (mempty :: Builder) blobs
 
-data BulkOperation a =
-  forall a. ToJSON a =>
-  BulkIndex (AssociatedDocument a)
-  | BulkCreate (AssociatedDocument a)
-  | BulkDelete Association
-  | BulkUpdate (AssociatedDocument a)
+data BulkOperation =
+    BulkIndex  IndexName MappingName DocId Value
+  | BulkCreate IndexName MappingName DocId Value
+  | BulkDelete IndexName MappingName DocId
+  | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Show)
 
-data Placement = Placement IndexName MappingName deriving (Eq, Show)
-data Association = Association Placement DocId deriving (Eq, Show)
+mash :: Builder -> [L.ByteString] -> Builder
+mash builder xs = foldr (\x b -> mappend b (lazyByteString x)) builder xs
 
-data AssociatedDocument a =
-  forall a. ToJSON a => Associate Association a
+mkMetadataValue :: Text -> String -> String -> String -> Value
+mkMetadataValue operation indexName mappingName docId =
+  object [operation .=
+          object ["_index" .= indexName
+                 , "_type" .= mappingName
+                 , "_id"   .= docId]]
+
+getStreamChunk :: BulkOperation -> [L.ByteString]
+getStreamChunk (BulkIndex (IndexName indexName)
+                (MappingName mappingName)
+                (DocId docId) value) = blob where
+  metadata = mkMetadataValue "index" indexName mappingName docId
+  blob = [encode metadata, encode value]
+
+getStreamChunk (BulkCreate (IndexName indexName)
+                (MappingName mappingName)
+                (DocId docId) value) = blob where
+  metadata = mkMetadataValue "create" indexName mappingName docId
+  blob = [encode metadata, encode value]
+
+getStreamChunk (BulkDelete (IndexName indexName)
+                (MappingName mappingName)
+                (DocId docId)) = blob where
+  metadata = mkMetadataValue "delete" indexName mappingName docId
+  blob = [encode metadata]
+
+getStreamChunk (BulkUpdate (IndexName indexName)
+                (MappingName mappingName)
+                (DocId docId) value) = blob where
+  metadata = mkMetadataValue "update" indexName mappingName docId
+  doc = object ["doc" .= value]
+  blob = [encode metadata, encode doc]
 
 data EsResult a = EsResult { _index   :: Text
                            , _type    :: Text
