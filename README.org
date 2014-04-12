@@ -6,7 +6,7 @@ Elasticsearch client and query DSL for Haskell
 
 ** Examples
 
-nope.jpg
+!["Bloodhound (dog)"](bloodhound.jpg)
 
 ** Possible future functionality
 
@@ -45,3 +45,7 @@ check for n > 1 occurrences in DFS:
 http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-Dynamic.html
 
 http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-Dynamic-Map.html
+
+** Photo
+
+[Photo from HA! Designs](https://www.flickr.com/photos/hadesigns/)
