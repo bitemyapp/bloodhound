@@ -81,6 +81,10 @@ searchExpectNoResults search = do
   let emptyHits = fmap (hits . searchHits) result
   emptyHits `shouldBe` Right []
 
+data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
+instance FromJSON BulkTest
+instance ToJSON BulkTest
+
 main :: IO ()
 main = hspec $ do
 
@@ -100,6 +104,25 @@ main = hspec $ do
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
       fmap _source newTweet `shouldBe` Right exampleTweet
+
+  describe "bulk API" $ do
+    it "inserts all documents we request" $ do
+      _ <- insertData
+      let firstTest = BulkTest "blah"
+      let secondTest = BulkTest "bloo"
+      let firstDoc = BulkIndex (IndexName "twitter")
+                     (MappingName "tweet") (DocId "2") (object ["name" .= String "blah"])
+      let secondDoc = BulkCreate (IndexName "twitter")
+                     (MappingName "tweet") (DocId "3") (object ["name" .= String "bloo"])
+      let stream = [firstDoc, secondDoc]
+      response <- bulk testServer stream
+      _ <- refreshIndex testServer testIndex
+      fDoc <- getDocument testServer testIndex testMapping (DocId "2")
+      sDoc <- getDocument testServer testIndex testMapping (DocId "3")
+      let maybeFirst  = eitherDecode $ responseBody fDoc :: Either String (EsResult BulkTest)
+      let maybeSecond = eitherDecode $ responseBody sDoc :: Either String (EsResult BulkTest)
+      fmap _source maybeFirst `shouldBe` Right firstTest
+      fmap _source maybeSecond `shouldBe` Right secondTest
 
   describe "query API" $ do
     it "returns document for term query and identity filter" $ do

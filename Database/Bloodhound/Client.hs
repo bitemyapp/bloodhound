@@ -15,6 +15,7 @@ module Database.Bloodhound.Client
        , searchByType
        , refreshIndex
        , mkSearch
+       , bulk
        , IndexSettings(..)
        , Server(..)
        , Reply(..)
@@ -54,6 +55,7 @@ module Database.Bloodhound.Client
        , DocId(..)
        , CacheName(..)
        , CacheKey(..)
+       , BulkOperation(..)
        )
        where
 
@@ -63,7 +65,7 @@ import Data.Aeson
 import Data.Aeson.TH (deriveJSON)
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.ByteString.Builder
-import Data.List (intercalate)
+import Data.List (foldl', intercalate, intersperse)
 import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Data.Text (Text)
@@ -267,17 +269,22 @@ bulk :: Server -> [BulkOperation] -> IO Reply
 bulk (Server server) bulkOps = dispatch url method body where
   url = joinPath [server, "_bulk"]
   method = NHTM.methodPost
-  blobs = concat $ fmap getStreamChunk bulkOps
-  body = Just $ toLazyByteString $ mash (mempty :: Builder) blobs
+  body = Just $ collapseStream bulkOps
+
+collapseStream :: [BulkOperation] -> L.ByteString
+collapseStream stream = collapsed where
+  blobs = intersperse "\n" $ concat $ fmap getStreamChunk stream
+  mashedTaters = mash (mempty :: Builder) blobs
+  collapsed = toLazyByteString $ mappend mashedTaters "\n"
+
+mash :: Builder -> [L.ByteString] -> Builder
+mash builder xs = foldl' (\b x -> mappend b (lazyByteString x)) builder xs
 
 data BulkOperation =
     BulkIndex  IndexName MappingName DocId Value
   | BulkCreate IndexName MappingName DocId Value
   | BulkDelete IndexName MappingName DocId
   | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Show)
-
-mash :: Builder -> [L.ByteString] -> Builder
-mash builder xs = foldr (\x b -> mappend b (lazyByteString x)) builder xs
 
 mkMetadataValue :: Text -> String -> String -> String -> Value
 mkMetadataValue operation indexName mappingName docId =
