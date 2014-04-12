@@ -101,6 +101,15 @@ main = hspec $ do
                      (responseBody docInserted) :: Either String (EsResult Tweet)
       fmap _source newTweet `shouldBe` Right exampleTweet
 
+  describe "query API" $ do
+    it "returns document for term query and identity filter" $ do
+      _ <- insertData
+      let query = TermQuery (Term "user" "bitemyapp") Nothing
+      let filter = IdentityFilter <&&> IdentityFilter
+      let search = mkSearch (Just query) (Just filter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
   describe "filtering API" $ do
     it "returns document for composed boolmatch and identity" $ do
       _ <- insertData
