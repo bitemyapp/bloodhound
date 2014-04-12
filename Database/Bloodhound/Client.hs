@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric, ExistentialQuantification #-}
 
 module Database.Bloodhound.Client
        ( createIndex
@@ -49,6 +49,9 @@ module Database.Bloodhound.Client
        , Regexp(..)
        , RegexpFlags(..)
        , FieldName(..)
+       , IndexName(..)
+       , MappingName(..)
+       , DocId(..)
        , CacheName(..)
        , CacheKey(..)
        )
@@ -146,8 +149,6 @@ dispatch url method body = do
                     , checkStatus = \_ _ _ -> Nothing}
   withManager $ httpLbs req
 
-type IndexName = String
-
 joinPath :: [String] -> String
 joinPath = intercalate "/"
 
@@ -158,14 +159,14 @@ getStatus (Server server) = do
   return $ decode (responseBody response)
 
 createIndex :: Server -> IndexSettings -> IndexName -> IO Reply
-createIndex (Server server) indexSettings indexName =
+createIndex (Server server) indexSettings (IndexName indexName) =
   dispatch url method body where
     url = joinPath [server, indexName]
     method = NHTM.methodPut
     body = Just $ encode indexSettings
 
 deleteIndex :: Server -> IndexName -> IO Reply
-deleteIndex (Server server) indexName =
+deleteIndex (Server server) (IndexName indexName) =
   dispatch url method body where
     url = joinPath [server, indexName]
     method = NHTM.methodDelete
@@ -179,13 +180,13 @@ existentialQuery url = do
   return (reply, respIsTwoHunna reply)
 
 indexExists :: Server -> IndexName -> IO Bool
-indexExists (Server server) indexName = do
+indexExists (Server server) (IndexName indexName) = do
   (reply, exists) <- existentialQuery url
   return exists where
     url = joinPath [server, indexName]
 
 refreshIndex :: Server -> IndexName -> IO Reply
-refreshIndex (Server server) indexName = dispatch url method body where
+refreshIndex (Server server) (IndexName indexName) = dispatch url method body where
   url = joinPath [server, indexName, "_refresh"]
   method = NHTM.methodPost
   body = Nothing
@@ -197,7 +198,7 @@ stringifyOCIndex oci = case oci of
   CloseIndex -> "_close"
 
 openOrCloseIndexes :: OpenCloseIndex -> Server -> IndexName -> IO Reply
-openOrCloseIndexes oci (Server server) indexName =
+openOrCloseIndexes oci (Server server) (IndexName indexName) =
   dispatch url method body where
     ociString = stringifyOCIndex oci
     url = joinPath [server, indexName, ociString]
@@ -209,8 +210,6 @@ openIndex = openOrCloseIndexes OpenIndex
 
 closeIndex :: Server -> IndexName -> IO Reply
 closeIndex = openOrCloseIndexes CloseIndex
-
-type MappingName = String
 
 data FieldType = GeoPointType
                | GeoShapeType
@@ -232,36 +231,55 @@ data Mapping = Mapping { typeName :: Text
 
 createMapping :: ToJSON a => Server -> IndexName
                  -> MappingName -> a -> IO Reply
-createMapping (Server server) indexName mappingName mapping =
+createMapping (Server server) (IndexName indexName) (MappingName mappingName) mapping =
   dispatch url method body where
     url = joinPath [server, indexName, mappingName, "_mapping"]
     method = NHTM.methodPut
     body = Just $ encode mapping
 
 deleteMapping :: Server -> IndexName -> MappingName -> IO Reply
-deleteMapping (Server server) indexName mappingName =
+deleteMapping (Server server) (IndexName indexName) (MappingName mappingName) =
   dispatch url method body where
     url = joinPath [server, indexName, mappingName, "_mapping"]
     method = NHTM.methodDelete
     body = Nothing
 
-type DocumentID = String
-
 indexDocument :: ToJSON doc => Server -> IndexName -> MappingName
-                 -> doc -> DocumentID -> IO Reply
-indexDocument (Server server) indexName mappingName document docId =
+                 -> doc -> DocId -> IO Reply
+indexDocument (Server server) (IndexName indexName)
+  (MappingName mappingName) document (DocId docId) =
   dispatch url method body where
     url = joinPath [server, indexName, mappingName, docId]
     method = NHTM.methodPut
     body = Just (encode document)
 
 deleteDocument :: Server -> IndexName -> MappingName
-                  -> DocumentID -> IO Reply
-deleteDocument (Server server) indexName mappingName docId =
+                  -> DocId -> IO Reply
+deleteDocument (Server server) (IndexName indexName)
+  (MappingName mappingName) (DocId docId) =
   dispatch url method body where
     url = joinPath [server, indexName, mappingName, docId]
     method = NHTM.methodDelete
     body = Nothing
+
+-- bulk :: Server -> [BulkOperation a] -> IO Reply
+-- bulk (Server server) bulkOps = dispatch url method body where
+--   url = joinPath [server, "_bulk"]
+--   method = NHTM.methodPost
+--   body = Just (L.intercalate "\n" . fmap encode $ bulkOps)
+
+data BulkOperation a =
+  forall a. ToJSON a =>
+  BulkIndex (AssociatedDocument a)
+  | BulkCreate (AssociatedDocument a)
+  | BulkDelete Association
+  | BulkUpdate (AssociatedDocument a)
+
+data Placement = Placement IndexName MappingName deriving (Eq, Show)
+data Association = Association Placement DocId deriving (Eq, Show)
+
+data AssociatedDocument a =
+  forall a. ToJSON a => Associate Association a
 
 data EsResult a = EsResult { _index   :: Text
                            , _type    :: Text
@@ -281,16 +299,16 @@ instance (FromJSON a, ToJSON a) => FromJSON (EsResult a) where
   parseJSON _          = empty
 
 getDocument :: Server -> IndexName -> MappingName
-               -> DocumentID -> IO Reply
-getDocument (Server server) indexName mappingName docId =
+               -> DocId -> IO Reply
+getDocument (Server server) (IndexName indexName) (MappingName mappingName) (DocId docId) =
   dispatch url method body where
     url = joinPath [server, indexName, mappingName, docId]
     method = NHTM.methodGet
     body = Nothing
 
 documentExists :: Server -> IndexName -> MappingName
-                  -> DocumentID -> IO Bool
-documentExists (Server server) indexName mappingName docId = do
+                  -> DocId -> IO Bool
+documentExists (Server server) (IndexName indexName) (MappingName mappingName) (DocId docId) = do
   (reply, exists) <- existentialQuery url
   return exists where
     url = joinPath [server, indexName, mappingName, docId]
@@ -304,11 +322,12 @@ searchAll (Server server) search = dispatchSearch url search where
   url = joinPath [server, "_search"]
 
 searchByIndex :: Server -> IndexName -> Search -> IO Reply
-searchByIndex (Server server) indexName search = dispatchSearch url search where
+searchByIndex (Server server) (IndexName indexName) search = dispatchSearch url search where
   url = joinPath [server, indexName, "_search"]
 
 searchByType :: Server -> IndexName -> MappingName -> Search -> IO Reply
-searchByType (Server server) indexName mappingName search = dispatchSearch url search where
+searchByType (Server server) (IndexName indexName)
+  (MappingName mappingName) search = dispatchSearch url search where
   url = joinPath [server, indexName, mappingName, "_search"]
 
 data Search = Search { queryBody  :: Maybe Query
@@ -457,12 +476,22 @@ type PrefixValue = Text
 
 data BooleanOperator = And | Or deriving (Eq, Show)
 
+newtype IndexName   = IndexName String deriving (Eq, Generic, Show)
+newtype MappingName = MappingName String deriving (Eq, Generic, Show)
+newtype DocId       = DocId String deriving (Eq, Generic, Show)
 newtype QueryString = QueryString Text deriving (Eq, Show)
-newtype FieldName = FieldName Text deriving (Eq, Show)
-newtype CacheName = CacheName Text deriving (Eq, Show)
-newtype CacheKey  = CacheKey  Text deriving (Eq, Show)
-newtype Existence = Existence Bool deriving (Eq, Show)
-newtype NullValue = NullValue Bool deriving (Eq, Show)
+newtype FieldName   = FieldName Text deriving (Eq, Show)
+newtype CacheName   = CacheName Text deriving (Eq, Show)
+newtype CacheKey    = CacheKey  Text deriving (Eq, Show)
+newtype Existence   = Existence Bool deriving (Eq, Show)
+newtype NullValue   = NullValue Bool deriving (Eq, Show)
+
+unpackId :: DocId -> String
+unpackId (DocId docId) = docId
+
+instance FromJSON IndexName
+instance FromJSON MappingName
+instance FromJSON DocId
 
 -- data QueryType = BooleanQueryType
 --                | PhraseQueryType
@@ -495,7 +524,7 @@ data Filter = AndFilter [Filter] Cache
             | GeoDistanceFilter GeoPoint Distance DistanceType OptimizeBbox Cache
             | GeoDistanceRangeFilter GeoPoint DistanceRange
             | GeoPolygonFilter FieldName [LatLon]
-            | IdsFilter MappingName [DocumentID]
+            | IdsFilter MappingName [DocId]
             | LimitFilter Int
             | MissingFilter FieldName Existence NullValue
             | PrefixFilter  FieldName PrefixValue Cache
@@ -568,10 +597,10 @@ instance ToJSON Filter where
             object [geoField .=
                     object ["points" .= fmap toJSON latLons]]]
 
-  toJSON (IdsFilter mappingName values) =
+  toJSON (IdsFilter (MappingName mappingName) values) =
     object ["ids" .=
             object ["type" .= mappingName
-                   , "values" .= fmap T.pack values]]
+                   , "values" .= fmap (T.pack . unpackId) values]]
 
   toJSON (LimitFilter limit) =
     object ["limit" .= object ["value" .= limit]]
@@ -815,7 +844,7 @@ data FromJSON a => SearchHits a =
 data FromJSON a => Hit a =
   Hit { hitIndex      :: IndexName
       , hitType       :: MappingName
-      , hitDocumentID :: DocumentID
+      , hitDocId      :: DocId
       , hitScore      :: Score
       , hitSource     :: a } deriving (Eq, Show)
 

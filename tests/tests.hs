@@ -16,8 +16,8 @@ import qualified Network.HTTP.Types.Status as NHTS
 import Test.Hspec
 
 testServer  = Server "http://localhost:9200"
-testIndex   = "twitter"
-testMapping = "tweet"
+testIndex   = IndexName "twitter"
+testMapping = MappingName "tweet"
 
 validateStatus resp expected =
   (NHTS.statusCode $ responseStatus resp)
@@ -63,7 +63,7 @@ insertData = do
   _ <- deleteExampleIndex
   created <- createExampleIndex
   mappingCreated <- createMapping testServer testIndex testMapping TweetMapping
-  docCreated <- indexDocument testServer testIndex testMapping exampleTweet "1"
+  docCreated <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
   _ <- refreshIndex testServer testIndex
   return ()
 
@@ -96,7 +96,7 @@ main = hspec $ do
   describe "document API" $ do
     it "indexes, gets, and then deletes the generated document" $ do
       _ <- insertData
-      docInserted <- getDocument testServer testIndex testMapping "1"
+      docInserted <- getDocument testServer testIndex testMapping (DocId "1")
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
       fmap _source newTweet `shouldBe` Right exampleTweet
@@ -192,7 +192,7 @@ main = hspec $ do
 
     it "returns document for ids filter" $ do
       _ <- insertData
-      let filter = IdsFilter "tweet" ["1"]
+      let filter = IdsFilter (MappingName "tweet") [DocId "1"]
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
