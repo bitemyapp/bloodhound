@@ -6,7 +6,8 @@ Elasticsearch client and query DSL for Haskell
 
 ** Examples
 
-!["Bloodhound (dog)"]("bloodhound.jpg")
+#+CAPTION: Bloodhound (dog)
+[[./bloodhound.jpg]]
 
 ** Possible future functionality
 
