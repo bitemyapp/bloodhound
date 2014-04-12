@@ -1,45 +1,47 @@
-* PRE-ALPHA, THERE IS NOTHING FOR YOU HERE
-
 * Bloodhound
-
-Elasticsearch client and query DSL for Haskell
-
-** Examples
 
 #+CAPTION: Bloodhound (dog)
 [[./bloodhound.jpg]]
 
-** Possible future functionality
+* Elasticsearch client and query DSL for Haskell
 
-*** GeoShapeFilter
+** Stability
+
+Bloodhound is alpha at the moment. The library works fine, but I don't want to mislead anyone into thinking the API is final or stable. I wouldn't call the library "complete" or representative of everything you can do in Elasticsearch but being personally familiar with multiple clients in other languages I think the story there is good.
+
+* Examples
+
+* Possible future functionality
+
+** GeoShapeFilter
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-filter.html
 
-*** Geohash cell filter
+** Geohash cell filter
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geohash-cell-filter.html
 
-*** HasChild Filter
+** HasChild Filter
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-child-filter.html
 
-*** HasParent Filter
+** HasParent Filter
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-parent-filter.html
 
-*** Indices Filter
+** Indices Filter
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-indices-filter.html
 
-*** Query Filter
+** Query Filter
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-filter.html
 
-*** Script based sorting
+** Script based sorting
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_script_based_sorting
 
-*** Runtime checking for cycles in data structures
+** Runtime checking for cycles in data structures
 
 check for n > 1 occurrences in DFS:
 
@@ -47,6 +49,6 @@ http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-
 
 http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-Dynamic-Map.html
 
-** Photo
+* Photo Origin
 
 [Photo from HA! Designs](https://www.flickr.com/photos/hadesigns/)
