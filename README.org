@@ -283,6 +283,199 @@ Right [Hit {hitIndex = IndexName "twitter"
 
 *** Filtering
 
+**** And, Not, and Or filters
+
+Filters form a monoid and seminearring.
+
+#+BEGIN_SRC haskell
+
+instance Monoid Filter where
+  mempty = IdentityFilter
+  mappend a b = AndFilter [a, b] defaultCache
+
+instance Seminearring Filter where
+  a <||> b = OrFilter [a, b] defaultCache
+
+-- AndFilter and OrFilter take [Filter] as an argument.
+
+-- This will return anything, because IdentityFilter returns everything
+OrFilter [IdentityFilter, someOtherFilter] False
+
+-- This will return exactly what someOtherFilter returns
+AndFilter [IdentityFilter, someOtherFilter] False
+
+-- Thanks to the seminearring and monoid, the above can be expressed as:
+
+-- "and"
+IdentityFilter <&&> someOtherFilter
+
+-- "or"
+IdentityFilter <||> someOtherFilter
+
+-- Also there is a NotFilter, it only accepts a single filter, not a list.
+
+NotFilter someOtherFilter False
+
+#+END_SRC
+
+**** Identity Filter
+
+#+BEGIN_SRC haskell
+
+-- And'ing two Identity
+let queryFilter = IdentityFilter <&&> IdentityFilter
+
+let search = mkSearch Nothing (Just queryFilter)
+
+reply <- searchByType testServer testIndex testMapping search
+
+#+END_SRC
+
+**** Boolean Filter
+
+Similar to boolean queries.
+
+#+BEGIN_SRC haskell
+
+-- Will return only items whose "user" field contains the term "bitemyapp"
+let queryFilter = BoolFilter (MustMatch (Term "user" "bitemyapp") False)
+
+-- Will return only items whose "user" field does not contain the term "bitemyapp"
+let queryFilter = BoolFilter (MustNotMatch (Term "user" "bitemyapp") False)
+
+-- The clause (query) should appear in the matching document.
+-- In a boolean query with no must clauses, one or more should
+-- clauses must match a document. The minimum number of should
+-- clauses to match can be set using the minimum_should_match parameter.
+let queryFilter = BoolFilter (ShouldMatch [(Term "user" "bitemyapp")] False)
+
+#+END_SRC
+
+**** Exists Filter
+
+#+BEGIN_SRC haskell
+
+-- Will filter for documents that have the field "user"
+let existsFilter = ExistsFilter (FieldName "user")
+
+#+END_SRC
+
+**** Geo BoundingBox Filter
+
+#+BEGIN_SRC haskell
+
+-- topLeft and bottomRight
+let box = GeoBoundingBox (LatLon 40.73 (-74.1)) (LatLon 40.10 (-71.12))
+
+let constraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False
+
+-- second argument is GeoFilterType, memory or indexed.
+let geoFilter = GeoBoundingBoxFilter constraint GeoFilterMemory
+
+#+END_SRC
+
+**** Geo Distance Filter
+
+#+BEGIN_SRC haskell
+
+let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
+
+-- coefficient and units
+let distance = Distance 10.0 Miles
+
+-- GeoFilterType or NoOptimizeBbox
+let optimizeBbox = OptimizeGeoFilterType GeoFilterMemory
+
+-- SloppyArc is the usual/default optimization in Elasticsearch today
+-- but pre-1.0 versions will need to pick Arc or Plane.
+
+let geoFilter = GeoDistanceFilter geoPoint distance SloppyArc optimizeBbox False
+
+#+END_SRC
+
+**** Geo Distance Range Filter
+
+Think of a donut and you won't be far off.
+
+#+BEGIN_SRC haskell
+
+let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
+
+let distanceRange = DistanceRange (Distance 0.0 Miles) (Distance 10.0 Miles)
+
+let geoFilter = GeoDistanceRangeFilter geoPoint distanceRange
+
+#+END_SRC
+
+**** Geo Polygon Filter
+
+#+BEGIN_SRC haskell
+
+-- I think I drew a square here.
+let points = [LatLon 40.0 (-70.00),
+              LatLon 40.0 (-72.00),
+              LatLon 41.0 (-70.00),
+              LatLon 41.0 (-72.00)]
+
+let geoFilter = GeoPolygonFilter (FieldName "tweet.location") points
+
+#+END_SRC
+
+**** Document IDs filter
+
+#+BEGIN_SRC haskell
+
+-- takes a mapping name and a list of DocIds
+IdsFilter (MappingName "tweet") [DocId "1"]
+
+#+END_SRC
+
+**** Range Filter
+
+***** Full Range
+
+#+BEGIN_SRC haskell
+
+-- RangeFilter :: FieldName
+--                -> Either HalfRange Range
+--                -> RangeExecution
+--                -> Cache -> Filter
+
+let filter = RangeFilter (FieldName "age")
+             (Right (RangeLtGt (LessThan 100000.0) (GreaterThan 1000.0)))
+             RangeExecutionIndex False
+
+#+END_SRC
+
+***** Half Range
+
+#+BEGIN_SRC haskell
+
+let filter = RangeFilter (FieldName "age")
+             (Left (HalfRangeLt (LessThan 100000.0)))
+             RangeExecutionIndex False
+
+#+END_SRC
+
+***** Regexp Filter
+
+#+BEGIN_SRC haskell
+
+-- RegexpFilter
+--   :: FieldName
+--      -> Regexp
+--      -> RegexpFlags
+--      -> CacheName
+--      -> Cache
+--      -> CacheKey
+--      -> Filter
+let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
+             RegexpAll (CacheName "test") False (CacheKey "key")
+
+-- RegexpFlags can be a combination of RegexpAll, Complement,
+-- Interval, Intersection, AnyString, and a combination of two options thereof.
+
+#+END_SRC
 
 * Possible future functionality
 
