@@ -261,7 +261,15 @@ reply <- searchByIndex testServer testIndex search
 let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
 
 λ> fmap (hits . searchHits) result
-Right [Hit {hitIndex = IndexName "twitter", hitType = MappingName "tweet", hitDocId = DocId "1", hitScore = 0.30685282, hitSource = Tweet {user = "bitemyapp", postDate = 2009-06-18 00:00:10 UTC, message = "Use haskell!", age = 10000, location = Location {lat = 40.12, lon = -71.34}}}]
+Right [Hit {hitIndex = IndexName "twitter"
+          , hitType = MappingName "tweet"
+          , hitDocId = DocId "1"
+          , hitScore = 0.30685282
+          , hitSource = Tweet {user = "bitemyapp"
+                             , postDate = 2009-06-18 00:00:10 UTC
+                             , message = "Use haskell!"
+                             , age = 10000
+                             , location = Location {lat = 40.12, lon = -71.34}}}]
 
 #+END_SRC
 
