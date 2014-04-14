@@ -457,7 +457,7 @@ let filter = RangeFilter (FieldName "age")
 
 #+END_SRC
 
-***** Regexp Filter
+**** Regexp Filter
 
 #+BEGIN_SRC haskell
 
