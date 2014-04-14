@@ -119,7 +119,8 @@ resp <- deleteMapping testServer testIndex testMapping
 
 #+BEGIN_SRC haskell
 
--- don't forget the imports and derive generic setting for ghci at the beginning of the examples.
+-- don't forget the imports and derive generic setting for ghci
+-- at the beginning of the examples.
 
 :{
 data Location = Location { lat :: Double
@@ -155,7 +156,13 @@ instance FromJSON Location
 resp <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
 
 -- print resp on success
-Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","75")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":2,\"created\":false}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+Response {responseStatus =
+  Status {statusCode = 200, statusMessage = "OK"}
+    , responseVersion = HTTP/1.1, responseHeaders = 
+    [("Content-Type","application/json; charset=UTF-8"),
+     ("Content-Length","75")]
+    , responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":2,\"created\":false}"
+    , responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 
 #+END_SRC
 
