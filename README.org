@@ -58,10 +58,22 @@ response <- createIndex testServer defaultIndexSettings testIndex
 response <- deleteIndex testServer testIndex
 
 -- print response if it was a success
-Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}
+        , responseVersion = HTTP/1.1
+        , responseHeaders = [("Content-Type", "application/json; charset=UTF-8")
+                           , ("Content-Length", "21")]
+        , responseBody = "{\"acknowledged\":true}"
+        , responseCookieJar = CJ {expose = []}
+        , responseClose' = ResponseClose}
 
 -- if the index to be deleted didn't exist anyway
-Response {responseStatus = Status {statusCode = 404, statusMessage = "Not Found"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","65")], responseBody = "{\"error\":\"IndexMissingException[[twitter] missing]\",\"status\":404}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+Response {responseStatus = Status {statusCode = 404, statusMessage = "Not Found"}
+        , responseVersion = HTTP/1.1
+        , responseHeaders = [("Content-Type", "application/json; charset=UTF-8")
+                           , ("Content-Length","65")]
+        , responseBody = "{\"error\":\"IndexMissingException[[twitter] missing]\",\"status\":404}"
+        , responseCookieJar = CJ {expose = []}
+        , responseClose' = ResponseClose}
 
 #+END_SRC
 
@@ -74,7 +86,13 @@ Response {responseStatus = Status {statusCode = 404, statusMessage = "Not Found"
 resp <- refreshIndex testServer testIndex
 
 -- print resp on success
-Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","50")], responseBody = "{\"_shards\":{\"total\":10,\"successful\":5,\"failed\":0}}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}
+        , responseVersion = HTTP/1.1
+        , responseHeaders = [("Content-Type", "application/json; charset=UTF-8")
+                           , ("Content-Length","50")]
+        , responseBody = "{\"_shards\":{\"total\":10,\"successful\":5,\"failed\":0}}"
+        , responseCookieJar = CJ {expose = []}
+        , responseClose' = ResponseClose}
 
 #+END_SRC
 
