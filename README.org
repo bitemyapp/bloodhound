@@ -106,8 +106,8 @@ Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}
 
 data TweetMapping = TweetMapping deriving (Eq, Show)
 
--- I know writing the JSON directly/manually sucks.
--- I don't have a real data type for Mappings yet.
+-- I know writing the JSON manually sucks.
+-- I don't have a proper data type for Mappings yet.
 -- Let me know if this is something you need.
 
 :{
