@@ -196,13 +196,26 @@ let maybeResult = decode body :: Maybe (EsResult Tweet)
 let eitherResult = decode body :: Either String (EsResult Tweet)
 
 -- print eitherResult should look like:
-Right (EsResult {_index = "twitter", _type = "tweet", _id = "1", _version = 2, found = Just True, _source = Tweet {user = "bitemyapp", postDate = 2009-06-18 00:00:10 UTC, message = "Use haskell!", age = 10000, location = Location {lat = 40.12, lon = -71.34}}})
+Right (EsResult {_index = "twitter"
+               , _type = "tweet"
+               , _id = "1"
+               , _version = 2
+               , found = Just True
+               , _source = Tweet {user = "bitemyapp"
+               , postDate = 2009-06-18 00:00:10 UTC
+               , message = "Use haskell!"
+               , age = 10000
+               , location = Location {lat = 40.12, lon = -71.34}}})
 
 -- _source in EsResult is parametric, we dispatch the type by passing in what we expect (Tweet) as a parameter to EsResult.
 
 -- use the _source record accessor to get at your document
 λ> fmap _source result
-Right (Tweet {user = "bitemyapp", postDate = 2009-06-18 00:00:10 UTC, message = "Use haskell!", age = 10000, location = Location {lat = 40.12, lon = -71.34}})
+Right (Tweet {user = "bitemyapp"
+            , postDate = 2009-06-18 00:00:10 UTC
+            , message = "Use haskell!"
+            , age = 10000
+            , location = Location {lat = 40.12, lon = -71.34}})
 
 #+END_SRC
 
