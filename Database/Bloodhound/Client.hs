@@ -376,6 +376,7 @@ data Search = Search { queryBody  :: Maybe Query
                      , from :: Int
                      , size :: Int} deriving (Eq, Show)
 
+mkSearch :: Maybe Query -> Maybe Filter -> Search
 mkSearch query filter = Search query filter Nothing False 0 10
 
 pageSearch :: Int -> Int -> Search -> Search
