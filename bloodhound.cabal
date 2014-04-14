@@ -5,7 +5,7 @@ name:                bloodhound
 version:             0.1.0.0
 synopsis:            ElasticSearch client library for Haskell
 description:         ElasticSearch made awesome for Haskell hackers
-homepage:            bitemyapp.com
+homepage:            github.com/bitemyapp/bloodhound
 license:             Apache-2.0
 license-file:        LICENSE
 author:              Chris Allen
