@@ -256,8 +256,13 @@ let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- <||> (or/plus) should make it into a search that returns everything.
 
 let filter = IdentityFilter <&&> IdentityFilter
+
+-- constructing the search object the searchByIndex function dispatches on.
 let search = mkSearch (Just query) (Just filter)
+
+-- you can also searchByType and specify the mapping name.
 reply <- searchByIndex testServer testIndex search
+
 let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
 
 λ> fmap (hits . searchHits) result
