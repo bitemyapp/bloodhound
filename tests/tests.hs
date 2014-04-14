@@ -4,7 +4,6 @@ module Main where
 
 import Database.Bloodhound.Client
 import Data.Aeson
-import Data.DeriveTH
 import Data.Either (Either(..))
 import Data.Maybe (fromJust)
 import Data.Time.Calendar (Day(..))

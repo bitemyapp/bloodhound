@@ -5,13 +5,217 @@
 
 * Elasticsearch client and query DSL for Haskell
 
+** Why?
+
+Because you're tired of obnoxious errors like [this](http://i.imgur.com/FKtZYIP.png) and want types to guide your use of the API.
+
 ** Stability
 
-Bloodhound is alpha at the moment. The library works fine, but I don't want to mislead anyone into thinking the API is final or stable. I wouldn't call the library "complete" or representative of everything you can do in Elasticsearch but being personally familiar with multiple clients in other languages I think the story there is good.
+Bloodhound is alpha at the moment. The library works fine, but I don't want to mislead anyone into thinking the API is final or stable. I wouldn't call the library "complete" or representative of everything you can do in Elasticsearch but being compared to clients in other languages the story here so far is good.
 
 * Examples
 
+** Index Operations
+
+*** Create Index
+
+#+BEGIN_SRC haskell
+
+-- Formatted for use in ghci, so there are "let"s in front of the decls.
+
+-- :set -XDeriveGeneric
+import Database.Bloodhound.Client
+import Data.Aeson
+import Data.Either (Either(..))
+import Data.Maybe (fromJust)
+import Data.Time.Calendar (Day(..))
+import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
+import Data.Text (Text)
+import GHC.Generics (Generic)
+import Network.HTTP.Conduit
+import qualified Network.HTTP.Types.Status as NHTS
+
+-- no trailing slashes in servers, library handles building the path.
+let testServer = (Server "http://localhost:9200")
+let testIndex = IndexName "twitter"
+let testMapping = MappingName "tweet"
+
+-- defaultIndexSettings is exported by Database.Bloodhound.Client as well.
+let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
+
+-- createIndex returns IO Reply
+
+-- response :: Reply, Reply is a synonym for Network.HTTP.Conduit.Response
+response <- createIndex testServer defaultIndexSettings testIndex
+
+#+END_SRC
+
+*** Delete Index
+
+#+BEGIN_SRC haskell
+
+-- response :: Reply
+response <- deleteIndex testServer testIndex
+
+-- print response if it was a success
+Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+
+-- if the index to be deleted didn't exist anyway
+Response {responseStatus = Status {statusCode = 404, statusMessage = "Not Found"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","65")], responseBody = "{\"error\":\"IndexMissingException[[twitter] missing]\",\"status\":404}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+
+#+END_SRC
+
+*** Refresh Index
+
+**** Note, you *have* to do this if you expect to read what you just wrote
+
+#+BEGIN_SRC haskell
+
+resp <- refreshIndex testServer testIndex
+
+-- print resp on success
+Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","50")], responseBody = "{\"_shards\":{\"total\":10,\"successful\":5,\"failed\":0}}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+
+#+END_SRC
+
+** Mapping Operations
+
+*** Create Mapping
+
+#+BEGIN_SRC haskell
+
+-- don't forget imports and the like at the top.
+
+data TweetMapping = TweetMapping deriving (Eq, Show)
+
+-- I know writing the JSON directly/manually sucks.
+-- I don't have a real data type for Mappings yet.
+-- Let me know if this is something you need.
+
+:{
+instance ToJSON TweetMapping where
+  toJSON TweetMapping =
+    object ["tweet" .=
+      object ["properties" .=
+        object ["location" .=
+          object ["type" .= ("geo_point" :: Text)]]]]
+:}
+
+resp <- createMapping testServer testIndex testMapping TweetMapping
+
+#+END_SRC
+
+*** Delete Mapping
+
+#+BEGIN_SRC haskell
+
+resp <- deleteMapping testServer testIndex testMapping
+
+#+END_SRC
+
+** Document Operations
+
+*** Indexing Documents
+
+#+BEGIN_SRC haskell
+
+-- don't forget the imports and derive generic setting for ghci at the beginning of the examples.
+
+:{
+data Location = Location { lat :: Double
+                         , lon :: Double } deriving (Eq, Generic, Show)
+
+data Tweet = Tweet { user     :: Text
+                   , postDate :: UTCTime
+                   , message  :: Text
+                   , age      :: Int
+                   , location :: Location } deriving (Eq, Generic, Show)
+
+exampleTweet = Tweet { user     = "bitemyapp"
+                     , postDate = UTCTime
+                                  (ModifiedJulianDay 55000)
+                                  (secondsToDiffTime 10)
+                     , message  = "Use haskell!"
+                     , age      = 10000
+                     , location = Location 40.12 (-71.34) }
+
+-- automagic (generic) derivation of instances because we're lazy.
+instance ToJSON   Tweet
+instance FromJSON Tweet
+instance ToJSON   Location
+instance FromJSON Location
+:}
+
+-- Should be able to toJSON and encode the data structures like this:
+-- λ> toJSON $ Location 10.0 10.0
+-- Object fromList [("lat",Number 10.0),("lon",Number 10.0)]
+-- λ> encode $ Location 10.0 10.0
+-- "{\"lat\":10,\"lon\":10}"
+
+resp <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
+
+-- print resp on success
+Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","75")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":2,\"created\":false}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+
+#+END_SRC
+
+*** Deleting Documents
+
+#+BEGIN_SRC haskell
+
+resp <- deleteDocument testServer testIndex testMapping (DocId "1")
+
+#+END_SRC
+
+*** Getting Documents
+
+#+BEGIN_SRC haskell
+
+-- n.b., you'll need the earlier imports. responseBody is from http-conduit
+
+resp <- getDocument testServer testIndex testMapping (DocId "1")
+
+-- responseBody :: Response body -> body
+let body = responseBody resp
+
+-- you have two options, you use decode and just get Maybe (EsResult Tweet)
+-- or you can use eitherDecode and get Either String (EsResult Tweet)
+
+let maybeResult = decode body :: Maybe (EsResult Tweet)
+-- the explicit typing is so Aeson knows how to parse the JSON.
+
+-- use either if you want to know why something failed to parse.
+-- (string errors, sadly)
+let eitherResult = decode body :: Either String (EsResult Tweet)
+
+-- print eitherResult should look like:
+Right (EsResult {_index = "twitter", _type = "tweet", _id = "1", _version = 2, found = Just True, _source = Tweet {user = "bitemyapp", postDate = 2009-06-18 00:00:10 UTC, message = "Use haskell!", age = 10000, location = Location {lat = 40.12, lon = -71.34}}})
+
+-- _source in EsResult is parametric, we dispatch the type by passing in what we expect (Tweet) as a parameter to EsResult.
+
+#+END_SRC
+
+** Search
+
+*** Querying
+
+
+*** Filtering
+
+
 * Possible future functionality
+
+** Node discovery and failover
+
+Might require TCP support.
+
+** Support for TCP access to Elasticsearch
+
+Pretend to be a transport client?
+
+** Bulk cluster-join merge
+
+Might require making a lucene index on disk with the appropriate format.
 
 ** GeoShapeFilter
 
