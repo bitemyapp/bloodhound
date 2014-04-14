@@ -328,4 +328,4 @@ http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-
 
 * Photo Origin
 
-[Photo from HA! Designs](https://www.flickr.com/photos/hadesigns/)
+Photo from HA! Designs: https://www.flickr.com/photos/hadesigns/
