@@ -519,6 +519,10 @@ http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_script_based_sorting
 
+** Collapsing redundantly nested and/or structures
+
+The Seminearring instance, if deeply nested can possibly produce nested structure that is redundant. Depending on how this affects ES perforamnce, reducing this structure might be valuable.
+
 ** Runtime checking for cycles in data structures
 
 check for n > 1 occurrences in DFS:
