@@ -188,14 +188,17 @@ unpackId :: DocId -> String
 unpackId (DocId docId) = docId
 
 type Boost = Double
+type TrackSortScores = Bool
+type From = Int
+type Size = Int
 
 data Search = Search { queryBody  :: Maybe Query
                      , filterBody :: Maybe Filter
                      , sortBody   :: Maybe Sort
                        -- default False
-                     , trackSortScores :: Bool
-                     , from :: Int
-                     , size :: Int} deriving (Eq, Show)
+                     , trackSortScores :: TrackSortScores
+                     , from :: From
+                     , size :: Size} deriving (Eq, Show)
 
 data Query = TermQuery Term (Maybe Boost)
            | ConstantScoreFilter Filter Boost

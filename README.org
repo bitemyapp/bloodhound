@@ -285,6 +285,29 @@ Right [Hit {hitIndex = IndexName "twitter"
 
 #+BEGIN_SRC haskell
 
+let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
+
+-- mkSort is a shortcut function that takes a FieldName and a SortOrder
+-- to generate a vanilla DefaultSort.
+-- checkt the DefaultSort type for the full list of customizable options.
+
+-- From and size are integers for pagination.
+
+-- When sorting on a field, scores are not computed. By setting TrackSortScores to true, scores will still be computed and tracked.
+
+-- type Sort = [SortSpec]
+-- type TrackSortScores = Bool
+-- type From = Int
+-- type Size = Int
+
+-- Search takes Maybe Query
+--              -> Maybe Filter
+--              -> Maybe Sort
+--              -> TrackSortScores
+--              -> From -> Size
+
+let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False 0 10
+
 #+END_SRC
 
 *** Filtering
