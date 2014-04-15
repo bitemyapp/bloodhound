@@ -7,7 +7,7 @@
 
 ** Why?
 
-Because you're tired of obnoxious errors like [[http://i.imgur.com/FKtZYIP.png][this]] and want types to guide your use of the API.
+Search doesn't have to be hard. Let the dog do it.
 
 ** Stability
 
