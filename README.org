@@ -7,7 +7,7 @@
 
 ** Why?
 
-Because you're tired of obnoxious errors like [this](http://i.imgur.com/FKtZYIP.png) and want types to guide your use of the API.
+Because you're tired of obnoxious errors like [[http://i.imgur.com/FKtZYIP.png][this]] and want types to guide your use of the API.
 
 ** Stability
 
