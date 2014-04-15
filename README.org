@@ -27,7 +27,7 @@ Bloodhound is alpha at the moment. The library works fine, but I don't want to m
 -- the multi-line examples into your ghci REPL.
 
 :set -XDeriveGeneric
-import Database.Bloodhound.Client
+import Database.Bloodhound
 import Data.Aeson
 import Data.Either (Either(..))
 import Data.Maybe (fromJust)
@@ -43,7 +43,7 @@ let testServer = (Server "http://localhost:9200")
 let testIndex = IndexName "twitter"
 let testMapping = MappingName "tweet"
 
--- defaultIndexSettings is exported by Database.Bloodhound.Client as well.
+-- defaultIndexSettings is exported by Database.Bloodhound as well
 let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 -- createIndex returns IO Reply
@@ -278,6 +278,12 @@ Right [Hit {hitIndex = IndexName "twitter"
                              , message = "Use haskell!"
                              , age = 10000
                              , location = Location {lat = 40.12, lon = -71.34}}}]
+
+#+END_SRC
+
+*** Sorting
+
+#+BEGIN_SRC haskell
 
 #+END_SRC
 

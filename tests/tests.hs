@@ -56,6 +56,14 @@ exampleTweet = Tweet { user     = "bitemyapp"
                      , age      = 10000
                      , location = Location 40.12 (-71.34) }
 
+otherTweet = Tweet { user     = "notmyapp"
+                   , postDate = UTCTime
+                                (ModifiedJulianDay 55000)
+                                (secondsToDiffTime 11)
+                   , message  = "Use haskell!"
+                   , age      = 1000
+                   , location = Location 40.12 (-71.34) }
+
 insertData :: IO ()
 insertData = do
   let encoded = encode exampleTweet
@@ -63,6 +71,12 @@ insertData = do
   created <- createExampleIndex
   mappingCreated <- createMapping testServer testIndex testMapping TweetMapping
   docCreated <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
+  _ <- refreshIndex testServer testIndex
+  return ()
+
+insertOther :: IO ()
+insertOther = do
+  docCreated <- indexDocument testServer testIndex testMapping otherTweet (DocId "2")
   _ <- refreshIndex testServer testIndex
   return ()
 
@@ -131,6 +145,19 @@ main = hspec $ do
       let search = mkSearch (Just query) (Just filter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
+
+  describe "sorting" $ do
+    it "returns documents in the right order" $ do
+      _ <- insertData
+      _ <- insertOther
+      let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
+      let search = Search Nothing
+                   (Just IdentityFilter) (Just [sortSpec])
+                   False 0 10
+      reply <- searchByIndex testServer testIndex search
+      let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+      let myTweet = fmap (hitSource . head . hits . searchHits) result
+      myTweet `shouldBe` Right otherTweet
 
   describe "filtering API" $ do
     it "returns document for composed boolmatch and identity" $ do

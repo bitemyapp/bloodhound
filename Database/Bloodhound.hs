@@ -21,6 +21,7 @@ module Database.Bloodhound
        , rangeToKV
        , showText
        , unpackId
+       , mkSort
        , Version(..)
        , Status(..)
        , Existence(..)

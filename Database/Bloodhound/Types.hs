@@ -6,6 +6,7 @@ module Database.Bloodhound.Types
        , halfRangeToKV
        , maybeJson
        , maybeJsonF
+       , mkSort
        , rangeToKV
        , showText
        , unpackId
@@ -162,6 +163,10 @@ data SortMode = SortMin
               | SortMax
               | SortSum
               | SortAvg deriving (Eq, Show)
+
+mkSort :: FieldName -> SortOrder -> DefaultSort
+mkSort fieldName sortOrder = DefaultSort fieldName sortOrder False Nothing Nothing Nothing
+
 type Cache     = Bool -- caching on/off
 defaultCache   = False
 
