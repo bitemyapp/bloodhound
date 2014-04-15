@@ -306,6 +306,7 @@ let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
 --              -> TrackSortScores
 --              -> From -> Size
 
+-- just add more sortspecs to the list if you want tie-breakers.
 let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False 0 10
 
 #+END_SRC
