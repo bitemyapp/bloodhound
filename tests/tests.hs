@@ -2,7 +2,7 @@
 
 module Main where
 
-import Database.Bloodhound.Client
+import Database.Bloodhound
 import Data.Aeson
 import Data.Either (Either(..))
 import Data.Maybe (fromJust)

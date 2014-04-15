@@ -17,7 +17,11 @@ cabal-version:       >=1.10
 
 library
   default-extensions:  OverloadedStrings
-  exposed-modules:     Database.Bloodhound.Client
+  exposed-modules:     Database.Bloodhound
+                       Database.Bloodhound.Client
+                       Database.Bloodhound.Types
+                       Database.Bloodhound.Types.Class
+                       Database.Bloodhound.Types.Instances
   build-depends:       base          >=4.3 && <5,
                        bytestring    >= 0.10,
                        transformers  >= 0.3,
