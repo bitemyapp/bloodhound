@@ -25,10 +25,16 @@ import Data.Text (Text)
 import Network.HTTP.Conduit
 import qualified Network.HTTP.Types.Method as NHTM
 import qualified Network.HTTP.Types.Status as NHTS
+import Prelude hiding (head)
 
 import Database.Bloodhound.Types
 import Database.Bloodhound.Types.Class
 import Database.Bloodhound.Types.Instances
+
+-- find way to avoid destructuring Servers and Indexes?
+-- make get, post, put, delete helpers.
+-- make dispatch take URL last for better variance and
+-- utilization of partial application
 
 mkShardCount :: Int -> Maybe ShardCount
 mkShardCount n
@@ -47,9 +53,9 @@ responseIsError resp = NHTS.statusCode (responseStatus resp) > 299
 
 emptyBody = L.pack ""
 
-dispatch :: String -> Method -> Maybe L.ByteString
+dispatch :: Method -> String -> Maybe L.ByteString
             -> IO Reply
-dispatch url method body = do
+dispatch method url body = do
   initReq <- parseUrl url
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
   let req = initReq { method = method
@@ -60,6 +66,16 @@ dispatch url method body = do
 joinPath :: [String] -> String
 joinPath = intercalate "/"
 
+delete = flip (dispatch NHTM.methodDelete) $ Nothing
+get    = flip (dispatch NHTM.methodGet) $ Nothing
+head   = flip (dispatch NHTM.methodHead) $ Nothing
+put    = dispatch NHTM.methodPost
+post   = dispatch NHTM.methodPost
+
+-- indexDocument s ix name doc = put (root </> s </> ix </> name </> doc) (Just encode doc)
+-- http://hackage.haskell.org/package/http-client-lens-0.1.0/docs/Network-HTTP-Client-Lens.html
+-- https://github.com/supki/libjenkins/blob/master/src/Jenkins/Rest/Internal.hs
+
 getStatus :: Server -> IO (Maybe (Status Version))
 getStatus (Server server) = do
   request <- parseUrl $ joinPath [server]
@@ -68,36 +84,31 @@ getStatus (Server server) = do
 
 createIndex :: Server -> IndexSettings -> IndexName -> IO Reply
 createIndex (Server server) indexSettings (IndexName indexName) =
-  dispatch url method body where
-    url = joinPath [server, indexName]
-    method = NHTM.methodPut
-    body = Just $ encode indexSettings
+  put url body
+  where url = joinPath [server, indexName]
+        body = Just $ encode indexSettings
 
 deleteIndex :: Server -> IndexName -> IO Reply
 deleteIndex (Server server) (IndexName indexName) =
-  dispatch url method body where
-    url = joinPath [server, indexName]
-    method = NHTM.methodDelete
-    body = Nothing
+  delete $ joinPath [server, indexName]
 
 respIsTwoHunna :: Reply -> Bool
 respIsTwoHunna resp = NHTS.statusCode (responseStatus resp) == 200
 
 existentialQuery url = do
-  reply <- dispatch url NHTM.methodHead Nothing
+  reply <- head url
   return (reply, respIsTwoHunna reply)
 
 indexExists :: Server -> IndexName -> IO Bool
 indexExists (Server server) (IndexName indexName) = do
   (reply, exists) <- existentialQuery url
-  return exists where
-    url = joinPath [server, indexName]
+  return exists
+  where url = joinPath [server, indexName]
 
 refreshIndex :: Server -> IndexName -> IO Reply
-refreshIndex (Server server) (IndexName indexName) = dispatch url method body where
-  url = joinPath [server, indexName, "_refresh"]
-  method = NHTM.methodPost
-  body = Nothing
+refreshIndex (Server server) (IndexName indexName) =
+  post url Nothing
+  where url = joinPath [server, indexName, "_refresh"]
 
 stringifyOCIndex oci = case oci of
   OpenIndex  -> "_open"
@@ -105,11 +116,9 @@ stringifyOCIndex oci = case oci of
 
 openOrCloseIndexes :: OpenCloseIndex -> Server -> IndexName -> IO Reply
 openOrCloseIndexes oci (Server server) (IndexName indexName) =
-  dispatch url method body where
-    ociString = stringifyOCIndex oci
-    url = joinPath [server, indexName, ociString]
-    method = NHTM.methodPost
-    body = Nothing
+  post url Nothing
+  where ociString = stringifyOCIndex oci
+        url = joinPath [server, indexName, ociString]
 
 openIndex :: Server -> IndexName -> IO Reply
 openIndex = openOrCloseIndexes OpenIndex
@@ -120,40 +129,31 @@ closeIndex = openOrCloseIndexes CloseIndex
 createMapping :: ToJSON a => Server -> IndexName
                  -> MappingName -> a -> IO Reply
 createMapping (Server server) (IndexName indexName) (MappingName mappingName) mapping =
-  dispatch url method body where
-    url = joinPath [server, indexName, mappingName, "_mapping"]
-    method = NHTM.methodPut
-    body = Just $ encode mapping
+  put url body
+  where url = joinPath [server, indexName, mappingName, "_mapping"]
+        body = Just $ encode mapping
 
 deleteMapping :: Server -> IndexName -> MappingName -> IO Reply
 deleteMapping (Server server) (IndexName indexName) (MappingName mappingName) =
-  dispatch url method body where
-    url = joinPath [server, indexName, mappingName, "_mapping"]
-    method = NHTM.methodDelete
-    body = Nothing
+  delete $ joinPath [server, indexName, mappingName, "_mapping"]
 
 indexDocument :: ToJSON doc => Server -> IndexName -> MappingName
                  -> doc -> DocId -> IO Reply
 indexDocument (Server server) (IndexName indexName)
   (MappingName mappingName) document (DocId docId) =
-  dispatch url method body where
-    url = joinPath [server, indexName, mappingName, docId]
-    method = NHTM.methodPut
-    body = Just (encode document)
+  put url body
+  where url = joinPath [server, indexName, mappingName, docId]
+        body = Just (encode document)
 
 deleteDocument :: Server -> IndexName -> MappingName
                   -> DocId -> IO Reply
 deleteDocument (Server server) (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
-  dispatch url method body where
-    url = joinPath [server, indexName, mappingName, docId]
-    method = NHTM.methodDelete
-    body = Nothing
+  delete $ joinPath [server, indexName, mappingName, docId]
 
 bulk :: Server -> [BulkOperation] -> IO Reply
-bulk (Server server) bulkOps = dispatch url method body where
+bulk (Server server) bulkOps = post url body where
   url = joinPath [server, "_bulk"]
-  method = NHTM.methodPost
   body = Just $ collapseStream bulkOps
 
 collapseStream :: [BulkOperation] -> L.ByteString
@@ -201,20 +201,18 @@ getStreamChunk (BulkUpdate (IndexName indexName)
 getDocument :: Server -> IndexName -> MappingName
                -> DocId -> IO Reply
 getDocument (Server server) (IndexName indexName) (MappingName mappingName) (DocId docId) =
-  dispatch url method body where
-    url = joinPath [server, indexName, mappingName, docId]
-    method = NHTM.methodGet
-    body = Nothing
+  get $ joinPath [server, indexName, mappingName, docId]
 
 documentExists :: Server -> IndexName -> MappingName
                   -> DocId -> IO Bool
-documentExists (Server server) (IndexName indexName) (MappingName mappingName) (DocId docId) = do
+documentExists (Server server) (IndexName indexName)
+  (MappingName mappingName) (DocId docId) = do
   (reply, exists) <- existentialQuery url
   return exists where
     url = joinPath [server, indexName, mappingName, docId]
 
 dispatchSearch :: String -> Search -> IO Reply
-dispatchSearch url search = dispatch url NHTM.methodPost (Just (encode search))
+dispatchSearch url search = post url (Just (encode search))
 
 searchAll :: Server -> Search -> IO Reply
 searchAll (Server server) search = dispatchSearch url search where

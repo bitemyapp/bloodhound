@@ -174,20 +174,32 @@ type PrefixValue = Text
 
 data BooleanOperator = And | Or deriving (Eq, Show)
 
-newtype IndexName   = IndexName String deriving (Eq, Generic, Show)
-newtype MappingName = MappingName String deriving (Eq, Generic, Show)
-newtype DocId       = DocId String deriving (Eq, Generic, Show)
-newtype QueryString = QueryString Text deriving (Eq, Show)
-newtype FieldName   = FieldName Text deriving (Eq, Show)
-newtype CacheName   = CacheName Text deriving (Eq, Show)
-newtype CacheKey    = CacheKey  Text deriving (Eq, Show)
-newtype Existence   = Existence Bool deriving (Eq, Show)
-newtype NullValue   = NullValue Bool deriving (Eq, Show)
+newtype IndexName           = IndexName String deriving (Eq, Generic, Show)
+newtype MappingName         = MappingName String deriving (Eq, Generic, Show)
+newtype DocId               = DocId String deriving (Eq, Generic, Show)
+newtype QueryString         = QueryString Text deriving (Eq, Show)
+newtype FieldName           = FieldName Text deriving (Eq, Show)
+newtype CacheName           = CacheName Text deriving (Eq, Show)
+newtype CacheKey            = CacheKey  Text deriving (Eq, Show)
+newtype Existence           = Existence Bool deriving (Eq, Show)
+newtype NullValue           = NullValue Bool deriving (Eq, Show)
+newtype CutoffFrequency     = CutoffFrequency Double deriving (Eq, Show)
+newtype Analyzer            = Analyzer Text deriving (Eq, Show)
+newtype MaxExpansions       = MaxExpansions Int deriving (Eq, Show)
+newtype Lenient             = Lenient Bool deriving (Eq, Show)
+newtype Tiebreaker          = Tiebreaker Double deriving (Eq, Show)
+newtype Boost               = Boost Double deriving (Eq, Show)
+newtype MinimumMatch        = MinimumMatch Int deriving (Eq, Show)
+newtype MinimumMatchText    = MinimumMatchText Text deriving (Eq, Show)
+newtype DisableCoord        = DisableCoord Bool deriving (Eq, Show)
+newtype IgnoreTermFrequency = IgnoreTermFrequency Bool deriving (Eq, Show)
+newtype MaxQueryTerms       = MaxQueryTerms Int deriving (Eq, Show)
+newtype Fuzziness           = Fuzziness Double deriving (Eq, Show)
+newtype PrefixLength        = PrefixLength Int deriving (Eq, Show)
 
 unpackId :: DocId -> String
 unpackId (DocId docId) = docId
 
-type Boost = Double
 type TrackSortScores = Bool
 type From = Int
 type Size = Int
@@ -198,12 +210,120 @@ data Search = Search { queryBody  :: Maybe Query
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from :: From
-                     , size :: Size} deriving (Eq, Show)
+                     , size :: Size } deriving (Eq, Show)
 
-data Query = TermQuery Term (Maybe Boost)
-           | ConstantScoreFilter Filter Boost
-           | ConstantScoreQuery  Query  Boost
+data Query = TermQuery                Term (Maybe Boost)
+           | QueryMatchQuery          MatchQuery
+           | QueryMultiMatchQuery     MultiMatchQuery
+           | QueryBoolQuery           BoolQuery
+           | QueryBoostingQuery       BoostingQuery
+           | QueryCommonTermsQuery    CommonTermsQuery
+           | ConstantScoreFilter      Filter Boost
+           | ConstantScoreQuery       Query  Boost
+           | QueryDisMaxQuery         DisMaxQuery
+           | QueryFilteredQuery       FilteredQuery
+           | QueryFuzzyLikeThisQuery  FuzzyLikeThisQuery
+           | QueryFuzzyLikeFieldQuery FuzzyLikeFieldQuery
+           | QueryFunctionScoreQuery  FunctionScoreQuery
              deriving (Eq, Show)
+
+data FuzzyLikeFieldQuery =
+  FuzzyLikeFieldQuery { fuzzyLikeField                    :: FieldName
+                        -- anaphora is good for the soul.
+                      , fuzzyLikeFieldText                :: Text
+                      , fuzzyLikeFieldMaxQueryTerms       :: MaxQueryTerms
+                      , fuzzyLikeFieldIgnoreTermFrequency :: IgnoreTermFrequency
+                      , fuzzyLikeFieldFuzziness           :: Fuzziness
+                      , fuzzyLikeFieldPrefixLength        :: PrefixLength
+                      , fuzzyLikeFieldBoost               :: Boost
+                      , fuzzyLikeFieldAnalyzer            :: Maybe Analyzer
+                      } deriving (Eq, Show)
+
+data FuzzyLikeThisQuery =
+  FuzzyLikeThisQuery { fuzzyLikeFields              :: [FieldName]
+                     , fuzzyLikeText                :: Text
+                     , fuzzyLikeMaxQueryTerms       :: MaxQueryTerms
+                     , fuzzyLikeIgnoreTermFrequency :: IgnoreTermFrequency
+                     , fuzzyLikeFuzziness           :: Fuzziness
+                     , fuzzyLikePrefixLength        :: PrefixLength
+                     , fuzzyLikeBoost               :: Boost
+                     , fuzzyLikeAnalyzer            :: Maybe Analyzer
+                     } deriving (Eq, Show)
+
+data FilteredQuery =
+  FilteredQuery { filteredQuery  :: Query
+                , filteredFilter :: Filter } deriving (Eq, Show)
+
+data DisMaxQuery = DisMaxQuery { disMaxQueries    :: [Query]
+                                 -- default 0.0
+                               , disMaxTiebreaker :: Tiebreaker
+                               , disMaxBoost      :: Maybe Boost
+                               } deriving (Eq, Show)
+data MatchQuery =
+  MatchQuery { matchQueryField           :: FieldName
+             , matchQueryQueryString     :: QueryString
+             , matchQueryOperator        :: BooleanOperator
+             , matchQueryZeroTerms       :: ZeroTermsQuery
+             , matchQueryCutoffFrequency :: Maybe CutoffFrequency
+             , matchQueryMatchType       :: Maybe MatchQueryType
+             , matchQueryAnalyzer        :: Maybe Analyzer
+             , matchQueryMaxExpansions   :: Maybe MaxExpansions
+             , matchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
+
+mkMatchQuery :: FieldName -> QueryString -> MatchQuery
+mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing
+
+data MatchQueryType = MatchPhrase
+                    | MatchPhrasePrefix deriving (Eq, Show)
+
+data MultiMatchQuery =
+  MultiMatchQuery { multiMatchQueryFields          :: [FieldName]
+                  , multiMatchQueryString          :: QueryString
+                  , multiMatchQueryOperator        :: BooleanOperator
+                  , multiMatchQueryZeroTerms       :: ZeroTermsQuery
+                  , multiMatchQueryTiebreaker      :: Maybe Tiebreaker
+                  , multiMatchQueryType            :: Maybe MultiMatchQueryType
+                  , multiMatchQueryCutoffFrequency :: Maybe CutoffFrequency
+                  , multiMatchQueryAnalyzer        :: Maybe Analyzer
+                  , multiMatchQueryMaxExpansions   :: Maybe MaxExpansions
+                  , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
+
+data MultiMatchQueryType = MultiMatchBestFields
+                         | MultiMatchMostFields
+                         | MultiMatchCrossFields
+                         | MultiMatchPhrase
+                         | MultiMatchPhrasePrefix deriving (Eq, Show)
+
+data BoolQuery = BoolQuery { boolQueryMustMatch          :: Maybe Query
+                           , boolQueryMustNotMatch       :: Maybe Query
+                           , boolQueryShouldMatch        :: Maybe [Query]
+                           , boolQueryMinimumShouldMatch :: Maybe MinimumMatch
+                           , boolQueryBoost              :: Maybe Boost
+                           , boolQueryDisableCoord       :: Maybe DisableCoord
+                           } deriving (Eq, Show)
+
+data BoostingQuery = BoostingQuery { positiveQuery :: Maybe Query
+                                   , negativeQuery :: Maybe Query
+                                   , positiveBoost :: Maybe Boost
+                                   , negativeBoost :: Maybe Boost } deriving (Eq, Show)
+
+data CommonTermsQuery =
+  CommonTermsQuery { commonQuery              :: QueryString
+                   , commonCutoffFrequency    :: CutoffFrequency
+                   , commonLowFreqOperator    :: BooleanOperator
+                   , commonHighFreqOperator   :: BooleanOperator
+                   , commonMinimumShouldMatch :: Maybe CommonMinimumMatch
+                   , commonBoost              :: Maybe Boost
+                   , commonAnalyzer           :: Maybe Analyzer
+                   , commonDisableCoord       :: Maybe DisableCoord
+                   } deriving (Eq, Show)
+
+data CommonMinimumMatch = CommonMinimumMatchHighLow MinimumMatchHighLow
+                        | CommonMinimumMatch MinimumMatchText deriving (Eq, Show)
+
+data MinimumMatchHighLow =
+  MinimumMatchHighLow { lowFreq :: MinimumMatch
+                      , highFreq :: MinimumMatch } deriving (Eq, Show)
 
 data Filter = AndFilter [Filter] Cache
             | OrFilter  [Filter] Cache
@@ -222,6 +342,8 @@ data Filter = AndFilter [Filter] Cache
             | RangeFilter   FieldName (Either HalfRange Range) RangeExecution Cache
             | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
               deriving (Eq, Show)
+
+data ZeroTermsQuery = ZeroTermsNone | ZeroTermsAll deriving (Eq, Show)
 
 -- lt, lte | gt, gte
 newtype LessThan      = LessThan      Double deriving (Eq, Show)
