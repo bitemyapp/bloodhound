@@ -509,6 +509,10 @@ let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
 
 * Possible future functionality
 
+** Function Score Query
+
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html
+
 ** Node discovery and failover
 
 Might require TCP support.

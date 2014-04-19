@@ -224,8 +224,16 @@ data Query = TermQuery                Term (Maybe Boost)
            | QueryFilteredQuery       FilteredQuery
            | QueryFuzzyLikeThisQuery  FuzzyLikeThisQuery
            | QueryFuzzyLikeFieldQuery FuzzyLikeFieldQuery
-           | QueryFunctionScoreQuery  FunctionScoreQuery
+           | QueryFuzzyQuery          FuzzyQuery
              deriving (Eq, Show)
+
+data FuzzyQuery = FuzzyQuery { fuzzyQueryField         :: FieldName
+                             , fuzzyQueryValue         :: Text
+                             , fuzzyQueryPrefixLength  :: PrefixLength
+                             , fuzzyQueryMaxExpansions :: MaxExpansions
+                             , fuzzyQueryFuzziness     :: Fuzziness
+                             , fuzzyQueryBoost         :: Maybe Boost
+                             } deriving (Eq, Show)
 
 data FuzzyLikeFieldQuery =
   FuzzyLikeFieldQuery { fuzzyLikeField                    :: FieldName
