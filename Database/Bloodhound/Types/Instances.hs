@@ -153,8 +153,8 @@ mField field = fmap ((field .=) . toJSON)
 
 instance ToJSON BoostingQuery where
   toJSON (BoostingQuery positiveQuery negativeQuery negativeBoost) =
-    object [ "positive" .= toJSON positiveQuery
-           , "negative" .= toJSON negativeQuery
+    object [ "positive"       .= toJSON positiveQuery
+           , "negative"       .= toJSON negativeQuery
            , "negative_boost" .= toJSON negativeBoost ]
 
 
