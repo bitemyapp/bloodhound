@@ -164,6 +164,14 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for multi-match query" $ do
+      _ <- insertData
+      let fields = [FieldName "user", FieldName "message"]
+      let query = QueryMultiMatchQuery $ mkMultiMatchQuery fields (QueryString "bitemyapp")
+      let search = mkSearch (Just query) Nothing
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
   describe "sorting" $ do
     it "returns documents in the right order" $ do
       _ <- insertData

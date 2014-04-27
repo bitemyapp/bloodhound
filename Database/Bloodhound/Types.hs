@@ -11,6 +11,7 @@ module Database.Bloodhound.Types
        , showText
        , unpackId
        , mkMatchQuery
+       , mkMultiMatchQuery
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -95,6 +96,8 @@ module Database.Bloodhound.Types
        , MaxExpansions(..)
        , Lenient(..)
        , MatchQueryType(..)
+       , MultiMatchQueryType(..)
+       , Tiebreaker(..)
          ) where
 
 import Data.Aeson
@@ -167,7 +170,7 @@ data EsResult a = EsResult { _index   :: Text
 type Sort = [SortSpec]
 
 data SortSpec = DefaultSortSpec DefaultSort
-              | GeoDistanceSortSpec SortOrder GeoPoint deriving (Eq, Show)
+              | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Show)
 
 data DefaultSort =
   DefaultSort { sortFieldName  :: FieldName
@@ -216,7 +219,7 @@ newtype CutoffFrequency          = CutoffFrequency Double deriving (Eq, Show, Ge
 newtype Analyzer                 = Analyzer Text deriving (Eq, Show, Generic)
 newtype MaxExpansions            = MaxExpansions Int deriving (Eq, Show, Generic)
 newtype Lenient                  = Lenient Bool deriving (Eq, Show, Generic)
-newtype Tiebreaker               = Tiebreaker Double deriving (Eq, Show)
+newtype Tiebreaker               = Tiebreaker Double deriving (Eq, Show, Generic)
 newtype Boost                    = Boost Double deriving (Eq, Show, Generic)
 newtype BoostTerms               = BoostTerms Double deriving (Eq, Show)
 newtype MinimumMatch             = MinimumMatch Int deriving (Eq, Show)
@@ -494,6 +497,10 @@ data MultiMatchQuery =
                   , multiMatchQueryMaxExpansions   :: Maybe MaxExpansions
                   , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
 
+mkMultiMatchQuery :: [FieldName] -> QueryString -> MultiMatchQuery
+mkMultiMatchQuery fields query =
+  MultiMatchQuery fields query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing
+
 data MultiMatchQueryType = MultiMatchBestFields
                          | MultiMatchMostFields
                          | MultiMatchCrossFields
@@ -666,9 +673,12 @@ data ShardResult =
               , shardsSuccessful :: Int
               , shardsFailed     :: Int } deriving (Eq, Show, Generic)
 
--- defaultFieldMaybeJSON :: Text -> Maybe a -> 
+maybeJson ToJSON a => Text -> Maybe a -> [Data.Aeson.Types.Internal.Pair]
 maybeJson field (Just value) = [field .= toJSON value]
 maybeJson _ _ = []
+
+maybeJsonF :: (ToJSON (f Value), ToJSON a, Functor f) =>
+             Text -> Maybe (f a) -> [Data.Aeson.Types.Internal.Pair]
 maybeJsonF field (Just value) = [field .= fmap toJSON value]
 maybeJsonF _ _ = []
 

@@ -137,6 +137,8 @@ instance ToJSON Query where
   toJSON (QueryMatchQuery matchQuery) =
     object ["match" .= toJSON matchQuery]
 
+  toJSON (QueryMultiMatchQuery multiMatchQuery) =
+    object ["multi_match" .= toJSON multiMatchQuery]
 
 instance ToJSON MatchQuery where
   toJSON (MatchQuery (FieldName fieldName)
@@ -155,6 +157,29 @@ instance ToJSON MatchQuery where
                                  , f "max_expansions" maxExpansions
                                  , f "lenient" lenient ]
 
+instance ToJSON MultiMatchQuery where
+  toJSON (MultiMatchQuery fields (QueryString query) boolOp
+          ztQ tb mmqt cf analyzer maxEx lenient) =
+    object ["multi_match" .= object conjoined]
+    where baseQuery = [ "fields" .= fmap toJSON fields
+                      , "query" .= query
+                      , "operator" .= toJSON boolOp
+                      , "zero_terms_query" .= toJSON ztQ ]
+          f field = fmap ((field .=) . toJSON)
+          maybeAdd = catMaybes [ f "tiebreaker" tb
+                               , f "type" mmqt
+                               , f "cutoff_frequency" cf
+                               , f "analyzer" analyzer
+                               , f "max_expansions" maxEx
+                               , f "lenient" lenient ]
+          conjoined = baseQuery ++ maybeAdd
+
+instance ToJSON MultiMatchQueryType where
+  toJSON MultiMatchBestFields = "best_fields"
+  toJSON MultiMatchMostFields = "most_fields"
+  toJSON MultiMatchCrossFields = "cross_fields"
+  toJSON MultiMatchPhrase = "phrase"
+  toJSON MultiMatchPhrasePrefix = "phrase_prefix"
 
 instance ToJSON BooleanOperator where
   toJSON And = String "and"
@@ -168,6 +193,9 @@ instance ToJSON MatchQueryType where
   toJSON MatchPhrase = "phrase"
   toJSON MatchPhrasePrefix = "phrase_prefix"
 
+instance ToJSON FieldName where
+  toJSON (FieldName fieldName) = String fieldName
+
 instance ToJSON ReplicaCount
 instance ToJSON ShardCount
 instance ToJSON CutoffFrequency
@@ -176,6 +204,7 @@ instance ToJSON MaxExpansions
 instance ToJSON Lenient
 instance ToJSON Boost
 instance ToJSON Version
+instance ToJSON Tiebreaker
 instance FromJSON Version
 instance FromJSON IndexName
 instance FromJSON MappingName
@@ -232,6 +261,11 @@ instance ToJSON SortSpec where
       lMissingSort = maybeJson "missing" missingSort
       lNestedFilter = maybeJson "nested_filter" nestedFilter
       merged = mconcat [base, lSortMode, lMissingSort, lNestedFilter]
+
+  toJSON (GeoDistanceSortSpec sortOrder (GeoPoint (FieldName field) latLon) units) =
+    object [ "unit" .= toJSON units
+           , field .= toJSON latLon
+           , "order" .= toJSON sortOrder ]
 
 
 instance ToJSON SortOrder where
