@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Database.Bloodhound.Types.Instances
        ( Monoid(..)
        , Seminearring(..)
@@ -6,6 +8,7 @@ module Database.Bloodhound.Types.Instances
 
 import Control.Applicative
 import Data.Aeson
+import Data.Maybe (catMaybes)
 import Data.Monoid
 import qualified Data.Text as T
 import Database.Bloodhound.Types
@@ -119,6 +122,7 @@ instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoField) latLon) =
     object [geoField  .= toJSON latLon]
 
+
 instance ToJSON Query where
   toJSON (TermQuery (Term termField termValue) boost) =
     object ["term" .=
@@ -130,10 +134,55 @@ instance ToJSON Query where
         Nothing           -> []
       merged = mappend base boosted
 
+  toJSON (QueryMatchQuery matchQuery) =
+    object ["match" .= toJSON matchQuery]
+
+
+instance ToJSON MatchQuery where
+  toJSON (MatchQuery (FieldName fieldName)
+          (QueryString queryString) booleanOperator
+          zeroTermsQuery cutoffFrequency matchQueryType
+          analyzer maxExpansions lenient) =
+    object [ fieldName .= object conjoined ]
+    where conjoined = [ "query" .= queryString
+                      , "operator" .= toJSON booleanOperator
+                      , "zero_terms_query" .= toJSON zeroTermsQuery]
+                      ++ maybeAdd
+          f field = fmap ((field .=) . toJSON)
+          maybeAdd   = catMaybes [ f "cutoff_frequency" cutoffFrequency
+                                 , f "type" matchQueryType
+                                 , f "analyzer" analyzer
+                                 , f "max_expansions" maxExpansions
+                                 , f "lenient" lenient ]
+
+
+instance ToJSON BooleanOperator where
+  toJSON And = String "and"
+  toJSON Or = String "or"
+
+instance ToJSON ZeroTermsQuery where
+  toJSON ZeroTermsNone = String "none"
+  toJSON ZeroTermsAll  = String "all"
+
+instance ToJSON MatchQueryType where
+  toJSON MatchPhrase = "phrase"
+  toJSON MatchPhrasePrefix = "phrase_prefix"
+
+instance ToJSON ReplicaCount
+instance ToJSON ShardCount
+instance ToJSON CutoffFrequency
+instance ToJSON Analyzer
+instance ToJSON MaxExpansions
+instance ToJSON Lenient
+instance ToJSON Boost
 instance ToJSON Version
 instance FromJSON Version
+instance FromJSON IndexName
+instance FromJSON MappingName
+instance FromJSON DocId
 
-instance (FromJSON a, ToJSON a) => FromJSON (Status a) where
+
+instance (FromJSON a) => FromJSON (Status a) where
   parseJSON (Object v) = Status <$>
                          v .: "ok" <*>
                          v .: "status" <*>
@@ -142,13 +191,12 @@ instance (FromJSON a, ToJSON a) => FromJSON (Status a) where
                          v .: "tagline"
   parseJSON _          = empty
 
+
 instance ToJSON IndexSettings where
   toJSON (IndexSettings s r) = object ["settings" .= object ["shards" .= s, "replicas" .= r]]
 
-instance ToJSON ReplicaCount
-instance ToJSON ShardCount
 
-instance (FromJSON a, ToJSON a) => FromJSON (EsResult a) where
+instance (FromJSON a) => FromJSON (EsResult a) where
   parseJSON (Object v) = EsResult <$>
                          v .:  "_index"   <*>
                          v .:  "_type"    <*>
@@ -157,6 +205,7 @@ instance (FromJSON a, ToJSON a) => FromJSON (EsResult a) where
                          v .:? "found"    <*>
                          v .:  "_source"
   parseJSON _          = empty
+
 
 instance ToJSON Search where
   toJSON (Search query filter sort trackSortScores from size) =
@@ -171,6 +220,7 @@ instance ToJSON Search where
                         , lFilter
                         , lSort]
 
+
 instance ToJSON SortSpec where
   toJSON (DefaultSortSpec
           (DefaultSort (FieldName sortFieldName) sortOrder ignoreUnmapped
@@ -183,9 +233,11 @@ instance ToJSON SortSpec where
       lNestedFilter = maybeJson "nested_filter" nestedFilter
       merged = mconcat [base, lSortMode, lMissingSort, lNestedFilter]
 
+
 instance ToJSON SortOrder where
   toJSON Ascending  = String "asc"      
   toJSON Descending = String "desc"
+
 
 instance ToJSON SortMode where
   toJSON SortMin = String "min"
@@ -193,14 +245,12 @@ instance ToJSON SortMode where
   toJSON SortSum = String "sum"
   toJSON SortAvg = String "avg"
 
+
 instance ToJSON Missing where
   toJSON LastMissing = String "_last"
   toJSON FirstMissing = String "_first"
   toJSON (CustomMissing txt) = String txt
 
-instance FromJSON IndexName
-instance FromJSON MappingName
-instance FromJSON DocId
 
 instance ToJSON Distance where
   toJSON (Distance coefficient unit) =
@@ -208,6 +258,7 @@ instance ToJSON Distance where
       coefText = showText coefficient
       (String unitText) = (toJSON unit)
       boltedTogether = mappend coefText unitText
+
 
 instance ToJSON DistanceUnit where
   toJSON Miles         = String "mi"
@@ -220,55 +271,55 @@ instance ToJSON DistanceUnit where
   toJSON Millimeters   = String "mm"
   toJSON NauticalMiles = String "nmi"
 
+
 instance ToJSON DistanceType where
   toJSON Arc       = String "arc"
   toJSON SloppyArc = String "sloppy_arc"
   toJSON Plane     = String "plane"
 
+
 instance ToJSON OptimizeBbox where
   toJSON NoOptimizeBbox = String "none"
   toJSON (OptimizeGeoFilterType gft) = toJSON gft
+
 
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON (GeoBoundingBoxConstraint (FieldName geoBBField) constraintBox cache) =
     object [geoBBField .= toJSON constraintBox
            , "_cache"  .= cache]
 
+
 instance ToJSON GeoFilterType where
   toJSON GeoFilterMemory  = String "memory"
   toJSON GeoFilterIndexed = String "indexed"
+
 
 instance ToJSON GeoBoundingBox where
   toJSON (GeoBoundingBox topLeft bottomRight) =
     object ["top_left"      .= toJSON topLeft
            , "bottom_right" .= toJSON bottomRight]
 
+
 instance ToJSON LatLon where
   toJSON (LatLon lat lon) =
     object ["lat"  .= lat
            , "lon" .= lon]
+
 
 -- index for smaller ranges, fielddata for longer ranges
 instance ToJSON RangeExecution where
   toJSON RangeExecutionIndex     = "index"
   toJSON RangeExecutionFielddata = "fielddata"
 
+
 instance ToJSON RegexpFlags where
-  toJSON RegexpAll             = String "ALL"
-  toJSON Complement            = String "COMPLEMENT"
-  toJSON Interval              = String "INTERVAL"
-  toJSON Intersection          = String "INTERSECTION"
-  toJSON AnyString             = String "ANYSTRING"
-  toJSON CompInterval          = String "COMPLEMENT|INTERVAL"
-  toJSON CompIntersection      = String "COMPLEMENT|INTERSECTION"
-  toJSON CompAnyString         = String "COMPLEMENT|ANYSTRING"
-  toJSON IntervalIntersection  = String "INTERVAL|INTERSECTION"
-  toJSON IntervalAnyString     = String "INTERVAL|ANYSTRING"
-  toJSON IntersectionAnyString = String "INTERSECTION|ANYSTRING"
+  toJSON (RegexpFlags txt) = String txt
+
 
 instance ToJSON Term where
   toJSON (Term field value) = object ["term" .= object
                                       [field .= value]]
+
 
 instance ToJSON BoolMatch where
   toJSON (MustMatch    term  cache) = object ["must"     .= toJSON term,
@@ -278,7 +329,8 @@ instance ToJSON BoolMatch where
   toJSON (ShouldMatch  terms cache) = object ["should"   .= fmap toJSON terms,
                                               "_cache" .= cache]
 
-instance (FromJSON a, ToJSON a) => FromJSON (SearchResult a) where
+
+instance (FromJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) = SearchResult <$>
                          v .: "took"      <*>
                          v .: "timed_out" <*>
@@ -286,14 +338,14 @@ instance (FromJSON a, ToJSON a) => FromJSON (SearchResult a) where
                          v .: "hits"
   parseJSON _          = empty
 
-instance (FromJSON a, ToJSON a) => FromJSON (SearchHits a) where
+instance (FromJSON a) => FromJSON (SearchHits a) where
   parseJSON (Object v) = SearchHits <$>
                          v .: "total"     <*>
                          v .: "max_score" <*>
                          v .: "hits"
   parseJSON _          = empty
 
-instance (FromJSON a, ToJSON a) => FromJSON (Hit a) where
+instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
                          v .: "_index" <*>
                          v .: "_type"  <*>

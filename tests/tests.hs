@@ -4,25 +4,32 @@ module Main where
 
 import Database.Bloodhound
 import Data.Aeson
-import Data.Either (Either(..))
-import Data.Maybe (fromJust)
+-- import Data.Aeson.Encode.Pretty
+-- import Data.ByteString.Lazy.Char8 (putStrLn)
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Network.HTTP.Conduit
 import qualified Network.HTTP.Types.Status as NHTS
+import Prelude hiding (filter, putStrLn)
 import Test.Hspec
 
+testServer  :: Server
 testServer  = Server "http://localhost:9200"
+testIndex   :: IndexName
 testIndex   = IndexName "twitter"
+testMapping :: MappingName
 testMapping = MappingName "tweet"
 
+validateStatus :: Response body -> Int -> Expectation
 validateStatus resp expected =
   (NHTS.statusCode $ responseStatus resp)
   `shouldBe` (expected :: Int)
 
+createExampleIndex :: IO Reply
 createExampleIndex = createIndex testServer defaultIndexSettings testIndex
+deleteExampleIndex :: IO Reply
 deleteExampleIndex = deleteIndex testServer testIndex
 
 data Location = Location { lat :: Double
@@ -48,6 +55,7 @@ instance ToJSON TweetMapping where
             object ["properties" .=
                     object ["location" .= object ["type" .= ("geo_point" :: Text)]]]]
 
+exampleTweet :: Tweet
 exampleTweet = Tweet { user     = "bitemyapp"
                      , postDate = UTCTime
                                   (ModifiedJulianDay 55000)
@@ -56,6 +64,7 @@ exampleTweet = Tweet { user     = "bitemyapp"
                      , age      = 10000
                      , location = Location 40.12 (-71.34) }
 
+otherTweet :: Tweet
 otherTweet = Tweet { user     = "notmyapp"
                    , postDate = UTCTime
                                 (ModifiedJulianDay 55000)
@@ -66,17 +75,16 @@ otherTweet = Tweet { user     = "notmyapp"
 
 insertData :: IO ()
 insertData = do
-  let encoded = encode exampleTweet
   _ <- deleteExampleIndex
-  created <- createExampleIndex
-  mappingCreated <- createMapping testServer testIndex testMapping TweetMapping
-  docCreated <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
+  _ <- createExampleIndex
+  _ <- createMapping testServer testIndex testMapping TweetMapping
+  _ <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
   _ <- refreshIndex testServer testIndex
   return ()
 
 insertOther :: IO ()
 insertOther = do
-  docCreated <- indexDocument testServer testIndex testMapping otherTweet (DocId "2")
+  _ <- indexDocument testServer testIndex testMapping otherTweet (DocId "2")
   _ <- refreshIndex testServer testIndex
   return ()
 
@@ -110,6 +118,7 @@ main = hspec $ do
       validateStatus resp 200
       validateStatus deleteResp 200
 
+
   describe "document API" $ do
     it "indexes, gets, and then deletes the generated document" $ do
       _ <- insertData
@@ -117,6 +126,7 @@ main = hspec $ do
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
       fmap _source newTweet `shouldBe` Right exampleTweet
+
 
   describe "bulk API" $ do
     it "inserts all documents we request" $ do
@@ -128,7 +138,7 @@ main = hspec $ do
       let secondDoc = BulkCreate (IndexName "twitter")
                      (MappingName "tweet") (DocId "3") (object ["name" .= String "bloo"])
       let stream = [firstDoc, secondDoc]
-      response <- bulk testServer stream
+      _ <- bulk testServer stream
       _ <- refreshIndex testServer testIndex
       fDoc <- getDocument testServer testIndex testMapping (DocId "2")
       sDoc <- getDocument testServer testIndex testMapping (DocId "3")
@@ -137,12 +147,20 @@ main = hspec $ do
       fmap _source maybeFirst `shouldBe` Right firstTest
       fmap _source maybeSecond `shouldBe` Right secondTest
 
+
   describe "query API" $ do
     it "returns document for term query and identity filter" $ do
       _ <- insertData
       let query = TermQuery (Term "user" "bitemyapp") Nothing
       let filter = IdentityFilter <&&> IdentityFilter
       let search = mkSearch (Just query) (Just filter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for match query" $ do
+      _ <- insertData
+      let query = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
+      let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
@@ -158,6 +176,7 @@ main = hspec $ do
       let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
       let myTweet = fmap (hitSource . head . hits . searchHits) result
       myTweet `shouldBe` Right otherTweet
+
 
   describe "filtering API" $ do
     it "returns document for composed boolmatch and identity" $ do
@@ -258,7 +277,7 @@ main = hspec $ do
     it "returns document for regexp filter" $ do
       _ <- insertData
       let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
-                   RegexpAll (CacheName "test") False (CacheKey "key")
+                   (RegexpFlags "ALL") (CacheName "test") False (CacheKey "key")
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
@@ -266,7 +285,7 @@ main = hspec $ do
     it "doesn't return document for non-matching regexp filter" $ do
       _ <- insertData
       let filter = RegexpFilter (FieldName "user")
-                   (Regexp "boy") RegexpAll
+                   (Regexp "boy") (RegexpFlags "ALL")
                    (CacheName "test") False (CacheKey "key")
       let search = mkSearch Nothing (Just filter)
       searchExpectNoResults search

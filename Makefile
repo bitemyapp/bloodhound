@@ -1,6 +1,6 @@
 
 test:
-	cabal install --enable-tests
+	cabal test
 
 build:
 	cabal build

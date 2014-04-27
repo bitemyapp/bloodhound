@@ -10,6 +10,7 @@ module Database.Bloodhound.Types
        , rangeToKV
        , showText
        , unpackId
+       , mkMatchQuery
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -64,6 +65,36 @@ module Database.Bloodhound.Types
        , Missing(..)
        , OpenCloseIndex(..)
        , Method(..)
+       , Boost(..)
+       , MatchQuery(..)
+       , MultiMatchQuery(..)
+       , BoolQuery(..)
+       , BoostingQuery(..)
+       , CommonTermsQuery(..)
+       , DisMaxQuery(..)
+       , FilteredQuery(..)
+       , FuzzyLikeThisQuery(..)
+       , FuzzyLikeFieldQuery(..)
+       , FuzzyQuery(..)
+       , HasChildQuery(..)
+       , HasParentQuery(..)
+       , AnIndicesQuery(..)
+       , MoreLikeThisQuery(..)
+       , MoreLikeThisFieldQuery(..)
+       , NestedQuery(..)
+       , PrefixQuery(..)
+       , QueryStringQuery(..)
+       , SimpleQueryStringQuery(..)
+       , RangeQuery(..)
+       , RegexpQuery(..)
+       , QueryString(..)
+       , BooleanOperator(..)
+       , ZeroTermsQuery(..)
+       , CutoffFrequency(..)
+       , Analyzer(..)
+       , MaxExpansions(..)
+       , Lenient(..)
+       , MatchQueryType(..)
          ) where
 
 import Data.Aeson
@@ -82,15 +113,11 @@ data Version = Version { number          :: Text
                        , build_snapshot  :: Bool
                        , lucene_version  :: Text } deriving (Show, Generic)
 
-data (FromJSON a, ToJSON a) => Status a =
-                     Status { ok      :: Bool
-                            , status  :: Int
-                            , name    :: Text
-                            , version :: a
-                            , tagline :: Text } deriving (Eq, Show)
-
-newtype ShardCount   = ShardCount   Int deriving (Eq, Show, Generic)
-newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic)
+data Status a = Status { ok      :: Bool
+                       , status  :: Int
+                       , name    :: Text
+                       , version :: a
+                       , tagline :: Text } deriving (Eq, Show)
 
 data IndexSettings =
   IndexSettings { indexShards   :: ShardCount
@@ -100,7 +127,6 @@ defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 data Strategy = RoundRobinStrat | RandomStrat | HeadStrat deriving (Eq, Show)
 
-newtype Server = Server String deriving (Eq, Show)
 
 type Reply = Network.HTTP.Conduit.Response L.ByteString
 type Method = NHTM.Method
@@ -120,9 +146,9 @@ data FieldDefinition =
 
 data MappingField =
   MappingField   { mappingFieldName       :: FieldName
-                 , fieldDefinition :: FieldDefinition } deriving (Eq, Show)
+                 , fieldDefinition        :: FieldDefinition } deriving (Eq, Show)
 
-data Mapping = Mapping { typeName :: Text
+data Mapping = Mapping { typeName :: TypeName
                        , fields   :: [MappingField] } deriving (Eq, Show)
 
 data BulkOperation =
@@ -174,28 +200,48 @@ type PrefixValue = Text
 
 data BooleanOperator = And | Or deriving (Eq, Show)
 
-newtype IndexName           = IndexName String deriving (Eq, Generic, Show)
-newtype MappingName         = MappingName String deriving (Eq, Generic, Show)
-newtype DocId               = DocId String deriving (Eq, Generic, Show)
-newtype QueryString         = QueryString Text deriving (Eq, Show)
-newtype FieldName           = FieldName Text deriving (Eq, Show)
-newtype CacheName           = CacheName Text deriving (Eq, Show)
-newtype CacheKey            = CacheKey  Text deriving (Eq, Show)
-newtype Existence           = Existence Bool deriving (Eq, Show)
-newtype NullValue           = NullValue Bool deriving (Eq, Show)
-newtype CutoffFrequency     = CutoffFrequency Double deriving (Eq, Show)
-newtype Analyzer            = Analyzer Text deriving (Eq, Show)
-newtype MaxExpansions       = MaxExpansions Int deriving (Eq, Show)
-newtype Lenient             = Lenient Bool deriving (Eq, Show)
-newtype Tiebreaker          = Tiebreaker Double deriving (Eq, Show)
-newtype Boost               = Boost Double deriving (Eq, Show)
-newtype MinimumMatch        = MinimumMatch Int deriving (Eq, Show)
-newtype MinimumMatchText    = MinimumMatchText Text deriving (Eq, Show)
-newtype DisableCoord        = DisableCoord Bool deriving (Eq, Show)
-newtype IgnoreTermFrequency = IgnoreTermFrequency Bool deriving (Eq, Show)
-newtype MaxQueryTerms       = MaxQueryTerms Int deriving (Eq, Show)
-newtype Fuzziness           = Fuzziness Double deriving (Eq, Show)
-newtype PrefixLength        = PrefixLength Int deriving (Eq, Show)
+newtype ShardCount               = ShardCount   Int deriving (Eq, Show, Generic)
+newtype ReplicaCount             = ReplicaCount Int deriving (Eq, Show, Generic)
+newtype Server                   = Server String deriving (Eq, Show)
+newtype IndexName                = IndexName String deriving (Eq, Generic, Show)
+newtype MappingName              = MappingName String deriving (Eq, Generic, Show)
+newtype DocId                    = DocId String deriving (Eq, Generic, Show)
+newtype QueryString              = QueryString Text deriving (Eq, Show)
+newtype FieldName                = FieldName Text deriving (Eq, Show)
+newtype CacheName                = CacheName Text deriving (Eq, Show)
+newtype CacheKey                 = CacheKey  Text deriving (Eq, Show)
+newtype Existence                = Existence Bool deriving (Eq, Show)
+newtype NullValue                = NullValue Bool deriving (Eq, Show)
+newtype CutoffFrequency          = CutoffFrequency Double deriving (Eq, Show, Generic)
+newtype Analyzer                 = Analyzer Text deriving (Eq, Show, Generic)
+newtype MaxExpansions            = MaxExpansions Int deriving (Eq, Show, Generic)
+newtype Lenient                  = Lenient Bool deriving (Eq, Show, Generic)
+newtype Tiebreaker               = Tiebreaker Double deriving (Eq, Show)
+newtype Boost                    = Boost Double deriving (Eq, Show, Generic)
+newtype BoostTerms               = BoostTerms Double deriving (Eq, Show)
+newtype MinimumMatch             = MinimumMatch Int deriving (Eq, Show)
+newtype MinimumMatchText         = MinimumMatchText Text deriving (Eq, Show)
+newtype DisableCoord             = DisableCoord Bool deriving (Eq, Show)
+newtype IgnoreTermFrequency      = IgnoreTermFrequency Bool deriving (Eq, Show)
+newtype MinimumTermFrequency     = MinimumTermFrequency Int deriving (Eq, Show)
+newtype MaxQueryTerms            = MaxQueryTerms Int deriving (Eq, Show)
+newtype Fuzziness                = Fuzziness Double deriving (Eq, Show)
+newtype PrefixLength             = PrefixLength Int deriving (Eq, Show)
+newtype TypeName                 = TypeName Text deriving (Eq, Show)
+newtype PercentMatch             = PercentMatch Double deriving (Eq, Show)
+newtype StopWord                 = StopWord Text deriving (Eq, Show)
+newtype QueryPath                = QueryPath Text deriving (Eq, Show)
+newtype AllowLeadingWildcard     = AllowLeadingWildcard Bool deriving (Eq, Show)
+newtype LowercaseExpanded        = LowercaseExpanded Bool deriving (Eq, Show)
+newtype EnablePositionIncrements = EnablePositionIncrements Bool deriving (Eq, Show)
+newtype AnalyzeWildcard          = AnalyzeWildcard Bool deriving (Eq, Show)
+newtype GeneratePhraseQueries    = GeneratePhraseQueries Bool deriving (Eq, Show)
+newtype Locale                   = Locale Text deriving (Eq, Show)
+newtype MaxWordLength            = MaxWordLength Int deriving (Eq, Show)
+newtype MinWordLength            = MinWordLength Int deriving (Eq, Show)
+newtype PhraseSlop               = PhraseSlop Int deriving (Eq, Show)
+newtype MinDocFrequency          = MinDocFrequency Int deriving (Eq, Show)
+newtype MaxDocFrequency          = MaxDocFrequency Int deriving (Eq, Show)
 
 unpackId :: DocId -> String
 unpackId (DocId docId) = docId
@@ -212,20 +258,172 @@ data Search = Search { queryBody  :: Maybe Query
                      , from :: From
                      , size :: Size } deriving (Eq, Show)
 
-data Query = TermQuery                Term (Maybe Boost)
-           | QueryMatchQuery          MatchQuery
-           | QueryMultiMatchQuery     MultiMatchQuery
-           | QueryBoolQuery           BoolQuery
-           | QueryBoostingQuery       BoostingQuery
-           | QueryCommonTermsQuery    CommonTermsQuery
-           | ConstantScoreFilter      Filter Boost
-           | ConstantScoreQuery       Query  Boost
-           | QueryDisMaxQuery         DisMaxQuery
-           | QueryFilteredQuery       FilteredQuery
-           | QueryFuzzyLikeThisQuery  FuzzyLikeThisQuery
-           | QueryFuzzyLikeFieldQuery FuzzyLikeFieldQuery
-           | QueryFuzzyQuery          FuzzyQuery
+data Query = TermQuery                   Term (Maybe Boost)
+           | TermsQuery                  [Term] MinimumMatch
+           | QueryMatchQuery             MatchQuery
+           | QueryMultiMatchQuery        MultiMatchQuery
+           | QueryBoolQuery              BoolQuery
+           | QueryBoostingQuery          BoostingQuery
+           | QueryCommonTermsQuery       CommonTermsQuery
+           | ConstantScoreFilter         Filter Boost
+           | ConstantScoreQuery          Query Boost
+           | QueryDisMaxQuery            DisMaxQuery
+           | QueryFilteredQuery          FilteredQuery
+           | QueryFuzzyLikeThisQuery     FuzzyLikeThisQuery
+           | QueryFuzzyLikeFieldQuery    FuzzyLikeFieldQuery
+           | QueryFuzzyQuery             FuzzyQuery
+           | QueryHasChildQuery          HasChildQuery
+           | QueryHasParentQuery         HasParentQuery
+           | IdsQuery                    MappingName [DocId]
+           | QueryIndicesQuery           AnIndicesQuery
+           | MatchAllQuery               (Maybe Boost)
+           | QueryMoreLikeThisQuery      MoreLikeThisQuery
+           | QueryMoreLikeThisFieldQuery MoreLikeThisFieldQuery
+           | QueryNestedQuery            NestedQuery
+           | QueryPrefixQuery            PrefixQuery
+           | QueryQueryStringQuery       QueryStringQuery
+           | QuerySimpleQueryStringQuery SimpleQueryStringQuery
+           | QueryRangeQuery             RangeQuery
+           | QueryRegexpQuery            RegexpQuery
              deriving (Eq, Show)
+
+-- Possible flags are ALL, ANYSTRING, AUTOMATON, COMPLEMENT,
+-- EMPTY, INTERSECTION, INTERVAL, or NONE. huh?
+
+data RegexpQuery =
+  RegexpQuery { regexpQueryField     :: FieldName
+              , regexpQuery          :: Regexp
+              , regexpQueryFlags     :: RegexpFlags
+              , regexpQueryCacheName :: CacheName
+              , regexpQueryCache     :: Cache
+              , regexpQueryCacheKey  :: CacheKey } deriving (Eq, Show)
+
+data RangeQuery =
+  RangeQuery { rangeQueryField :: FieldName
+             , rangeQueryRange :: Either HalfRange Range
+             , rangeQueryBoost :: Boost } deriving (Eq, Show)
+
+data SimpleQueryStringQuery =
+  SimpleQueryStringQuery { simpleQueryStringQuery             :: QueryString
+                         , simpleQueryStringField             :: Maybe FieldOrFields
+                         , simpleQueryStringOperator          :: Maybe BooleanOperator
+                         , simpleQueryStringAnalyzer          :: Maybe Analyzer
+                         , simpleQueryStringFlags             :: Maybe [SimpleQueryFlag]
+                         , simpleQueryStringLowercaseExpanded :: Maybe LowercaseExpanded
+                         , simpleQueryStringLocale            :: Maybe Locale
+                         } deriving (Eq, Show)
+
+data SimpleQueryFlag = SimpleQueryAll
+                     | SimpleQueryNone
+                     | SimpleQueryAnd
+                     | SimpleQueryOr
+                     | SimpleQueryPrefix
+                     | SimpleQueryPhrase
+                     | SimpleQueryPrecedence
+                     | SimpleQueryEscape
+                     | SimpleQueryWhitespace
+                     | SimpleQueryFuzzy
+                     | SimpleQueryNear
+                     | SimpleQuerySlop deriving (Eq, Show)
+
+-- use_dis_max and tie_breaker when fields are plural?
+data QueryStringQuery =
+  QueryStringQuery { queryStringQuery                    :: QueryString
+                   , queryStringDefaultField             :: Maybe FieldOrFields
+                   , queryStringOperator                 :: Maybe BooleanOperator
+                   , queryStringAnalyzer                 :: Maybe Analyzer
+                   , queryStringAllowLeadingWildcard     :: Maybe AllowLeadingWildcard
+                   , queryStringLowercaseExpanded        :: Maybe LowercaseExpanded
+                   , queryStringEnablePositionIncrements :: Maybe EnablePositionIncrements
+                   , queryStringFuzzyMaxExpansions       :: Maybe MaxExpansions
+                   , queryStringFuzziness                :: Maybe Fuzziness
+                   , queryStringFuzzyPrefixLength        :: Maybe PrefixLength
+                   , queryStringPhraseSlop               :: Maybe PhraseSlop
+                   , queryStringBoost                    :: Maybe Boost
+                   , queryStringAnalyzeWildcard          :: Maybe AnalyzeWildcard
+                   , queryStringGeneratePhraseQueries    :: Maybe GeneratePhraseQueries
+                   , queryStringMinimumShouldMatch       :: Maybe MinimumMatch
+                   , queryStringLenient                  :: Maybe Lenient
+                   , queryStringLocale                   :: Maybe Locale
+                   } deriving (Eq, Show)
+
+data FieldOrFields = FofField FieldName
+                   | FofFields [FieldName] deriving (Eq, Show)
+
+data PrefixQuery =
+  PrefixQuery { prefixQueryField       :: FieldName
+              , prefixQueryPrefixValue :: Text
+              , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Show)
+
+data NestedQuery =
+  NestedQuery { nestedQueryPath      :: QueryPath
+              , nestedQueryScoreType :: ScoreType
+              , nestedQuery          :: Query } deriving (Eq, Show)
+
+data MoreLikeThisFieldQuery =
+  MoreLikeThisFieldQuery { moreLikeThisFieldText            :: Text
+                         , moreLikeThisFieldFields          :: FieldName
+                           -- default 0.3 (30%)
+                         , moreLikeThisFieldPercentMatch    :: Maybe PercentMatch
+                         , moreLikeThisFieldMinimumTermFreq :: Maybe MinimumTermFrequency
+                         , moreLikeThisFieldMaxQueryTerms   :: Maybe MaxQueryTerms
+                         , moreLikeThisFieldStopWords       :: Maybe [StopWord]
+                         , moreLikeThisFieldMinDocFrequency :: Maybe MinDocFrequency
+                         , moreLikeThisFieldMaxDocFrequency :: Maybe MaxDocFrequency
+                         , moreLikeThisFieldMinWordLength   :: Maybe MinWordLength
+                         , moreLikeThisFieldMaxWordLength   :: Maybe MaxWordLength
+                         , moreLikeThisFieldBoostTerms      :: Maybe BoostTerms
+                         , moreLikeThisFieldBoost           :: Maybe Boost
+                         , moreLikeThisFieldAnalyzer        :: Maybe Analyzer
+                         } deriving (Eq, Show)
+
+data MoreLikeThisQuery =
+  MoreLikeThisQuery { moreLikeThisText            :: Text
+                    , moreLikeThisFields          :: Maybe [FieldName]
+                      -- default 0.3 (30%)
+                    , moreLikeThisPercentMatch    :: Maybe PercentMatch
+                    , moreLikeThisMinimumTermFreq :: Maybe MinimumTermFrequency
+                    , moreLikeThisMaxQueryTerms   :: Maybe MaxQueryTerms
+                    , moreLikeThisStopWords       :: Maybe [StopWord]
+                    , moreLikeThisMinDocFrequency :: Maybe MinDocFrequency
+                    , moreLikeThisMaxDocFrequency :: Maybe MaxDocFrequency
+                    , moreLikeThisMinWordLength   :: Maybe MinWordLength
+                    , moreLikeThisMaxWordLength   :: Maybe MaxWordLength
+                    , moreLikeThisBoostTerms      :: Maybe BoostTerms
+                    , moreLikeThisBoost           :: Maybe Boost
+                    , moreLikeThisAnalyzer        :: Maybe Analyzer
+                    } deriving (Eq, Show)
+
+data AnIndicesQuery = AnIndexQuery IndexQuery
+                    | AnIndicesQuery IndicesQuery deriving (Eq, Show)
+
+
+data IndicesQuery =
+  IndicesQuery { indicesQueryIndexName :: IndexName
+               , indicesQuery          :: Query
+                 -- default "all"
+               , indicesQueryNoMatch   :: Maybe Query } deriving (Eq, Show)
+
+data IndexQuery =
+  IndexQuery { indexQueryIndexName :: IndexName
+             , indexQuery          :: Query
+               -- default "all"
+             , indexQueryNoMatch   :: Maybe Query } deriving (Eq, Show)
+
+data HasParentQuery =
+  HasParentQuery { hasParentQueryType      :: TypeName
+                 , hasParentQuery          :: Query
+                 , hasParentQueryScoreType :: Maybe ScoreType } deriving (Eq, Show)
+
+data HasChildQuery =
+  HasChildQuery { hasChildQueryType      :: TypeName
+                , hasChildQuery          :: Query
+                , hasChildQueryScoreType :: Maybe ScoreType } deriving (Eq, Show)
+
+data ScoreType = ScoreTypeMax
+               | ScoreTypeSum
+               | ScoreTypeAvg
+               | ScoreTypeNone deriving (Eq, Show)
 
 data FuzzyQuery = FuzzyQuery { fuzzyQueryField         :: FieldName
                              , fuzzyQueryValue         :: Text
@@ -373,17 +571,7 @@ data RangeExecution = RangeExecutionIndex
                     | RangeExecutionFielddata deriving (Eq, Show)
 
 newtype Regexp = Regexp Text deriving (Eq, Show)
-data RegexpFlags = RegexpAll
-                 | Complement
-                 | Interval
-                 | Intersection
-                 | AnyString
-                 | CompInterval
-                 | CompIntersection
-                 | CompAnyString
-                 | IntervalIntersection
-                 | IntervalAnyString
-                 | IntersectionAnyString deriving (Eq, Show)
+newtype RegexpFlags = RegexpFlags Text deriving (Eq, Show)
 
 halfRangeToKV :: HalfRange -> (Text, Double)
 halfRangeToKV (HalfRangeLt  (LessThan n))      = ("lt",  n)
