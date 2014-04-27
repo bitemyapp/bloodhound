@@ -172,6 +172,16 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for bool query" $ do
+      _ <- insertData
+      let innerQuery = QueryMatchQuery $
+                       mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
+      let query = QueryBoolQuery $
+                  mkBoolQuery (Just innerQuery) Nothing Nothing
+      let search = mkSearch (Just query) Nothing
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
   describe "sorting" $ do
     it "returns documents in the right order" $ do
       _ <- insertData

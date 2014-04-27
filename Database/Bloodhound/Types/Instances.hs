@@ -120,25 +120,46 @@ instance ToJSON Filter where
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoField) latLon) =
-    object [geoField  .= toJSON latLon]
+    object [ geoField  .= toJSON latLon ]
 
 
 instance ToJSON Query where
   toJSON (TermQuery (Term termField termValue) boost) =
-    object ["term" .=
-            object [termField .= object merged]]
+    object [ "term" .=
+             object [termField .= object merged]]
     where
-      base = ["value" .= termValue]
+      base = [ "value" .= termValue ]
       boosted = case boost of
-        (Just boostValue) -> ["boost" .= boostValue]
+        (Just boostValue) -> [ "boost" .= boostValue ]
         Nothing           -> []
       merged = mappend base boosted
 
   toJSON (QueryMatchQuery matchQuery) =
-    object ["match" .= toJSON matchQuery]
+    object [ "match" .= toJSON matchQuery ]
 
   toJSON (QueryMultiMatchQuery multiMatchQuery) =
-    object ["multi_match" .= toJSON multiMatchQuery]
+    object [ "multi_match" .= toJSON multiMatchQuery ]
+
+  toJSON (QueryBoolQuery boolQuery) =
+    object [ "bool" .= toJSON boolQuery ]
+
+
+mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
+mField field = fmap ((field .=) . toJSON)
+
+
+instance ToJSON BoolQuery where
+  toJSON (BoolQuery mustM notM shouldM min boost disableCoord) =
+    object filtered
+    where f field = fmap ((field .=) . toJSON)
+          filtered = catMaybes
+                      [ mField "must" mustM
+                      , mField "must_not" notM
+                      , mField "should" shouldM
+                      , mField "minimum_should_match" min
+                      , mField "boost" boost
+                      , mField "disable_coord" disableCoord ]
+
 
 instance ToJSON MatchQuery where
   toJSON (MatchQuery (FieldName fieldName)
@@ -150,12 +171,12 @@ instance ToJSON MatchQuery where
                       , "operator" .= toJSON booleanOperator
                       , "zero_terms_query" .= toJSON zeroTermsQuery]
                       ++ maybeAdd
-          f field = fmap ((field .=) . toJSON)
-          maybeAdd   = catMaybes [ f "cutoff_frequency" cutoffFrequency
-                                 , f "type" matchQueryType
-                                 , f "analyzer" analyzer
-                                 , f "max_expansions" maxExpansions
-                                 , f "lenient" lenient ]
+          maybeAdd   = catMaybes [ mField "cutoff_frequency" cutoffFrequency
+                                 , mField "type" matchQueryType
+                                 , mField "analyzer" analyzer
+                                 , mField "max_expansions" maxExpansions
+                                 , mField "lenient" lenient ]
+
 
 instance ToJSON MultiMatchQuery where
   toJSON (MultiMatchQuery fields (QueryString query) boolOp
@@ -165,14 +186,14 @@ instance ToJSON MultiMatchQuery where
                       , "query" .= query
                       , "operator" .= toJSON boolOp
                       , "zero_terms_query" .= toJSON ztQ ]
-          f field = fmap ((field .=) . toJSON)
-          maybeAdd = catMaybes [ f "tiebreaker" tb
-                               , f "type" mmqt
-                               , f "cutoff_frequency" cf
-                               , f "analyzer" analyzer
-                               , f "max_expansions" maxEx
-                               , f "lenient" lenient ]
+          maybeAdd = catMaybes [ mField "tiebreaker" tb
+                               , mField "type" mmqt
+                               , mField "cutoff_frequency" cf
+                               , mField "analyzer" analyzer
+                               , mField "max_expansions" maxEx
+                               , mField "lenient" lenient ]
           conjoined = baseQuery ++ maybeAdd
+
 
 instance ToJSON MultiMatchQueryType where
   toJSON MultiMatchBestFields = "best_fields"
@@ -205,6 +226,8 @@ instance ToJSON Lenient
 instance ToJSON Boost
 instance ToJSON Version
 instance ToJSON Tiebreaker
+instance ToJSON MinimumMatch
+instance ToJSON DisableCoord
 instance FromJSON Version
 instance FromJSON IndexName
 instance FromJSON MappingName

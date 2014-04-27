@@ -12,6 +12,7 @@ module Database.Bloodhound.Types
        , unpackId
        , mkMatchQuery
        , mkMultiMatchQuery
+       , mkBoolQuery
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -98,6 +99,8 @@ module Database.Bloodhound.Types
        , MatchQueryType(..)
        , MultiMatchQueryType(..)
        , Tiebreaker(..)
+       , MinimumMatch(..)
+       , DisableCoord(..)
          ) where
 
 import Data.Aeson
@@ -222,9 +225,9 @@ newtype Lenient                  = Lenient Bool deriving (Eq, Show, Generic)
 newtype Tiebreaker               = Tiebreaker Double deriving (Eq, Show, Generic)
 newtype Boost                    = Boost Double deriving (Eq, Show, Generic)
 newtype BoostTerms               = BoostTerms Double deriving (Eq, Show)
-newtype MinimumMatch             = MinimumMatch Int deriving (Eq, Show)
+newtype MinimumMatch             = MinimumMatch Int deriving (Eq, Show, Generic)
 newtype MinimumMatchText         = MinimumMatchText Text deriving (Eq, Show)
-newtype DisableCoord             = DisableCoord Bool deriving (Eq, Show)
+newtype DisableCoord             = DisableCoord Bool deriving (Eq, Show, Generic)
 newtype IgnoreTermFrequency      = IgnoreTermFrequency Bool deriving (Eq, Show)
 newtype MinimumTermFrequency     = MinimumTermFrequency Int deriving (Eq, Show)
 newtype MaxQueryTerms            = MaxQueryTerms Int deriving (Eq, Show)
@@ -289,9 +292,6 @@ data Query = TermQuery                   Term (Maybe Boost)
            | QueryRangeQuery             RangeQuery
            | QueryRegexpQuery            RegexpQuery
              deriving (Eq, Show)
-
--- Possible flags are ALL, ANYSTRING, AUTOMATON, COMPLEMENT,
--- EMPTY, INTERSECTION, INTERVAL, or NONE. huh?
 
 data RegexpQuery =
   RegexpQuery { regexpQueryField     :: FieldName
@@ -515,6 +515,9 @@ data BoolQuery = BoolQuery { boolQueryMustMatch          :: Maybe Query
                            , boolQueryDisableCoord       :: Maybe DisableCoord
                            } deriving (Eq, Show)
 
+mkBoolQuery :: Maybe Query -> Maybe Query -> Maybe [Query] -> BoolQuery
+mkBoolQuery must mustNot should = BoolQuery must mustNot should Nothing Nothing Nothing
+
 data BoostingQuery = BoostingQuery { positiveQuery :: Maybe Query
                                    , negativeQuery :: Maybe Query
                                    , positiveBoost :: Maybe Boost
@@ -673,12 +676,12 @@ data ShardResult =
               , shardsSuccessful :: Int
               , shardsFailed     :: Int } deriving (Eq, Show, Generic)
 
-maybeJson ToJSON a => Text -> Maybe a -> [Data.Aeson.Types.Internal.Pair]
+maybeJson :: ToJSON a => Text -> Maybe a -> [(Text, Value)]
 maybeJson field (Just value) = [field .= toJSON value]
 maybeJson _ _ = []
 
-maybeJsonF :: (ToJSON (f Value), ToJSON a, Functor f) =>
-             Text -> Maybe (f a) -> [Data.Aeson.Types.Internal.Pair]
+-- maybeJsonF :: (ToJSON (f Value), ToJSON a, Functor f) =>
+--              Text -> Maybe (f a) -> [(Text, Value)]
 maybeJsonF field (Just value) = [field .= fmap toJSON value]
 maybeJsonF _ _ = []
 
