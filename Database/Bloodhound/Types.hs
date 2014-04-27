@@ -518,10 +518,9 @@ data BoolQuery = BoolQuery { boolQueryMustMatch          :: Maybe Query
 mkBoolQuery :: Maybe Query -> Maybe Query -> Maybe [Query] -> BoolQuery
 mkBoolQuery must mustNot should = BoolQuery must mustNot should Nothing Nothing Nothing
 
-data BoostingQuery = BoostingQuery { positiveQuery :: Maybe Query
-                                   , negativeQuery :: Maybe Query
-                                   , positiveBoost :: Maybe Boost
-                                   , negativeBoost :: Maybe Boost } deriving (Eq, Show)
+data BoostingQuery = BoostingQuery { positiveQuery :: Query
+                                   , negativeQuery :: Query
+                                   , negativeBoost :: Boost } deriving (Eq, Show)
 
 data CommonTermsQuery =
   CommonTermsQuery { commonQuery              :: QueryString

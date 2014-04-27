@@ -143,16 +143,25 @@ instance ToJSON Query where
   toJSON (QueryBoolQuery boolQuery) =
     object [ "bool" .= toJSON boolQuery ]
 
+  toJSON (QueryBoostingQuery boostingQuery) =
+    object ["boosting" .= toJSON boostingQuery]
+
 
 mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
 mField field = fmap ((field .=) . toJSON)
 
 
+instance ToJSON BoostingQuery where
+  toJSON (BoostingQuery positiveQuery negativeQuery negativeBoost) =
+    object [ "positive" .= toJSON positiveQuery
+           , "negative" .= toJSON negativeQuery
+           , "negative_boost" .= toJSON negativeBoost ]
+
+
 instance ToJSON BoolQuery where
   toJSON (BoolQuery mustM notM shouldM min boost disableCoord) =
     object filtered
-    where f field = fmap ((field .=) . toJSON)
-          filtered = catMaybes
+    where filtered = catMaybes
                       [ mField "must" mustM
                       , mField "must_not" notM
                       , mField "should" shouldM

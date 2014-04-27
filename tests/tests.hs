@@ -182,6 +182,15 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for boosting query" $ do
+      _ <- insertData
+      let posQuery = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
+      let negQuery = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "notmyapp")
+      let query = QueryBoostingQuery $ BoostingQuery posQuery negQuery (Boost 0.2)
+      let search = mkSearch (Just query) Nothing
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
   describe "sorting" $ do
     it "returns documents in the right order" $ do
       _ <- insertData
