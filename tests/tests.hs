@@ -191,6 +191,18 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for common terms query" $ do
+      _ <- insertData
+      let query = QueryCommonTermsQuery $
+                  CommonTermsQuery (FieldName "user")
+                  (QueryString "bitemyapp")
+                  (CutoffFrequency 0.0001)
+                  Or Or Nothing Nothing Nothing Nothing
+      let search = mkSearch (Just query) Nothing
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
+
   describe "sorting" $ do
     it "returns documents in the right order" $ do
       _ <- insertData

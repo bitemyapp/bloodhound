@@ -101,6 +101,8 @@ module Database.Bloodhound.Types
        , Tiebreaker(..)
        , MinimumMatch(..)
        , DisableCoord(..)
+       , CommonMinimumMatch(..)
+       , MinimumMatchHighLow(..)
          ) where
 
 import Data.Aeson
@@ -523,7 +525,8 @@ data BoostingQuery = BoostingQuery { positiveQuery :: Query
                                    , negativeBoost :: Boost } deriving (Eq, Show)
 
 data CommonTermsQuery =
-  CommonTermsQuery { commonQuery              :: QueryString
+  CommonTermsQuery { commonField              :: FieldName
+                   , commonQuery              :: QueryString
                    , commonCutoffFrequency    :: CutoffFrequency
                    , commonLowFreqOperator    :: BooleanOperator
                    , commonHighFreqOperator   :: BooleanOperator
@@ -534,7 +537,7 @@ data CommonTermsQuery =
                    } deriving (Eq, Show)
 
 data CommonMinimumMatch = CommonMinimumMatchHighLow MinimumMatchHighLow
-                        | CommonMinimumMatch MinimumMatchText deriving (Eq, Show)
+                        | CommonMinimumMatch MinimumMatch deriving (Eq, Show)
 
 data MinimumMatchHighLow =
   MinimumMatchHighLow { lowFreq :: MinimumMatch

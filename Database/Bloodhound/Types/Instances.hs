@@ -13,6 +13,7 @@ import Data.Monoid
 import qualified Data.Text as T
 import Database.Bloodhound.Types
 import Database.Bloodhound.Types.Class
+import Data.Scientific
 
 instance Monoid Filter where
   mempty = IdentityFilter
@@ -129,9 +130,7 @@ instance ToJSON Query where
              object [termField .= object merged]]
     where
       base = [ "value" .= termValue ]
-      boosted = case boost of
-        (Just boostValue) -> [ "boost" .= boostValue ]
-        Nothing           -> []
+      boosted = maybe [] (return . ("boost" .=)) boost
       merged = mappend base boosted
 
   toJSON (QueryMatchQuery matchQuery) =
@@ -146,10 +145,35 @@ instance ToJSON Query where
   toJSON (QueryBoostingQuery boostingQuery) =
     object ["boosting" .= toJSON boostingQuery]
 
+  toJSON (QueryCommonTermsQuery commonTermsQuery) =
+    object ["common" .= toJSON commonTermsQuery]
 
 mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
 mField field = fmap ((field .=) . toJSON)
 
+
+instance ToJSON CommonTermsQuery where
+  toJSON (CommonTermsQuery (FieldName fieldName)
+          (QueryString query) cf lfo hfo msm
+          boost analyzer disableCoord) =
+    object [fieldName .= object conjoined]
+    where base = [ "query"              .= query
+                 , "cutoff_frequency"   .= toJSON cf
+                 , "low_freq_operator"  .= toJSON lfo
+                 , "high_freq_operator" .= toJSON hfo ]
+          extension = catMaybes
+                      [ mField "minimum_should_match" msm
+                      , mField "boost" boost
+                      , mField "analyzer" analyzer
+                      , mField "disable_coord" disableCoord ]
+          conjoined = base ++ extension
+
+
+instance ToJSON CommonMinimumMatch where
+  toJSON (CommonMinimumMatch mm) = toJSON mm
+  toJSON (CommonMinimumMatchHighLow (MinimumMatchHighLow lowF highF)) =
+    object [ "low_freq"  .= toJSON lowF
+           , "high_freq" .= toJSON highF ]
 
 instance ToJSON BoostingQuery where
   toJSON (BoostingQuery positiveQuery negativeQuery negativeBoost) =
