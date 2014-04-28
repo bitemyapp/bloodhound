@@ -283,7 +283,7 @@ data Query = TermQuery                   Term (Maybe Boost)
            | QueryHasChildQuery          HasChildQuery
            | QueryHasParentQuery         HasParentQuery
            | IdsQuery                    MappingName [DocId]
-           | QueryIndicesQuery           AnIndicesQuery
+           | QueryIndicesQuery           IndicesQuery
            | MatchAllQuery               (Maybe Boost)
            | QueryMoreLikeThisQuery      MoreLikeThisQuery
            | QueryMoreLikeThisFieldQuery MoreLikeThisFieldQuery
@@ -399,21 +399,12 @@ data MoreLikeThisQuery =
                     , moreLikeThisAnalyzer        :: Maybe Analyzer
                     } deriving (Eq, Show)
 
-data AnIndicesQuery = AnIndexQuery IndexQuery
-                    | AnIndicesQuery IndicesQuery deriving (Eq, Show)
-
 
 data IndicesQuery =
-  IndicesQuery { indicesQueryIndexName :: IndexName
+  IndicesQuery { indicesQueryIndices :: [IndexName]
                , indicesQuery          :: Query
                  -- default "all"
                , indicesQueryNoMatch   :: Maybe Query } deriving (Eq, Show)
-
-data IndexQuery =
-  IndexQuery { indexQueryIndexName :: IndexName
-             , indexQuery          :: Query
-               -- default "all"
-             , indexQueryNoMatch   :: Maybe Query } deriving (Eq, Show)
 
 data HasParentQuery =
   HasParentQuery { hasParentQueryType      :: TypeName

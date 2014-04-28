@@ -143,13 +143,181 @@ instance ToJSON Query where
     object [ "bool" .= toJSON boolQuery ]
 
   toJSON (QueryBoostingQuery boostingQuery) =
-    object ["boosting" .= toJSON boostingQuery]
+    object [ "boosting" .= toJSON boostingQuery ]
 
   toJSON (QueryCommonTermsQuery commonTermsQuery) =
-    object ["common" .= toJSON commonTermsQuery]
+    object [ "common" .= toJSON commonTermsQuery ]
+
+  toJSON (ConstantScoreFilter filter boost) =
+    object [ "constant_score" .= toJSON filter
+           , "boost" .= toJSON boost]
+
+  toJSON (ConstantScoreQuery query boost) =
+    object [ "constant_score" .= toJSON filter
+           , "boost"          .= toJSON boost]
+
+  toJSON (QueryDisMaxQuery disMaxQuery) =
+    object [ "dis_max" .= toJSON disMaxQuery ]
+
+  toJSON (QueryFilteredQuery filteredQuery) =
+    object [ "filtered" .= toJSON filteredQuery ]
+
+  toJSON (QueryFuzzyLikeThisQuery fuzzyQuery) =
+    object [ "fuzzy_like_this" .= toJSON fuzzyQuery ]
+
+  toJSON (QueryFuzzyLikeFieldQuery fuzzyFieldQuery) =
+    object [ "fuzzy_like_this_field" .= toJSON fuzzyFieldQuery ]
+
+  toJSON (QueryFuzzyQuery fuzzyQuery) =
+    object [ "fuzzy" .= toJSON fuzzyQuery ]
+
+  toJSON (QueryHasChildQuery childQuery) =
+    object [ "has_child" .= toJSON childQuery ]
+
+  toJSON (QueryHasParentQuery parentQuery) =
+    object [ "has_parent" .= toJSON parentQuery ]
+
+  toJSON (QueryIndicesQuery indicesQuery) =
+    object [ "indices" .= toJSON indicesQuery ]
+
+  toJSON (MatchAllQuery boost) =
+    object [ "match_all" .= object maybeAdd ]
+    where maybeAdd catMaybes [ mField "boost" boost ]
+
+  toJSON (QueryMoreLikeThisQuery query) =
+    object [ "more_like_this" .= toJSON query ]
+
+  toJSON (QueryMoreLikeThisFieldQuery query) =
+    object [ "more_like_this_field" .= toJSON query ]
+
+  toJSON (QueryNestedQuery query) =
+    object [ "nested" .= toJSON query ]
+
 
 mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
 mField field = fmap ((field .=) . toJSON)
+
+
+instance NestedQuery where
+  toJSON (NestedQuery path scoreType query) =
+    object [ "path"       .= toJSON path
+           , "score_mode" .= toJSON scoreType
+           , "query"      .= toJSON query ]
+
+
+instance MoreLikeThisFieldQuery where
+  toJSON (MoreLikeThisFieldQuery text (FieldName fieldName)
+          percent mtf mqt stopwords mindf maxdf
+          minwl maxwl boostTerms boost analyzer) =
+    object [ fieldName .= object conjoined ]
+    where base = [ "like_text" .= toJSON text ]
+          maybeAdd = catMaybes [ mField "fields" fields
+                               , mField "percent_terms_to_match" percent
+                               , mField "min_term_freq" mtf
+                               , mField "max_query_terms" mqt
+                               , mField "stop_words" stopwords
+                               , mField "min_doc_freq" mindf
+                               , mField "max_doc_freq" maxdf
+                               , mField "min_word_length" minwl
+                               , mField "max_word_length" maxwl
+                               , mField "boost_terms" boostTerms
+                               , mField "boost" boost
+                               , mField "analyzer" analyzer ]
+          conjoined = base ++ maybeAdd
+
+
+instance ToJSON MoreLikeThisQuery where
+  toJSON (MoreLikeThisQuery text fields percent
+          mtf mqt stopwords mindf maxdf
+          minwl maxwl boostTerms boost analyzer) =
+    object conjoined
+    where base = [ "like_text" .= toJSON text ]
+          maybeAdd = catMaybes [ mField "fields" fields
+                               , mField "percent_terms_to_match" percent
+                               , mField "min_term_freq" mtf
+                               , mField "max_query_terms" mqt
+                               , mField "stop_words" stopwords
+                               , mField "min_doc_freq" mindf
+                               , mField "max_doc_freq" maxdf
+                               , mField "min_word_length" minwl
+                               , mField "max_word_length" maxwl
+                               , mField "boost_terms" boostTerms
+                               , mField "boost" boost
+                               , mField "analyzer" analyzer ]
+          conjoined = base ++ maybeAdd
+
+
+instance ToJSON IndicesQuery where
+  toJSON (IndicesQuery indices query noMatch) =
+    object [ "indices" .= toJSON indices
+           , "query"   .= toJSON query ] ++ maybeAdd
+    where maybeAdd = catMaybes [ mField "no_match_query" noMatch ]
+
+
+instance ToJSON HasParentQuery where
+  toJSON (HasParentQuery queryType query scoreType) =
+    object [ "parent_type" .= toJSON queryType
+           , "query" .= toJSON query ] ++ maybeAdd
+    where maybeAdd = catMaybes [ mField "score_type" scoreType ]
+
+
+instance ToJSON HasChildQuery where
+  toJSON (HasChildQuery queryType query scoreType) =
+    object [ "query" .= toJSON query
+           , "type"  .= toJSON queryType ] ++ maybeAdd
+    where maybeAdd = catMaybes [ mField "score_type" scoreType ]
+
+
+instance ToJSON FuzzyQuery where
+  toJSON (FuzzyQuery (FieldName fieldName) queryText
+          prefixLength maxEx fuzziness boost) =
+    object [ fieldName .= object conjoined ]
+    where base = [ "value"          .= toJSON queryText
+                 , "fuzziness"      .= toJSON fuzziness
+                 , "prefix_length"  .= toJSON prefixLength
+                 , "max_expansions" .= toJSON maxEx ]
+          maybeAdd = catMaybes [ mField "boost" boost ]
+          conjoined = base ++ maybeAdd
+
+
+instance ToJSON FuzzyLikeFieldQuery where
+  toJSON (FuzzyLikeFieldQuery (FieldName fieldName)
+          fieldText maxTerms ignoreFreq fuzziness prefixLength
+          boost analyzer) =
+    object [ fieldName .=
+            object [ "like_text"       .= toJSON fieldText
+                   , "max_query_terms" .= toJSON maxTerms
+                   , "ignore_tf"       .= toJSON ignoreFreq
+                   , "fuzziness"       .= toJSON fuzziness
+                   , "prefix_length"   .= toJSON prefixLength
+                   , "boost"           .= toJSON boost ]] ++ maybeAdd
+    where maybeAdd = catMaybes [ mField "analyzer" analyzer ]
+
+
+instance ToJSON FuzzyLikeThisQuery where
+  toJSON (FuzzyLikeThisQuery fields text maxTerms
+          ignoreFreq fuzziness prefixLength boost analyzer) =
+    object [ "fields"          .= toJSON fields
+           , "like_text"       .= toJSON text
+           , "max_query_terms" .= toJSON maxTerms
+           , "ignore_tf"       .= toJSON ignoreFreq
+           , "fuzziness"       .= toJSON fuzziness
+           , "prefix_length"   .= toJSON prefixLength
+           , "boost"           .= toJSON boost ] ++ maybeAdd
+    where maybeAdd = catMaybes [ mField "analyzer" analyzer ]
+
+
+instance ToJSON FilteredQuery where
+  toJSON (FilteredQuery query filter) =
+    object [ "query"  .= toJSON query
+           , "filter" .= toJSON filter ]
+
+
+instance ToJSON DisMaxQuery where
+  toJSON (DisMaxQuery queries tiebreaker boost) =
+    object [ "queries"     .= toJSON queries
+           , "tie_breaker" .= toJSON tiebreaker ] ++ maybeAdd
+    where maybeAdd = catMaybes [mField "boost" boost]
 
 
 instance ToJSON CommonTermsQuery where
