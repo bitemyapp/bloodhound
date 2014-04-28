@@ -193,9 +193,20 @@ instance ToJSON Query where
   toJSON (QueryNestedQuery query) =
     object [ "nested" .= toJSON query ]
 
+  toJSON (QueryPrefixQuery query) =
+    object [ "prefix" .= toJSON query ]
+
 
 mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
 mField field = fmap ((field .=) . toJSON)
+
+
+instance PrefixQuery where
+  toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =
+    object [ fieldName .= object conjoined ]
+    where base = [ "value" .= toJSON queryValue ]
+          maybeAdd = [ mField "boost" boost ]
+          conjoined = base ++ maybeAdd
 
 
 instance NestedQuery where
