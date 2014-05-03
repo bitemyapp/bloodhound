@@ -18,7 +18,7 @@ module Database.Bloodhound.Client
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as L
-import Data.ByteString.Lazy.Builder
+import Data.ByteString.Builder
 import Data.List (foldl', intercalate, intersperse)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
