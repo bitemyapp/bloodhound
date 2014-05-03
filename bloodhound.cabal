@@ -40,7 +40,9 @@ library
                        http-types    >= 0.8,
                        blaze-builder >= 0.3,
                        failure       >= 0.2,
-                       semigroups    >= 0.12
+                       semigroups    >= 0.12,
+                       containers           ,
+                       scientific
   default-language:    Haskell2010
 
 test-suite tests
