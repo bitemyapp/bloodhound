@@ -55,10 +55,18 @@ response <- createIndex testServer defaultIndexSettings testIndex
 
 *** Delete Index
 
+**** Code
+
 #+BEGIN_SRC haskell
 
 -- response :: Reply
 response <- deleteIndex testServer testIndex
+
+#+END_SRC
+
+**** Example Response
+
+#+BEGIN_SRC haskell
 
 -- print response if it was a success
 Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}
@@ -87,6 +95,12 @@ Response {responseStatus = Status {statusCode = 404, statusMessage = "Not Found"
 #+BEGIN_SRC haskell
 
 resp <- refreshIndex testServer testIndex
+
+#+END_SRC
+
+**** Example Response
+
+#+BEGIN_SRC haskell
 
 -- print resp on success
 Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}
@@ -176,7 +190,12 @@ instance FromJSON Location
 
 resp <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
 
--- print resp on success
+#+END_SRC
+
+**** Example Response
+
+#+BEGIN_SRC haskell
+
 Response {responseStatus =
   Status {statusCode = 200, statusMessage = "OK"}
     , responseVersion = HTTP/1.1, responseHeaders = 
