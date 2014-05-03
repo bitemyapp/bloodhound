@@ -5,8 +5,7 @@
 
 
 #+CAPTION: Build Status
-[[https://travis-ci.org/bitemyapp/bloodhound.svg]]
-[[https://travis-ci.org/bitemyapp/bloodhound]]
+[[https://travis-ci.org/bitemyapp/bloodhound.svg][https://travis-ci.org/bitemyapp/bloodhound]]
 
 * Elasticsearch client and query DSL for Haskell
 
