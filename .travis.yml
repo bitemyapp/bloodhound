@@ -7,7 +7,6 @@
 # release of a major GHC version. Setting HPVER implictly sets
 # GHCVER. Omit lines with versions you don't need/want testing for.
 env:
- - GHCVER=7.4.2
  - GHCVER=7.6.3
  - GHCVER=7.8.2
  - HPVER=2013.2.0.0
