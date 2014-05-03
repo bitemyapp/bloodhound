@@ -160,7 +160,7 @@ collapseStream :: [BulkOperation] -> L.ByteString
 collapseStream stream = collapsed where
   blobs = intersperse "\n" $ concat $ fmap getStreamChunk stream
   mashedTaters = mash (mempty :: Builder) blobs
-  collapsed = toLazyByteString $ mappend mashedTaters "\n"
+  collapsed = toLazyByteString $ mappend mashedTaters (byteString "\n")
 
 mash :: Builder -> [L.ByteString] -> Builder
 mash builder xs = foldl' (\b x -> mappend b (lazyByteString x)) builder xs
