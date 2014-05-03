@@ -15,6 +15,10 @@ category:            Database, Search
 build-type:          Simple
 cabal-version:       >=1.10
 
+source-repository head
+  type:     git
+  location: https://github.com/bitemyapp/bloodhound.git
+
 library
   ghc-options: -Wall
   default-extensions:  OverloadedStrings
