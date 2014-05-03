@@ -345,7 +345,7 @@ let query = QueryBoostingQuery $
 
 #+END_SRC
 
-**** Rest of the query types
+**** Rest of the query/filter types
 
 Just follow the pattern you've seen here and check the Hackage API documentation.
 
