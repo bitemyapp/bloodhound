@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                bloodhound
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            ElasticSearch client library for Haskell
 description:         ElasticSearch made awesome for Haskell hackers
 homepage:            github.com/bitemyapp/bloodhound
