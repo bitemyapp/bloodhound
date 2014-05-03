@@ -52,7 +52,7 @@ test-suite tests
                        bloodhound,
                        http-conduit,
                        http-types,
-                       bytestring           >= 0.10.4,
+                       bytestring           >= 0.10,
                        hspec                >= 1.8,
                        QuickCheck           >= 2.5,
                        derive               >= 2.5,
