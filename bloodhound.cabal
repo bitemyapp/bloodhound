@@ -24,7 +24,7 @@ library
                        Database.Bloodhound.Types.Class
                        Database.Bloodhound.Types.Instances
   build-depends:       base             >= 4.3 && <5,
-                       bytestring       >= 0.10,
+                       bytestring       >= 0.10.4,
                        aeson            >= 0.7,
                        aeson-pretty     >= 0.7,
                        conduit          >= 1.0,
