@@ -300,6 +300,52 @@ Right [Hit {hitIndex = IndexName "twitter"
 
 #+END_SRC
 
+**** Match Query
+
+#+BEGIN_SRC haskell
+
+let query = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
+let search = mkSearch (Just query) Nothing
+
+#+END_SRC
+
+
+**** Multi-Match Query
+
+#+BEGIN_SRC haskell
+
+let fields = [FieldName "user", FieldName "message"]
+let query = QueryMultiMatchQuery $ mkMultiMatchQuery fields (QueryString "bitemyapp")
+let search = mkSearch (Just query) Nothing
+
+#+END_SRC
+
+**** Bool Query
+
+#+BEGIN_SRC haskell
+
+let innerQuery = QueryMatchQuery $
+                 mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
+let query = QueryBoolQuery $
+            mkBoolQuery (Just innerQuery) Nothing Nothing
+let search = mkSearch (Just query) Nothing
+
+#+END_SRC
+
+**** Boosting Query
+
+#+BEGIN_SRC haskell
+
+let posQuery = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
+let negQuery = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "notmyapp")
+let query = QueryBoostingQuery $ BoostingQuery posQuery negQuery (Boost 0.2)
+
+#+END_SRC
+
+**** Rest of the query types
+
+Just follow the pattern you've seen here and check the Hackage API documentation.
+
 *** Sorting
 
 #+BEGIN_SRC haskell
