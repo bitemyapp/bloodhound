@@ -10,3 +10,10 @@ test-repl:
 
 repl:
 	cabal repl
+
+reset:
+	rm -rf .cabal-sandbox
+	cabal sandbox init
+
+haddock:
+	cabal haddock --hyperlink-source
