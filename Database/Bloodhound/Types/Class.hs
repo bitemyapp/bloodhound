@@ -2,7 +2,6 @@ module Database.Bloodhound.Types.Class
        ( Seminearring(..) )
        where
 
-import Data.Aeson
 import Data.Monoid
 
 class Monoid a => Seminearring a where

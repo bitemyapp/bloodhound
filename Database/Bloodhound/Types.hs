@@ -19,7 +19,7 @@ module Database.Bloodhound.Types
        , NullValue(..)
        , IndexSettings(..)
        , Server(..)
-       , Reply(..)
+       , Reply
        , EsResult(..)
        , Query(..)
        , Search(..)
@@ -59,14 +59,14 @@ module Database.Bloodhound.Types
        , BulkOperation(..)
        , ReplicaCount(..)
        , ShardCount(..)
-       , Sort(..)
+       , Sort
        , SortMode(..)
        , SortOrder(..)
        , SortSpec(..)
        , DefaultSort(..)
        , Missing(..)
        , OpenCloseIndex(..)
-       , Method(..)
+       , Method
        , Boost(..)
        , MatchQuery(..)
        , MultiMatchQuery(..)
@@ -147,6 +147,7 @@ data IndexSettings =
   IndexSettings { indexShards   :: ShardCount
                 , indexReplicas :: ReplicaCount } deriving (Eq, Show)
 
+defaultIndexSettings :: IndexSettings
 defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 data Strategy = RoundRobinStrat | RandomStrat | HeadStrat deriving (Eq, Show)
@@ -172,8 +173,8 @@ data MappingField =
   MappingField   { mappingFieldName       :: FieldName
                  , fieldDefinition        :: FieldDefinition } deriving (Eq, Show)
 
-data Mapping = Mapping { typeName :: TypeName
-                       , fields   :: [MappingField] } deriving (Eq, Show)
+data Mapping = Mapping { typeName      :: TypeName
+                       , mappingFields :: [MappingField] } deriving (Eq, Show)
 
 data BulkOperation =
     BulkIndex  IndexName MappingName DocId Value
@@ -215,10 +216,11 @@ data SortMode = SortMin
               | SortAvg deriving (Eq, Show)
 
 mkSort :: FieldName -> SortOrder -> DefaultSort
-mkSort fieldName sortOrder = DefaultSort fieldName sortOrder False Nothing Nothing Nothing
+mkSort fieldName sOrder = DefaultSort fieldName sOrder False Nothing Nothing Nothing
 
-type Cache     = Bool -- caching on/off
-defaultCache   = False
+type Cache   = Bool -- caching on/off
+defaultCache :: Cache
+defaultCache = False
 
 type PrefixValue = Text
 
@@ -507,8 +509,8 @@ data MultiMatchQuery =
                   , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
 
 mkMultiMatchQuery :: [FieldName] -> QueryString -> MultiMatchQuery
-mkMultiMatchQuery fields query =
-  MultiMatchQuery fields query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing
+mkMultiMatchQuery matchFields query =
+  MultiMatchQuery matchFields query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing
 
 data MultiMatchQueryType = MultiMatchBestFields
                          | MultiMatchMostFields
@@ -689,8 +691,8 @@ maybeJson :: ToJSON a => Text -> Maybe a -> [(Text, Value)]
 maybeJson field (Just value) = [field .= toJSON value]
 maybeJson _ _ = []
 
--- maybeJsonF :: (ToJSON (f Value), ToJSON a, Functor f) =>
---              Text -> Maybe (f a) -> [(Text, Value)]
+maybeJsonF :: (ToJSON (f Value), ToJSON a, Functor f) =>
+             Text -> Maybe (f a) -> [(Text, Value)]
 maybeJsonF field (Just value) = [field .= fmap toJSON value]
 maybeJsonF _ _ = []
 

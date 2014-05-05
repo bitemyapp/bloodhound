@@ -12,8 +12,8 @@ import Data.Maybe (catMaybes)
 import Data.Monoid
 import qualified Data.Text as T
 import Database.Bloodhound.Types
-import Database.Bloodhound.Types.Class
-import Data.Scientific
+import Database.Bloodhound.Types.Class ()
+import Prelude hiding (filter)
 
 instance Monoid Filter where
   mempty = IdentityFilter
@@ -50,21 +50,21 @@ instance ToJSON Filter where
     object ["geo_bounding_box" .= toJSON bbConstraint
            , "type" .= toJSON filterType]
 
-  toJSON (GeoDistanceFilter (GeoPoint (FieldName geoField) latLon)
+  toJSON (GeoDistanceFilter (GeoPoint (FieldName distanceGeoField) latLon)
           distance distanceType optimizeBbox cache) =
     object ["geo_distance" .=
             object ["distance" .= toJSON distance
                    , "distance_type" .= toJSON distanceType
                    , "optimize_bbox" .= optimizeBbox
-                   , geoField .= toJSON latLon
+                   , distanceGeoField .= toJSON latLon
                    , "_cache" .= cache]]                   
 
-  toJSON (GeoDistanceRangeFilter (GeoPoint (FieldName geoField) latLon)
+  toJSON (GeoDistanceRangeFilter (GeoPoint (FieldName geoField) drLatLon)
           (DistanceRange distanceFrom distanceTo)) =
     object ["geo_distance_range" .=
             object ["from" .= toJSON distanceFrom
                    , "to"  .= toJSON distanceTo
-                   , geoField .= toJSON latLon]]
+                   , geoField .= toJSON drLatLon]]
 
   toJSON (GeoPolygonFilter (FieldName geoField) latLons) =
     object ["geo_polygon" .=
@@ -159,8 +159,8 @@ instance ToJSON Query where
   toJSON (QueryDisMaxQuery disMaxQuery) =
     object [ "dis_max" .= toJSON disMaxQuery ]
 
-  toJSON (QueryFilteredQuery filteredQuery) =
-    object [ "filtered" .= toJSON filteredQuery ]
+  toJSON (QueryFilteredQuery qFilteredQuery) =
+    object [ "filtered" .= toJSON qFilteredQuery ]
 
   toJSON (QueryFuzzyLikeThisQuery fuzzyQuery) =
     object [ "fuzzy_like_this" .= toJSON fuzzyQuery ]
@@ -177,8 +177,8 @@ instance ToJSON Query where
   toJSON (QueryHasParentQuery parentQuery) =
     object [ "has_parent" .= toJSON parentQuery ]
 
-  toJSON (QueryIndicesQuery indicesQuery) =
-    object [ "indices" .= toJSON indicesQuery ]
+  toJSON (QueryIndicesQuery qIndicesQuery) =
+    object [ "indices" .= toJSON qIndicesQuery ]
 
   toJSON (MatchAllQuery boost) =
     object [ "match_all" .= object maybeAdd ]

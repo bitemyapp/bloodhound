@@ -25,10 +25,9 @@ import Data.Text (Text)
 import Network.HTTP.Conduit
 import qualified Network.HTTP.Types.Method as NHTM
 import qualified Network.HTTP.Types.Status as NHTS
-import Prelude hiding (head)
+import Prelude hiding (head, filter)
 
 import Database.Bloodhound.Types
-import Database.Bloodhound.Types.Class
 import Database.Bloodhound.Types.Instances
 
 -- find way to avoid destructuring Servers and Indexes?
@@ -51,14 +50,15 @@ mkReplicaCount n
 responseIsError :: Reply -> Bool
 responseIsError resp = NHTS.statusCode (responseStatus resp) > 299
 
+emptyBody :: L.ByteString
 emptyBody = L.pack ""
 
 dispatch :: Method -> String -> Maybe L.ByteString
             -> IO Reply
-dispatch method url body = do
+dispatch dMethod url body = do
   initReq <- parseUrl url
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
-  let req = initReq { method = method
+  let req = initReq { method = dMethod
                     , requestBody = reqBody
                     , checkStatus = \_ _ _ -> Nothing}
   withManager $ httpLbs req
@@ -66,10 +66,16 @@ dispatch method url body = do
 joinPath :: [String] -> String
 joinPath = intercalate "/"
 
+-- Shortcut functions for HTTP methods
+delete :: String -> IO Reply
 delete = flip (dispatch NHTM.methodDelete) $ Nothing
+get    :: String -> IO Reply
 get    = flip (dispatch NHTM.methodGet) $ Nothing
+head   :: String -> IO Reply
 head   = flip (dispatch NHTM.methodHead) $ Nothing
+put    :: String -> Maybe L.ByteString -> IO Reply
 put    = dispatch NHTM.methodPost
+post   :: String -> Maybe L.ByteString -> IO Reply
 post   = dispatch NHTM.methodPost
 
 -- indexDocument s ix name doc = put (root </> s </> ix </> name </> doc) (Just encode doc)
@@ -95,13 +101,14 @@ deleteIndex (Server server) (IndexName indexName) =
 respIsTwoHunna :: Reply -> Bool
 respIsTwoHunna resp = NHTS.statusCode (responseStatus resp) == 200
 
+existentialQuery :: String -> IO (Reply, Bool)
 existentialQuery url = do
   reply <- head url
   return (reply, respIsTwoHunna reply)
 
 indexExists :: Server -> IndexName -> IO Bool
 indexExists (Server server) (IndexName indexName) = do
-  (reply, exists) <- existentialQuery url
+  (_, exists) <- existentialQuery url
   return exists
   where url = joinPath [server, indexName]
 
@@ -110,6 +117,7 @@ refreshIndex (Server server) (IndexName indexName) =
   post url Nothing
   where url = joinPath [server, indexName, "_refresh"]
 
+stringifyOCIndex :: OpenCloseIndex -> String
 stringifyOCIndex oci = case oci of
   OpenIndex  -> "_open"
   CloseIndex -> "_close"
@@ -207,7 +215,7 @@ documentExists :: Server -> IndexName -> MappingName
                   -> DocId -> IO Bool
 documentExists (Server server) (IndexName indexName)
   (MappingName mappingName) (DocId docId) = do
-  (reply, exists) <- existentialQuery url
+  (_, exists) <- existentialQuery url
   return exists where
     url = joinPath [server, indexName, mappingName, docId]
 
@@ -231,4 +239,4 @@ mkSearch :: Maybe Query -> Maybe Filter -> Search
 mkSearch query filter = Search query filter Nothing False 0 10
 
 pageSearch :: Int -> Int -> Search -> Search
-pageSearch from size search = search { from = from, size = size }
+pageSearch pageFrom pageSize search = search { from = pageFrom, size = pageSize }
