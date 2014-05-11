@@ -314,6 +314,7 @@ newtype FieldName                = FieldName Text deriving (Eq, Show)
 {-| 'CacheName' is used in 'RegexpQuery' and 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior. -}
 newtype CacheName                = CacheName Text deriving (Eq, Show)
+{-| 'CacheKey' is used in 'RegexpQuery' and 'RegexpFilter' to key regex caching behavior. -}
 newtype CacheKey                 = CacheKey  Text deriving (Eq, Show)
 newtype Existence                = Existence Bool deriving (Eq, Show)
 newtype NullValue                = NullValue Bool deriving (Eq, Show)
@@ -348,6 +349,7 @@ newtype PhraseSlop               = PhraseSlop Int deriving (Eq, Show, Generic)
 newtype MinDocFrequency          = MinDocFrequency Int deriving (Eq, Show, Generic)
 newtype MaxDocFrequency          = MaxDocFrequency Int deriving (Eq, Show, Generic)
 
+{-| 'unpackId' is a silly convenience function that gets used once. -}
 unpackId :: DocId -> String
 unpackId (DocId docId) = docId
 
@@ -569,6 +571,9 @@ data MatchQuery =
              , matchQueryMaxExpansions   :: Maybe MaxExpansions
              , matchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
 
+{-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
+    enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
+-}
 mkMatchQuery :: FieldName -> QueryString -> MatchQuery
 mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing
 
@@ -586,6 +591,11 @@ data MultiMatchQuery =
                   , multiMatchQueryAnalyzer        :: Maybe Analyzer
                   , multiMatchQueryMaxExpansions   :: Maybe MaxExpansions
                   , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
+
+{-| 'mkMultiMatchQuery' is a convenience function that defaults the less common parameters,
+    enabling you to provide only the list of 'FieldName's and 'QueryString' to
+    make a 'MultiMatchQuery'.
+-}
 
 mkMultiMatchQuery :: [FieldName] -> QueryString -> MultiMatchQuery
 mkMultiMatchQuery matchFields query =
