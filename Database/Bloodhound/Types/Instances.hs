@@ -465,7 +465,7 @@ instance FromJSON MappingName
 instance FromJSON DocId
 
 
-instance (FromJSON a) => FromJSON (Status a) where
+instance FromJSON Status where
   parseJSON (Object v) = Status <$>
                          v .: "ok" <*>
                          v .: "status" <*>

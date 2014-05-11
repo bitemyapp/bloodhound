@@ -1,5 +1,12 @@
 {-# LANGUAGE DeriveGeneric #-}
 
+{-| Data types for describing actions and data structures performed to interact with
+    Elasticsearch. The two main buckets your queries against Elasticsearch will fall
+    into are 'Query's and 'Filter's. 'Filter's are more like traditional database
+    constraints and often have preferable performance properties. 'Query's support
+    human-written textual queries, such as fuzzy queries.
+-}
+
 module Database.Bloodhound.Types
        ( defaultCache
        , defaultIndexSettings
@@ -131,31 +138,48 @@ import GHC.Generics (Generic)
 import Network.HTTP.Conduit
 import qualified Network.HTTP.Types.Method as NHTM
 
+
+{-| 'Version' is embedded in 'Status' -}
 data Version = Version { number          :: Text
                        , build_hash      :: Text
                        , build_timestamp :: UTCTime
                        , build_snapshot  :: Bool
-                       , lucene_version  :: Text } deriving (Show, Generic)
+                       , lucene_version  :: Text } deriving (Eq, Show, Generic)
 
-data Status a = Status { ok      :: Bool
-                       , status  :: Int
-                       , name    :: Text
-                       , version :: a
-                       , tagline :: Text } deriving (Eq, Show)
+{-| 'Status' is a data type for describing the JSON body returned by Elasticsearch when you
+   query its status. This was deprecated in 1.2.0.
+
+   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-status.html#indices-status>
+-}
+
+data Status = Status { ok      :: Bool
+                     , status  :: Int
+                     , name    :: Text
+                     , version :: Version
+                     , tagline :: Text } deriving (Eq, Show)
+
+{-| 'IndexSettings' is used to configure the shards and replicas when you create
+   an Elasticsearch Index.
+
+   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-create-index.html>
+-}
 
 data IndexSettings =
   IndexSettings { indexShards   :: ShardCount
                 , indexReplicas :: ReplicaCount } deriving (Eq, Show)
 
+{-| 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and 2 replicas. -}
 defaultIndexSettings :: IndexSettings
 defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
-data Strategy = RoundRobinStrat | RandomStrat | HeadStrat deriving (Eq, Show)
-
-
+{-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method' -}
 type Reply = Network.HTTP.Conduit.Response L.ByteString
 type Method = NHTM.Method
 
+{-| 'OpenCloseIndex' is a sum type for opening and closing indices.
+
+   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
+-}
 data OpenCloseIndex = OpenIndex | CloseIndex deriving (Eq, Show)
 
 data FieldType = GeoPointType
@@ -173,15 +197,24 @@ data MappingField =
   MappingField   { mappingFieldName       :: FieldName
                  , fieldDefinition        :: FieldDefinition } deriving (Eq, Show)
 
+{-| Support for type reification of 'Mapping's is currently incomplete, for now the mapping API verbiage expects a 'ToJSON'able blob. -}
 data Mapping = Mapping { typeName      :: TypeName
                        , mappingFields :: [MappingField] } deriving (Eq, Show)
 
+{-| 'BulkOperation' is a sum type for expressing the four kinds of bulk operation index,
+   create, delete, and update. 'BulkIndex' behaves like an "upsert", 'BulkCreate' will fail
+   if a document already exists at the DocId.
+
+   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html#docs-bulk>
+-}
 data BulkOperation =
     BulkIndex  IndexName MappingName DocId Value
   | BulkCreate IndexName MappingName DocId Value
   | BulkDelete IndexName MappingName DocId
   | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Show)
 
+{-| 'EsResult' describes the standard wrapper JSON document that you see in successful Elasticsearch responses.
+-}
 data EsResult a = EsResult { _index   :: Text
                            , _type    :: Text
                            , _id      :: Text
@@ -189,11 +222,22 @@ data EsResult a = EsResult { _index   :: Text
                            , found    :: Maybe Bool
                            , _source  :: a } deriving (Eq, Show)
 
+{-| 'Sort' is a synonym for a list of 'SortSpec's. Sort behavior is order dependent with later sorts acting as tie-breakers for earlier sorts.
+-}
 type Sort = [SortSpec]
 
+{-| The two main kinds of 'SortSpec' are 'DefaultSortSpec' and 'GeoDistanceSortSpec'. The latter takes a 'SortOrder', 'GeoPoint', and 'DistanceUnit' to express "nearness" to a single geographical point as a sort specification.
+
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
+-}
 data SortSpec = DefaultSortSpec DefaultSort
               | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Show)
 
+{-| 'DefaultSort' is usually the kind of 'SortSpec' you'll want. There's a 'mkSort' convenience
+    function for when you want to specify only the most common parameters.
+
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
+-}
 data DefaultSort =
   DefaultSort { sortFieldName  :: FieldName
               , sortOrder      :: SortOrder
@@ -203,37 +247,72 @@ data DefaultSort =
               , missingSort    :: Maybe Missing
               , nestedFilter   :: Maybe Filter } deriving (Eq, Show)
 
+{-| 'SortOrder' is 'Ascending' or 'Descending', as you might expect. These get encoded into "asc" or "desc" when turned into JSON.
+
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
+-}
 data SortOrder = Ascending
                | Descending deriving (Eq, Show)
 
+{-| 'Missing' prescribes how to handle missing fields. A missing field can be sorted last, first, or using a custom value as a substitute.
+
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_missing_values>
+-}
 data Missing = LastMissing
              | FirstMissing
              | CustomMissing Text deriving (Eq, Show)
 
+{-| 'SortMode' prescribes how to handle sorting array/multi-valued fields.
+
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_sort_mode_option
+-}
 data SortMode = SortMin
               | SortMax
               | SortSum
               | SortAvg deriving (Eq, Show)
 
+{-| 'mkSort' defaults everything but the 'FieldName' and the 'SortOrder' so that you can concisely describe the usual kind of 'SortSpec's you want.
+-}
 mkSort :: FieldName -> SortOrder -> DefaultSort
 mkSort fieldName sOrder = DefaultSort fieldName sOrder False Nothing Nothing Nothing
 
+{-| 'Cache' is for telling ES whether it should cache a 'Filter' not.
+    'Query's cannot be cached.
+-}
 type Cache   = Bool -- caching on/off
 defaultCache :: Cache
 defaultCache = False
 
+{-| 'PrefixValue' is used in 'PrefixQuery' as the main query component. -}
 type PrefixValue = Text
 
+{-| 'BooleanOperator' is the usual And/Or operators with an ES compatible
+    JSON encoding baked in. Used all over the place.
+-}
 data BooleanOperator = And | Or deriving (Eq, Show)
 
+{-| 'ShardCount' is part of 'IndexSettings' -}
 newtype ShardCount               = ShardCount   Int deriving (Eq, Show, Generic)
+{-| 'ReplicaCount' is part of 'IndexSettings' -}
 newtype ReplicaCount             = ReplicaCount Int deriving (Eq, Show, Generic)
+{-| 'Server' is used with the client functions to point at the ES instance -}
 newtype Server                   = Server String deriving (Eq, Show)
+{-| 'IndexName' is used to describe which index to query/create/delete -}
 newtype IndexName                = IndexName String deriving (Eq, Generic, Show)
+{-| 'MappingName' is part of mappings which are how ES describes and schematizes
+    the data in the indices. -}
 newtype MappingName              = MappingName String deriving (Eq, Generic, Show)
+{-| 'DocId' is a generic wrapper value for expressing unique Document IDs. Can be set
+    by the user or created by ES itself. Often used in client functions for poking
+    at specific documents. -}
 newtype DocId                    = DocId String deriving (Eq, Generic, Show)
+{-| 'QueryString' is used to wrap query text bodies, be they human written or not. -}
 newtype QueryString              = QueryString Text deriving (Eq, Show)
+{-| 'FieldName' is used all over the place wherever a specific field within a document
+    needs to be specified, usually in 'Query's or 'Filter's. -}
 newtype FieldName                = FieldName Text deriving (Eq, Show)
+{-| 'CacheName' is used in 'RegexpQuery' and 'RegexpFilter' for describing the
+    'CacheKey' keyed caching behavior. -}
 newtype CacheName                = CacheName Text deriving (Eq, Show)
 newtype CacheKey                 = CacheKey  Text deriving (Eq, Show)
 newtype Existence                = Existence Bool deriving (Eq, Show)

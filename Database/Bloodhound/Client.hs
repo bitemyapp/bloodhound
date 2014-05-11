@@ -82,7 +82,7 @@ post   = dispatch NHTM.methodPost
 -- http://hackage.haskell.org/package/http-client-lens-0.1.0/docs/Network-HTTP-Client-Lens.html
 -- https://github.com/supki/libjenkins/blob/master/src/Jenkins/Rest/Internal.hs
 
-getStatus :: Server -> IO (Maybe (Status Version))
+getStatus :: Server -> IO (Maybe Status)
 getStatus (Server server) = do
   request <- parseUrl $ joinPath [server]
   response <- withManager $ httpLbs request
