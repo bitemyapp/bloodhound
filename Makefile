@@ -1,5 +1,10 @@
+install-with-test-support:
+	cabal install --enable-tests
+	echo "Make certain you have an elasticsearch instance on localhost:9200 !"
+	cabal test
 
 test:
+	echo "Make certain you have an elasticsearch instance on localhost:9200 !"
 	cabal test
 
 build:
