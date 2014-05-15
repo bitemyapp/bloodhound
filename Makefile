@@ -5,6 +5,7 @@ install-with-test-support:
 
 test:
 	echo "Make certain you have an elasticsearch instance on localhost:9200 !"
+	cabal clean
 	cabal test
 
 build:

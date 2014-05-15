@@ -4,8 +4,6 @@ module Main where
 
 import Database.Bloodhound
 import Data.Aeson
--- import Data.Aeson.Encode.Pretty
--- import Data.ByteString.Lazy.Char8 (putStrLn)
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
 import Data.Text (Text)
@@ -18,7 +16,7 @@ import Test.Hspec
 testServer  :: Server
 testServer  = Server "http://localhost:9200"
 testIndex   :: IndexName
-testIndex   = IndexName "twitter"
+testIndex   = IndexName "bloodhound-tests-twitter-1"
 testMapping :: MappingName
 testMapping = MappingName "tweet"
 
@@ -133,10 +131,10 @@ main = hspec $ do
       _ <- insertData
       let firstTest = BulkTest "blah"
       let secondTest = BulkTest "bloo"
-      let firstDoc = BulkIndex (IndexName "twitter")
-                     (MappingName "tweet") (DocId "2") (object ["name" .= String "blah"])
-      let secondDoc = BulkCreate (IndexName "twitter")
-                     (MappingName "tweet") (DocId "3") (object ["name" .= String "bloo"])
+      let firstDoc = BulkIndex testIndex
+                     testMapping (DocId "2") (object ["name" .= String "blah"])
+      let secondDoc = BulkCreate testIndex
+                     testMapping (DocId "3") (object ["name" .= String "bloo"])
       let stream = [firstDoc, secondDoc]
       _ <- bulk testServer stream
       _ <- refreshIndex testServer testIndex
