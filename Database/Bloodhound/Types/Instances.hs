@@ -59,12 +59,12 @@ instance ToJSON Filter where
                    , distanceGeoField .= toJSON latLon
                    , "_cache" .= cache]]                   
 
-  toJSON (GeoDistanceRangeFilter (GeoPoint (FieldName geoField) drLatLon)
-          (DistanceRange distanceFrom distanceTo)) =
+  toJSON (GeoDistanceRangeFilter (GeoPoint (FieldName gddrField) drLatLon)
+          (DistanceRange distanceFrom drDistanceTo)) =
     object ["geo_distance_range" .=
             object ["from" .= toJSON distanceFrom
-                   , "to"  .= toJSON distanceTo
-                   , geoField .= toJSON drLatLon]]
+                   , "to"  .= toJSON drDistanceTo
+                   , gddrField .= toJSON drLatLon]]
 
   toJSON (GeoPolygonFilter (FieldName geoField) latLons) =
     object ["geo_polygon" .=
@@ -358,20 +358,20 @@ instance ToJSON CommonMinimumMatch where
            , "high_freq" .= toJSON highF ]
 
 instance ToJSON BoostingQuery where
-  toJSON (BoostingQuery positiveQuery negativeQuery negativeBoost) =
-    object [ "positive"       .= toJSON positiveQuery
-           , "negative"       .= toJSON negativeQuery
-           , "negative_boost" .= toJSON negativeBoost ]
+  toJSON (BoostingQuery bqPositiveQuery bqNegativeQuery bqNegativeBoost) =
+    object [ "positive"       .= toJSON bqPositiveQuery
+           , "negative"       .= toJSON bqNegativeQuery
+           , "negative_boost" .= toJSON bqNegativeBoost ]
 
 
 instance ToJSON BoolQuery where
-  toJSON (BoolQuery mustM notM shouldM min boost disableCoord) =
+  toJSON (BoolQuery mustM notM shouldM bqMin boost disableCoord) =
     object filtered
     where filtered = catMaybes
                       [ mField "must" mustM
                       , mField "must_not" notM
                       , mField "should" shouldM
-                      , mField "minimum_should_match" min
+                      , mField "minimum_should_match" bqMin
                       , mField "boost" boost
                       , mField "disable_coord" disableCoord ]
 
@@ -491,14 +491,14 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 
 instance ToJSON Search where
-  toJSON (Search query filter sort trackSortScores from size) =
+  toJSON (Search query filter sort sTrackSortScores sFrom sSize) =
     object merged where
       lQuery  = maybeJson  "query" query
       lFilter = maybeJson  "filter" filter
       lSort   = maybeJsonF "sort" sort
-      merged  = mconcat [[ "from" .= from
-                         , "size" .= size
-                         , "track_scores" .= trackSortScores]
+      merged  = mconcat [[ "from" .= sFrom
+                         , "size" .= sSize
+                         , "track_scores" .= sTrackSortScores]
                         , lQuery
                         , lFilter
                         , lSort]
@@ -506,20 +506,20 @@ instance ToJSON Search where
 
 instance ToJSON SortSpec where
   toJSON (DefaultSortSpec
-          (DefaultSort (FieldName sortFieldName) sortOrder ignoreUnmapped
-           sortMode missingSort nestedFilter)) =
-    object [sortFieldName .= object merged] where
-      base = ["order" .= toJSON sortOrder
-             , "ignore_unmapped" .= ignoreUnmapped]
-      lSortMode = maybeJson "mode" sortMode
-      lMissingSort = maybeJson "missing" missingSort
-      lNestedFilter = maybeJson "nested_filter" nestedFilter
+          (DefaultSort (FieldName dsSortFieldName) dsSortOrder dsIgnoreUnmapped
+           dsSortMode dsMissingSort dsNestedFilter)) =
+    object [dsSortFieldName .= object merged] where
+      base = ["order" .= toJSON dsSortOrder
+             , "ignore_unmapped" .= dsIgnoreUnmapped]
+      lSortMode = maybeJson "mode" dsSortMode
+      lMissingSort = maybeJson "missing" dsMissingSort
+      lNestedFilter = maybeJson "nested_filter" dsNestedFilter
       merged = mconcat [base, lSortMode, lMissingSort, lNestedFilter]
 
-  toJSON (GeoDistanceSortSpec sortOrder (GeoPoint (FieldName field) latLon) units) =
+  toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
     object [ "unit" .= toJSON units
-           , field .= toJSON latLon
-           , "order" .= toJSON sortOrder ]
+           , field .= toJSON gdsLatLon
+           , "order" .= toJSON gdsSortOrder ]
 
 
 instance ToJSON SortOrder where
@@ -548,10 +548,10 @@ instance ToJSON ScoreType where
 
 
 instance ToJSON Distance where
-  toJSON (Distance coefficient unit) =
+  toJSON (Distance dCoefficient dUnit) =
     String boltedTogether where
-      coefText = showText coefficient
-      (String unitText) = (toJSON unit)
+      coefText = showText dCoefficient
+      (String unitText) = toJSON dUnit
       boltedTogether = mappend coefText unitText
 
 
@@ -579,8 +579,9 @@ instance ToJSON OptimizeBbox where
 
 
 instance ToJSON GeoBoundingBoxConstraint where
-  toJSON (GeoBoundingBoxConstraint (FieldName geoBBField) constraintBox cache) =
-    object [geoBBField .= toJSON constraintBox
+  toJSON (GeoBoundingBoxConstraint
+          (FieldName gbbcGeoBBField) gbbcConstraintBox cache) =
+    object [gbbcGeoBBField .= toJSON gbbcConstraintBox
            , "_cache"  .= cache]
 
 
@@ -590,15 +591,15 @@ instance ToJSON GeoFilterType where
 
 
 instance ToJSON GeoBoundingBox where
-  toJSON (GeoBoundingBox topLeft bottomRight) =
-    object ["top_left"      .= toJSON topLeft
-           , "bottom_right" .= toJSON bottomRight]
+  toJSON (GeoBoundingBox gbbTopLeft gbbBottomRight) =
+    object ["top_left"      .= toJSON gbbTopLeft
+           , "bottom_right" .= toJSON gbbBottomRight]
 
 
 instance ToJSON LatLon where
-  toJSON (LatLon lat lon) =
-    object ["lat"  .= lat
-           , "lon" .= lon]
+  toJSON (LatLon lLat lLon) =
+    object ["lat"  .= lLat
+           , "lon" .= lLon]
 
 
 -- index for smaller ranges, fielddata for longer ranges

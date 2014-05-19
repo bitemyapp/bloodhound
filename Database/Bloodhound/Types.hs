@@ -1,10 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-{-| Data types for describing actions and data structures performed to interact with
-    Elasticsearch. The two main buckets your queries against Elasticsearch will fall
-    into are 'Query's and 'Filter's. 'Filter's are more like traditional database
-    constraints and often have preferable performance properties. 'Query's support
-    human-written textual queries, such as fuzzy queries.
+{-| Data types for describing actions and data structures performed to interact with Elasticsearch. The two main buckets your queries against Elasticsearch will fall into are 'Query's and 'Filter's. 'Filter's are more like traditional database constraints and often have preferable performance properties. 'Query's support human-written textual queries, such as fuzzy queries.
 -}
 
 module Database.Bloodhound.Types
@@ -659,7 +655,8 @@ data Filter = AndFilter [Filter] Cache
             | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
               deriving (Eq, Show)
 
-data ZeroTermsQuery = ZeroTermsNone | ZeroTermsAll deriving (Eq, Show)
+data ZeroTermsQuery = ZeroTermsNone
+                    | ZeroTermsAll deriving (Eq, Show)
 
 -- lt, lte | gt, gte
 newtype LessThan      = LessThan      Double deriving (Eq, Show)

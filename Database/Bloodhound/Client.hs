@@ -68,11 +68,11 @@ joinPath = intercalate "/"
 
 -- Shortcut functions for HTTP methods
 delete :: String -> IO Reply
-delete = flip (dispatch NHTM.methodDelete) $ Nothing
+delete = flip (dispatch NHTM.methodDelete) Nothing
 get    :: String -> IO Reply
-get    = flip (dispatch NHTM.methodGet) $ Nothing
+get    = flip (dispatch NHTM.methodGet) Nothing
 head   :: String -> IO Reply
-head   = flip (dispatch NHTM.methodHead) $ Nothing
+head   = flip (dispatch NHTM.methodHead) Nothing
 put    :: String -> Maybe L.ByteString -> IO Reply
 put    = dispatch NHTM.methodPost
 post   :: String -> Maybe L.ByteString -> IO Reply
@@ -142,9 +142,9 @@ createMapping (Server server) (IndexName indexName) (MappingName mappingName) ma
         body = Just $ encode mapping
 
 deleteMapping :: Server -> IndexName -> MappingName -> IO Reply
-deleteMapping (Server server) (IndexName indexName) (MappingName mappingName) =
+deleteMapping (Server server) (IndexName indexName)
+  (MappingName mappingName) =
   delete $ joinPath [server, indexName, mappingName, "_mapping"]
-
 indexDocument :: ToJSON doc => Server -> IndexName -> MappingName
                  -> doc -> DocId -> IO Reply
 indexDocument (Server server) (IndexName indexName)
@@ -171,7 +171,7 @@ collapseStream stream = collapsed where
   collapsed = toLazyByteString $ mappend mashedTaters (byteString "\n")
 
 mash :: Builder -> [L.ByteString] -> Builder
-mash builder xs = foldl' (\b x -> mappend b (lazyByteString x)) builder xs
+mash = foldl' (\b x -> mappend b (lazyByteString x))
 
 mkMetadataValue :: Text -> String -> String -> String -> Value
 mkMetadataValue operation indexName mappingName docId =
@@ -208,7 +208,8 @@ getStreamChunk (BulkUpdate (IndexName indexName)
 
 getDocument :: Server -> IndexName -> MappingName
                -> DocId -> IO Reply
-getDocument (Server server) (IndexName indexName) (MappingName mappingName) (DocId docId) =
+getDocument (Server server) (IndexName indexName)
+  (MappingName mappingName) (DocId docId) =
   get $ joinPath [server, indexName, mappingName, docId]
 
 documentExists :: Server -> IndexName -> MappingName
@@ -223,16 +224,16 @@ dispatchSearch :: String -> Search -> IO Reply
 dispatchSearch url search = post url (Just (encode search))
 
 searchAll :: Server -> Search -> IO Reply
-searchAll (Server server) search = dispatchSearch url search where
+searchAll (Server server) = dispatchSearch url where
   url = joinPath [server, "_search"]
 
 searchByIndex :: Server -> IndexName -> Search -> IO Reply
-searchByIndex (Server server) (IndexName indexName) search = dispatchSearch url search where
+searchByIndex (Server server) (IndexName indexName) = dispatchSearch url where
   url = joinPath [server, indexName, "_search"]
 
 searchByType :: Server -> IndexName -> MappingName -> Search -> IO Reply
 searchByType (Server server) (IndexName indexName)
-  (MappingName mappingName) search = dispatchSearch url search where
+  (MappingName mappingName) = dispatchSearch url where
   url = joinPath [server, indexName, mappingName, "_search"]
 
 mkSearch :: Maybe Query -> Maybe Filter -> Search
