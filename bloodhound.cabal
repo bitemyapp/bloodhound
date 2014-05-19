@@ -28,7 +28,8 @@ library
                        bytestring       >= 0.10.2,
                        aeson            >= 0.7,
                        conduit          >= 1.0,
-                       http-conduit     >= 2.0,
+                       -- http-conduit     >= 2.0,
+                       http-client      >= 0.3,
                        time             >= 1.4,
                        text             >= 0.11,
                        http-types       >= 0.8
@@ -42,7 +43,7 @@ test-suite tests
   hs-source-dirs: tests
   build-depends:       base,
                        bloodhound,
-                       http-conduit,
+                       http-client,
                        http-types,
                        hspec                >= 1.8,
                        text                 >= 0.11,

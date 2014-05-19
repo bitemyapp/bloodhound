@@ -8,7 +8,7 @@ import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Network.HTTP.Conduit
+import Network.HTTP.Client
 import qualified Network.HTTP.Types.Status as NHTS
 import Prelude hiding (filter, putStrLn)
 import Test.Hspec

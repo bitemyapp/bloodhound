@@ -131,7 +131,7 @@ import qualified Data.Text as T
 import Data.Time.Clock (UTCTime)
 import Database.Bloodhound.Types.Class
 import GHC.Generics (Generic)
-import Network.HTTP.Conduit
+import Network.HTTP.Client
 import qualified Network.HTTP.Types.Method as NHTM
 
 
@@ -169,7 +169,7 @@ defaultIndexSettings :: IndexSettings
 defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 {-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method' -}
-type Reply = Network.HTTP.Conduit.Response L.ByteString
+type Reply = Network.HTTP.Client.Response L.ByteString
 type Method = NHTM.Method
 
 {-| 'OpenCloseIndex' is a sum type for opening and closing indices.

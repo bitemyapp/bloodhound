@@ -22,7 +22,7 @@ import Data.ByteString.Builder
 import Data.List (foldl', intercalate, intersperse)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
-import Network.HTTP.Conduit
+import Network.HTTP.Client
 import qualified Network.HTTP.Types.Method as NHTM
 import qualified Network.HTTP.Types.Status as NHTS
 import Prelude hiding (head, filter)
@@ -61,7 +61,7 @@ dispatch dMethod url body = do
   let req = initReq { method = dMethod
                     , requestBody = reqBody
                     , checkStatus = \_ _ _ -> Nothing}
-  withManager $ httpLbs req
+  withManager defaultManagerSettings $ httpLbs req
 
 joinPath :: [String] -> String
 joinPath = intercalate "/"
@@ -85,7 +85,7 @@ post   = dispatch NHTM.methodPost
 getStatus :: Server -> IO (Maybe Status)
 getStatus (Server server) = do
   request <- parseUrl $ joinPath [server]
-  response <- withManager $ httpLbs request
+  response <- withManager defaultManagerSettings $ httpLbs request
   return $ decode (responseBody response)
 
 createIndex :: Server -> IndexSettings -> IndexName -> IO Reply
