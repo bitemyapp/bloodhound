@@ -26,4 +26,4 @@ haddock:
 
 # cp -R ./dist/doc/html/bloodhound/ bloodhound-0.1.0.1-docs
 # tar cvzf --format=ustar -f bloodhound-0.1.0.1-docs.tar.gz bloodhound-0.1.0.1-docs
-# curl -X PUT -H 'Content-Type: application/x-tar' -H 'Content-Encoding: gzip' --data-binary '@bloodhound-0.1.0.1-docs.tar.gz' 'http://bitemyapp:$PASSWORD@hackage.haskell.org/package/bloodhound-0.1.0.1/docs'
+# curl -X PUT -H 'Content-Type: application/x-tar' -H 'Content-Encoding: gzip' --data-binary '@bloodhound-0.1.0.1-docs.tar.gz' 'https://bitemyapp:$PASSWORD@hackage.haskell.org/package/bloodhound-0.1.0.1/docs'
