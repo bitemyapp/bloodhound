@@ -631,7 +631,8 @@ data CommonTermsQuery =
                    } deriving (Eq, Show)
 
 data CommonMinimumMatch = CommonMinimumMatchHighLow MinimumMatchHighLow
-                        | CommonMinimumMatch MinimumMatch deriving (Eq, Show)
+                        | CommonMinimumMatch        MinimumMatch
+                        deriving (Eq, Show)
 
 data MinimumMatchHighLow =
   MinimumMatchHighLow { lowFreq :: MinimumMatch
@@ -639,7 +640,7 @@ data MinimumMatchHighLow =
 
 data Filter = AndFilter [Filter] Cache
             | OrFilter  [Filter] Cache
-            | NotFilter Filter   Cache
+            | NotFilter  Filter  Cache
             | IdentityFilter
             | BoolFilter BoolMatch
             | ExistsFilter FieldName -- always cached
