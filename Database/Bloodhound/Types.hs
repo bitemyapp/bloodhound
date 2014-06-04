@@ -17,6 +17,7 @@ module Database.Bloodhound.Types
        , mkMultiMatchQuery
        , mkBoolQuery
        , mkRangeQuery
+       , mkQueryStringQuery
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -126,6 +127,12 @@ module Database.Bloodhound.Types
        , FieldDefinition(..)
        , MappingField(..)
        , Mapping(..)
+       , AllowLeadingWildcard(..)
+       , LowercaseExpanded(..)
+       , GeneratePhraseQueries(..)
+       , Locale(..)
+       , AnalyzeWildcard(..)
+       , EnablePositionIncrements(..)
          ) where
 
 import Data.Aeson
@@ -307,24 +314,30 @@ newtype MappingName              = MappingName String deriving (Eq, Generic, Sho
     at specific documents. -}
 newtype DocId                    = DocId String deriving (Eq, Generic, Show)
 {-| 'QueryString' is used to wrap query text bodies, be they human written or not. -}
-newtype QueryString              = QueryString Text deriving (Eq, Show)
-{-| 'FieldName' is used all over the place wherever a specific field within a document
-    needs to be specified, usually in 'Query's or 'Filter's. -}
+newtype QueryString              = QueryString Text deriving (Eq, Generic, Show)
+{-| 'FieldName' is used all over the place wherever a specific field within
+     a document needs to be specified, usually in 'Query's or 'Filter's. -}
 newtype FieldName                = FieldName Text deriving (Eq, Show)
 {-| 'CacheName' is used in 'RegexpQuery' and 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior. -}
 newtype CacheName                = CacheName Text deriving (Eq, Show)
-{-| 'CacheKey' is used in 'RegexpQuery' and 'RegexpFilter' to key regex caching behavior. -}
+{-| 'CacheKey' is used in 'RegexpQuery' and 'RegexpFilter' to key regex
+    caching behavior. -}
 newtype CacheKey                 = CacheKey  Text deriving (Eq, Show)
 newtype Existence                = Existence Bool deriving (Eq, Show)
 newtype NullValue                = NullValue Bool deriving (Eq, Show)
 newtype CutoffFrequency          = CutoffFrequency Double deriving (Eq, Show, Generic)
 newtype Analyzer                 = Analyzer Text deriving (Eq, Show, Generic)
 newtype MaxExpansions            = MaxExpansions Int deriving (Eq, Show, Generic)
+{-| 'Lenient', if set to true, will cause format based failures to be
+    ignored. I don't know what the bloody default is, Elasticsearch
+    documentation didn't say what it was. Let me know if you figure it out. -}
 newtype Lenient                  = Lenient Bool deriving (Eq, Show, Generic)
 newtype Tiebreaker               = Tiebreaker Double deriving (Eq, Show, Generic)
 newtype Boost                    = Boost Double deriving (Eq, Show, Generic)
 newtype BoostTerms               = BoostTerms Double deriving (Eq, Show, Generic)
+{-| 'MinimumMatch' controls how many should clauses in the bool query should match.
+     Can be an absolute value (2) or a percentage (30%) or a combination of both. -}
 newtype MinimumMatch             = MinimumMatch Int deriving (Eq, Show, Generic)
 newtype MinimumMatchText         = MinimumMatchText Text deriving (Eq, Show)
 newtype DisableCoord             = DisableCoord Bool deriving (Eq, Show, Generic)
@@ -332,19 +345,27 @@ newtype IgnoreTermFrequency      = IgnoreTermFrequency Bool deriving (Eq, Show, 
 newtype MinimumTermFrequency     = MinimumTermFrequency Int deriving (Eq, Show, Generic)
 newtype MaxQueryTerms            = MaxQueryTerms Int deriving (Eq, Show, Generic)
 newtype Fuzziness                = Fuzziness Double deriving (Eq, Show, Generic)
+{-| 'PrefixLength' is the prefix length used in queries, defaults to 0. -}
 newtype PrefixLength             = PrefixLength Int deriving (Eq, Show, Generic)
 newtype TypeName                 = TypeName Text deriving (Eq, Show, Generic)
 newtype PercentMatch             = PercentMatch Double deriving (Eq, Show, Generic)
 newtype StopWord                 = StopWord Text deriving (Eq, Show, Generic)
 newtype QueryPath                = QueryPath Text deriving (Eq, Show, Generic)
-newtype AllowLeadingWildcard     = AllowLeadingWildcard Bool deriving (Eq, Show)
-newtype LowercaseExpanded        = LowercaseExpanded Bool deriving (Eq, Show)
-newtype EnablePositionIncrements = EnablePositionIncrements Bool deriving (Eq, Show)
-newtype AnalyzeWildcard          = AnalyzeWildcard Bool deriving (Eq, Show)
-newtype GeneratePhraseQueries    = GeneratePhraseQueries Bool deriving (Eq, Show)
-newtype Locale                   = Locale Text deriving (Eq, Show)
+{-| Allowing a wildcard at the beginning of a word (eg "*ing") is particularly heavy, because all terms in the index need to be examined, just in case they match. Leading wildcards can be disabled by setting 'AllowLeadingWildcard' to false. -}
+newtype AllowLeadingWildcard     = AllowLeadingWildcard Bool deriving (Eq, Show, Generic)
+newtype LowercaseExpanded        = LowercaseExpanded Bool deriving (Eq, Show, Generic)
+newtype EnablePositionIncrements = EnablePositionIncrements Bool deriving (Eq, Show, Generic)
+{-| By default, wildcard terms in a query are not analyzed.
+    Setting 'AnalyzeWildcard' to true enables best-effort analysis. -}
+newtype AnalyzeWildcard          = AnalyzeWildcard Bool deriving (Eq, Show, Generic)
+{-| 'GeneratePhraseQueries' defaults to false. -}
+newtype GeneratePhraseQueries    = GeneratePhraseQueries Bool deriving (Eq, Show, Generic)
+{-| 'Locale' is used for string conversions - defaults to ROOT. -}
+newtype Locale                   = Locale Text deriving (Eq, Show, Generic)
 newtype MaxWordLength            = MaxWordLength Int deriving (Eq, Show, Generic)
 newtype MinWordLength            = MinWordLength Int deriving (Eq, Show, Generic)
+{-| 'PhraseSlop' sets the default slop for phrases, 0 means exact
+     phrase matches. Default is 0. -}
 newtype PhraseSlop               = PhraseSlop Int deriving (Eq, Show, Generic)
 newtype MinDocFrequency          = MinDocFrequency Int deriving (Eq, Show, Generic)
 newtype MaxDocFrequency          = MaxDocFrequency Int deriving (Eq, Show, Generic)
@@ -438,7 +459,7 @@ data SimpleQueryFlag =
 -- use_dis_max and tie_breaker when fields are plural?
 data QueryStringQuery =
   QueryStringQuery { queryStringQuery                    :: QueryString
-                   , queryStringDefaultField             :: Maybe FieldOrFields
+                   , queryStringDefaultField             :: Maybe FieldName
                    , queryStringOperator                 :: Maybe BooleanOperator
                    , queryStringAnalyzer                 :: Maybe Analyzer
                    , queryStringAllowLeadingWildcard     :: Maybe AllowLeadingWildcard
@@ -455,6 +476,13 @@ data QueryStringQuery =
                    , queryStringLenient                  :: Maybe Lenient
                    , queryStringLocale                   :: Maybe Locale
                    } deriving (Eq, Show)
+
+mkQueryStringQuery :: QueryString -> QueryStringQuery
+mkQueryStringQuery qs = QueryStringQuery qs Nothing Nothing
+                        Nothing Nothing Nothing Nothing
+                        Nothing Nothing Nothing Nothing
+                        Nothing Nothing Nothing Nothing
+                        Nothing Nothing
 
 data FieldOrFields = FofField FieldName
                    | FofFields [FieldName] deriving (Eq, Show)

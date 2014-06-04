@@ -144,6 +144,9 @@ instance ToJSON Query where
     where conjoined = [ "type"   .= toJSON idsQueryMappingName
                       , "values" .= fmap toJSON docIds ]
 
+  toJSON (QueryQueryStringQuery queryStringQuery) =
+    object [ "query_string" .= toJSON queryStringQuery ]
+
   toJSON (QueryMatchQuery matchQuery) =
     object [ "match" .= toJSON matchQuery ]
 
@@ -212,6 +215,38 @@ instance ToJSON Query where
 
 mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
 mField field = fmap ((field .=) . toJSON)
+
+instance ToJSON QueryStringQuery where
+  toJSON (QueryStringQuery qsQueryString
+          qsDefaultField qsOperator
+          qsAnalyzer qsAllowWildcard
+          qsLowercaseExpanded  qsEnablePositionIncrements
+          qsFuzzyMaxExpansions qsFuzziness
+          qsFuzzyPrefixLength qsPhraseSlop
+          qsBoost qsAnalyzeWildcard
+          qsGeneratePhraseQueries qsMinimumShouldMatch
+          qsLenient qsLocale) =
+    object conjoined
+    where
+      base      = [ "query" .= toJSON qsQueryString ]
+      maybeAdd  =
+        catMaybes [ mField "default_field"    qsDefaultField
+                  , mField "default_operator" qsOperator
+                  , mField "analyzer"         qsAnalyzer
+                  , mField "allow_leading_wildcard" qsAllowWildcard
+                  , mField "lowercase_expanded_terms" qsLowercaseExpanded
+                  , mField "enable_position_increments" qsEnablePositionIncrements
+                  , mField "fuzzy_max_expansions" qsFuzzyMaxExpansions
+                  , mField "fuzziness" qsFuzziness
+                  , mField "fuzzy_prefix_length" qsFuzzyPrefixLength
+                  , mField "phrase_slop" qsPhraseSlop
+                  , mField "boost" qsBoost
+                  , mField "analyze_wildcard" qsAnalyzeWildcard
+                  , mField "auto_generate_phrase_queries" qsGeneratePhraseQueries
+                  , mField "minimum_should_match" qsMinimumShouldMatch
+                  , mField "lenient" qsLenient
+                  , mField "locale" qsLocale ]
+      conjoined = base ++ maybeAdd
 
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) (Right range) boost) =
@@ -487,6 +522,13 @@ instance ToJSON MinimumTermFrequency
 instance ToJSON PercentMatch
 instance ToJSON MappingName
 instance ToJSON DocId
+instance ToJSON QueryString
+instance ToJSON AllowLeadingWildcard
+instance ToJSON LowercaseExpanded
+instance ToJSON AnalyzeWildcard
+instance ToJSON GeneratePhraseQueries
+instance ToJSON Locale
+instance ToJSON EnablePositionIncrements
 instance FromJSON Version
 instance FromJSON IndexName
 instance FromJSON MappingName
