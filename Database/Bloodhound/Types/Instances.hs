@@ -135,8 +135,14 @@ instance ToJSON Query where
 
   toJSON (TermsQuery terms termsQueryMinimumMatch) =
     object [ "terms" .= object conjoined ]
-    where conjoined = [ "tags" .= fmap toJSON terms
-                      , "minimum_should_match" .= toJSON termsQueryMinimumMatch ]
+    where conjoined =
+            [ "tags"                 .= fmap toJSON terms
+            , "minimum_should_match" .= toJSON termsQueryMinimumMatch ]
+
+  toJSON (IdsQuery idsQueryMappingName docIds) =
+    object [ "ids" .= object conjoined ]
+    where conjoined = [ "type"   .= toJSON idsQueryMappingName
+                      , "values" .= fmap toJSON docIds ]
 
   toJSON (QueryMatchQuery matchQuery) =
     object [ "match" .= toJSON matchQuery ]
@@ -479,6 +485,8 @@ instance ToJSON StopWord
 instance ToJSON QueryPath
 instance ToJSON MinimumTermFrequency
 instance ToJSON PercentMatch
+instance ToJSON MappingName
+instance ToJSON DocId
 instance FromJSON Version
 instance FromJSON IndexName
 instance FromJSON MappingName
