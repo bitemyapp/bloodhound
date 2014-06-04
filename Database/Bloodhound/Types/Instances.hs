@@ -50,25 +50,25 @@ instance ToJSON Filter where
     object ["geo_bounding_box" .= toJSON bbConstraint
            , "type" .= toJSON filterType]
 
-  toJSON (GeoDistanceFilter (GeoPoint (FieldName distanceGeoField) latLon)
+  toJSON (GeoDistanceFilter (GeoPoint (FieldName distanceGeoField) geoDistLatLon)
           distance distanceType optimizeBbox cache) =
     object ["geo_distance" .=
             object ["distance" .= toJSON distance
                    , "distance_type" .= toJSON distanceType
                    , "optimize_bbox" .= optimizeBbox
-                   , distanceGeoField .= toJSON latLon
+                   , distanceGeoField .= toJSON geoDistLatLon
                    , "_cache" .= cache]]                   
 
   toJSON (GeoDistanceRangeFilter (GeoPoint (FieldName gddrField) drLatLon)
-          (DistanceRange distanceFrom drDistanceTo)) =
+          (DistanceRange geoDistRangeDistFrom drDistanceTo)) =
     object ["geo_distance_range" .=
-            object ["from" .= toJSON distanceFrom
+            object ["from" .= toJSON geoDistRangeDistFrom
                    , "to"  .= toJSON drDistanceTo
                    , gddrField .= toJSON drLatLon]]
 
-  toJSON (GeoPolygonFilter (FieldName geoField) latLons) =
+  toJSON (GeoPolygonFilter (FieldName geoPolygonFilterField) latLons) =
     object ["geo_polygon" .=
-            object [geoField .=
+            object [geoPolygonFilterField .=
                     object ["points" .= fmap toJSON latLons]]]
 
   toJSON (IdsFilter (MappingName mappingName) values) =
@@ -120,18 +120,23 @@ instance ToJSON Filter where
                    , "_cache_key" .= cacheKey]]
 
 instance ToJSON GeoPoint where
-  toJSON (GeoPoint (FieldName geoField) latLon) =
-    object [ geoField  .= toJSON latLon ]
+  toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
+    object [ geoPointField  .= toJSON geoPointLatLon ]
 
 
 instance ToJSON Query where
-  toJSON (TermQuery (Term termField termValue) boost) =
+  toJSON (TermQuery (Term termQueryField termQueryValue) boost) =
     object [ "term" .=
-             object [termField .= object merged]]
+             object [termQueryField .= object merged]]
     where
-      base = [ "value" .= termValue ]
+      base = [ "value" .= termQueryValue ]
       boosted = maybe [] (return . ("boost" .=)) boost
       merged = mappend base boosted
+
+  toJSON (TermsQuery terms termsQueryMinimumMatch) =
+    object [ "terms" .= object conjoined ]
+    where conjoined = [ "tags" .= fmap toJSON terms
+                      , "minimum_should_match" .= toJSON termsQueryMinimumMatch ]
 
   toJSON (QueryMatchQuery matchQuery) =
     object [ "match" .= toJSON matchQuery ]
