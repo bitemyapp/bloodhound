@@ -16,6 +16,7 @@ module Database.Bloodhound.Types
        , mkMatchQuery
        , mkMultiMatchQuery
        , mkBoolQuery
+       , mkRangeQuery
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -122,6 +123,9 @@ module Database.Bloodhound.Types
        , QueryPath(..)
        , MinimumTermFrequency(..)
        , PercentMatch(..)
+       , FieldDefinition(..)
+       , MappingField(..)
+       , Mapping(..)
          ) where
 
 import Data.Aeson
@@ -361,34 +365,35 @@ data Search = Search { queryBody  :: Maybe Query
                      , from :: From
                      , size :: Size } deriving (Eq, Show)
 
-data Query = TermQuery                   Term (Maybe Boost)
-           | TermsQuery                  [Term] MinimumMatch
-           | QueryMatchQuery             MatchQuery
-           | QueryMultiMatchQuery        MultiMatchQuery
-           | QueryBoolQuery              BoolQuery
-           | QueryBoostingQuery          BoostingQuery
-           | QueryCommonTermsQuery       CommonTermsQuery
-           | ConstantScoreFilter         Filter Boost
-           | ConstantScoreQuery          Query Boost
-           | QueryDisMaxQuery            DisMaxQuery
-           | QueryFilteredQuery          FilteredQuery
-           | QueryFuzzyLikeThisQuery     FuzzyLikeThisQuery
-           | QueryFuzzyLikeFieldQuery    FuzzyLikeFieldQuery
-           | QueryFuzzyQuery             FuzzyQuery
-           | QueryHasChildQuery          HasChildQuery
-           | QueryHasParentQuery         HasParentQuery
-           | IdsQuery                    MappingName [DocId]
-           | QueryIndicesQuery           IndicesQuery
-           | MatchAllQuery               (Maybe Boost)
-           | QueryMoreLikeThisQuery      MoreLikeThisQuery
-           | QueryMoreLikeThisFieldQuery MoreLikeThisFieldQuery
-           | QueryNestedQuery            NestedQuery
-           | QueryPrefixQuery            PrefixQuery
-           | QueryQueryStringQuery       QueryStringQuery
-           | QuerySimpleQueryStringQuery SimpleQueryStringQuery
-           | QueryRangeQuery             RangeQuery
-           | QueryRegexpQuery            RegexpQuery
-             deriving (Eq, Show)
+data Query =
+  TermQuery                   Term (Maybe Boost)
+  | TermsQuery                  [Term] MinimumMatch
+  | QueryMatchQuery             MatchQuery
+  | QueryMultiMatchQuery        MultiMatchQuery
+  | QueryBoolQuery              BoolQuery
+  | QueryBoostingQuery          BoostingQuery
+  | QueryCommonTermsQuery       CommonTermsQuery
+  | ConstantScoreFilter         Filter Boost
+  | ConstantScoreQuery          Query Boost
+  | QueryDisMaxQuery            DisMaxQuery
+  | QueryFilteredQuery          FilteredQuery
+  | QueryFuzzyLikeThisQuery     FuzzyLikeThisQuery
+  | QueryFuzzyLikeFieldQuery    FuzzyLikeFieldQuery
+  | QueryFuzzyQuery             FuzzyQuery
+  | QueryHasChildQuery          HasChildQuery
+  | QueryHasParentQuery         HasParentQuery
+  | IdsQuery                    MappingName [DocId]
+  | QueryIndicesQuery           IndicesQuery
+  | MatchAllQuery               (Maybe Boost)
+  | QueryMoreLikeThisQuery      MoreLikeThisQuery
+  | QueryMoreLikeThisFieldQuery MoreLikeThisFieldQuery
+  | QueryNestedQuery            NestedQuery
+  | QueryPrefixQuery            PrefixQuery
+  | QueryQueryStringQuery       QueryStringQuery
+  | QuerySimpleQueryStringQuery SimpleQueryStringQuery
+  | QueryRangeQuery             RangeQuery
+  | QueryRegexpQuery            RegexpQuery
+  deriving (Eq, Show)
 
 data RegexpQuery =
   RegexpQuery { regexpQueryField     :: FieldName
@@ -403,6 +408,9 @@ data RangeQuery =
              , rangeQueryRange :: Either HalfRange Range
              , rangeQueryBoost :: Boost } deriving (Eq, Show)
 
+mkRangeQuery :: FieldName -> Either HalfRange Range -> RangeQuery
+mkRangeQuery f r = RangeQuery f r (Boost 1.0)
+
 data SimpleQueryStringQuery =
   SimpleQueryStringQuery { simpleQueryStringQuery             :: QueryString
                          , simpleQueryStringField             :: Maybe FieldOrFields
@@ -413,18 +421,19 @@ data SimpleQueryStringQuery =
                          , simpleQueryStringLocale            :: Maybe Locale
                          } deriving (Eq, Show)
 
-data SimpleQueryFlag = SimpleQueryAll
-                     | SimpleQueryNone
-                     | SimpleQueryAnd
-                     | SimpleQueryOr
-                     | SimpleQueryPrefix
-                     | SimpleQueryPhrase
-                     | SimpleQueryPrecedence
-                     | SimpleQueryEscape
-                     | SimpleQueryWhitespace
-                     | SimpleQueryFuzzy
-                     | SimpleQueryNear
-                     | SimpleQuerySlop deriving (Eq, Show)
+data SimpleQueryFlag =
+  SimpleQueryAll
+  | SimpleQueryNone
+  | SimpleQueryAnd
+  | SimpleQueryOr
+  | SimpleQueryPrefix
+  | SimpleQueryPhrase
+  | SimpleQueryPrecedence
+  | SimpleQueryEscape
+  | SimpleQueryWhitespace
+  | SimpleQueryFuzzy
+  | SimpleQueryNear
+  | SimpleQuerySlop deriving (Eq, Show)
 
 -- use_dis_max and tie_breaker when fields are plural?
 data QueryStringQuery =

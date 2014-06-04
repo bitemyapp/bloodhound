@@ -196,10 +196,25 @@ instance ToJSON Query where
   toJSON (QueryPrefixQuery query) =
     object [ "prefix" .= toJSON query ]
 
+  toJSON (QueryRangeQuery query) =
+    object [ "range" .= toJSON query ]
 
 mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
 mField field = fmap ((field .=) . toJSON)
 
+instance ToJSON RangeQuery where
+  toJSON (RangeQuery (FieldName fieldName) (Right range) boost) =
+    object [ fieldName .= conjoined ]
+    where conjoined = [ "boost" .= toJSON boost
+                      , lessKey .= lessVal
+                      , greaterKey .= greaterVal ]
+          (lessKey, lessVal, greaterKey, greaterVal) = rangeToKV range
+
+  toJSON (RangeQuery (FieldName fieldName) (Left halfRange) boost) =
+    object [ fieldName .= conjoined ]
+    where conjoined = [ "boost" .= toJSON boost
+                      , key     .= val ]
+          (key, val) = halfRangeToKV halfRange
 
 instance ToJSON PrefixQuery where
   toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =

@@ -1,6 +1,9 @@
 module Database.Bloodhound.Client
        ( createIndex
        , deleteIndex
+       , indexExists
+       , openIndex
+       , closeIndex
        , createMapping
        , deleteMapping
        , indexDocument
@@ -13,6 +16,10 @@ module Database.Bloodhound.Client
        , refreshIndex
        , mkSearch
        , bulk
+       , pageSearch
+       , mkShardCount
+       , mkReplicaCount
+       , getStatus
        )
        where
 
@@ -46,9 +53,6 @@ mkReplicaCount n
   | n < 1 = Nothing
   | n > 1000 = Nothing -- ...
   | otherwise = Just (ReplicaCount n)
-
-responseIsError :: Reply -> Bool
-responseIsError resp = NHTS.statusCode (responseStatus resp) > 299
 
 emptyBody :: L.ByteString
 emptyBody = L.pack ""
@@ -176,9 +180,9 @@ mash = foldl' (\b x -> mappend b (lazyByteString x))
 mkMetadataValue :: Text -> String -> String -> String -> Value
 mkMetadataValue operation indexName mappingName docId =
   object [operation .=
-          object ["_index" .= indexName
-                 , "_type" .= mappingName
-                 , "_id"   .= docId]]
+          object [ "_index" .= indexName
+                 , "_type"  .= mappingName
+                 , "_id"    .= docId]]
 
 getStreamChunk :: BulkOperation -> [L.ByteString]
 getStreamChunk (BulkIndex (IndexName indexName)

@@ -22,7 +22,7 @@ reset:
 	cabal sandbox init
 
 haddock:
-	cabal haddock --hyperlink-source --html-location='http://hackage.haskell.org/package/bloodhound/docs' --contents-location='http://hackage.haskell.org/package/bloodhound'
+	cabal haddock --hoogle --hyperlink-source --html-location='http://hackage.haskell.org/package/bloodhound/docs' --contents-location='http://hackage.haskell.org/package/bloodhound'
 
 # cp -R ./dist/doc/html/bloodhound/ bloodhound-0.1.0.1-docs
 # tar cvzf --format=ustar -f bloodhound-0.1.0.1-docs.tar.gz bloodhound-0.1.0.1-docs
