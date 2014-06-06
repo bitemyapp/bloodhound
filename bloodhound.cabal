@@ -28,7 +28,6 @@ library
                        bytestring       >= 0.10.2,
                        aeson            >= 0.7,
                        conduit          >= 1.0,
-                       -- http-conduit     >= 2.0,
                        http-client      >= 0.3,
                        time             >= 1.4,
                        text             >= 0.11,
