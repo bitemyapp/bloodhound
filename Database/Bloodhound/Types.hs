@@ -351,13 +351,12 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Show)
 -}
 newtype FieldName = FieldName Text deriving (Eq, Show)
 
-{-| 'CacheName' is used in 'RegexpQuery' and 'RegexpFilter' for describing the
+{-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
 -}
 newtype CacheName = CacheName Text deriving (Eq, Show)
 
-{-| 'CacheKey' is used in 'RegexpQuery' and 'RegexpFilter' to key regex
-    caching behavior.
+{-| 'CacheKey' is used in 'RegexpFilter' to key regex caching.
 -}
 newtype CacheKey =
   CacheKey Text deriving (Eq, Show)
@@ -468,7 +467,7 @@ data Search = Search { queryBody  :: Maybe Query
                      , size :: Size } deriving (Eq, Show)
 
 data Query =
-  TermQuery                   Term (Maybe Boost)
+  TermQuery                     Term (Maybe Boost)
   | TermsQuery                  [Term] MinimumMatch
   | QueryMatchQuery             MatchQuery
   | QueryMultiMatchQuery        MultiMatchQuery
@@ -501,9 +500,8 @@ data RegexpQuery =
   RegexpQuery { regexpQueryField     :: FieldName
               , regexpQuery          :: Regexp
               , regexpQueryFlags     :: RegexpFlags
-              , regexpQueryCacheName :: CacheName
-              , regexpQueryCache     :: Cache
-              , regexpQueryCacheKey  :: CacheKey } deriving (Eq, Show)
+              , regexpQueryBoost     :: Maybe Boost
+              } deriving (Eq, Show)
 
 data RangeQuery =
   RangeQuery { rangeQueryField :: FieldName

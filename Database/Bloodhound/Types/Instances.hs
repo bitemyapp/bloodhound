@@ -144,8 +144,8 @@ instance ToJSON Query where
     where conjoined = [ "type"   .= toJSON idsQueryMappingName
                       , "values" .= fmap toJSON docIds ]
 
-  toJSON (QueryQueryStringQuery queryStringQuery) =
-    object [ "query_string" .= toJSON queryStringQuery ]
+  toJSON (QueryQueryStringQuery qQueryStringQuery) =
+    object [ "query_string" .= toJSON qQueryStringQuery ]
 
   toJSON (QueryMatchQuery matchQuery) =
     object [ "match" .= toJSON matchQuery ]
@@ -211,10 +211,23 @@ instance ToJSON Query where
     object [ "prefix" .= toJSON query ]
 
   toJSON (QueryRangeQuery query) =
-    object [ "range" .= toJSON query ]
+    object [ "range"  .= toJSON query ]
+
+  toJSON (QueryRegexpQuery query) = 
+    object [ "regexp" .= toJSON query ]
 
 mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
 mField field = fmap ((field .=) . toJSON)
+
+instance ToJSON RegexpQuery where
+  toJSON (RegexpQuery (FieldName rqQueryField)
+          (Regexp regexpQueryQuery) rqQueryFlags
+          rqQueryBoost) =
+   object [ rqQueryField .= object conjoined ]
+   where base = [ "value" .= regexpQueryQuery
+                , "flags" .= toJSON rqQueryFlags ]
+         maybeAdd  = catMaybes [ mField "boost" rqQueryBoost ]
+         conjoined = base ++ maybeAdd
 
 instance ToJSON QueryStringQuery where
   toJSON (QueryStringQuery qsQueryString

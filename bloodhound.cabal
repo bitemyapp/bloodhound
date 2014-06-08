@@ -17,7 +17,7 @@ source-repository head
   location: https://github.com/bitemyapp/bloodhound.git
 
 library
-  ghc-options: -Wall -fno-warn-unused-binds -fno-warn-orphans
+  ghc-options: -Wall -fno-warn-orphans
   default-extensions:  OverloadedStrings
   exposed-modules:     Database.Bloodhound
                        Database.Bloodhound.Client
