@@ -27,6 +27,9 @@ haddock:
 dist:
     cabal sdist
 
-# cp -R ./dist/doc/html/bloodhound/ bloodhound-0.1.0.1-docs
+# upload:
+# 	cabal upload dist/bloodhound-0.1.0.2.tar.gz
+
+# cp -R ./dist/doc/html/bloodhound/ bloodhound-0.1.0.2-docs
 # tar cvzf --format=ustar -f bloodhound-0.1.0.1-docs.tar.gz bloodhound-0.1.0.1-docs
 # curl -X PUT -H 'Content-Type: application/x-tar' -H 'Content-Encoding: gzip' --data-binary '@bloodhound-0.1.0.1-docs.tar.gz' 'https://bitemyapp:$PASSWORD@hackage.haskell.org/package/bloodhound-0.1.0.1/docs'
