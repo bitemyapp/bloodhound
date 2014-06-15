@@ -50,8 +50,8 @@ data TweetMapping = TweetMapping deriving (Eq, Show)
 instance ToJSON TweetMapping where
   toJSON TweetMapping =
     object ["tweet" .=
-            object ["properties" .=
-                    object ["location" .= object ["type" .= ("geo_point" :: Text)]]]]
+      object ["properties" .=
+        object ["location" .= object ["type" .= ("geo_point" :: Text)]]]]
 
 exampleTweet :: Tweet
 exampleTweet = Tweet { user     = "bitemyapp"
