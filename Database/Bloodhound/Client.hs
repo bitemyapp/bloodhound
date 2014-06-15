@@ -4,7 +4,7 @@ module Database.Bloodhound.Client
        , indexExists
        , openIndex
        , closeIndex
-       , createMapping
+       , putMapping
        , deleteMapping
        , indexDocument
        , getDocument
