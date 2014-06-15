@@ -6,3 +6,5 @@ dist/
 .DS_Store
 *.hi
 *.o
+bloodhound-*-docs/
+bloodhound-*-docs.tar.gz

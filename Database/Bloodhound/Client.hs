@@ -138,9 +138,12 @@ openIndex = openOrCloseIndexes OpenIndex
 closeIndex :: Server -> IndexName -> IO Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
-createMapping :: ToJSON a => Server -> IndexName
+{-| putMapping is an HTTP PUT and has upsert semantics. Mappings are schemas
+    for documents in indexes.
+-}
+putMapping :: ToJSON a => Server -> IndexName
                  -> MappingName -> a -> IO Reply
-createMapping (Server server) (IndexName indexName) (MappingName mappingName) mapping =
+putMapping (Server server) (IndexName indexName) (MappingName mappingName) mapping =
   put url body
   where url = joinPath [server, indexName, mappingName, "_mapping"]
         body = Just $ encode mapping
@@ -149,6 +152,7 @@ deleteMapping :: Server -> IndexName -> MappingName -> IO Reply
 deleteMapping (Server server) (IndexName indexName)
   (MappingName mappingName) =
   delete $ joinPath [server, indexName, mappingName, "_mapping"]
+
 indexDocument :: ToJSON doc => Server -> IndexName -> MappingName
                  -> doc -> DocId -> IO Reply
 indexDocument (Server server) (IndexName indexName)

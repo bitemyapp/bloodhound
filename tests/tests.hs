@@ -75,7 +75,7 @@ insertData :: IO ()
 insertData = do
   _ <- deleteExampleIndex
   _ <- createExampleIndex
-  _ <- createMapping testServer testIndex testMapping TweetMapping
+  _ <- putMapping testServer testIndex testMapping TweetMapping
   _ <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
   _ <- refreshIndex testServer testIndex
   return ()

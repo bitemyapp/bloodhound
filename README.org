@@ -144,7 +144,7 @@ instance ToJSON TweetMapping where
           object ["type" .= ("geo_point" :: Text)]]]]
 :}
 
-resp <- createMapping testServer testIndex testMapping TweetMapping
+resp <- putMapping testServer testIndex testMapping TweetMapping
 
 #+END_SRC
 

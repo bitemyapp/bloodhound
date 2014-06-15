@@ -186,7 +186,7 @@ data IndexSettings =
 defaultIndexSettings :: IndexSettings
 defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2)
 
-{-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method' -}
+{-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method.Method' -}
 type Reply = Network.HTTP.Client.Response L.ByteString
 type Method = NHTM.Method
 
@@ -213,6 +213,10 @@ data MappingField =
 
 {-| Support for type reification of 'Mapping's is currently incomplete, for
     now the mapping API verbiage expects a 'ToJSON'able blob.
+
+    Indexes have mappings, mappings are schemas for the documents contained in the
+    index. I'd recommend having only one mapping per index, always having a mapping,
+    and keeping different kinds of documents separated if possible.
 -}
 data Mapping = Mapping { typeName      :: TypeName
                        , mappingFields :: [MappingField] } deriving (Eq, Show)
