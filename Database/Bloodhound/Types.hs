@@ -138,6 +138,8 @@ module Database.Bloodhound.Types
        , Locale(..)
        , AnalyzeWildcard(..)
        , EnablePositionIncrements(..)
+       , SimpleQueryFlag(..)
+       , FieldOrFields(..)
          ) where
 
 import Data.Aeson

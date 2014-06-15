@@ -216,8 +216,47 @@ instance ToJSON Query where
   toJSON (QueryRegexpQuery query) = 
     object [ "regexp" .= toJSON query ]
 
+  toJSON (QuerySimpleQueryStringQuery query) =
+    object [ "simple_query_string" .= toJSON query ]
+
+
 mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
 mField field = fmap ((field .=) . toJSON)
+
+instance ToJSON SimpleQueryStringQuery where
+  toJSON (SimpleQueryStringQuery sqsQueryString
+          sqsFields sqsBoolean sqsAnalyzer
+          sqsFlags  sqsLowercaseExpanded sqsLocale) =
+    object conjoined
+    where base = [ "query" .= toJSON sqsQueryString ]
+          maybeAdd =
+            catMaybes [ mField "fields" sqsFields
+                      , mField "default_operator" sqsBoolean
+                      , mField "analyzer" sqsAnalyzer
+                      , mField "flags" sqsFlags
+                      , mField "lowercase_expanded_terms" sqsLowercaseExpanded
+                      , mField "locale" sqsLocale ]
+          conjoined = base ++ maybeAdd
+
+instance ToJSON FieldOrFields where
+  toJSON (FofField fieldName) =
+    toJSON fieldName
+  toJSON (FofFields fieldNames) =
+    toJSON fieldNames
+
+instance ToJSON SimpleQueryFlag where
+  toJSON SimpleQueryAll        = "ALL"
+  toJSON SimpleQueryNone       = "NONE"
+  toJSON SimpleQueryAnd        = "AND"
+  toJSON SimpleQueryOr         = "OR"
+  toJSON SimpleQueryPrefix     = "PREFIX"
+  toJSON SimpleQueryPhrase     = "PHRASE"
+  toJSON SimpleQueryPrecedence = "PRECEDENCE"
+  toJSON SimpleQueryEscape     = "ESCAPE"
+  toJSON SimpleQueryWhitespace = "WHITESPACE"
+  toJSON SimpleQueryFuzzy      = "FUZZY"
+  toJSON SimpleQueryNear       = "NEAR"
+  toJSON SimpleQuerySlop       = "SLOP"
 
 instance ToJSON RegexpQuery where
   toJSON (RegexpQuery (FieldName rqQueryField)
