@@ -1,17 +1,24 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
+import Control.Applicative
 import Database.Bloodhound
 import Data.Aeson
+import Data.List (nub)
+import Data.List.NonEmpty (NonEmpty(..))
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
 import Data.Text (Text)
+import qualified Data.Text as T
 import GHC.Generics (Generic)
 import Network.HTTP.Client
 import qualified Network.HTTP.Types.Status as NHTS
 import Prelude hiding (filter, putStrLn)
 import Test.Hspec
+import Test.Hspec.QuickCheck (prop)
+import Test.QuickCheck
 
 testServer  :: Server
 testServer  = Server "http://localhost:9200"
@@ -103,6 +110,27 @@ searchExpectNoResults search = do
 data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
 instance FromJSON BulkTest
 instance ToJSON BulkTest
+
+noDuplicates :: Eq a => [a] -> Bool
+noDuplicates xs = nub xs == xs
+
+instance Arbitrary RegexpFlags where
+  arbitrary = oneof [ pure AllRegexpFlags
+                    , pure NoRegexpFlags
+                    , SomeRegexpFlags <$> arbitrary
+                    ]
+
+instance Arbitrary a => Arbitrary (NonEmpty a) where
+  arbitrary = liftA2 (:|) arbitrary arbitrary
+
+instance Arbitrary RegexpFlag where
+  arbitrary = oneof [ pure AnyString
+                    , pure Automaton
+                    , pure Complement
+                    , pure Empty
+                    , pure Intersection
+                    , pure Interval
+                    ]
 
 main :: IO ()
 main = hspec $ do
@@ -314,7 +342,7 @@ main = hspec $ do
     it "returns document for regexp filter" $ do
       _ <- insertData
       let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
-                   (RegexpFlags "ALL") (CacheName "test") False (CacheKey "key")
+                   AllRegexpFlags (CacheName "test") False (CacheKey "key")
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
@@ -322,7 +350,26 @@ main = hspec $ do
     it "doesn't return document for non-matching regexp filter" $ do
       _ <- insertData
       let filter = RegexpFilter (FieldName "user")
-                   (Regexp "boy") (RegexpFlags "ALL")
+                   (Regexp "boy") AllRegexpFlags
                    (CacheName "test") False (CacheKey "key")
       let search = mkSearch Nothing (Just filter)
       searchExpectNoResults search
+  describe "ToJSON RegexpFlags" $ do
+    it "generates the correct JSON for AllRegexpFlags" $
+      toJSON AllRegexpFlags `shouldBe` String "ALL"
+
+    it "generates the correct JSON for NoRegexpFlags" $
+      toJSON NoRegexpFlags `shouldBe` String "NONE"
+
+    it "generates the correct JSON for SomeRegexpFlags" $
+      let flags = AnyString :| [ Automaton
+                               , Complement
+                               , Empty
+                               , Intersection
+                               , Interval ]
+      in toJSON (SomeRegexpFlags flags) `shouldBe` String "ANYSTRING|AUTOMATON|COMPLEMENT|EMPTY|INTERSECTION|INTERVAL"
+
+    prop "removes duplicates from flags" $ \(flags :: RegexpFlags) ->
+      let String str = toJSON flags
+          flagStrs   = T.splitOn "|" str
+      in noDuplicates flagStrs
