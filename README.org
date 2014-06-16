@@ -13,6 +13,10 @@
 
 Search doesn't have to be hard. Let the dog do it.
 
+** Version compatibility
+
+Elasticsearch >= 1.0 is recommended. Bloodhound mostly works with 0.9.x, but I don't recommend if you expect everything to work.
+
 ** Stability
 
 Bloodhound is alpha at the moment. The library works fine, but I don't want to mislead anyone into thinking the API is final or stable. I wouldn't call the library "complete" or representative of everything you can do in Elasticsearch but compared to clients in other languages, the usability is good.
