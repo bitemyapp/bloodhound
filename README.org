@@ -580,10 +580,19 @@ let filter = RangeFilter (FieldName "age")
 --      -> CacheKey
 --      -> Filter
 let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
-             RegexpAll (CacheName "test") False (CacheKey "key")
+             AllRegexpFlags (CacheName "test") False (CacheKey "key")
 
--- RegexpFlags can be a combination of RegexpAll, Complement,
--- Interval, Intersection, AnyString, and a combination of two options thereof.
+-- n.b.
+-- data RegexpFlags = AllRegexpFlags
+--                 | NoRegexpFlags
+--                 | SomeRegexpFlags (NonEmpty RegexpFlag) deriving (Eq, Show)
+
+-- data RegexpFlag = AnyString
+--                | Automaton
+--                | Complement
+--                | Empty
+--                | Intersection
+--                | Interval deriving (Eq, Show)
 
 #+END_SRC
 

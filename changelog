@@ -1,0 +1,9 @@
+** 0.2.x
+0.1.0.2 --> 0.2.0.0
+===============
+
+* Renamed createMapping to putMapping
+
+* Fixed and rebuilt documentation
+
+* RegexpFlags changed to a sum type instead of Text, thanks @MichaelXavier!
