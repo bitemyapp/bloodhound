@@ -8,6 +8,8 @@ module Database.Bloodhound.Types.Instances
 
 import Control.Applicative
 import Data.Aeson
+import Data.List (nub)
+import Data.List.NonEmpty (NonEmpty(..))
 import Data.Maybe (catMaybes)
 import Data.Monoid
 import qualified Data.Text as T
@@ -57,7 +59,7 @@ instance ToJSON Filter where
                    , "distance_type" .= toJSON distanceType
                    , "optimize_bbox" .= optimizeBbox
                    , distanceGeoField .= toJSON geoDistLatLon
-                   , "_cache" .= cache]]                   
+                   , "_cache" .= cache]]
 
   toJSON (GeoDistanceRangeFilter (GeoPoint (FieldName gddrField) drLatLon)
           (DistanceRange geoDistRangeDistFrom drDistanceTo)) =
@@ -213,7 +215,7 @@ instance ToJSON Query where
   toJSON (QueryRangeQuery query) =
     object [ "range"  .= toJSON query ]
 
-  toJSON (QueryRegexpQuery query) = 
+  toJSON (QueryRegexpQuery query) =
     object [ "regexp" .= toJSON query ]
 
   toJSON (QuerySimpleQueryStringQuery query) =
@@ -645,7 +647,7 @@ instance ToJSON SortSpec where
 
 
 instance ToJSON SortOrder where
-  toJSON Ascending  = String "asc"      
+  toJSON Ascending  = String "asc"
   toJSON Descending = String "desc"
 
 
@@ -731,8 +733,16 @@ instance ToJSON RangeExecution where
 
 
 instance ToJSON RegexpFlags where
-  toJSON (RegexpFlags txt) = String txt
-
+  toJSON AllRegexpFlags              = String "ALL"
+  toJSON NoRegexpFlags               = String "NONE"
+  toJSON (SomeRegexpFlags (h :| fs)) = String $ T.intercalate "|" flagStrs
+    where flagStrs             = map flagStr . nub $ h:fs
+          flagStr AnyString    = "ANYSTRING"
+          flagStr Automaton    = "AUTOMATON"
+          flagStr Complement   = "COMPLEMENT"
+          flagStr Empty        = "EMPTY"
+          flagStr Intersection = "INTERSECTION"
+          flagStr Interval     = "INTERVAL"
 
 instance ToJSON Term where
   toJSON (Term field value) = object ["term" .= object
