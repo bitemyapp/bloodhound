@@ -60,6 +60,7 @@ module Database.Bloodhound.Types
        , GreaterThanEq(..)
        , Regexp(..)
        , RegexpFlags(..)
+       , RegexpFlag(..)
        , FieldName(..)
        , IndexName(..)
        , MappingName(..)
@@ -144,6 +145,7 @@ module Database.Bloodhound.Types
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as L
+import Data.List.NonEmpty (NonEmpty)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Clock (UTCTime)
@@ -824,7 +826,17 @@ data RangeExecution = RangeExecutionIndex
                     | RangeExecutionFielddata deriving (Eq, Show)
 
 newtype Regexp = Regexp Text deriving (Eq, Show)
-newtype RegexpFlags = RegexpFlags Text deriving (Eq, Show)
+
+data RegexpFlags = AllRegexpFlags
+                 | NoRegexpFlags
+                 | SomeRegexpFlags (NonEmpty RegexpFlag) deriving (Eq, Show)
+
+data RegexpFlag = AnyString
+                | Automaton
+                | Complement
+                | Empty
+                | Intersection
+                | Interval deriving (Eq, Show)
 
 halfRangeToKV :: HalfRange -> (Text, Double)
 halfRangeToKV (HalfRangeLt  (LessThan n))      = ("lt",  n)
