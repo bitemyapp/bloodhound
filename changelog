@@ -2,6 +2,8 @@
 0.1.0.2 --> 0.2.0.0
 ===============
 
+* Added TermFilter
+
 * Renamed createMapping to putMapping
 
 * Fixed and rebuilt documentation
