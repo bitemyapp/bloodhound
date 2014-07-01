@@ -801,6 +801,7 @@ data Filter = AndFilter [Filter] Cache
             | PrefixFilter  FieldName PrefixValue Cache
             | RangeFilter   FieldName (Either HalfRange Range) RangeExecution Cache
             | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
+            | TermFilter    Term Cache
               deriving (Eq, Show)
 
 data ZeroTermsQuery = ZeroTermsNone

@@ -252,6 +252,13 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for term filter" $ do
+      _ <- insertData
+      let termFilter = TermFilter (Term "user" "bitemyapp") False
+      let search = mkSearch Nothing (Just termFilter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
     it "returns document for existential filter" $ do
       _ <- insertData
       let search = mkSearch Nothing (Just (ExistsFilter (FieldName "user")))

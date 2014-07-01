@@ -41,6 +41,11 @@ instance ToJSON Filter where
   toJSON (IdentityFilter) =
     object ["match_all" .= object []]
 
+  toJSON (TermFilter (Term termFilterField termFilterValue) cache) =
+    object ["term" .= object base]
+    where base = [termFilterField .= termFilterValue,
+                  "_cache"        .= cache]
+
   toJSON (ExistsFilter (FieldName fieldName)) =
     object ["exists"  .= object
             ["field"  .= fieldName]]
