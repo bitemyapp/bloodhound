@@ -15,7 +15,7 @@ Search doesn't have to be hard. Let the dog do it.
 
 ** Version compatibility
 
-Elasticsearch >= 1.0 is recommended. Bloodhound mostly works with 0.9.x, but I don't recommend it if you expect everything to work.
+Elasticsearch >= 1.0 is recommended. Bloodhound mostly works with 0.9.x, but I don't recommend it if you expect everything to work. Some breakage is currently known for >= 1.2, we may have to break API compatibility with 0.3.
 
 Current version we test against is 1.0.1
 
