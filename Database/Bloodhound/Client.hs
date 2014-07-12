@@ -35,7 +35,6 @@ import qualified Network.HTTP.Types.Status as NHTS
 import Prelude hiding (head, filter)
 
 import Database.Bloodhound.Types
-import Database.Bloodhound.Types.Instances
 
 -- find way to avoid destructuring Servers and Indexes?
 -- make get, post, put, delete helpers.

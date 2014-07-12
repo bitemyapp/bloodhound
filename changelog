@@ -1,6 +1,14 @@
 ** 0.2.x
+
+0.2.0.0 --> 0.2.0.1
+===================
+
+* Merged Types and Instances module into Types to prevent possibility of orphans and cull orphan instance warnings.
+
+* Added note about current supported Elasticsearch version.
+
 0.1.0.2 --> 0.2.0.0
-===============
+===================
 
 * Added TermFilter
 
