@@ -3,6 +3,10 @@
 0.2.0.0 --> 0.2.0.1
 ===================
 
+* Killed off maybeJson/mField/catMaybes in favor of omitNulls
+
+* Experimenting with RecordWildcards
+
 * Merged Types and Instances module into Types to prevent possibility of orphans and cull orphan instance warnings.
 
 * Added note about current supported Elasticsearch version.

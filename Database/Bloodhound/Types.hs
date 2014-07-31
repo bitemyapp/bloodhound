@@ -13,8 +13,6 @@ module Database.Bloodhound.Types
        ( defaultCache
        , defaultIndexSettings
        , halfRangeToKV
-       , maybeJson
-       , maybeJsonF
        , mkSort
        , rangeToKV
        , showText
@@ -938,15 +936,6 @@ data ShardResult =
               , shardsSuccessful :: Int
               , shardsFailed     :: Int } deriving (Eq, Show, Generic)
 
-maybeJson :: ToJSON a => Text -> Maybe a -> [(Text, Value)]
-maybeJson field (Just value) = [field .= toJSON value]
-maybeJson _ _ = []
-
-maybeJsonF :: (ToJSON (f Value), ToJSON a, Functor f) =>
-             Text -> Maybe (f a) -> [(Text, Value)]
-maybeJsonF field (Just value) = [field .= fmap toJSON value]
-maybeJsonF _ _ = []
-
 showText :: Show a => a -> Text
 showText = T.pack . show
 
@@ -1544,29 +1533,24 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 instance ToJSON Search where
   toJSON (Search query sFilter sort sTrackSortScores sFrom sSize) =
-    object merged where
-      lQuery  = maybeJson  "query" query
-      lFilter = maybeJson  "filter" sFilter
-      lSort   = maybeJsonF "sort" sort
-      merged  = mconcat [[ "from" .= sFrom
-                         , "size" .= sSize
-                         , "track_scores" .= sTrackSortScores]
-                        , lQuery
-                        , lFilter
-                        , lSort]
+    omitNulls [ "query" .= query
+              , "filter" .= sFilter
+              , "sort" .= sort
+              , "from" .= sFrom
+              , "size" .= sSize
+              , "track_scores" .= sTrackSortScores ]
 
 
 instance ToJSON SortSpec where
   toJSON (DefaultSortSpec
           (DefaultSort (FieldName dsSortFieldName) dsSortOrder dsIgnoreUnmapped
            dsSortMode dsMissingSort dsNestedFilter)) =
-    object [dsSortFieldName .= object merged] where
-      base = ["order" .= toJSON dsSortOrder
-             , "ignore_unmapped" .= dsIgnoreUnmapped]
-      lSortMode = maybeJson "mode" dsSortMode
-      lMissingSort = maybeJson "missing" dsMissingSort
-      lNestedFilter = maybeJson "nested_filter" dsNestedFilter
-      merged = mconcat [base, lSortMode, lMissingSort, lNestedFilter]
+    object [dsSortFieldName .= omitNulls base] where
+      base = [ "order" .= toJSON dsSortOrder
+             , "ignore_unmapped" .= dsIgnoreUnmapped
+             , "mode" .= dsSortMode
+             , "missing" .= dsMissingSort
+             , "nested_filter" .= dsNestedFilter ]
 
   toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
     object [ "unit" .= toJSON units
