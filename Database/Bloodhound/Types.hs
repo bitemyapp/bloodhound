@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RecordWildCards #-}
 
 {-| Data types for describing actions and data structures performed to interact
     with Elasticsearch. The two main buckets your queries against Elasticsearch
@@ -150,7 +151,6 @@ import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List (nub)
 import Data.List.NonEmpty (NonEmpty(..))
-import Data.Maybe (catMaybes)
 import Data.Monoid
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -158,7 +158,6 @@ import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
 import Network.HTTP.Client
 import qualified Network.HTTP.Types.Method as NHTM
-import Prelude hiding (filter)
 
 import Database.Bloodhound.Types.Class
 
@@ -968,9 +967,9 @@ instance ToJSON Filter where
     object ["or"      .= fmap toJSON filters
            , "_cache" .= cache]
 
-  toJSON (NotFilter filter cache) =
+  toJSON (NotFilter notFilter cache) =
     object ["not" .=
-            object ["filter"  .= toJSON filter
+            object ["filter"  .= toJSON notFilter
                    , "_cache" .= cache]]
 
   toJSON (IdentityFilter) =
@@ -1104,8 +1103,8 @@ instance ToJSON Query where
   toJSON (QueryCommonTermsQuery commonTermsQuery) =
     object [ "common" .= toJSON commonTermsQuery ]
 
-  toJSON (ConstantScoreFilter filter boost) =
-    object [ "constant_score" .= toJSON filter
+  toJSON (ConstantScoreFilter csFilter boost) =
+    object [ "constant_score" .= toJSON csFilter
            , "boost" .= toJSON boost]
 
   toJSON (ConstantScoreQuery query boost) =
@@ -1137,8 +1136,7 @@ instance ToJSON Query where
     object [ "indices" .= toJSON qIndicesQuery ]
 
   toJSON (MatchAllQuery boost) =
-    object [ "match_all" .= object maybeAdd ]
-    where maybeAdd = catMaybes [ mField "boost" boost ]
+    object [ "match_all" .= omitNulls [ "boost" .= boost ] ]
 
   toJSON (QueryMoreLikeThisQuery query) =
     object [ "more_like_this" .= toJSON query ]
@@ -1162,23 +1160,23 @@ instance ToJSON Query where
     object [ "simple_query_string" .= toJSON query ]
 
 
-mField :: (ToJSON a, Functor f) => T.Text -> f a -> f (T.Text, Value)
-mField field = fmap ((field .=) . toJSON)
+omitNulls :: [(Text, Value)] -> Value
+omitNulls = object . filter notNull where
+  notNull (_, Null) = False
+  notNull _         = True
+
 
 instance ToJSON SimpleQueryStringQuery where
-  toJSON (SimpleQueryStringQuery sqsQueryString
-          sqsFields sqsBoolean sqsAnalyzer
-          sqsFlags  sqsLowercaseExpanded sqsLocale) =
-    object conjoined
-    where base = [ "query" .= toJSON sqsQueryString ]
-          maybeAdd =
-            catMaybes [ mField "fields" sqsFields
-                      , mField "default_operator" sqsBoolean
-                      , mField "analyzer" sqsAnalyzer
-                      , mField "flags" sqsFlags
-                      , mField "lowercase_expanded_terms" sqsLowercaseExpanded
-                      , mField "locale" sqsLocale ]
-          conjoined = base ++ maybeAdd
+  toJSON SimpleQueryStringQuery {..} =
+    omitNulls (base ++ maybeAdd)
+    where base = [ "query" .= toJSON simpleQueryStringQuery ]
+          maybeAdd = [ "fields" .= simpleQueryStringField
+                     , "default_operator" .= simpleQueryStringOperator
+                     , "analyzer" .= simpleQueryStringAnalyzer
+                     , "flags" .= simpleQueryStringFlags
+                     , "lowercase_expanded_terms" .= simpleQueryStringLowercaseExpanded
+                     , "locale" .= simpleQueryStringLocale ]
+
 
 instance ToJSON FieldOrFields where
   toJSON (FofField fieldName) =
@@ -1200,15 +1198,16 @@ instance ToJSON SimpleQueryFlag where
   toJSON SimpleQueryNear       = "NEAR"
   toJSON SimpleQuerySlop       = "SLOP"
 
+
 instance ToJSON RegexpQuery where
   toJSON (RegexpQuery (FieldName rqQueryField)
           (Regexp regexpQueryQuery) rqQueryFlags
           rqQueryBoost) =
-   object [ rqQueryField .= object conjoined ]
+   object [ rqQueryField .= omitNulls base ]
    where base = [ "value" .= regexpQueryQuery
-                , "flags" .= toJSON rqQueryFlags ]
-         maybeAdd  = catMaybes [ mField "boost" rqQueryBoost ]
-         conjoined = base ++ maybeAdd
+                , "flags" .= toJSON rqQueryFlags
+                , "boost" .= rqQueryBoost ]
+
 
 instance ToJSON QueryStringQuery where
   toJSON (QueryStringQuery qsQueryString
@@ -1220,27 +1219,26 @@ instance ToJSON QueryStringQuery where
           qsBoost qsAnalyzeWildcard
           qsGeneratePhraseQueries qsMinimumShouldMatch
           qsLenient qsLocale) =
-    object conjoined
+    omitNulls base
     where
-      base      = [ "query" .= toJSON qsQueryString ]
-      maybeAdd  =
-        catMaybes [ mField "default_field"    qsDefaultField
-                  , mField "default_operator" qsOperator
-                  , mField "analyzer"         qsAnalyzer
-                  , mField "allow_leading_wildcard" qsAllowWildcard
-                  , mField "lowercase_expanded_terms" qsLowercaseExpanded
-                  , mField "enable_position_increments" qsEnablePositionIncrements
-                  , mField "fuzzy_max_expansions" qsFuzzyMaxExpansions
-                  , mField "fuzziness" qsFuzziness
-                  , mField "fuzzy_prefix_length" qsFuzzyPrefixLength
-                  , mField "phrase_slop" qsPhraseSlop
-                  , mField "boost" qsBoost
-                  , mField "analyze_wildcard" qsAnalyzeWildcard
-                  , mField "auto_generate_phrase_queries" qsGeneratePhraseQueries
-                  , mField "minimum_should_match" qsMinimumShouldMatch
-                  , mField "lenient" qsLenient
-                  , mField "locale" qsLocale ]
-      conjoined = base ++ maybeAdd
+      base = [ "query" .= toJSON qsQueryString
+             , "default_field" .= qsDefaultField
+             , "default_operator" .= qsOperator
+             , "analyzer" .= qsAnalyzer
+             , "allow_leading_wildcard" .= qsAllowWildcard
+             , "lowercase_expanded_terms" .= qsLowercaseExpanded
+             , "enable_position_increments" .= qsEnablePositionIncrements
+             , "fuzzy_max_expansions" .= qsFuzzyMaxExpansions
+             , "fuzziness" .= qsFuzziness
+             , "fuzzy_prefix_length" .= qsFuzzyPrefixLength
+             , "phrase_slop" .= qsPhraseSlop
+             , "boost" .= qsBoost
+             , "analyze_wildcard" .= qsAnalyzeWildcard
+             , "auto_generate_phrase_queries" .= qsGeneratePhraseQueries
+             , "minimum_should_match" .= qsMinimumShouldMatch
+             , "lenient" .= qsLenient
+             , "locale" .= qsLocale ]
+
 
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) (Right range) boost) =
@@ -1256,12 +1254,12 @@ instance ToJSON RangeQuery where
                       , key     .= val ]
           (key, val) = halfRangeToKV halfRange
 
+
 instance ToJSON PrefixQuery where
   toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =
-    object [ fieldName .= object conjoined ]
-    where base = [ "value" .= toJSON queryValue ]
-          maybeAdd = catMaybes [ mField "boost" boost ]
-          conjoined = base ++ maybeAdd
+    object [ fieldName .= omitNulls base ]
+    where base = [ "value" .= toJSON queryValue
+                 , "boost" .= boost ]
 
 
 instance ToJSON NestedQuery where
@@ -1275,135 +1273,128 @@ instance ToJSON MoreLikeThisFieldQuery where
   toJSON (MoreLikeThisFieldQuery text (FieldName fieldName)
           percent mtf mqt stopwords mindf maxdf
           minwl maxwl boostTerms boost analyzer) =
-    object [ fieldName .= object conjoined ]
-    where base = [ "like_text" .= toJSON text ]
-          maybeAdd = catMaybes [ mField "percent_terms_to_match" percent
-                               , mField "min_term_freq" mtf
-                               , mField "max_query_terms" mqt
-                               , mField "stop_words" stopwords
-                               , mField "min_doc_freq" mindf
-                               , mField "max_doc_freq" maxdf
-                               , mField "min_word_length" minwl
-                               , mField "max_word_length" maxwl
-                               , mField "boost_terms" boostTerms
-                               , mField "boost" boost
-                               , mField "analyzer" analyzer ]
-          conjoined = base ++ maybeAdd
+    object [ fieldName .= omitNulls base ]
+    where base = [ "like_text" .= toJSON text
+                 , "percent_terms_to_match" .= percent
+                 , "min_term_freq" .= mtf
+                 , "max_query_terms" .= mqt
+                 , "stop_words" .= stopwords
+                 , "min_doc_freq" .= mindf
+                 , "max_doc_freq" .= maxdf
+                 , "min_word_length" .= minwl
+                 , "max_word_length" .= maxwl
+                 , "boost_terms" .= boostTerms
+                 , "boost" .= boost
+                 , "analyzer" .= analyzer ]
 
 
 instance ToJSON MoreLikeThisQuery where
   toJSON (MoreLikeThisQuery text fields percent
           mtf mqt stopwords mindf maxdf
           minwl maxwl boostTerms boost analyzer) =
-    object conjoined
-    where base = [ "like_text" .= toJSON text ]
-          maybeAdd = catMaybes [ mField "fields" fields
-                               , mField "percent_terms_to_match" percent
-                               , mField "min_term_freq" mtf
-                               , mField "max_query_terms" mqt
-                               , mField "stop_words" stopwords
-                               , mField "min_doc_freq" mindf
-                               , mField "max_doc_freq" maxdf
-                               , mField "min_word_length" minwl
-                               , mField "max_word_length" maxwl
-                               , mField "boost_terms" boostTerms
-                               , mField "boost" boost
-                               , mField "analyzer" analyzer ]
-          conjoined = base ++ maybeAdd
+    omitNulls base
+    where base = [ "like_text" .= toJSON text 
+                 , "fields" .= fields
+                 , "percent_terms_to_match" .= percent
+                 , "min_term_freq" .= mtf
+                 , "max_query_terms" .= mqt
+                 , "stop_words" .= stopwords
+                 , "min_doc_freq" .= mindf
+                 , "max_doc_freq" .= maxdf
+                 , "min_word_length" .= minwl
+                 , "max_word_length" .= maxwl
+                 , "boost_terms" .= boostTerms
+                 , "boost" .= boost
+                 , "analyzer" .= analyzer ]
 
 
 instance ToJSON IndicesQuery where
   toJSON (IndicesQuery indices query noMatch) =
-    object $ [ "indices" .= toJSON indices
-             , "query"   .= toJSON query ] ++ maybeAdd
-    where maybeAdd = catMaybes [ mField "no_match_query" noMatch ]
+    omitNulls [ "indices" .= toJSON indices
+              , "no_match_query" .= toJSON noMatch
+              , "query" .= toJSON query ]
 
 
 instance ToJSON HasParentQuery where
   toJSON (HasParentQuery queryType query scoreType) =
-    object $ [ "parent_type" .= toJSON queryType
-             , "query" .= toJSON query ] ++ maybeAdd
-    where maybeAdd = catMaybes [ mField "score_type" scoreType ]
+    omitNulls [ "parent_type" .= toJSON queryType
+              , "score_type" .= toJSON scoreType
+              , "query" .= toJSON query ]
 
 
 instance ToJSON HasChildQuery where
   toJSON (HasChildQuery queryType query scoreType) =
-    object $ [ "query" .= toJSON query
-             , "type"  .= toJSON queryType ] ++ maybeAdd
-    where maybeAdd = catMaybes [ mField "score_type" scoreType ]
+    omitNulls [ "query" .= toJSON query
+              , "score_type" .= toJSON scoreType
+              , "type"  .= toJSON queryType ]
 
 
 instance ToJSON FuzzyQuery where
   toJSON (FuzzyQuery (FieldName fieldName) queryText
           prefixLength maxEx fuzziness boost) =
-    object [ fieldName .= object conjoined ]
+    object [ fieldName .= omitNulls base ]
     where base = [ "value"          .= toJSON queryText
                  , "fuzziness"      .= toJSON fuzziness
                  , "prefix_length"  .= toJSON prefixLength
+                 , "boost" .= toJSON boost
                  , "max_expansions" .= toJSON maxEx ]
-          maybeAdd = catMaybes [ mField "boost" boost ]
-          conjoined = base ++ maybeAdd
 
 
 instance ToJSON FuzzyLikeFieldQuery where
   toJSON (FuzzyLikeFieldQuery (FieldName fieldName)
           fieldText maxTerms ignoreFreq fuzziness prefixLength
           boost analyzer) =
-    object $ [ fieldName .=
-               object [ "like_text"       .= toJSON fieldText
-                      , "max_query_terms" .= toJSON maxTerms
-                      , "ignore_tf"       .= toJSON ignoreFreq
-                      , "fuzziness"       .= toJSON fuzziness
-                      , "prefix_length"   .= toJSON prefixLength
-                      , "boost"           .= toJSON boost ]] ++ maybeAdd
-    where maybeAdd = catMaybes [ mField "analyzer" analyzer ]
+    object [ fieldName .=
+             omitNulls [ "like_text"       .= toJSON fieldText
+                       , "max_query_terms" .= toJSON maxTerms
+                       , "ignore_tf"       .= toJSON ignoreFreq
+                       , "fuzziness"       .= toJSON fuzziness
+                       , "prefix_length"   .= toJSON prefixLength
+                       , "analyzer" .= toJSON analyzer
+                       , "boost"           .= toJSON boost ]]
 
 
 instance ToJSON FuzzyLikeThisQuery where
   toJSON (FuzzyLikeThisQuery fields text maxTerms
           ignoreFreq fuzziness prefixLength boost analyzer) =
-    object conjoined
+    omitNulls base
     where base = [ "fields"          .= toJSON fields
                  , "like_text"       .= toJSON text
                  , "max_query_terms" .= toJSON maxTerms
                  , "ignore_tf"       .= toJSON ignoreFreq
                  , "fuzziness"       .= toJSON fuzziness
                  , "prefix_length"   .= toJSON prefixLength
+                 , "analyzer"        .= toJSON analyzer
                  , "boost"           .= toJSON boost ]
-          maybeAdd = catMaybes [ mField "analyzer" analyzer ]
-          conjoined = base ++ maybeAdd
 
 
 instance ToJSON FilteredQuery where
-  toJSON (FilteredQuery query filter) =
+  toJSON (FilteredQuery query fFilter) =
     object [ "query"  .= toJSON query
-           , "filter" .= toJSON filter ]
+           , "filter" .= toJSON fFilter ]
 
 
 instance ToJSON DisMaxQuery where
   toJSON (DisMaxQuery queries tiebreaker boost) =
-    object conjoined
-    where maybeAdd = catMaybes [mField "boost" boost]
-          base = [ "queries"     .= toJSON queries
+    omitNulls base
+    where base = [ "queries"     .= toJSON queries
+                 , "boost"       .= toJSON boost
                  , "tie_breaker" .= toJSON tiebreaker ]
-          conjoined = base ++ maybeAdd
 
 
 instance ToJSON CommonTermsQuery where
   toJSON (CommonTermsQuery (FieldName fieldName)
           (QueryString query) cf lfo hfo msm
           boost analyzer disableCoord) =
-    object [fieldName .= object conjoined]
-    where base = [ "query"              .= query
+    object [fieldName .= omitNulls base ]
+    where base = [ "query"              .= toJSON query
                  , "cutoff_frequency"   .= toJSON cf
                  , "low_freq_operator"  .= toJSON lfo
+                 , "minimum_should_match" .= toJSON msm
+                 , "boost" .= toJSON boost
+                 , "analyzer" .= toJSON analyzer
+                 , "disable_coord" .= toJSON disableCoord
                  , "high_freq_operator" .= toJSON hfo ]
-          extension = catMaybes
-                      [ mField "minimum_should_match" msm
-                      , mField "boost" boost
-                      , mField "analyzer" analyzer
-                      , mField "disable_coord" disableCoord ]
-          conjoined = base ++ extension
 
 
 instance ToJSON CommonMinimumMatch where
@@ -1421,14 +1412,13 @@ instance ToJSON BoostingQuery where
 
 instance ToJSON BoolQuery where
   toJSON (BoolQuery mustM notM shouldM bqMin boost disableCoord) =
-    object filtered
-    where filtered = catMaybes
-                      [ mField "must" mustM
-                      , mField "must_not" notM
-                      , mField "should" shouldM
-                      , mField "minimum_should_match" bqMin
-                      , mField "boost" boost
-                      , mField "disable_coord" disableCoord ]
+    omitNulls base
+    where base = [ "must" .= toJSON mustM
+                 , "must_not" .= toJSON notM
+                 , "should" .= toJSON shouldM
+                 , "minimum_should_match" .= toJSON bqMin
+                 , "boost" .= toJSON boost
+                 , "disable_coord" .= toJSON disableCoord ]
 
 
 instance ToJSON MatchQuery where
@@ -1436,33 +1426,31 @@ instance ToJSON MatchQuery where
           (QueryString mqQueryString) booleanOperator
           zeroTermsQuery cutoffFrequency matchQueryType
           analyzer maxExpansions lenient) =
-    object [ fieldName .= object conjoined ]
-    where conjoined = [ "query" .= mqQueryString
-                      , "operator" .= toJSON booleanOperator
-                      , "zero_terms_query" .= toJSON zeroTermsQuery]
-                      ++ maybeAdd
-          maybeAdd   = catMaybes [ mField "cutoff_frequency" cutoffFrequency
-                                 , mField "type" matchQueryType
-                                 , mField "analyzer" analyzer
-                                 , mField "max_expansions" maxExpansions
-                                 , mField "lenient" lenient ]
+    object [ fieldName .= omitNulls base ]
+    where base = [ "query" .= mqQueryString
+                 , "operator" .= toJSON booleanOperator
+                 , "zero_terms_query" .= toJSON zeroTermsQuery
+                 , "cutoff_frequency" .= toJSON cutoffFrequency
+                 , "type" .= toJSON matchQueryType
+                 , "analyzer" .= toJSON analyzer
+                 , "max_expansions" .= toJSON maxExpansions
+                 , "lenient" .= toJSON lenient ]
 
 
 instance ToJSON MultiMatchQuery where
   toJSON (MultiMatchQuery fields (QueryString query) boolOp
           ztQ tb mmqt cf analyzer maxEx lenient) =
-    object ["multi_match" .= object conjoined]
-    where baseQuery = [ "fields" .= fmap toJSON fields
-                      , "query" .= query
-                      , "operator" .= toJSON boolOp
-                      , "zero_terms_query" .= toJSON ztQ ]
-          maybeAdd = catMaybes [ mField "tiebreaker" tb
-                               , mField "type" mmqt
-                               , mField "cutoff_frequency" cf
-                               , mField "analyzer" analyzer
-                               , mField "max_expansions" maxEx
-                               , mField "lenient" lenient ]
-          conjoined = baseQuery ++ maybeAdd
+    object ["multi_match" .= omitNulls base]
+    where base = [ "fields" .= fmap toJSON fields
+                 , "query" .= query
+                 , "operator" .= toJSON boolOp
+                 , "zero_terms_query" .= toJSON ztQ
+                 , "tiebreaker" .= toJSON tb
+                 , "type" .= toJSON mmqt
+                 , "cutoff_frequency" .= toJSON cf
+                 , "analyzer" .= toJSON analyzer
+                 , "max_expansions" .= toJSON maxEx
+                 , "lenient" .= toJSON lenient ]
 
 
 instance ToJSON MultiMatchQueryType where
@@ -1555,10 +1543,10 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 
 instance ToJSON Search where
-  toJSON (Search query filter sort sTrackSortScores sFrom sSize) =
+  toJSON (Search query sFilter sort sTrackSortScores sFrom sSize) =
     object merged where
       lQuery  = maybeJson  "query" query
-      lFilter = maybeJson  "filter" filter
+      lFilter = maybeJson  "filter" sFilter
       lSort   = maybeJsonF "sort" sort
       merged  = mconcat [[ "from" .= sFrom
                          , "size" .= sSize
