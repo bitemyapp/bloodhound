@@ -27,8 +27,9 @@ haddock:
 dist:
 	cabal sdist
 
+# export BHVER=0.3.0.0
 # upload:
-# 	cabal upload dist/bloodhound-0.1.0.2.tar.gz
-# cp -R ./dist/doc/html/bloodhound/ bloodhound-0.1.0.2-docs
-# tar cvzf --format=ustar -f bloodhound-0.1.0.1-docs.tar.gz bloodhound-0.1.0.1-docs
-# curl -X PUT -H 'Content-Type: application/x-tar' -H 'Content-Encoding: gzip' --data-binary '@bloodhound-0.1.0.1-docs.tar.gz' 'https://bitemyapp:$PASSWORD@hackage.haskell.org/package/bloodhound-0.1.0.1/docs'
+# 	cabal upload dist/bloodhound-$BHVER.tar.gz
+# cp -R ./dist/doc/html/bloodhound/ bloodhound-$BHVER-docs
+# tar cvz --format=ustar -f bloodhound-$BHVER-docs.tar.gz bloodhound-$BHVER-docs
+# curl -X PUT -H 'Content-Type: application/x-tar' -H 'Content-Encoding: gzip' --data-binary "@bloodhound-$BHVER-docs.tar.gz" "https://bitemyapp:$PASSWORD@hackage.haskell.org/package/bloodhound-$BHVER/docs"
