@@ -21,7 +21,7 @@ Current versions we test against are 1.0.3, 1.1.2, 1.2.3, and 1.3.2. We also che
 
 ** Stability
 
-Bloodhound is alpha at the moment. The library works fine, but I don't want to mislead anyone into thinking the API is final or stable. I wouldn't call the library "complete" or representative of everything you can do in Elasticsearch but compared to clients in other languages, the usability is good.
+Bloodhound is beta at the moment. We've got a solid library, but coverage of Elasticsearch functionality isn't 100% yet.
 
 * Hackage page and Haddock documentation
 
