@@ -361,6 +361,8 @@ main = hspec $ do
                    (CacheName "test") False (CacheKey "key")
       let search = mkSearch Nothing (Just filter)
       searchExpectNoResults search
+
+
   describe "ToJSON RegexpFlags" $ do
     it "generates the correct JSON for AllRegexpFlags" $
       toJSON AllRegexpFlags `shouldBe` String "ALL"
