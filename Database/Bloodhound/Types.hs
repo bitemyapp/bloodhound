@@ -796,7 +796,7 @@ data Filter = AndFilter [Filter] Cache
             | IdentityFilter
             | BoolFilter BoolMatch
             | ExistsFilter FieldName -- always cached
-            | GeoBoundingBoxFilter GeoBoundingBoxConstraint GeoFilterType
+            | GeoBoundingBoxFilter GeoBoundingBoxConstraint
             | GeoDistanceFilter GeoPoint Distance DistanceType OptimizeBbox Cache
             | GeoDistanceRangeFilter GeoPoint DistanceRange
             | GeoPolygonFilter FieldName [LatLon]
@@ -880,6 +880,7 @@ data GeoBoundingBoxConstraint =
   GeoBoundingBoxConstraint { geoBBField        :: FieldName
                            , constraintBox     :: GeoBoundingBox
                            , bbConstraintcache :: Cache
+                           , geoType           :: GeoFilterType
                            } deriving (Eq, Show)
 
 data GeoPoint =
@@ -977,9 +978,8 @@ instance ToJSON Filter where
   toJSON (BoolFilter boolMatch) =
     object ["bool"    .= toJSON boolMatch]
 
-  toJSON (GeoBoundingBoxFilter bbConstraint filterType) =
-    object ["geo_bounding_box" .= toJSON bbConstraint
-           , "type" .= toJSON filterType]
+  toJSON (GeoBoundingBoxFilter bbConstraint) =
+    object ["geo_bounding_box" .= toJSON bbConstraint]
 
   toJSON (GeoDistanceFilter (GeoPoint (FieldName distanceGeoField) geoDistLatLon)
           distance distanceType optimizeBbox cache) =
@@ -1283,7 +1283,7 @@ instance ToJSON MoreLikeThisQuery where
           mtf mqt stopwords mindf maxdf
           minwl maxwl boostTerms boost analyzer) =
     omitNulls base
-    where base = [ "like_text" .= toJSON text 
+    where base = [ "like_text" .= toJSON text
                  , "fields" .= fields
                  , "percent_terms_to_match" .= percent
                  , "min_term_freq" .= mtf
@@ -1617,9 +1617,10 @@ instance ToJSON OptimizeBbox where
 
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON (GeoBoundingBoxConstraint
-          (FieldName gbbcGeoBBField) gbbcConstraintBox cache) =
+          (FieldName gbbcGeoBBField) gbbcConstraintBox cache type') =
     object [gbbcGeoBBField .= toJSON gbbcConstraintBox
-           , "_cache"  .= cache]
+           , "_cache"  .= cache
+           , "type" .= type']
 
 
 instance ToJSON GeoFilterType where

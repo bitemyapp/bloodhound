@@ -212,7 +212,7 @@ resp <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
 
 Response {responseStatus =
   Status {statusCode = 200, statusMessage = "OK"}
-    , responseVersion = HTTP/1.1, responseHeaders = 
+    , responseVersion = HTTP/1.1, responseHeaders =
     [("Content-Type","application/json; charset=UTF-8"),
      ("Content-Length","75")]
     , responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":2,\"created\":false}"
@@ -479,10 +479,7 @@ let existsFilter = ExistsFilter (FieldName "user")
 -- topLeft and bottomRight
 let box = GeoBoundingBox (LatLon 40.73 (-74.1)) (LatLon 40.10 (-71.12))
 
-let constraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False
-
--- second argument is GeoFilterType, memory or indexed.
-let geoFilter = GeoBoundingBoxFilter constraint GeoFilterMemory
+let constraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False GeoFilterMemory
 
 #+END_SRC
 

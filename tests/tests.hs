@@ -268,8 +268,8 @@ main = hspec $ do
     it "returns document for geo boundingbox filter" $ do
       _ <- insertData
       let box = GeoBoundingBox (LatLon 40.73 (-74.1)) (LatLon 40.10 (-71.12))
-      let bbConstraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False
-      let geoFilter = GeoBoundingBoxFilter bbConstraint GeoFilterMemory
+      let bbConstraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False GeoFilterMemory
+      let geoFilter = GeoBoundingBoxFilter bbConstraint
       let search = mkSearch Nothing (Just geoFilter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
@@ -277,8 +277,8 @@ main = hspec $ do
     it "doesn't return document for nonsensical boundingbox filter" $ do
       _ <- insertData
       let box          = GeoBoundingBox (LatLon 0.73 (-4.1)) (LatLon 0.10 (-1.12))
-      let bbConstraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False
-      let geoFilter    = GeoBoundingBoxFilter bbConstraint GeoFilterMemory
+      let bbConstraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False GeoFilterMemory
+      let geoFilter    = GeoBoundingBoxFilter bbConstraint
       let search       = mkSearch Nothing (Just geoFilter)
       searchExpectNoResults search
 
