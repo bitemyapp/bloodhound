@@ -9,9 +9,13 @@
 env:
  - GHCVER=7.6.3
  - GHCVER=7.8.2
+ - ESVER=1.0.3
+ - ESVER=1.1.2
+ - ESVER=1.2.3
+ - ESVER=1.3.2
 
-services:
-  - elasticsearch
+# services:
+#   - elasticsearch
 
 # Note: the distinction between `before_install` and `install` is not
 #       important.
@@ -21,6 +25,8 @@ before_install:
  - sudo apt-get install cabal-install-1.18 ghc-$GHCVER
  - sudo apt-get install happy-1.19.3
  - export PATH=/opt/ghc/$GHCVER/bin:/opt/happy/1.19.3/bin:$PATH
+ - wget https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ESVER.deb
+ - sudo dpkg -i elasticsearch-$ESVER.deb
 
 install:
  - cabal-1.18 update
