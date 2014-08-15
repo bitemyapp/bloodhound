@@ -949,8 +949,9 @@ instance Seminearring Filter where
 
 instance ToJSON Filter where
   toJSON (AndFilter filters cache) =
-    object ["and"     .= fmap toJSON filters
-           , "_cache" .= cache]
+    object ["and"     .=
+            object [ "filters" .= fmap toJSON filters
+                   , "_cache" .= cache]]
 
   toJSON (OrFilter filters cache) =
     object ["or"      .= fmap toJSON filters
