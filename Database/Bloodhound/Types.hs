@@ -173,7 +173,7 @@ data Version = Version { number          :: Text
    <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-status.html#indices-status>
 -}
 
-data Status = Status { ok      :: Bool
+data Status = Status { ok      :: Maybe Bool
                      , status  :: Int
                      , name    :: Text
                      , version :: Version
@@ -1509,7 +1509,7 @@ instance FromJSON DocId
 
 instance FromJSON Status where
   parseJSON (Object v) = Status <$>
-                         v .: "ok" <*>
+                         v .:? "ok" <*>
                          v .: "status" <*>
                          v .: "name" <*>
                          v .: "version" <*>
