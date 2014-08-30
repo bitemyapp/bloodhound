@@ -22,7 +22,7 @@ reset:
 	cabal sandbox init
 
 haddock:
-	cabal haddock --hoogle --hyperlink-source --html-location='http://hackage.haskell.org/package/bloodhound/docs' --contents-location='http://hackage.haskell.org/package/bloodhound'
+	gen-docs.sh
 
 dist:
 	cabal sdist
