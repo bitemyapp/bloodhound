@@ -160,9 +160,9 @@ main = hspec $ do
       let firstTest = BulkTest "blah"
       let secondTest = BulkTest "bloo"
       let firstDoc = BulkIndex testIndex
-                     testMapping (DocId "2") (object ["name" .= String "blah"])
+                     testMapping (DocId "2") (toJSON firstTest)
       let secondDoc = BulkCreate testIndex
-                     testMapping (DocId "3") (object ["name" .= String "bloo"])
+                     testMapping (DocId "3") (toJSON secondTest)
       let stream = [firstDoc, secondDoc]
       _ <- bulk testServer stream
       _ <- refreshIndex testServer testIndex

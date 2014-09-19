@@ -273,6 +273,47 @@ Right (Tweet {user = "bitemyapp"
 
 #+END_SRC
 
+** Bulk Operations
+
+*** Bulk create, index
+
+#+BEGIN_SRC haskell
+
+-- don't forget the imports and derive generic setting for ghci
+-- at the beginning of the examples.
+
+:{
+-- Using the earlier Tweet datatype and exampleTweet data
+
+-- just changing up the data a bit.
+let bulkTest = exampleTweet { user = "blah" }
+let bulkTestTwo = exampleTweet { message = "woohoo!" }
+
+-- create only bulk operation
+-- BulkCreate :: IndexName -> MappingName -> DocId -> Value -> BulkOperation
+let firstOp = BulkCreate testIndex
+              testMapping (DocId "3") (toJSON bulkTest)
+
+-- index operation "create or update"
+let sndOp   = BulkIndex testIndex
+              testMapping (DocId "4") (toJSON bulkTestTwo)
+
+-- Some explanation, the final "Value" type that BulkIndex,
+-- BulkCreate, and BulkUpdate accept is the actual document
+-- data that your operation applies to. BulkDelete doesn't
+-- take a value because it's just deleting whatever DocId 
+-- you pass.
+
+-- list of bulk operations
+let stream = [firstDoc, secondDoc]
+
+-- Fire off the actual bulk request
+-- bulk :: Server -> [BulkOperation] -> IO Reply
+resp <- bulk testServer stream
+:}
+
+#+END_SRC
+
 ** Search
 
 *** Querying
