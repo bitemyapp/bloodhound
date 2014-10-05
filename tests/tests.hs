@@ -6,7 +6,8 @@ module Main where
 import Control.Applicative
 import Database.Bloodhound
 import Data.Aeson
-import Data.List (nub)
+import Data.Aeson.Types (parseMaybe)
+import Data.List (nub, elemIndex)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
@@ -19,6 +20,7 @@ import Prelude hiding (filter, putStrLn)
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
+import qualified Data.Map.Strict as M
 
 testServer  :: Server
 testServer  = Server "http://localhost:9200"
@@ -106,6 +108,21 @@ searchExpectNoResults search = do
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
   let emptyHits = fmap (hits . searchHits) result
   emptyHits `shouldBe` Right []
+
+searchExpectAggs :: Search -> IO ()
+searchExpectAggs search = do
+  reply <- searchAll testServer search
+  let isEmpty x = return (M.null x) 
+  let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
+  (result >>= aggregations >>= isEmpty) `shouldBe` Just False
+  
+searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) => Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> IO ()
+searchValidBucketAgg search aggKey extractor = do
+  reply <- searchAll testServer search
+  let bucketDocs = docCount . head . buckets
+  let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
+  let count = result >>= aggregations >>= extractor aggKey >>= \x -> return (bucketDocs x)
+  count `shouldBe` Just 1
 
 data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
 instance FromJSON BulkTest
@@ -235,7 +252,7 @@ main = hspec $ do
       _ <- insertOther
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
       let search = Search Nothing
-                   (Just IdentityFilter) (Just [sortSpec])
+                   (Just IdentityFilter) (Just [sortSpec]) Nothing
                    False 0 10
       reply <- searchByIndex testServer testIndex search
       let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
@@ -362,6 +379,21 @@ main = hspec $ do
       let search = mkSearch Nothing (Just filter)
       searchExpectNoResults search
 
+  describe "Aggregation API" $ do
+    it "returns term aggregation results" $ do
+      _ <- insertData
+      let aggs = M.insert "users" (mkTermsAggregation "user") M.empty
+      let search = (mkSearch Nothing Nothing) {aggBody = Just(aggs)}
+      searchExpectAggs search
+      searchValidBucketAgg search "users" toTerms
+    
+    it "returns date histogram aggregation results" $ do
+      _ <- insertData
+      let aggs = M.insert "byDate" (mkDateHistogram (FieldName "postDate") Minute) M.empty
+      let search = (mkSearch Nothing Nothing) {aggBody = Just(aggs)}
+      searchExpectAggs search
+      searchValidBucketAgg search "byDate" toDateHistogram
+
 
   describe "ToJSON RegexpFlags" $ do
     it "generates the correct JSON for AllRegexpFlags" $
@@ -382,3 +414,5 @@ main = hspec $ do
       let String str = toJSON flags
           flagStrs   = T.splitOn "|" str
       in noDuplicates flagStrs
+      
+

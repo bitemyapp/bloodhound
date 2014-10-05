@@ -22,6 +22,10 @@ module Database.Bloodhound.Types
        , mkBoolQuery
        , mkRangeQuery
        , mkQueryStringQuery
+       , mkTermsAggregation
+       , mkDateHistogram
+       , toTerms
+       , toDateHistogram
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -142,15 +146,29 @@ module Database.Bloodhound.Types
        , FieldOrFields(..)
        , Monoid(..)
        , ToJSON(..)
+       , Interval(..)
+       , TimeInterval(..)
+       , ExecutionHint
+       , CollectionMode
+       , TermOrder
+       , TermInclusion
+       , Aggregations
+       , AggregationResults
+       , Bucket(..)
+       , BucketAggregation(..)
+       , TermsResult
+       , DateHistogramResult
          ) where
 
 import Control.Applicative
 import Data.Aeson
+import Data.Aeson.Types (parseMaybe)
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List (nub)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Monoid
 import Data.Text (Text)
+import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
@@ -474,6 +492,7 @@ type Size = Int
 data Search = Search { queryBody  :: Maybe Query
                      , filterBody :: Maybe Filter
                      , sortBody   :: Maybe Sort
+                     , aggBody :: Maybe Aggregations
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from :: From
@@ -913,10 +932,11 @@ data DistanceRange =
                 , distanceTo   :: Distance } deriving (Eq, Show)
 
 data FromJSON a => SearchResult a =
-  SearchResult { took       :: Int
-               , timedOut   :: Bool
-               , shards     :: ShardResult
-               , searchHits :: SearchHits a } deriving (Eq, Show)
+  SearchResult { took         :: Int
+               , timedOut     :: Bool
+               , shards       :: ShardResult
+               , searchHits   :: SearchHits a
+               , aggregations :: Maybe AggregationResults } deriving (Eq, Show)
 
 type Score = Double
 
@@ -940,6 +960,188 @@ data ShardResult =
 showText :: Show a => a -> Text
 showText = T.pack . show
 
+type Aggregations = M.Map Text Aggregation
+
+data TermOrder = TermOrder{ termSortField :: Text
+                          , termSortOrder :: SortOrder } deriving (Eq, Show)
+
+data TermInclusion = TermInclusion Text
+                   | TermPattern { pattern :: Text
+                                 , flags   :: Text } deriving (Eq, Show)
+
+data CollectionMode = BreadthFirst
+                    | DepthFirst deriving (Eq, Show)
+
+data ExecutionHint = GlobalOrdinals
+                   | GlobalOrdinalsHash
+                   | GlobalOrdinalsLowCardinality
+                   | Map deriving(Eq, Show)
+
+data TimeInterval = Years
+                  | Quarters
+                  | Months
+                  | Weeks
+                  | Days
+                  | Hours
+                  | Minutes
+                  | Seconds deriving (Eq)
+
+data Interval = Year
+              | Quarter
+              | Month
+              | Week
+              | Day
+              | Hour
+              | Minute
+              | Second              
+              | FractionalInterval { fraction :: Float
+                                   , interval :: TimeInterval } deriving (Eq, Show)
+
+data Aggregation = TermsAggregation { term             :: Text
+                                    , termScript       :: Maybe Text
+                                    , termInclude      :: Maybe TermInclusion
+                                    , termExclude      :: Maybe TermInclusion
+                                    , termOrder        :: Maybe TermOrder
+                                    , termMinDocCount  :: Maybe Int
+                                    , termSize         :: Maybe Int
+                                    , termShardSize    :: Maybe Int
+                                    , termCollectMode  :: Maybe CollectionMode
+                                    , termAggs         :: Maybe Aggregations
+                                    }
+                 | DateHistogramAggregation { dateField       :: FieldName
+                                            , dateInterval    :: Interval
+                                            , dateFormat      :: Maybe Text
+                                            , datePreZone     :: Maybe Text
+                                            , datePostZone    :: Maybe Text
+                                            , datePreOffset   :: Maybe Text
+                                            , datePostOffset  :: Maybe Text
+                                            , dateAggs        :: Maybe Aggregations
+                                            } deriving (Eq, Show)
+
+mkTermsAggregation :: Text -> Aggregation
+mkTermsAggregation t = TermsAggregation t Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
+mkDateHistogram :: FieldName -> Interval -> Aggregation
+mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
+
+instance ToJSON TermOrder where
+  toJSON (TermOrder termSortField termSortOrder) = object [termSortField .= termSortOrder]
+
+instance ToJSON TermInclusion where
+  toJSON (TermInclusion x) = toJSON x
+  toJSON (TermPattern pattern flags) = omitNulls [ "pattern" .= pattern,
+                                                   "flags" .= flags]
+
+instance ToJSON CollectionMode where
+  toJSON BreadthFirst = "breadth_first"
+  toJSON DepthFirst   = "depth_first"
+  
+instance ToJSON ExecutionHint where
+  toJSON GlobalOrdinals = "global_ordinals"
+  toJSON GlobalOrdinalsHash = "global_ordinals_hash"
+  toJSON GlobalOrdinalsLowCardinality = "global_ordinals_low_cardinality"
+  toJSON Map = "map"
+
+instance ToJSON Interval where
+  toJSON Year = "year"
+  toJSON Quarter = "quarter"
+  toJSON Month = "month"
+  toJSON Week = "week"
+  toJSON Day = "day"
+  toJSON Hour = "hour"
+  toJSON Minute = "minute"
+  toJSON Second = "second"
+  toJSON (FractionalInterval fraction interval) = toJSON $ (show fraction) ++ (show interval)
+
+instance Show TimeInterval where
+  show Years    = "y"
+  show Quarters = "q"
+  show Months   = "M"
+  show Weeks    = "w"
+  show Days     = "d"
+  show Hours    = "h"
+  show Minutes  = "m"
+  show Seconds  = "s"
+
+instance ToJSON Aggregation where
+  toJSON (TermsAggregation term termScript termInclude termExclude termOrder termMinDocCount termSize termShardSize termCollectMode termAggs) =
+    omitNulls ["terms" .= (omitNulls [ "field"          .= (toJSON $ term) ,
+                                       "script"         .= (toJSON termScript),
+                                       "include"        .= (toJSON termInclude),
+                                       "exclude"        .= (toJSON termExclude),                                    
+                                       "order"          .= (toJSON termOrder),
+                                       "min_doc_count"  .= (toJSON termMinDocCount),
+                                       "size"           .= (toJSON termSize),
+                                       "shard_size"     .= (toJSON termShardSize),
+                                       "collect_mode"   .= (toJSON termCollectMode)
+                                     ]),
+               "aggs"  .= (toJSON termAggs) ]
+
+  toJSON (DateHistogramAggregation dateField dateInterval dateFormat datePreZone datePostZone datePreOffset datePostOffset dateAggs) =
+    omitNulls ["date_histogram" .= (omitNulls [ "field"       .= (toJSON dateField),
+                                                "interval"    .= (toJSON dateInterval),
+                                                "format"      .= (toJSON dateFormat),
+                                                "pre_zone"    .= (toJSON datePreZone),
+                                                "post_zone"   .= (toJSON datePostZone),
+                                                "pre_offset"  .= (toJSON datePreOffset),
+                                                "post_offset" .= (toJSON datePostOffset)
+                                              ]),
+               "aggs"           .= (toJSON dateAggs) ]
+
+type AggregationResults = M.Map Text Value
+
+class BucketAggregation a where
+  key :: a -> Text
+  docCount :: a -> Int
+  aggs :: a -> Maybe AggregationResults
+
+
+data (FromJSON a, BucketAggregation a) => Bucket a = Bucket { buckets :: [a]} deriving (Show)
+
+data TermsResult = TermsResult { termKey            :: Text
+                               , termsDocCount      :: Int
+                               , termsAggs           :: Maybe AggregationResults } deriving (Show)
+                                                                                                         
+data DateHistogramResult = DateHistogramResult { dateKey           :: Int
+                                               , dateKeyStr        :: Text
+                                               , dateDocCount      :: Int
+                                               , dateHistogramAggs :: Maybe AggregationResults } deriving (Show)
+
+toTerms :: Text -> AggregationResults ->  Maybe (Bucket TermsResult)
+toTerms t a = M.lookup t a >>= deserialize
+  where deserialize = parseMaybe parseJSON
+
+toDateHistogram :: Text -> AggregationResults -> Maybe (Bucket DateHistogramResult)
+toDateHistogram t a = M.lookup t a >>= deserialize
+  where deserialize = parseMaybe parseJSON
+
+instance BucketAggregation TermsResult where
+  key = termKey
+  docCount = termsDocCount
+  aggs = termsAggs
+
+instance BucketAggregation DateHistogramResult where
+  key = dateKeyStr
+  docCount = dateDocCount
+  aggs = dateHistogramAggs
+
+instance (FromJSON a, BucketAggregation a) => FromJSON (Bucket a) where
+  parseJSON (Object v) = Bucket <$>
+                         v .: "buckets"
+  parseJSON _ = mempty
+
+instance FromJSON TermsResult where
+  parseJSON (Object v) = TermsResult <$>
+                         v .:   "key"       <*>
+                         v .:   "doc_count" <*>
+                         v .:?  "aggregations"
+
+instance FromJSON DateHistogramResult where
+  parseJSON (Object v) = DateHistogramResult   <$>
+                         v .:  "key"           <*>
+                         v .:  "key_as_string" <*>
+                         v .:  "doc_count"     <*>
+                         v .:? "aggregations"
 
 instance Monoid Filter where
   mempty = IdentityFilter
@@ -1533,10 +1735,11 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort sTrackSortScores sFrom sSize) =
+  toJSON (Search query sFilter sort aggs sTrackSortScores sFrom sSize) =
     omitNulls [ "query" .= query
               , "filter" .= sFilter
               , "sort" .= sort
+              , "aggregations" .= aggs
               , "from" .= sFrom
               , "size" .= sSize
               , "track_scores" .= sTrackSortScores ]
@@ -1674,10 +1877,11 @@ instance ToJSON BoolMatch where
 
 instance (FromJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) = SearchResult <$>
-                         v .: "took"      <*>
-                         v .: "timed_out" <*>
-                         v .: "_shards"   <*>
-                         v .: "hits"
+                         v .:  "took"         <*>
+                         v .:  "timed_out"    <*>
+                         v .:  "_shards"      <*>
+                         v .:  "hits"         <*>
+                         v .:? "aggregations"
   parseJSON _          = empty
 
 instance (FromJSON a) => FromJSON (SearchHits a) where
