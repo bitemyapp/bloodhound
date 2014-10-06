@@ -966,8 +966,7 @@ data TermOrder = TermOrder{ termSortField :: Text
                           , termSortOrder :: SortOrder } deriving (Eq, Show)
 
 data TermInclusion = TermInclusion Text
-                   | TermPattern { pattern :: Text
-                                 , flags   :: Text } deriving (Eq, Show)
+                   | TermPattern Text Text deriving (Eq, Show)
 
 data CollectionMode = BreadthFirst
                     | DepthFirst deriving (Eq, Show)
@@ -997,32 +996,35 @@ data Interval = Year
               | FractionalInterval { fraction :: Float
                                    , interval :: TimeInterval } deriving (Eq, Show)
 
-data Aggregation = TermsAggregation { term             :: Text
-                                    , termScript       :: Maybe Text
-                                    , termInclude      :: Maybe TermInclusion
-                                    , termExclude      :: Maybe TermInclusion
-                                    , termOrder        :: Maybe TermOrder
-                                    , termMinDocCount  :: Maybe Int
-                                    , termSize         :: Maybe Int
-                                    , termShardSize    :: Maybe Int
-                                    , termCollectMode  :: Maybe CollectionMode
-                                    , termAggs         :: Maybe Aggregations
-                                    }
-                 | DateHistogramAggregation { dateField       :: FieldName
-                                            , dateInterval    :: Interval
-                                            , dateFormat      :: Maybe Text
-                                            , datePreZone     :: Maybe Text
-                                            , datePostZone    :: Maybe Text
-                                            , datePreOffset   :: Maybe Text
-                                            , datePostOffset  :: Maybe Text
-                                            , dateAggs        :: Maybe Aggregations
-                                            } deriving (Eq, Show)
+data Aggregation = TermsAgg TermsAggregation
+                 | DateHistogramAgg DateHistogramAggregation deriving (Eq, Show)
+
+data TermsAggregation = TermsAggregation { term             :: Text
+                                         , termScript       :: Maybe Text
+                                         , termInclude      :: Maybe TermInclusion
+                                         , termExclude      :: Maybe TermInclusion
+                                         , termOrder        :: Maybe TermOrder
+                                         , termMinDocCount  :: Maybe Int
+                                         , termSize         :: Maybe Int
+                                         , termShardSize    :: Maybe Int
+                                         , termCollectMode  :: Maybe CollectionMode
+                                         , termAggs         :: Maybe Aggregations
+                                    } deriving (Eq, Show)
+data DateHistogramAggregation = DateHistogramAggregation { dateField       :: FieldName
+                                                         , dateInterval    :: Interval
+                                                         , dateFormat      :: Maybe Text
+                                                         , datePreZone     :: Maybe Text
+                                                         , datePostZone    :: Maybe Text
+                                                         , datePreOffset   :: Maybe Text
+                                                         , datePostOffset  :: Maybe Text
+                                                         , dateAggs        :: Maybe Aggregations
+                                                         } deriving (Eq, Show)
 
 mkTermsAggregation :: Text -> Aggregation
-mkTermsAggregation t = TermsAggregation t Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+mkTermsAggregation t = TermsAgg $ TermsAggregation t Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 mkDateHistogram :: FieldName -> Interval -> Aggregation
-mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
+mkDateHistogram t i = DateHistogramAgg $ DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
 
 instance ToJSON TermOrder where
   toJSON (TermOrder termSortField termSortOrder) = object [termSortField .= termSortOrder]
@@ -1030,7 +1032,7 @@ instance ToJSON TermOrder where
 instance ToJSON TermInclusion where
   toJSON (TermInclusion x) = toJSON x
   toJSON (TermPattern pattern flags) = omitNulls [ "pattern" .= pattern,
-                                                   "flags" .= flags]
+                                                     "flags"   .= flags]
 
 instance ToJSON CollectionMode where
   toJSON BreadthFirst = "breadth_first"
@@ -1064,7 +1066,7 @@ instance Show TimeInterval where
   show Seconds  = "s"
 
 instance ToJSON Aggregation where
-  toJSON (TermsAggregation term termScript termInclude termExclude termOrder termMinDocCount termSize termShardSize termCollectMode termAggs) =
+  toJSON (TermsAgg (TermsAggregation term termScript termInclude termExclude termOrder termMinDocCount termSize termShardSize termCollectMode termAggs)) =
     omitNulls ["terms" .= (omitNulls [ "field"          .= (toJSON $ term) ,
                                        "script"         .= (toJSON termScript),
                                        "include"        .= (toJSON termInclude),
@@ -1077,7 +1079,7 @@ instance ToJSON Aggregation where
                                      ]),
                "aggs"  .= (toJSON termAggs) ]
 
-  toJSON (DateHistogramAggregation dateField dateInterval dateFormat datePreZone datePostZone datePreOffset datePostOffset dateAggs) =
+  toJSON (DateHistogramAgg (DateHistogramAggregation dateField dateInterval dateFormat datePreZone datePostZone datePreOffset datePostOffset dateAggs)) =
     omitNulls ["date_histogram" .= (omitNulls [ "field"       .= (toJSON dateField),
                                                 "interval"    .= (toJSON dateInterval),
                                                 "format"      .= (toJSON dateFormat),
@@ -1103,7 +1105,7 @@ data TermsResult = TermsResult { termKey            :: Text
                                , termsAggs           :: Maybe AggregationResults } deriving (Show)
                                                                                                          
 data DateHistogramResult = DateHistogramResult { dateKey           :: Int
-                                               , dateKeyStr        :: Text
+                                               , dateKeyStr        :: Maybe Text
                                                , dateDocCount      :: Int
                                                , dateHistogramAggs :: Maybe AggregationResults } deriving (Show)
 
@@ -1121,7 +1123,7 @@ instance BucketAggregation TermsResult where
   aggs = termsAggs
 
 instance BucketAggregation DateHistogramResult where
-  key = dateKeyStr
+  key = showText . dateKey
   docCount = dateDocCount
   aggs = dateHistogramAggs
 
@@ -1139,7 +1141,7 @@ instance FromJSON TermsResult where
 instance FromJSON DateHistogramResult where
   parseJSON (Object v) = DateHistogramResult   <$>
                          v .:  "key"           <*>
-                         v .:  "key_as_string" <*>
+                         v .:? "key_as_string" <*>                         
                          v .:  "doc_count"     <*>
                          v .:? "aggregations"
 
