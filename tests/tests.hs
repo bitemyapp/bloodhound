@@ -4,6 +4,7 @@
 module Main where
 
 import Control.Applicative
+import Control.Monad
 import Database.Bloodhound
 import Data.Aeson
 import Data.Aeson.Types (parseMaybe)
@@ -21,6 +22,8 @@ import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
 import qualified Data.Map.Strict as M
+
+import System.IO
 
 testServer  :: Server
 testServer  = Server "http://localhost:9200"
@@ -382,18 +385,26 @@ main = hspec $ do
   describe "Aggregation API" $ do
     it "returns term aggregation results" $ do
       _ <- insertData
-      let aggs = M.insert "users" (mkTermsAggregation "user") M.empty
-      let search = (mkSearch Nothing Nothing) {aggBody = Just(aggs)}
+      let search = mkAggregateSearch Nothing $ mkAggregations "users" $ mkTermsAggregation "user"
       searchExpectAggs search
       searchValidBucketAgg search "users" toTerms
     
     it "returns date histogram aggregation results" $ do
       _ <- insertData
-      let aggs = M.insert "byDate" (mkDateHistogram (FieldName "postDate") Minute) M.empty
-      let search = (mkSearch Nothing Nothing) {aggBody = Just(aggs)}
+      let histogram = mkDateHistogram (FieldName "postDate") Minute
+      let search = mkAggregateSearch Nothing (mkAggregations "byDate" histogram)
       searchExpectAggs search
       searchValidBucketAgg search "byDate" toDateHistogram
 
+    it "returns date histogram using fractional date" $ do
+      _ <- insertData
+      let intervals          = [Weeks, Days, Hours, Minutes, Seconds]
+      let histogram interval = mkDateHistogram (FieldName "postDate") (FractionalInterval 1.5 interval)
+      let search interval    = mkAggregateSearch Nothing $ mkAggregations "byDate" $ histogram interval
+      let expect interval    = searchExpectAggs (search interval)
+      let valid interval     = searchValidBucketAgg (search interval) "byDate" toDateHistogram
+      forM_ intervals expect
+      forM_ intervals valid
 
   describe "ToJSON RegexpFlags" $ do
     it "generates the correct JSON for AllRegexpFlags" $

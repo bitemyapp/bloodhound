@@ -22,6 +22,7 @@ module Database.Bloodhound.Types
        , mkBoolQuery
        , mkRangeQuery
        , mkQueryStringQuery
+       , mkAggregations
        , mkTermsAggregation
        , mkDateHistogram
        , toTerms
@@ -962,6 +963,12 @@ showText = T.pack . show
 
 type Aggregations = M.Map Text Aggregation
 
+emptyAggregations :: Aggregations
+emptyAggregations = M.empty
+
+mkAggregations :: Text -> Aggregation -> Aggregations
+mkAggregations name aggregation = M.insert name aggregation emptyAggregations
+
 data TermOrder = TermOrder{ termSortField :: Text
                           , termSortOrder :: SortOrder } deriving (Eq, Show)
 
@@ -976,10 +983,7 @@ data ExecutionHint = GlobalOrdinals
                    | GlobalOrdinalsLowCardinality
                    | Map deriving(Eq, Show)
 
-data TimeInterval = Years
-                  | Quarters
-                  | Months
-                  | Weeks
+data TimeInterval = Weeks
                   | Days
                   | Hours
                   | Minutes
@@ -1056,9 +1060,6 @@ instance ToJSON Interval where
   toJSON (FractionalInterval fraction interval) = toJSON $ (show fraction) ++ (show interval)
 
 instance Show TimeInterval where
-  show Years    = "y"
-  show Quarters = "q"
-  show Months   = "M"
   show Weeks    = "w"
   show Days     = "d"
   show Hours    = "h"
