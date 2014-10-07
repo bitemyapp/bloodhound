@@ -993,8 +993,7 @@ data Interval = Year
               | Hour
               | Minute
               | Second              
-              | FractionalInterval { fraction :: Float
-                                   , interval :: TimeInterval } deriving (Eq, Show)
+              | FractionalInterval Float TimeInterval deriving (Eq, Show)
 
 data Aggregation = TermsAgg TermsAggregation
                  | DateHistogramAgg DateHistogramAggregation deriving (Eq, Show)
@@ -1010,6 +1009,7 @@ data TermsAggregation = TermsAggregation { term             :: Text
                                          , termCollectMode  :: Maybe CollectionMode
                                          , termAggs         :: Maybe Aggregations
                                     } deriving (Eq, Show)
+
 data DateHistogramAggregation = DateHistogramAggregation { dateField       :: FieldName
                                                          , dateInterval    :: Interval
                                                          , dateFormat      :: Maybe Text
