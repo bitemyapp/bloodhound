@@ -25,7 +25,7 @@ before_install:
  - sudo apt-get install happy-1.19.3
  - export PATH=/opt/ghc/$GHCVER/bin:/opt/happy/1.19.3/bin:$PATH
  - wget https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ESVER.deb
- - sudo dpkg -i elasticsearch-$ESVER.deb
+ - sudo dpkg --force-all -i elasticsearch-$ESVER.deb
  - sudo service elasticsearch start
 
 install:
