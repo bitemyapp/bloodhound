@@ -153,7 +153,6 @@ import           Data.Monoid
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime)
-import           Data.Vector                     (Vector (..))
 import qualified Data.Vector                     as V
 import           GHC.Generics                    (Generic)
 import           Network.HTTP.Client
@@ -754,15 +753,15 @@ data MultiMatchQueryType =
   | MultiMatchPhrasePrefix deriving (Eq, Show)
 
 data BoolQuery =
-  BoolQuery { boolQueryMustMatch          :: Maybe Query
-            , boolQueryMustNotMatch       :: Maybe Query
-            , boolQueryShouldMatch        :: Maybe [Query]
+  BoolQuery { boolQueryMustMatch          :: [Query]
+            , boolQueryMustNotMatch       :: [Query]
+            , boolQueryShouldMatch        :: [Query]
             , boolQueryMinimumShouldMatch :: Maybe MinimumMatch
             , boolQueryBoost              :: Maybe Boost
             , boolQueryDisableCoord       :: Maybe DisableCoord
             } deriving (Eq, Show)
 
-mkBoolQuery :: Maybe Query -> Maybe Query -> Maybe [Query] -> BoolQuery
+mkBoolQuery :: [Query] -> [Query] -> [Query] -> BoolQuery
 mkBoolQuery must mustNot should =
   BoolQuery must mustNot should Nothing Nothing Nothing
 
@@ -1155,7 +1154,7 @@ instance ToJSON Query where
 omitNulls :: [(Text, Value)] -> Value
 omitNulls = object . filter notNull where
   notNull (_, Null)      = False
-  notNull (_, (Array a)) = V.null a
+  notNull (_, (Array a)) = (not . V.null) a
   notNull _              = True
 
 

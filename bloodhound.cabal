@@ -31,7 +31,8 @@ library
                        semigroups       >= 0.15,
                        time             >= 1.4,
                        text             >= 0.11,
-                       http-types       >= 0.8
+                       http-types       >= 0.8,
+                       vector           >= 0.10.11
   default-language:    Haskell2010
 
 test-suite tests

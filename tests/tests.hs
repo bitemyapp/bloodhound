@@ -1,24 +1,24 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
-import Control.Applicative
-import Database.Bloodhound
-import Data.Aeson
-import Data.List (nub)
-import Data.List.NonEmpty (NonEmpty(..))
-import Data.Time.Calendar (Day(..))
-import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
-import Data.Text (Text)
-import qualified Data.Text as T
-import GHC.Generics (Generic)
-import Network.HTTP.Client
+import           Control.Applicative
+import           Data.Aeson
+import           Data.List                 (nub)
+import           Data.List.NonEmpty        (NonEmpty (..))
+import           Data.Text                 (Text)
+import qualified Data.Text                 as T
+import           Data.Time.Calendar        (Day (..))
+import           Data.Time.Clock           (UTCTime (..), secondsToDiffTime)
+import           Database.Bloodhound
+import           GHC.Generics              (Generic)
+import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Status as NHTS
-import Prelude hiding (filter, putStrLn)
-import Test.Hspec
-import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck
+import           Prelude                   hiding (filter, putStrLn)
+import           Test.Hspec
+import           Test.Hspec.QuickCheck     (prop)
+import           Test.QuickCheck
 
 testServer  :: Server
 testServer  = Server "http://localhost:9200"
@@ -203,7 +203,7 @@ main = hspec $ do
       let innerQuery = QueryMatchQuery $
                        mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
       let query = QueryBoolQuery $
-                  mkBoolQuery (Just innerQuery) Nothing Nothing
+                  mkBoolQuery [innerQuery] [] []
       let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
