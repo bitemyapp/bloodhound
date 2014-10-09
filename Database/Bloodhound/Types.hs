@@ -22,6 +22,7 @@ module Database.Bloodhound.Types
        , mkBoolQuery
        , mkRangeQuery
        , mkQueryStringQuery
+       , omitNulls
        , Version(..)
        , Status(..)
        , Existence(..)

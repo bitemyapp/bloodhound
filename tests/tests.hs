@@ -5,12 +5,14 @@ module Main where
 
 import           Control.Applicative
 import           Data.Aeson
+import           Data.HashMap.Strict       (fromList)
 import           Data.List                 (nub)
 import           Data.List.NonEmpty        (NonEmpty (..))
 import           Data.Text                 (Text)
 import qualified Data.Text                 as T
 import           Data.Time.Calendar        (Day (..))
 import           Data.Time.Clock           (UTCTime (..), secondsToDiffTime)
+import qualified Data.Vector               as V
 import           Database.Bloodhound
 import           GHC.Generics              (Generic)
 import           Network.HTTP.Client
@@ -382,3 +384,25 @@ main = hspec $ do
       let String str = toJSON flags
           flagStrs   = T.splitOn "|" str
       in noDuplicates flagStrs
+
+
+  describe "omitNulls" $ do
+    it "checks that omitNulls drops list elements when it should" $
+       let dropped = omitNulls $ [ "test1" .= (toJSON ([] :: [Int]))
+                                 , "test2" .= (toJSON ("some value" :: Text))]
+       in dropped `shouldBe` Object (fromList [("test2", String "some value")])
+
+    it "checks that omitNulls doesn't drop list elements when it shouldn't" $
+       let notDropped = omitNulls $ [ "test1" .= (toJSON ([1] :: [Int]))
+                                    , "test2" .= (toJSON ("some value" :: Text))]
+       in notDropped `shouldBe` Object (fromList [ ("test1", Array (V.fromList [Number 1.0]))
+                                                 , ("test2", String "some value")])
+    it "checks that omitNulls drops non list elements when it should" $
+       let dropped = omitNulls $ [ "test1" .= (toJSON Null)
+                                 , "test2" .= (toJSON ("some value" :: Text))]
+       in dropped `shouldBe` Object (fromList [("test2", String "some value")])
+    it "checks that omitNulls doesn't drop non list elements when it shouldn't" $
+       let notDropped = omitNulls $ [ "test1" .= (toJSON (1 :: Int))
+                                    , "test2" .= (toJSON ("some value" :: Text))]
+       in notDropped `shouldBe` Object (fromList [ ("test1", Number 1.0)
+                                                 , ("test2", String "some value")])
