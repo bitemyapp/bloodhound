@@ -1,6 +1,22 @@
-** 0.2.x
+0.4.0.0
+===================
 
-0.2.0.0 --> 0.2.0.1
+* omitNulls changed to exclude empty lists and null values
+
+* BoolQuery must/mustNot/Should changed from Maybe (Query|[Query]) to [Query]
+
+* Added vector dependency so we can check for V.null/V.empty on JSON arrays
+
+0.3.0.0
+===================
+
+* Status "ok" changed from Bool to Maybe Bool
+
+* Elasticsearch 1.3.x compatibility fixed with changes to geo bounding boxes
+
+* CI coverage expanded to 1.0.x -> 1.3.x
+
+0.2.0.1
 ===================
 
 * Killed off maybeJson/mField/catMaybes in favor of omitNulls
@@ -11,7 +27,7 @@
 
 * Added note about current supported Elasticsearch version.
 
-0.1.0.2 --> 0.2.0.0
+0.2.0.0
 ===================
 
 * Added TermFilter

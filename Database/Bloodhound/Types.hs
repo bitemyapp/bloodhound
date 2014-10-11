@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE RecordWildCards #-}
 
 {-| Data types for describing actions and data structures performed to interact
@@ -28,6 +28,7 @@ module Database.Bloodhound.Types
        , mkDateHistogram
        , toTerms
        , toDateHistogram
+       , omitNulls
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -165,22 +166,23 @@ module Database.Bloodhound.Types
        , DateHistogramResult
          ) where
 
-import Control.Applicative
-import Data.Aeson
-import Data.Aeson.Types (parseMaybe)
-import qualified Data.ByteString.Lazy.Char8 as L
-import Data.List (nub)
-import Data.List.NonEmpty (NonEmpty(..))
-import Data.Monoid
-import Data.Text (Text)
-import qualified Data.Map.Strict as M
-import qualified Data.Text as T
-import Data.Time.Clock (UTCTime)
-import GHC.Generics (Generic)
-import Network.HTTP.Client
-import qualified Network.HTTP.Types.Method as NHTM
+import           Control.Applicative
+import           Data.Aeson
+import           Data.Aeson.Types                (parseMaybe)
+import qualified Data.ByteString.Lazy.Char8      as L
+import           Data.List                       (nub)
+import           Data.List.NonEmpty              (NonEmpty (..))
+import           Data.Monoid
+import           Data.Text                       (Text)
+import qualified Data.Text                       as T
+import qualified Data.Map.Strict                 as M
+import           Data.Time.Clock                 (UTCTime)
+import qualified Data.Vector                     as V
+import           GHC.Generics                    (Generic)
+import           Network.HTTP.Client
+import qualified Network.HTTP.Types.Method       as NHTM
 
-import Database.Bloodhound.Types.Class
+import           Database.Bloodhound.Types.Class
 
 
 {-| 'Version' is embedded in 'Status' -}
@@ -238,8 +240,8 @@ data FieldDefinition =
   FieldDefinition { fieldType :: FieldType } deriving (Eq, Show)
 
 data MappingField =
-  MappingField   { mappingFieldName       :: FieldName
-                 , fieldDefinition        :: FieldDefinition } deriving (Eq, Show)
+  MappingField   { mappingFieldName :: FieldName
+                 , fieldDefinition  :: FieldDefinition } deriving (Eq, Show)
 
 {-| Support for type reification of 'Mapping's is currently incomplete, for
     now the mapping API verbiage expects a 'ToJSON'able blob.
@@ -497,11 +499,11 @@ type Size = Int
 data Search = Search { queryBody  :: Maybe Query
                      , filterBody :: Maybe Filter
                      , sortBody   :: Maybe Sort
-                     , aggBody :: Maybe Aggregations
+                     , aggBody    :: Maybe Aggregations
                        -- default False
                      , trackSortScores :: TrackSortScores
-                     , from :: From
-                     , size :: Size } deriving (Eq, Show)
+                     , from            :: From
+                     , size            :: Size } deriving (Eq, Show)
 
 data Query =
   TermQuery                     Term (Maybe Boost)
@@ -534,10 +536,10 @@ data Query =
   deriving (Eq, Show)
 
 data RegexpQuery =
-  RegexpQuery { regexpQueryField     :: FieldName
-              , regexpQuery          :: Regexp
-              , regexpQueryFlags     :: RegexpFlags
-              , regexpQueryBoost     :: Maybe Boost
+  RegexpQuery { regexpQueryField :: FieldName
+              , regexpQuery      :: Regexp
+              , regexpQueryFlags :: RegexpFlags
+              , regexpQueryBoost :: Maybe Boost
               } deriving (Eq, Show)
 
 data RangeQuery =
@@ -657,9 +659,9 @@ data MoreLikeThisQuery =
 data IndicesQuery =
   IndicesQuery
   { indicesQueryIndices :: [IndexName]
-  , indicesQuery          :: Query
+  , indicesQuery        :: Query
     -- default "all"
-  , indicesQueryNoMatch   :: Maybe Query } deriving (Eq, Show)
+  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Show)
 
 data HasParentQuery =
   HasParentQuery
@@ -776,15 +778,15 @@ data MultiMatchQueryType =
   | MultiMatchPhrasePrefix deriving (Eq, Show)
 
 data BoolQuery =
-  BoolQuery { boolQueryMustMatch          :: Maybe Query
-            , boolQueryMustNotMatch       :: Maybe Query
-            , boolQueryShouldMatch        :: Maybe [Query]
+  BoolQuery { boolQueryMustMatch          :: [Query]
+            , boolQueryMustNotMatch       :: [Query]
+            , boolQueryShouldMatch        :: [Query]
             , boolQueryMinimumShouldMatch :: Maybe MinimumMatch
             , boolQueryBoost              :: Maybe Boost
             , boolQueryDisableCoord       :: Maybe DisableCoord
             } deriving (Eq, Show)
 
-mkBoolQuery :: Maybe Query -> Maybe Query -> Maybe [Query] -> BoolQuery
+mkBoolQuery :: [Query] -> [Query] -> [Query] -> BoolQuery
 mkBoolQuery must mustNot should =
   BoolQuery must mustNot should Nothing Nothing Nothing
 
@@ -811,7 +813,7 @@ data CommonMinimumMatch =
   deriving (Eq, Show)
 
 data MinimumMatchHighLow =
-  MinimumMatchHighLow { lowFreq :: MinimumMatch
+  MinimumMatchHighLow { lowFreq  :: MinimumMatch
                       , highFreq :: MinimumMatch } deriving (Eq, Show)
 
 data Filter = AndFilter [Filter] Cache
@@ -951,11 +953,11 @@ data FromJSON a => SearchHits a =
              , hits      :: [Hit a] } deriving (Eq, Show)
 
 data FromJSON a => Hit a =
-  Hit { hitIndex      :: IndexName
-      , hitType       :: MappingName
-      , hitDocId      :: DocId
-      , hitScore      :: Score
-      , hitSource     :: a } deriving (Eq, Show)
+  Hit { hitIndex  :: IndexName
+      , hitType   :: MappingName
+      , hitDocId  :: DocId
+      , hitScore  :: Score
+      , hitSource :: a } deriving (Eq, Show)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
@@ -1370,8 +1372,9 @@ instance ToJSON Query where
 
 omitNulls :: [(Text, Value)] -> Value
 omitNulls = object . filter notNull where
-  notNull (_, Null) = False
-  notNull _         = True
+  notNull (_, Null)      = False
+  notNull (_, (Array a)) = (not . V.null) a
+  notNull _              = True
 
 
 instance ToJSON SimpleQueryStringQuery where

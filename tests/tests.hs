@@ -1,29 +1,29 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
-import Control.Applicative
-import Control.Monad
-import Database.Bloodhound
-import Data.Aeson
-import Data.Aeson.Types (parseMaybe)
-import Data.List (nub, elemIndex)
-import Data.List.NonEmpty (NonEmpty(..))
-import Data.Time.Calendar (Day(..))
-import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
-import Data.Text (Text)
-import qualified Data.Text as T
-import GHC.Generics (Generic)
-import Network.HTTP.Client
+import           Control.Applicative
+import           Control.Monad
+import           Data.Aeson
+import           Data.Aeson.Types          (parseMaybe)
+import           Data.HashMap.Strict       (fromList)
+import           Data.List                 (nub)
+import           Data.List.NonEmpty        (NonEmpty (..))
+import qualified Data.Map.Strict           as M
+import           Data.Text                 (Text)
+import qualified Data.Text                 as T
+import           Data.Time.Calendar        (Day (..))
+import           Data.Time.Clock           (UTCTime (..), secondsToDiffTime)
+import qualified Data.Vector               as V
+import           Database.Bloodhound
+import           GHC.Generics              (Generic)
+import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Status as NHTS
-import Prelude hiding (filter, putStrLn)
-import Test.Hspec
-import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck
-import qualified Data.Map.Strict as M
-
-import System.IO
+import           Prelude                   hiding (filter, putStrLn)
+import           Test.Hspec
+import           Test.Hspec.QuickCheck     (prop)
+import           Test.QuickCheck
 
 testServer  :: Server
 testServer  = Server "http://localhost:9200"
@@ -279,7 +279,7 @@ main = hspec $ do
       let innerQuery = QueryMatchQuery $
                        mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
       let query = QueryBoolQuery $
-                  mkBoolQuery (Just innerQuery) Nothing Nothing
+                  mkBoolQuery [innerQuery] [] []
       let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
@@ -503,5 +503,24 @@ main = hspec $ do
       let String str = toJSON flags
           flagStrs   = T.splitOn "|" str
       in noDuplicates flagStrs
-      
 
+  describe "omitNulls" $ do
+    it "checks that omitNulls drops list elements when it should" $
+       let dropped = omitNulls $ [ "test1" .= (toJSON ([] :: [Int]))
+                                 , "test2" .= (toJSON ("some value" :: Text))]
+       in dropped `shouldBe` Object (fromList [("test2", String "some value")])
+
+    it "checks that omitNulls doesn't drop list elements when it shouldn't" $
+       let notDropped = omitNulls $ [ "test1" .= (toJSON ([1] :: [Int]))
+                                    , "test2" .= (toJSON ("some value" :: Text))]
+       in notDropped `shouldBe` Object (fromList [ ("test1", Array (V.fromList [Number 1.0]))
+                                                 , ("test2", String "some value")])
+    it "checks that omitNulls drops non list elements when it should" $
+       let dropped = omitNulls $ [ "test1" .= (toJSON Null)
+                                 , "test2" .= (toJSON ("some value" :: Text))]
+       in dropped `shouldBe` Object (fromList [("test2", String "some value")])
+    it "checks that omitNulls doesn't drop non list elements when it shouldn't" $
+       let notDropped = omitNulls $ [ "test1" .= (toJSON (1 :: Int))
+                                    , "test2" .= (toJSON ("some value" :: Text))]
+       in notDropped `shouldBe` Object (fromList [ ("test1", Number 1.0)
+                                                 , ("test2", String "some value")])

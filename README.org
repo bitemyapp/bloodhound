@@ -13,6 +13,10 @@
 
 Search doesn't have to be hard. Let the dog do it.
 
+** Endorsements
+
+"Bloodhound makes Elasticsearch almost tolerable!" - Almost-gruntled user
+
 ** Version compatibility
 
 Elasticsearch >= 1.0 is recommended. Bloodhound mostly works with 0.9.x, but I don't recommend it if you expect everything to work. As of Bloodhound 0.3 all >=1.0 versions of Elasticsearch work.
@@ -382,7 +386,7 @@ let search = mkSearch (Just query) Nothing
 let innerQuery = QueryMatchQuery $
                  mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
 let query = QueryBoolQuery $
-            mkBoolQuery (Just innerQuery) Nothing Nothing
+            mkBoolQuery [innerQuery] [] []
 let search = mkSearch (Just query) Nothing
 
 #+END_SRC
