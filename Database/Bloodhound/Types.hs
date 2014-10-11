@@ -24,6 +24,7 @@ module Database.Bloodhound.Types
        , mkQueryStringQuery
        , mkAggregations
        , mkTermsAggregation
+       , mkTermsScriptAggregation
        , mkDateHistogram
        , toTerms
        , toDateHistogram
@@ -149,14 +150,17 @@ module Database.Bloodhound.Types
        , ToJSON(..)
        , Interval(..)
        , TimeInterval(..)
-       , ExecutionHint
-       , CollectionMode
+       , ExecutionHint(..)
+       , CollectionMode(..)
        , TermOrder
        , TermInclusion
+       , Aggregation(..)
        , Aggregations
        , AggregationResults
        , Bucket(..)
        , BucketAggregation(..)
+       , TermsAggregation(..)
+       , DateHistogramAggregation(..)
        , TermsResult
        , DateHistogramResult
          ) where
@@ -978,7 +982,8 @@ data TermInclusion = TermInclusion Text
 data CollectionMode = BreadthFirst
                     | DepthFirst deriving (Eq, Show)
 
-data ExecutionHint = GlobalOrdinals
+data ExecutionHint = Ordinals
+                   | GlobalOrdinals
                    | GlobalOrdinalsHash
                    | GlobalOrdinalsLowCardinality
                    | Map deriving(Eq, Show)
@@ -1002,16 +1007,17 @@ data Interval = Year
 data Aggregation = TermsAgg TermsAggregation
                  | DateHistogramAgg DateHistogramAggregation deriving (Eq, Show)
 
-data TermsAggregation = TermsAggregation { term             :: Text
-                                         , termScript       :: Maybe Text
-                                         , termInclude      :: Maybe TermInclusion
-                                         , termExclude      :: Maybe TermInclusion
-                                         , termOrder        :: Maybe TermOrder
-                                         , termMinDocCount  :: Maybe Int
-                                         , termSize         :: Maybe Int
-                                         , termShardSize    :: Maybe Int
-                                         , termCollectMode  :: Maybe CollectionMode
-                                         , termAggs         :: Maybe Aggregations
+
+data TermsAggregation = TermsAggregation { term              :: Either Text Text
+                                         , termInclude       :: Maybe TermInclusion
+                                         , termExclude       :: Maybe TermInclusion
+                                         , termOrder         :: Maybe TermOrder
+                                         , termMinDocCount   :: Maybe Int
+                                         , termSize          :: Maybe Int
+                                         , termShardSize     :: Maybe Int
+                                         , termCollectMode   :: Maybe CollectionMode
+                                         , termExecutionHint :: Maybe ExecutionHint
+                                         , termAggs          :: Maybe Aggregations
                                     } deriving (Eq, Show)
 
 data DateHistogramAggregation = DateHistogramAggregation { dateField       :: FieldName
@@ -1024,11 +1030,15 @@ data DateHistogramAggregation = DateHistogramAggregation { dateField       :: Fi
                                                          , dateAggs        :: Maybe Aggregations
                                                          } deriving (Eq, Show)
 
-mkTermsAggregation :: Text -> Aggregation
-mkTermsAggregation t = TermsAgg $ TermsAggregation t Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
-mkDateHistogram :: FieldName -> Interval -> Aggregation
-mkDateHistogram t i = DateHistogramAgg $ DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
+mkTermsAggregation :: Text -> TermsAggregation
+mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
+mkTermsScriptAggregation :: Text -> TermsAggregation
+mkTermsScriptAggregation t = TermsAggregation (Right t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
+mkDateHistogram :: FieldName -> Interval -> DateHistogramAggregation
+mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
 
 instance ToJSON TermOrder where
   toJSON (TermOrder termSortField termSortOrder) = object [termSortField .= termSortOrder]
@@ -1043,10 +1053,11 @@ instance ToJSON CollectionMode where
   toJSON DepthFirst   = "depth_first"
   
 instance ToJSON ExecutionHint where
-  toJSON GlobalOrdinals = "global_ordinals"
-  toJSON GlobalOrdinalsHash = "global_ordinals_hash"
+  toJSON Ordinals                     = "ordinals"
+  toJSON GlobalOrdinals               = "global_ordinals"
+  toJSON GlobalOrdinalsHash           = "global_ordinals_hash"
   toJSON GlobalOrdinalsLowCardinality = "global_ordinals_low_cardinality"
-  toJSON Map = "map"
+  toJSON Map                          = "map"
 
 instance ToJSON Interval where
   toJSON Year = "year"
@@ -1057,7 +1068,7 @@ instance ToJSON Interval where
   toJSON Hour = "hour"
   toJSON Minute = "minute"
   toJSON Second = "second"
-  toJSON (FractionalInterval fraction interval) = toJSON $ (show fraction) ++ (show interval)
+  toJSON (FractionalInterval fraction interval) = toJSON $ show fraction ++ show interval
 
 instance Show TimeInterval where
   show Weeks    = "w"
@@ -1067,29 +1078,31 @@ instance Show TimeInterval where
   show Seconds  = "s"
 
 instance ToJSON Aggregation where
-  toJSON (TermsAgg (TermsAggregation term termScript termInclude termExclude termOrder termMinDocCount termSize termShardSize termCollectMode termAggs)) =
-    omitNulls ["terms" .= (omitNulls [ "field"          .= (toJSON $ term) ,
-                                       "script"         .= (toJSON termScript),
-                                       "include"        .= (toJSON termInclude),
-                                       "exclude"        .= (toJSON termExclude),                                    
-                                       "order"          .= (toJSON termOrder),
-                                       "min_doc_count"  .= (toJSON termMinDocCount),
-                                       "size"           .= (toJSON termSize),
-                                       "shard_size"     .= (toJSON termShardSize),
-                                       "collect_mode"   .= (toJSON termCollectMode)
-                                     ]),
-               "aggs"  .= (toJSON termAggs) ]
+  toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint aggs)) =
+    omitNulls ["terms" .= omitNulls [ toJSON' term,
+                                      "include"        .= toJSON include,
+                                      "exclude"        .= toJSON exclude,                                    
+                                      "order"          .= toJSON order,
+                                      "min_doc_count"  .= toJSON minDocCount,
+                                      "size"           .= toJSON size,
+                                      "shard_size"     .= toJSON shardSize,
+                                      "collect_mode"   .= toJSON collectMode,
+                                      "execution_hint" .= toJSON executionHint
+                                    ],
+               "aggs"  .= toJSON aggs ]
+    where
+      toJSON' x = case x of { Left y -> "field" .= toJSON y;  Right y -> "script" .= toJSON y }
 
-  toJSON (DateHistogramAgg (DateHistogramAggregation dateField dateInterval dateFormat datePreZone datePostZone datePreOffset datePostOffset dateAggs)) =
-    omitNulls ["date_histogram" .= (omitNulls [ "field"       .= (toJSON dateField),
-                                                "interval"    .= (toJSON dateInterval),
-                                                "format"      .= (toJSON dateFormat),
-                                                "pre_zone"    .= (toJSON datePreZone),
-                                                "post_zone"   .= (toJSON datePostZone),
-                                                "pre_offset"  .= (toJSON datePreOffset),
-                                                "post_offset" .= (toJSON datePostOffset)
-                                              ]),
-               "aggs"           .= (toJSON dateAggs) ]
+  toJSON (DateHistogramAgg (DateHistogramAggregation field interval format preZone postZone preOffset postOffset aggs)) =
+    omitNulls ["date_histogram" .= omitNulls [ "field"       .= toJSON field,
+                                               "interval"    .= toJSON interval,
+                                               "format"      .= toJSON format,
+                                               "pre_zone"    .= toJSON preZone,
+                                               "post_zone"   .= toJSON postZone,
+                                               "pre_offset"  .= toJSON preOffset,
+                                               "post_offset" .= toJSON postOffset
+                                             ],
+               "aggs"           .= toJSON aggs ]
 
 type AggregationResults = M.Map Text Value
 
