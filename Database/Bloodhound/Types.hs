@@ -153,8 +153,8 @@ module Database.Bloodhound.Types
        , TimeInterval(..)
        , ExecutionHint(..)
        , CollectionMode(..)
-       , TermOrder
-       , TermInclusion
+       , TermOrder(..)
+       , TermInclusion(..)
        , Aggregation(..)
        , Aggregations
        , AggregationResults
