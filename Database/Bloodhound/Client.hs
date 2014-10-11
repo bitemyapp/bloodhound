@@ -15,6 +15,7 @@ module Database.Bloodhound.Client
        , searchByType
        , refreshIndex
        , mkSearch
+       , mkAggregateSearch
        , bulk
        , pageSearch
        , mkShardCount
@@ -244,7 +245,10 @@ searchByType (Server server) (IndexName indexName)
   url = joinPath [server, indexName, mappingName, "_search"]
 
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing False 0 10
+mkSearch query filter = Search query filter Nothing Nothing False 0 10
+
+mkAggregateSearch :: Maybe Query -> Aggregations -> Search
+mkAggregateSearch query aggregations = Search query Nothing Nothing (Just aggregations) False 0 0
 
 pageSearch :: Int -> Int -> Search -> Search
 pageSearch pageFrom pageSize search = search { from = pageFrom, size = pageSize }

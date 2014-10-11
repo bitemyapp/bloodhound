@@ -4,10 +4,13 @@
 module Main where
 
 import           Control.Applicative
+import           Control.Monad
 import           Data.Aeson
+import           Data.Aeson.Types          (parseMaybe)
 import           Data.HashMap.Strict       (fromList)
 import           Data.List                 (nub)
 import           Data.List.NonEmpty        (NonEmpty (..))
+import qualified Data.Map.Strict           as M
 import           Data.Text                 (Text)
 import qualified Data.Text                 as T
 import           Data.Time.Calendar        (Day (..))
@@ -38,6 +41,55 @@ createExampleIndex :: IO Reply
 createExampleIndex = createIndex testServer defaultIndexSettings testIndex
 deleteExampleIndex :: IO Reply
 deleteExampleIndex = deleteIndex testServer testIndex
+
+data ServerVersion = ServerVersion Int Int Int deriving (Show, Eq, Ord)
+
+es14 :: ServerVersion
+es14 = ServerVersion 1 4 0
+
+es13 :: ServerVersion
+es13 = ServerVersion 1 3 0
+
+es12 :: ServerVersion
+es12 = ServerVersion 1 2 0
+
+es11 :: ServerVersion
+es11 = ServerVersion 1 1 0
+
+es10 :: ServerVersion
+es10 = ServerVersion 1 0 0
+
+serverBranch :: ServerVersion -> ServerVersion
+serverBranch (ServerVersion maj min patch) = ServerVersion maj min 0
+
+mkServerVersion :: [Int] -> Maybe ServerVersion
+mkServerVersion [maj, min, patch] = Just (ServerVersion maj min patch)
+mkServerVersion _                 = Nothing
+
+getServerVersion :: Server -> IO (Maybe ServerVersion)
+getServerVersion s = liftM extractVersion (getStatus s)
+  where   
+    version'                    = T.splitOn "." . number . version
+    toInt                       = read . T.unpack
+    parseVersion v              = map toInt (version' v)
+    extractVersion              = join . liftM (mkServerVersion . parseVersion)
+             
+
+
+testServerBranch :: IO (Maybe ServerVersion)
+testServerBranch = getServerVersion testServer >>= \v -> return $ liftM serverBranch v
+
+atleast :: ServerVersion -> IO Bool
+atleast v = testServerBranch >>= \x -> return $ x >= Just (serverBranch v)
+
+atmost :: ServerVersion -> IO Bool
+atmost v = testServerBranch >>= \x -> return $ x <= Just (serverBranch v)
+
+is :: ServerVersion -> IO Bool
+is v = testServerBranch >>= \x -> return $ x == Just (serverBranch v)
+
+when' :: Monad m => m Bool -> m () -> m ()
+when' b f = b >>= \x -> when x f
 
 data Location = Location { lat :: Double
                          , lon :: Double } deriving (Eq, Generic, Show)
@@ -108,6 +160,28 @@ searchExpectNoResults search = do
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
   let emptyHits = fmap (hits . searchHits) result
   emptyHits `shouldBe` Right []
+
+searchExpectAggs :: Search -> IO ()
+searchExpectAggs search = do
+  reply <- searchAll testServer search
+  let isEmpty x = return (M.null x) 
+  let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
+  (result >>= aggregations >>= isEmpty) `shouldBe` Just False
+  
+searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) => Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> IO ()
+searchValidBucketAgg search aggKey extractor = do
+  reply <- searchAll testServer search
+  let bucketDocs = docCount . head . buckets
+  let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
+  let count = result >>= aggregations >>= extractor aggKey >>= \x -> return (bucketDocs x)
+  count `shouldBe` Just 1
+
+searchTermsAggHint :: [ExecutionHint] -> IO ()
+searchTermsAggHint hints = do
+      let terms hint = TermsAgg $ (mkTermsAggregation "user") { termExecutionHint = Just hint }
+      let search hint = mkAggregateSearch Nothing $ mkAggregations "users" $ terms hint
+      forM_ hints $ searchExpectAggs . search
+      forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
 
 data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
 instance FromJSON BulkTest
@@ -237,7 +311,7 @@ main = hspec $ do
       _ <- insertOther
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
       let search = Search Nothing
-                   (Just IdentityFilter) (Just [sortSpec])
+                   (Just IdentityFilter) (Just [sortSpec]) Nothing
                    False 0 10
       reply <- searchByIndex testServer testIndex search
       let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
@@ -364,6 +438,51 @@ main = hspec $ do
       let search = mkSearch Nothing (Just filter)
       searchExpectNoResults search
 
+  describe "Aggregation API" $ do
+    it "returns term aggregation results" $ do
+      _ <- insertData
+      let terms = TermsAgg $ mkTermsAggregation "user"
+      let search = mkAggregateSearch Nothing $ mkAggregations "users" terms
+      searchExpectAggs search
+      searchValidBucketAgg search "users" toTerms
+
+    it "can give collection hint parameters to term aggregations" $ when' (atleast es13) $ do
+      _ <- insertData
+      let terms = TermsAgg $ (mkTermsAggregation "user") { termCollectMode = Just BreadthFirst }
+      let search = mkAggregateSearch Nothing $ mkAggregations "users" terms
+      searchExpectAggs search
+      searchValidBucketAgg search "users" toTerms
+
+    it "can give execution hint paramters to term aggregations" $ when' (atmost es11) $ do
+      _ <- insertData
+      searchTermsAggHint [Map, Ordinals]
+
+    it "can give execution hint paramters to term aggregations" $ when' (is es12) $ do
+      _ <- insertData
+      searchTermsAggHint [GlobalOrdinals, GlobalOrdinalsHash, GlobalOrdinalsLowCardinality, Map, Ordinals]
+
+    it "can give execution hint paramters to term aggregations" $ when' (atleast es12) $ do
+      _ <- insertData
+      searchTermsAggHint [GlobalOrdinals, GlobalOrdinalsHash, GlobalOrdinalsLowCardinality, Map]
+
+    it "returns date histogram aggregation results" $ do
+      _ <- insertData
+      let histogram = DateHistogramAgg $ mkDateHistogram (FieldName "postDate") Minute
+      let search = mkAggregateSearch Nothing (mkAggregations "byDate" histogram)
+      searchExpectAggs search
+      searchValidBucketAgg search "byDate" toDateHistogram
+
+    it "returns date histogram using fractional date" $ do
+      _ <- insertData
+      let periods            = [Year, Quarter, Month, Week, Day, Hour, Minute, Second]
+      let fractionals        = map (FractionalInterval 1.5) [Weeks, Days, Hours, Minutes, Seconds]
+      let intervals          = periods ++ fractionals
+      let histogram          = mkDateHistogram (FieldName "postDate")
+      let search interval    = mkAggregateSearch Nothing $ mkAggregations "byDate" $ DateHistogramAgg (histogram interval)
+      let expect interval    = searchExpectAggs (search interval)
+      let valid interval     = searchValidBucketAgg (search interval) "byDate" toDateHistogram
+      forM_ intervals expect
+      forM_ intervals valid
 
   describe "ToJSON RegexpFlags" $ do
     it "generates the correct JSON for AllRegexpFlags" $
@@ -384,7 +503,6 @@ main = hspec $ do
       let String str = toJSON flags
           flagStrs   = T.splitOn "|" str
       in noDuplicates flagStrs
-
 
   describe "omitNulls" $ do
     it "checks that omitNulls drops list elements when it should" $
