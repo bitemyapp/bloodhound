@@ -172,10 +172,10 @@ import           Data.Aeson.Types                (parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import           Data.List                       (nub)
 import           Data.List.NonEmpty              (NonEmpty (..))
+import qualified Data.Map.Strict                 as M
 import           Data.Monoid
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
-import qualified Data.Map.Strict                 as M
 import           Data.Time.Clock                 (UTCTime)
 import qualified Data.Vector                     as V
 import           GHC.Generics                    (Generic)
@@ -496,10 +496,10 @@ type TrackSortScores = Bool
 type From = Int
 type Size = Int
 
-data Search = Search { queryBody  :: Maybe Query
-                     , filterBody :: Maybe Filter
-                     , sortBody   :: Maybe Sort
-                     , aggBody    :: Maybe Aggregations
+data Search = Search { queryBody       :: Maybe Query
+                     , filterBody      :: Maybe Filter
+                     , sortBody        :: Maybe Sort
+                     , aggBody         :: Maybe Aggregations
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from            :: From
@@ -1003,7 +1003,7 @@ data Interval = Year
               | Day
               | Hour
               | Minute
-              | Second              
+              | Second
               | FractionalInterval Float TimeInterval deriving (Eq, Show)
 
 data Aggregation = TermsAgg TermsAggregation
@@ -1022,14 +1022,14 @@ data TermsAggregation = TermsAggregation { term              :: Either Text Text
                                          , termAggs          :: Maybe Aggregations
                                     } deriving (Eq, Show)
 
-data DateHistogramAggregation = DateHistogramAggregation { dateField       :: FieldName
-                                                         , dateInterval    :: Interval
-                                                         , dateFormat      :: Maybe Text
-                                                         , datePreZone     :: Maybe Text
-                                                         , datePostZone    :: Maybe Text
-                                                         , datePreOffset   :: Maybe Text
-                                                         , datePostOffset  :: Maybe Text
-                                                         , dateAggs        :: Maybe Aggregations
+data DateHistogramAggregation = DateHistogramAggregation { dateField      :: FieldName
+                                                         , dateInterval   :: Interval
+                                                         , dateFormat     :: Maybe Text
+                                                         , datePreZone    :: Maybe Text
+                                                         , datePostZone   :: Maybe Text
+                                                         , datePreOffset  :: Maybe Text
+                                                         , datePostOffset :: Maybe Text
+                                                         , dateAggs       :: Maybe Aggregations
                                                          } deriving (Eq, Show)
 
 
@@ -1053,7 +1053,7 @@ instance ToJSON TermInclusion where
 instance ToJSON CollectionMode where
   toJSON BreadthFirst = "breadth_first"
   toJSON DepthFirst   = "depth_first"
-  
+
 instance ToJSON ExecutionHint where
   toJSON Ordinals                     = "ordinals"
   toJSON GlobalOrdinals               = "global_ordinals"
@@ -1083,7 +1083,7 @@ instance ToJSON Aggregation where
   toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint aggs)) =
     omitNulls ["terms" .= omitNulls [ toJSON' term,
                                       "include"        .= toJSON include,
-                                      "exclude"        .= toJSON exclude,                                    
+                                      "exclude"        .= toJSON exclude,
                                       "order"          .= toJSON order,
                                       "min_doc_count"  .= toJSON minDocCount,
                                       "size"           .= toJSON size,
@@ -1116,10 +1116,10 @@ class BucketAggregation a where
 
 data (FromJSON a, BucketAggregation a) => Bucket a = Bucket { buckets :: [a]} deriving (Show)
 
-data TermsResult = TermsResult { termKey            :: Text
-                               , termsDocCount      :: Int
-                               , termsAggs           :: Maybe AggregationResults } deriving (Show)
-                                                                                                         
+data TermsResult = TermsResult { termKey       :: Text
+                               , termsDocCount :: Int
+                               , termsAggs     :: Maybe AggregationResults } deriving (Show)
+
 data DateHistogramResult = DateHistogramResult { dateKey           :: Int
                                                , dateKeyStr        :: Maybe Text
                                                , dateDocCount      :: Int
@@ -1157,7 +1157,7 @@ instance FromJSON TermsResult where
 instance FromJSON DateHistogramResult where
   parseJSON (Object v) = DateHistogramResult   <$>
                          v .:  "key"           <*>
-                         v .:? "key_as_string" <*>                         
+                         v .:? "key_as_string" <*>
                          v .:  "doc_count"     <*>
                          v .:? "aggregations"
 
@@ -1302,7 +1302,7 @@ instance ToJSON Query where
     object [ "match" .= toJSON matchQuery ]
 
   toJSON (QueryMultiMatchQuery multiMatchQuery) =
-    object [ "multi_match" .= toJSON multiMatchQuery ]
+      toJSON multiMatchQuery
 
   toJSON (QueryBoolQuery boolQuery) =
     object [ "bool" .= toJSON boolQuery ]
