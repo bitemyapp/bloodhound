@@ -505,6 +505,55 @@ data Search = Search { queryBody       :: Maybe Query
                      , from            :: From
                      , size            :: Size } deriving (Eq, Show)
 
+data Highlights = Hightlights { globalsettings  :: Maybe HighlightSettings
+                              , highlightFields :: [(FieldName, HighlightSettings)]
+                              }
+
+data HighlightSettings = Plain PlainHighlightSettings
+                       | Postings PostingsHighlightSettings
+                       | FastVector FastVectorHighlightSettings
+
+data PlainHighlightSettings = PlainHighlightSettings { plainCommonSettings  :: Maybe CommonHighlightSettings
+                                                     , plainNonPostSettings :: Maybe NonPostingsSettings }
+
+ -- This requires that index_options are set to 'offset' in the mapping.
+data PostingsHighlightSettings = PostingsHighlightSettings (Maybe CommonHighlightSettings)
+
+-- This requires that term_vector is set to 'with_positions_offsets' in the mapping.
+data FastVectorHighlightSettings = FastVectorHighlightSettings { boundaryChars     :: Maybe Text
+                                                               , boundaryMaxScan   :: Maybe Int
+                                                               , fragmentOffset    :: Maybe Int
+                                                               , matchedFields     :: [Text]
+                                                               , fvNonPostSettings :: Maybe NonPostingsSettings
+                                                               , phraseLimit       :: Maybe Int
+                                                               }
+
+data CommonHighlightSettings = CommonHighlightSettings { highlightType     :: Maybe HighlightType -- See below.
+                                                       , forceSource       :: Maybe Bool
+                                                       , tagSettings       :: Maybe HighlightTagSettings
+                                                       , encoder           :: Maybe HighlightEncoder
+                                                       , noMatchSize       :: Maybe Int
+                                                       , highlightQuery    :: Maybe Query
+                                                       , requireFieldMatch :: Maybe Bool
+                                                       }
+-- Settings that are only applicable to FastVector and Plain highlighters.
+data NonPostingsSettings = NonPostingsSettings { fragmentSize      :: Maybe Int
+                                               , numberOfFragments :: Maybe Int}
+
+-- Used to force the type of highlighter used, if a different one is used on the mapping.
+-- NOTE: Is there a way to ignore this, and just have it become part of the ToJSON instance
+-- for the appropriate hightlight settings?
+data HighlightType = PlainType
+                   | PostingsType
+                   | FastVectorType
+
+data HighlightEncoder = DefaultEncoder | HTMLEncoder
+
+-- NOTE: Should the tags use some kind of HTML type, rather than Text?
+data HighlightTagSettings = TagSchema Text
+                          | CustomTags ([Text], [Text]) -- Only uses more than the first value in the lists if fvh
+
+
 data Query =
   TermQuery                     Term (Maybe Boost)
   | TermsQuery                  [Term] MinimumMatch
