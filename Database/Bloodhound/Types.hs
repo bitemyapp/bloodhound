@@ -162,13 +162,26 @@ module Database.Bloodhound.Types
        , BucketAggregation(..)
        , TermsAggregation(..)
        , DateHistogramAggregation(..)
+
+       , Highlights(..)
+       , FieldHighlight(..)
+       , HighlightSettings(..)
+       , PlainHighlight(..)
+       , PostingsHighlight(..)
+       , FastVectorHighlight(..)
+       , CommonHighlight(..)
+       , NonPostings(..)
+       , HighlightEncoder(..)
+       , HighlightTag(..)
+
        , TermsResult
        , DateHistogramResult
          ) where
 
 import           Control.Applicative
 import           Data.Aeson
-import           Data.Aeson.Types                (parseMaybe)
+import           Data.Aeson.Types                (Pair (..), emptyObject,
+                                                  parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import           Data.List                       (nub)
 import           Data.List.NonEmpty              (NonEmpty (..))
@@ -500,58 +513,65 @@ data Search = Search { queryBody       :: Maybe Query
                      , filterBody      :: Maybe Filter
                      , sortBody        :: Maybe Sort
                      , aggBody         :: Maybe Aggregations
+                     , highlight       :: Maybe Highlights
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from            :: From
                      , size            :: Size } deriving (Eq, Show)
 
-data Highlights = Hightlights { globalsettings  :: Maybe HighlightSettings
-                              , highlightFields :: [(FieldName, HighlightSettings)]
-                              }
+data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
+                             , highlightFields :: [FieldHighlight]
+                             } deriving (Show, Eq)
 
-data HighlightSettings = Plain PlainHighlightSettings
-                       | Postings PostingsHighlightSettings
-                       | FastVector FastVectorHighlightSettings
+data FieldHighlight = FieldHighlight FieldName (Maybe HighlightSettings)
+                      deriving (Show, Eq)
 
-data PlainHighlightSettings = PlainHighlightSettings { plainCommonSettings  :: Maybe CommonHighlightSettings
-                                                     , plainNonPostSettings :: Maybe NonPostingsSettings }
+
+data HighlightSettings = Plain PlainHighlight
+                       | Postings PostingsHighlight
+                       | FastVector FastVectorHighlight
+                         deriving (Show, Eq)
+data PlainHighlight =
+    PlainHighlight { plainCommon  :: Maybe CommonHighlight
+                   , plainNonPost :: Maybe NonPostings } deriving (Show, Eq)
 
  -- This requires that index_options are set to 'offset' in the mapping.
-data PostingsHighlightSettings = PostingsHighlightSettings (Maybe CommonHighlightSettings)
+data PostingsHighlight = PostingsHighlight (Maybe CommonHighlight) deriving (Show, Eq)
 
 -- This requires that term_vector is set to 'with_positions_offsets' in the mapping.
-data FastVectorHighlightSettings = FastVectorHighlightSettings { boundaryChars     :: Maybe Text
-                                                               , boundaryMaxScan   :: Maybe Int
-                                                               , fragmentOffset    :: Maybe Int
-                                                               , matchedFields     :: [Text]
-                                                               , fvNonPostSettings :: Maybe NonPostingsSettings
-                                                               , phraseLimit       :: Maybe Int
-                                                               }
+data FastVectorHighlight =
+    FastVectorHighlight { fvCommon          :: Maybe CommonHighlight
+                        , boundaryChars     :: Maybe Text
+                        , boundaryMaxScan   :: Maybe Int
+                        , fragmentOffset    :: Maybe Int
+                        , matchedFields     :: [Text]
+                        , fvNonPostSettings :: Maybe NonPostings
+                        , phraseLimit       :: Maybe Int
+                        } deriving (Show, Eq)
 
-data CommonHighlightSettings = CommonHighlightSettings { highlightType     :: Maybe HighlightType -- See below.
-                                                       , forceSource       :: Maybe Bool
-                                                       , tagSettings       :: Maybe HighlightTagSettings
-                                                       , encoder           :: Maybe HighlightEncoder
-                                                       , noMatchSize       :: Maybe Int
-                                                       , highlightQuery    :: Maybe Query
-                                                       , requireFieldMatch :: Maybe Bool
-                                                       }
+data CommonHighlight =
+    CommonHighlight {
+      -- highlightType     :: Maybe HighlightType -- See below.
+                     forceSource        :: Maybe Bool
+                    , tag               :: Maybe HighlightTag
+                    , encoder           :: Maybe HighlightEncoder
+                    , noMatchSize       :: Maybe Int
+                    , highlightQuery    :: Maybe Query
+                    , requireFieldMatch :: Maybe Bool
+                    } deriving (Show, Eq)
 -- Settings that are only applicable to FastVector and Plain highlighters.
-data NonPostingsSettings = NonPostingsSettings { fragmentSize      :: Maybe Int
-                                               , numberOfFragments :: Maybe Int}
+data NonPostings =
+    NonPostings { fragmentSize      :: Maybe Int
+                , numberOfFragments :: Maybe Int} deriving (Show, Eq)
 
--- Used to force the type of highlighter used, if a different one is used on the mapping.
--- NOTE: Is there a way to ignore this, and just have it become part of the ToJSON instance
--- for the appropriate hightlight settings?
-data HighlightType = PlainType
-                   | PostingsType
-                   | FastVectorType
-
-data HighlightEncoder = DefaultEncoder | HTMLEncoder
+data HighlightEncoder = DefaultEncoder
+                      | HTMLEncoder
+                      deriving (Show, Eq)
 
 -- NOTE: Should the tags use some kind of HTML type, rather than Text?
-data HighlightTagSettings = TagSchema Text
-                          | CustomTags ([Text], [Text]) -- Only uses more than the first value in the lists if fvh
+data HighlightTag = TagSchema Text
+                  | CustomTags ([Text], [Text]) -- Only uses more than the first value in the lists if fvh
+                  deriving (Show, Eq)
 
 
 data Query =
@@ -1002,11 +1022,12 @@ data FromJSON a => SearchHits a =
              , hits      :: [Hit a] } deriving (Eq, Show)
 
 data FromJSON a => Hit a =
-  Hit { hitIndex  :: IndexName
-      , hitType   :: MappingName
-      , hitDocId  :: DocId
-      , hitScore  :: Score
-      , hitSource :: a } deriving (Eq, Show)
+  Hit { hitIndex     :: IndexName
+      , hitType      :: MappingName
+      , hitDocId     :: DocId
+      , hitScore     :: Score
+      , hitSource    :: a
+      , hitHighlight :: Maybe Text } deriving (Eq, Show)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
@@ -1803,14 +1824,95 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort aggs sTrackSortScores sFrom sSize) =
+  toJSON (Search query sFilter sort aggs highlight sTrackSortScores sFrom sSize) =
     omitNulls [ "query" .= query
               , "filter" .= sFilter
               , "sort" .= sort
               , "aggregations" .= aggs
+              , "highlight" .= highlight
               , "from" .= sFrom
               , "size" .= sSize
-              , "track_scores" .= sTrackSortScores ]
+              , "track_scores" .= sTrackSortScores]
+
+instance ToJSON FieldHighlight where
+    toJSON (FieldHighlight (FieldName fName) (Just fSettings)) =
+        object [ fName .= fSettings ]
+    toJSON (FieldHighlight (FieldName fName) Nothing) =
+        object [ fName .= emptyObject ]
+
+instance ToJSON Highlights where
+    toJSON (Highlights global fields) =
+        omitNulls (["fields" .= toJSON fields]
+                  ++ (highlightSettingsPairs global))
+
+instance ToJSON HighlightSettings where
+    toJSON hs = omitNulls (highlightSettingsPairs (Just hs))
+
+highlightSettingsPairs :: Maybe HighlightSettings -> [Pair]
+highlightSettingsPairs Nothing = []
+highlightSettingsPairs (Just (Plain plh)) = plainHighPairs (Just plh)
+highlightSettingsPairs (Just (Postings ph)) = postHighPairs (Just ph)
+highlightSettingsPairs (Just (FastVector fvh)) = fastVectorHighPairs (Just fvh)
+
+
+plainHighPairs :: Maybe PlainHighlight -> [Pair]
+plainHighPairs Nothing = []
+plainHighPairs (Just (PlainHighlight plCom plNonPost)) =
+    [ "type" .= String "plain"]
+    ++ (commonHighlightPairs plCom)
+    ++ (nonPostingsToPairs plNonPost)
+
+postHighPairs :: Maybe PostingsHighlight -> [Pair]
+postHighPairs Nothing = []
+postHighPairs (Just (PostingsHighlight pCom)) =
+    [ "type" .= String "postings" ]
+    ++ (commonHighlightPairs pCom)
+
+fastVectorHighPairs :: Maybe FastVectorHighlight -> [Pair]
+fastVectorHighPairs Nothing = []
+fastVectorHighPairs (Just
+                     (FastVectorHighlight fvCom fvBoundChars fvBoundMaxScan
+                                          fvFragOff fvMatchedFields
+                                          fvNonPostSettings fvPhraseLim)) =
+                        [ "type" .= String "fvh"
+                        , "boundary_chars" .= fvBoundChars
+                        , "boundary_max_scan" .= fvBoundMaxScan
+                        , "fragment_offset" .= fvFragOff
+                        , "matched_fields" .= fvMatchedFields
+                        , "phraseLimit" .= fvPhraseLim]
+                        ++ (commonHighlightPairs fvCom)
+                        ++ (nonPostingsToPairs fvNonPostSettings)
+
+commonHighlightPairs :: Maybe CommonHighlight -> [Pair]
+commonHighlightPairs Nothing = []
+commonHighlightPairs (Just (CommonHighlight chForceSource chTag chEncoder
+                                      chNoMatchSize chHighlightQuery
+                                      chRequireFieldMatch)) =
+    [ "force_source" .= chForceSource
+    , "encoder" .= chEncoder
+    , "no_match_size" .= chNoMatchSize
+    , "highlight_query" .= chHighlightQuery
+    , "require_fieldMatch" .= chRequireFieldMatch]
+    ++ (highlightTagToPairs chTag)
+
+
+nonPostingsToPairs :: Maybe NonPostings -> [Pair]
+nonPostingsToPairs Nothing = []
+nonPostingsToPairs (Just (NonPostings npFragSize npNumOfFrags)) =
+    [ "fragment_size" .= npFragSize
+    , "number_of_fragments" .= npNumOfFrags]
+
+
+
+instance ToJSON HighlightEncoder where
+    toJSON DefaultEncoder = String "default"
+    toJSON HTMLEncoder    = String "html"
+
+highlightTagToPairs :: Maybe HighlightTag -> [Pair]
+highlightTagToPairs (Just (TagSchema _))            = [ "scheme"    .=  String "default"]
+highlightTagToPairs (Just (CustomTags (pre, post))) = [ "pre_tags"  .= pre
+                                                      , "post_tags" .= post]
+highlightTagToPairs Nothing = []
 
 
 instance ToJSON SortSpec where
@@ -1961,11 +2063,12 @@ instance (FromJSON a) => FromJSON (SearchHits a) where
 
 instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
-                         v .: "_index" <*>
-                         v .: "_type"  <*>
-                         v .: "_id"    <*>
-                         v .: "_score" <*>
-                         v .: "_source"
+                         v .:  "_index"  <*>
+                         v .:  "_type"   <*>
+                         v .:  "_id"     <*>
+                         v .:  "_score"  <*>
+                         v .:  "_source" <*>
+                         v .:? "highlight"
   parseJSON _          = empty
 
 instance FromJSON ShardResult where

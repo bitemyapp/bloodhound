@@ -3,6 +3,8 @@
 
 module Main where
 
+import           Debug.Trace
+
 import           Control.Applicative
 import           Control.Monad
 import           Data.Aeson
@@ -68,12 +70,12 @@ mkServerVersion _                 = Nothing
 
 getServerVersion :: Server -> IO (Maybe ServerVersion)
 getServerVersion s = liftM extractVersion (getStatus s)
-  where   
+  where
     version'                    = T.splitOn "." . number . version
     toInt                       = read . T.unpack
     parseVersion v              = map toInt (version' v)
     extractVersion              = join . liftM (mkServerVersion . parseVersion)
-             
+
 
 
 testServerBranch :: IO (Maybe ServerVersion)
@@ -164,10 +166,10 @@ searchExpectNoResults search = do
 searchExpectAggs :: Search -> IO ()
 searchExpectAggs search = do
   reply <- searchAll testServer search
-  let isEmpty x = return (M.null x) 
+  let isEmpty x = return (M.null x)
   let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
   (result >>= aggregations >>= isEmpty) `shouldBe` Just False
-  
+
 searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) => Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> IO ()
 searchValidBucketAgg search aggKey extractor = do
   reply <- searchAll testServer search
@@ -182,6 +184,15 @@ searchTermsAggHint hints = do
       let search hint = mkAggregateSearch Nothing $ mkAggregations "users" $ terms hint
       forM_ hints $ searchExpectAggs . search
       forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
+
+searchTweetHighlight :: Search -> IO (Either String (Maybe Text))
+searchTweetHighlight search = do
+  reply <- searchByIndex testServer testIndex search
+  traceShowM search
+  traceShowM reply
+  let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+  let myHighlight = fmap (hitHighlight . head . hits . searchHits) result
+  return myHighlight
 
 data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
 instance FromJSON BulkTest
@@ -311,7 +322,7 @@ main = hspec $ do
       _ <- insertOther
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
       let search = Search Nothing
-                   (Just IdentityFilter) (Just [sortSpec]) Nothing
+                   (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
                    False 0 10
       reply <- searchByIndex testServer testIndex search
       let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
@@ -483,6 +494,20 @@ main = hspec $ do
       let valid interval     = searchValidBucketAgg (search interval) "byDate" toDateHistogram
       forM_ intervals expect
       forM_ intervals valid
+
+  describe "Highlights API" $ do
+
+    it "returns highlight from query" $ do
+      _ <- insertData
+      _ <- insertOther
+      let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+      let highlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
+
+      traceShowM (encode highlight)
+      let search = mkHighlightSearch (Just query) highlight
+      traceShowM (encode search)
+      myHighlight <- searchTweetHighlight search
+      myHighlight `shouldBe` Right (Just "")
 
   describe "ToJSON RegexpFlags" $ do
     it "generates the correct JSON for AllRegexpFlags" $

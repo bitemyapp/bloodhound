@@ -16,6 +16,7 @@ module Database.Bloodhound.Client
        , refreshIndex
        , mkSearch
        , mkAggregateSearch
+       , mkHighlightSearch
        , bulk
        , pageSearch
        , mkShardCount
@@ -24,18 +25,18 @@ module Database.Bloodhound.Client
        )
        where
 
-import Data.Aeson
+import           Data.Aeson
+import           Data.ByteString.Builder
 import qualified Data.ByteString.Lazy.Char8 as L
-import Data.ByteString.Builder
-import Data.List (foldl', intercalate, intersperse)
-import Data.Maybe (fromMaybe)
-import Data.Text (Text)
-import Network.HTTP.Client
-import qualified Network.HTTP.Types.Method as NHTM
-import qualified Network.HTTP.Types.Status as NHTS
-import Prelude hiding (head, filter)
+import           Data.List                  (foldl', intercalate, intersperse)
+import           Data.Maybe                 (fromMaybe)
+import           Data.Text                  (Text)
+import           Network.HTTP.Client
+import qualified Network.HTTP.Types.Method  as NHTM
+import qualified Network.HTTP.Types.Status  as NHTS
+import           Prelude                    hiding (filter, head)
 
-import Database.Bloodhound.Types
+import           Database.Bloodhound.Types
 
 -- find way to avoid destructuring Servers and Indexes?
 -- make get, post, put, delete helpers.
@@ -245,10 +246,14 @@ searchByType (Server server) (IndexName indexName)
   url = joinPath [server, indexName, mappingName, "_search"]
 
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing Nothing False 0 10
+mkSearch query filter = Search query filter Nothing Nothing Nothing False 0 10
 
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
-mkAggregateSearch query aggregations = Search query Nothing Nothing (Just aggregations) False 0 0
+mkAggregateSearch query aggregations = Search query Nothing Nothing (Just aggregations) Nothing False 0 0
+
+
+mkHighlightSearch :: Maybe Query -> Highlights -> Search
+mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False 0 10
 
 pageSearch :: Int -> Int -> Search -> Search
 pageSearch pageFrom pageSize search = search { from = pageFrom, size = pageSize }
