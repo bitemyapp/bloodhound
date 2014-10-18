@@ -173,6 +173,7 @@ module Database.Bloodhound.Types
        , NonPostings(..)
        , HighlightEncoder(..)
        , HighlightTag(..)
+       , HitHighlight
 
        , TermsResult
        , DateHistogramResult
@@ -551,7 +552,6 @@ data FastVectorHighlight =
 
 data CommonHighlight =
     CommonHighlight {
-      -- highlightType     :: Maybe HighlightType -- See below.
                      forceSource        :: Maybe Bool
                     , tag               :: Maybe HighlightTag
                     , encoder           :: Maybe HighlightEncoder
@@ -559,6 +559,7 @@ data CommonHighlight =
                     , highlightQuery    :: Maybe Query
                     , requireFieldMatch :: Maybe Bool
                     } deriving (Show, Eq)
+
 -- Settings that are only applicable to FastVector and Plain highlighters.
 data NonPostings =
     NonPostings { fragmentSize      :: Maybe Int
@@ -1007,7 +1008,7 @@ data DistanceRange =
   DistanceRange { distanceFrom :: Distance
                 , distanceTo   :: Distance } deriving (Eq, Show)
 
-data FromJSON a => SearchResult a =
+data (FromJSON a) => SearchResult a =
   SearchResult { took         :: Int
                , timedOut     :: Bool
                , shards       :: ShardResult
@@ -1016,23 +1017,25 @@ data FromJSON a => SearchResult a =
 
 type Score = Double
 
-data FromJSON a => SearchHits a =
+data (FromJSON a) => SearchHits a =
   SearchHits { hitsTotal :: Int
              , maxScore  :: Score
              , hits      :: [Hit a] } deriving (Eq, Show)
 
-data FromJSON a => Hit a =
+data (FromJSON a) => Hit a =
   Hit { hitIndex     :: IndexName
       , hitType      :: MappingName
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: a
-      , hitHighlight :: Maybe Text } deriving (Eq, Show)
+      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
               , shardsSuccessful :: Int
               , shardsFailed     :: Int } deriving (Eq, Show, Generic)
+
+type HitHighlight = M.Map Text [Text]
 
 showText :: Show a => a -> Text
 showText = T.pack . show
@@ -1825,13 +1828,13 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 instance ToJSON Search where
   toJSON (Search query sFilter sort aggs highlight sTrackSortScores sFrom sSize) =
-    omitNulls [ "query" .= query
-              , "filter" .= sFilter
-              , "sort" .= sort
+    omitNulls [ "query"        .= query
+              , "filter"       .= sFilter
+              , "sort"         .= sort
               , "aggregations" .= aggs
-              , "highlight" .= highlight
-              , "from" .= sFrom
-              , "size" .= sSize
+              , "highlight"    .= highlight
+              , "from"         .= sFrom
+              , "size"         .= sSize
               , "track_scores" .= sTrackSortScores]
 
 instance ToJSON FieldHighlight where
@@ -1842,8 +1845,8 @@ instance ToJSON FieldHighlight where
 
 instance ToJSON Highlights where
     toJSON (Highlights global fields) =
-        omitNulls (["fields" .= toJSON fields]
-                  ++ (highlightSettingsPairs global))
+        omitNulls (("fields" .= toJSON fields)
+                  : highlightSettingsPairs global)
 
 instance ToJSON HighlightSettings where
     toJSON hs = omitNulls (highlightSettingsPairs (Just hs))
@@ -1859,14 +1862,14 @@ plainHighPairs :: Maybe PlainHighlight -> [Pair]
 plainHighPairs Nothing = []
 plainHighPairs (Just (PlainHighlight plCom plNonPost)) =
     [ "type" .= String "plain"]
-    ++ (commonHighlightPairs plCom)
-    ++ (nonPostingsToPairs plNonPost)
+    ++ commonHighlightPairs plCom
+    ++ nonPostingsToPairs plNonPost
 
 postHighPairs :: Maybe PostingsHighlight -> [Pair]
 postHighPairs Nothing = []
 postHighPairs (Just (PostingsHighlight pCom)) =
-    [ "type" .= String "postings" ]
-    ++ (commonHighlightPairs pCom)
+    ("type" .= String "postings")
+    : commonHighlightPairs pCom
 
 fastVectorHighPairs :: Maybe FastVectorHighlight -> [Pair]
 fastVectorHighPairs Nothing = []
@@ -1880,8 +1883,8 @@ fastVectorHighPairs (Just
                         , "fragment_offset" .= fvFragOff
                         , "matched_fields" .= fvMatchedFields
                         , "phraseLimit" .= fvPhraseLim]
-                        ++ (commonHighlightPairs fvCom)
-                        ++ (nonPostingsToPairs fvNonPostSettings)
+                        ++ commonHighlightPairs fvCom
+                        ++ nonPostingsToPairs fvNonPostSettings
 
 commonHighlightPairs :: Maybe CommonHighlight -> [Pair]
 commonHighlightPairs Nothing = []
@@ -1893,7 +1896,7 @@ commonHighlightPairs (Just (CommonHighlight chForceSource chTag chEncoder
     , "no_match_size" .= chNoMatchSize
     , "highlight_query" .= chHighlightQuery
     , "require_fieldMatch" .= chRequireFieldMatch]
-    ++ (highlightTagToPairs chTag)
+    ++ highlightTagToPairs chTag
 
 
 nonPostingsToPairs :: Maybe NonPostings -> [Pair]
@@ -2072,7 +2075,7 @@ instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON _          = empty
 
 instance FromJSON ShardResult where
-  parseJSON (Object v) = ShardResult <$>
+  parseJSON (Object v) = ShardResult       <$>
                          v .: "total"      <*>
                          v .: "successful" <*>
                          v .: "failed"

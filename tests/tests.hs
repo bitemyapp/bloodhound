@@ -3,8 +3,6 @@
 
 module Main where
 
-import           Debug.Trace
-
 import           Control.Applicative
 import           Control.Monad
 import           Data.Aeson
@@ -185,11 +183,9 @@ searchTermsAggHint hints = do
       forM_ hints $ searchExpectAggs . search
       forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
 
-searchTweetHighlight :: Search -> IO (Either String (Maybe Text))
+searchTweetHighlight :: Search -> IO (Either String (Maybe HitHighlight))
 searchTweetHighlight search = do
   reply <- searchByIndex testServer testIndex search
-  traceShowM search
-  traceShowM reply
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
   let myHighlight = fmap (hitHighlight . head . hits . searchHits) result
   return myHighlight
@@ -497,17 +493,27 @@ main = hspec $ do
 
   describe "Highlights API" $ do
 
-    it "returns highlight from query" $ do
+    it "returns highlight from query when there should be one" $ do
       _ <- insertData
       _ <- insertOther
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
       let highlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 
-      traceShowM (encode highlight)
       let search = mkHighlightSearch (Just query) highlight
-      traceShowM (encode search)
       myHighlight <- searchTweetHighlight search
-      myHighlight `shouldBe` Right (Just "")
+      myHighlight `shouldBe` Right (Just (M.fromList [("message",["Use <em>haskell</em>!"])]))
+
+    it "doesn't return highlight from a query when it shouldn't" $ do
+      _ <- insertData
+      _ <- insertOther
+      let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+      let highlight = Highlights Nothing [FieldHighlight (FieldName "user") Nothing]
+
+      let search = mkHighlightSearch (Just query) highlight
+      myHighlight <- searchTweetHighlight search
+      myHighlight `shouldBe` Right Nothing
+
+
 
   describe "ToJSON RegexpFlags" $ do
     it "generates the correct JSON for AllRegexpFlags" $
