@@ -17,7 +17,7 @@ source-repository head
   location: https://github.com/bitemyapp/bloodhound.git
 
 library
-  ghc-options: -Wall -Werror
+  ghc-options: -Wall
   default-extensions:  OverloadedStrings
   exposed-modules:     Database.Bloodhound
                        Database.Bloodhound.Client
