@@ -248,7 +248,7 @@ mkSearch :: Maybe Query -> Maybe Filter -> Search
 mkSearch query filter = Search query filter Nothing Nothing False 0 10
 
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
-mkAggregateSearch query aggregations = Search query Nothing Nothing (Just aggregations) False 0 0
+mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) False 0 0
 
 pageSearch :: Int -> Int -> Search -> Search
 pageSearch pageFrom pageSize search = search { from = pageFrom, size = pageSize }
