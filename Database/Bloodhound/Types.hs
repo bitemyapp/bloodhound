@@ -542,17 +542,17 @@ data PostingsHighlight = PostingsHighlight (Maybe CommonHighlight) deriving (Sho
 -- This requires that term_vector is set to 'with_positions_offsets' in the mapping.
 data FastVectorHighlight =
     FastVectorHighlight { fvCommon          :: Maybe CommonHighlight
+                        , fvNonPostSettings :: Maybe NonPostings
                         , boundaryChars     :: Maybe Text
                         , boundaryMaxScan   :: Maybe Int
                         , fragmentOffset    :: Maybe Int
                         , matchedFields     :: [Text]
-                        , fvNonPostSettings :: Maybe NonPostings
                         , phraseLimit       :: Maybe Int
                         } deriving (Show, Eq)
 
 data CommonHighlight =
-    CommonHighlight {
-                     forceSource        :: Maybe Bool
+    CommonHighlight { order             :: Maybe Text
+                    , forceSource       :: Maybe Bool
                     , tag               :: Maybe HighlightTag
                     , encoder           :: Maybe HighlightEncoder
                     , noMatchSize       :: Maybe Int
@@ -1874,9 +1874,9 @@ postHighPairs (Just (PostingsHighlight pCom)) =
 fastVectorHighPairs :: Maybe FastVectorHighlight -> [Pair]
 fastVectorHighPairs Nothing = []
 fastVectorHighPairs (Just
-                     (FastVectorHighlight fvCom fvBoundChars fvBoundMaxScan
-                                          fvFragOff fvMatchedFields
-                                          fvNonPostSettings fvPhraseLim)) =
+                     (FastVectorHighlight fvCom fvNonPostSettings fvBoundChars
+                                          fvBoundMaxScan fvFragOff fvMatchedFields
+                                          fvPhraseLim)) =
                         [ "type" .= String "fvh"
                         , "boundary_chars" .= fvBoundChars
                         , "boundary_max_scan" .= fvBoundMaxScan
@@ -1888,10 +1888,11 @@ fastVectorHighPairs (Just
 
 commonHighlightPairs :: Maybe CommonHighlight -> [Pair]
 commonHighlightPairs Nothing = []
-commonHighlightPairs (Just (CommonHighlight chForceSource chTag chEncoder
+commonHighlightPairs (Just (CommonHighlight chScore chForceSource chTag chEncoder
                                       chNoMatchSize chHighlightQuery
                                       chRequireFieldMatch)) =
-    [ "force_source" .= chForceSource
+    [ "order" .= chScore
+    , "force_source" .= chForceSource
     , "encoder" .= chEncoder
     , "no_match_size" .= chNoMatchSize
     , "highlight_query" .= chHighlightQuery
