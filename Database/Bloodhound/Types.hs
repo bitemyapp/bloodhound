@@ -988,7 +988,7 @@ data ExecutionHint = Ordinals
                    | GlobalOrdinals
                    | GlobalOrdinalsHash
                    | GlobalOrdinalsLowCardinality
-                   | Map deriving(Eq, Show)
+                   | Map deriving (Eq, Show)
 
 data TimeInterval = Weeks
                   | Days
