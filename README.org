@@ -320,7 +320,7 @@ resp <- bulk testServer stream
 
 #+END_SRC
 
-** Encoding individual bulk API operations
+*** Encoding individual bulk API operations
 
 #+BEGIN_SRC haskell 
 -- the following functions are exported in Bloodhound so
