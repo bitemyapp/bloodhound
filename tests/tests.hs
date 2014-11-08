@@ -240,7 +240,7 @@ main = hspec $ do
                      testMapping (DocId "2") (toJSON firstTest)
       let secondDoc = BulkCreate testIndex
                      testMapping (DocId "3") (toJSON secondTest)
-      let stream = [firstDoc, secondDoc]
+      let stream = V.fromList [firstDoc, secondDoc]
       _ <- bulk testServer stream
       _ <- refreshIndex testServer testIndex
       fDoc <- getDocument testServer testIndex testMapping (DocId "2")

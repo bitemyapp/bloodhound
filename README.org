@@ -45,6 +45,7 @@ http://hackage.haskell.org/package/bloodhound
 -- the multi-line examples into your ghci REPL.
 
 :set -XDeriveGeneric
+:{
 import Database.Bloodhound
 import Data.Aeson
 import Data.Either (Either(..))
@@ -68,6 +69,7 @@ let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 -- response :: Reply, Reply is a synonym for Network.HTTP.Conduit.Response
 response <- createIndex testServer defaultIndexSettings testIndex
+:}
 
 #+END_SRC
 
@@ -281,7 +283,7 @@ Right (Tweet {user = "bitemyapp"
 
 *** Bulk create, index
 
-#+BEGIN_SRC haskell
+#+BEGIN_SRC haskell 
 
 -- don't forget the imports and derive generic setting for ghci
 -- at the beginning of the examples.
@@ -315,6 +317,40 @@ let stream = [firstDoc, secondDoc]
 -- bulk :: Server -> [BulkOperation] -> IO Reply
 resp <- bulk testServer stream
 :}
+
+#+END_SRC
+
+** Encoding individual bulk API operations
+
+#+BEGIN_SRC haskell 
+-- the following functions are exported in Bloodhound so
+-- you can build up bulk operations yourself
+encodeBulkOperations :: V.Vector BulkOperation -> L.ByteString
+encodeBulkOperation :: BulkOperation -> L.ByteString
+
+-- How to use the above:
+data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
+instance FromJSON BulkTest
+instance ToJSON BulkTest
+
+_ <- insertData
+let firstTest = BulkTest "blah"
+let secondTest = BulkTest "bloo"
+let firstDoc = BulkIndex testIndex
+               testMapping (DocId "2") (toJSON firstTest)
+let secondDoc = BulkCreate testIndex
+               testMapping (DocId "3") (toJSON secondTest)
+let stream = V.fromList [firstDoc, secondDoc] :: V.Vector BulkOperation
+
+-- to encode yourself
+let firstDocEncoded = encode firstDoc :: L.ByteString
+
+-- to encode a vector of bulk operations
+let encodedOperations = encodeBulkOperations stream
+
+-- to insert into a particular server
+-- bulk :: Server -> V.Vector BulkOperation -> IO Reply
+_ <- bulk testServer stream
 
 #+END_SRC
 
