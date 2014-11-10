@@ -48,6 +48,7 @@ http://hackage.haskell.org/package/bloodhound
 -- the multi-line examples into your ghci REPL.
 
 :set -XDeriveGeneric
+:{
 import Database.Bloodhound
 import Data.Aeson
 import Data.Either (Either(..))
@@ -71,6 +72,7 @@ let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 -- response :: Reply, Reply is a synonym for Network.HTTP.Conduit.Response
 response <- createIndex testServer defaultIndexSettings testIndex
+:}
 
 #+END_SRC
 
@@ -284,7 +286,7 @@ Right (Tweet {user = "bitemyapp"
 
 *** Bulk create, index
 
-#+BEGIN_SRC haskell
+#+BEGIN_SRC haskell 
 
 -- don't forget the imports and derive generic setting for ghci
 -- at the beginning of the examples.
@@ -318,6 +320,40 @@ let stream = [firstDoc, secondDoc]
 -- bulk :: Server -> [BulkOperation] -> IO Reply
 resp <- bulk testServer stream
 :}
+
+#+END_SRC
+
+*** Encoding individual bulk API operations
+
+#+BEGIN_SRC haskell 
+-- the following functions are exported in Bloodhound so
+-- you can build up bulk operations yourself
+encodeBulkOperations :: V.Vector BulkOperation -> L.ByteString
+encodeBulkOperation :: BulkOperation -> L.ByteString
+
+-- How to use the above:
+data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
+instance FromJSON BulkTest
+instance ToJSON BulkTest
+
+_ <- insertData
+let firstTest = BulkTest "blah"
+let secondTest = BulkTest "bloo"
+let firstDoc = BulkIndex testIndex
+               testMapping (DocId "2") (toJSON firstTest)
+let secondDoc = BulkCreate testIndex
+               testMapping (DocId "3") (toJSON secondTest)
+let stream = V.fromList [firstDoc, secondDoc] :: V.Vector BulkOperation
+
+-- to encode yourself
+let firstDocEncoded = encode firstDoc :: L.ByteString
+
+-- to encode a vector of bulk operations
+let encodedOperations = encodeBulkOperations stream
+
+-- to insert into a particular server
+-- bulk :: Server -> V.Vector BulkOperation -> IO Reply
+_ <- bulk testServer stream
 
 #+END_SRC
 
@@ -642,6 +678,163 @@ let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
 --                | Interval deriving (Eq, Show)
 
 #+END_SRC
+
+*** Aggregations
+**** Adding aggregations to search
+Aggregations can now be added to search queries, or made on their own.
+#+BEGIN_SRC haskell
+type Aggregations = M.Map Text Aggregation
+data Aggregation
+  = TermsAgg TermsAggregation
+  | DateHistogramAgg DateHistogramAggregation
+#+END_SRC
+
+For convenience, ```mkAggregations``` exists, that will create an
+```Aggregations``` with the aggregation provided.
+
+For example:
+#+BEGIN_SRC haskell
+ let a = mkAggregations "users" $ TermsAgg $ mkTermsAggregation "user"
+ let search = mkAggregateSearch Nothing a
+#+END_SRC
+
+Aggregations can be added to an existing search, using the
+```aggBody``` field
+
+#+BEGIN_SRC haskell
+ let search  = mkSearch (Just (MatchAllQuery Nothing)) Nothing
+ let search' = search {aggBody = Just a}
+#+END_SRC
+
+Since the ```Aggregations``` structure is just a Map Text
+Aggregation, M.insert can be used to add additional aggregations.
+
+#+BEGIN_SRC haskell
+ let a' = M.insert "age" (TermsAgg $ mkTermsAggregation "age") a
+#+END_SRC
+
+**** Extracting aggregations from results
+Aggregations are part of the reply structure of every search, in the
+form of ~Maybe AggregationResults~
+
+#+BEGIN_SRC haskell
+-- Lift decode and response body to be in the IO monad.
+let decode' = liftM decode
+let responseBody' = liftM responseBody
+let reply = searchByIndex testServer testIndex search
+let response = decode' $ responseBody' reply :: IO (Maybe (SearchResult Tweet))
+
+-- Now that we have our response, we can extract our terms aggregation result -- which is a list of buckets.
+
+let terms = do { response' <- response; return $ response' >>= aggregations >>= toTerms "users" }
+terms
+Just (Bucket {buckets = [TermsResult {termKey = "bitemyapp", termsDocCount = 1, termsAggs = Nothing}]})
+#+END_SRC
+
+Note that bucket aggregation results, such as the TermsResult is a
+member of the type class ~BucketAggregation~:
+
+#+BEGIN_SRC haskell
+class BucketAggregation a where
+  key :: a -> Text
+  docCount :: a -> Int
+  aggs :: a -> Maybe AggregationResults
+#+END_SRC haskell
+
+You can use the ~aggs~ function to get any nested results, if
+there were any.  For example, if there were a nested terms
+aggregation keyed to "age" in a TermsResult named ~termresult~, you would call ~aggs termresult >>=
+toTerms "age"~
+
+**** Terms Aggregation
+#+BEGIN_SRC haskell
+data TermsAggregation
+  = TermsAggregation {term :: Either Text Text,
+                      termInclude :: Maybe TermInclusion,
+                      termExclude :: Maybe TermInclusion,
+                      termOrder :: Maybe TermOrder,
+                      termMinDocCount :: Maybe Int,
+                      termSize :: Maybe Int,
+                      termShardSize :: Maybe Int,
+                      termCollectMode :: Maybe CollectionMode,
+                      termExecutionHint :: Maybe ExecutionHint,
+                      termAggs :: Maybe Aggregations}
+#+END_SRC
+
+Term Aggregations have two factory functions,
+~mkTermsAggregation~, and ~mkTermsScriptAggregation~, and can
+be used as follows:
+
+#+BEGIN_SRC haskell
+let ta = TermsAgg $ mkTermsAggregation "user"
+#+END_SRC
+
+There are of course other options that can be added to a Terms
+Aggregation, such as the collection mode:
+#+BEGIN_SRC haskell
+let ta   = mkTermsAggregation "user"
+let ta'  = ta { termCollectMode = Just BreadthFirst }
+let ta'' = TermsAgg ta'
+#+END_SRC
+
+For more documentation on how the Terms Aggregation works, see
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html
+
+**** Date Histogram Aggregation
+
+#+BEGIN_SRC haskell
+data DateHistogramAggregation
+  = DateHistogramAggregation {dateField :: FieldName,
+                              dateInterval :: Interval,
+                              dateFormat :: Maybe Text,
+                              datePreZone :: Maybe Text,
+                              datePostZone :: Maybe Text,
+                              datePreOffset :: Maybe Text,
+                              datePostOffset :: Maybe Text,
+                              dateAggs :: Maybe Aggregations}
+#+END_SRC haskell
+
+The Date Histogram Aggregation works much the same as the Terms
+Aggregation.
+
+Relevant functions include ~mkDateHistogram~, and ~toDateHistogram~
+
+#+BEGIN_SRC haskell
+let dh = DateHistogramAgg (mkDateHistogram (FieldName "postDate") Minute)
+#+END_SRC
+
+Date histograms also accept a ~FractionalInterval~:
+
+#+BEGIN_SRC haskell
+FractionalInterval :: Float -> TimeInterval -> Interval
+-- TimeInterval is the following:
+data TimeInterval = Weeks | Days | Hours | Minutes | Seconds
+#+END_SRC
+
+It can be used as follows:
+
+#+BEGIN_SRC haskell
+let dh = DateHistogramAgg (mkDateHistogram (FieldName "postDate") (FractionalInterval 1.5 Minutes))
+#+END_SRC
+
+The ~DateHistogramResult~ is defined as:
+
+#+BEGIN_SRC haskell
+data DateHistogramResult
+  = DateHistogramResult {dateKey :: Int,
+                         dateKeyStr :: Maybe Text,
+                         dateDocCount :: Int,
+                         dateHistogramAggs :: Maybe AggregationResults}
+#+END_SRC
+
+It is an instance of ~BucketAggregation~, and can have nested
+aggregations in each bucket.
+
+Buckets can be extracted from a ~AggregationResult~ using
+~toDateHistogram name~
+
+For more information on the Date Histogram Aggregation, see:
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html
 
 * Possible future functionality
 

@@ -1,6 +1,9 @@
 0.4.0.0
 ===================
 
+* Term and date aggregation - thanks to Christopher Guiney! (@chrisguiney)
+
+Following three thanks to Liam Atkins (@latkins)
 * omitNulls changed to exclude empty lists and null values
 
 * BoolQuery must/mustNot/Should changed from Maybe (Query|[Query]) to [Query]
@@ -12,7 +15,7 @@
 
 * Status "ok" changed from Bool to Maybe Bool
 
-* Elasticsearch 1.3.x compatibility fixed with changes to geo bounding boxes
+* Elasticsearch 1.3.x compatibility fixed with changes to geo bounding boxes - thanks to Curtis Carter! (@ccarter)
 
 * CI coverage expanded to 1.0.x -> 1.3.x
 
@@ -36,4 +39,4 @@
 
 * Fixed and rebuilt documentation
 
-* RegexpFlags changed to a sum type instead of Text, thanks @MichaelXavier!
+* RegexpFlags changed to a sum type instead of Text, thanks to @MichaelXavier!
