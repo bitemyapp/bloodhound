@@ -6,7 +6,7 @@
 Following three thanks to Liam Atkins (@latkins)
 * omitNulls changed to exclude empty lists and null values
 
-* BoolQuery must/mustNot/Should changed from Maybe (Query|[Query]) to [Query]
+* BoolQuery must/mustNot/Should changed from Maybe (Query|[Query]) to [Query] thanks to @latkins
 
 * Added vector dependency so we can check for V.null/V.empty on JSON arrays
 
@@ -19,7 +19,7 @@ Following three thanks to Liam Atkins (@latkins)
 0.3.0.0
 ===================
 
-* Status "ok" changed from Bool to Maybe Bool
+* Status "ok" changed from Bool to Maybe Bool thanks to @borisyukd
 
 * Elasticsearch 1.3.x compatibility fixed with changes to geo bounding boxes - thanks to Curtis Carter! (@ccarter)
 
