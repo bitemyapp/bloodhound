@@ -10,6 +10,12 @@ Following three thanks to Liam Atkins (@latkins)
 
 * Added vector dependency so we can check for V.null/V.empty on JSON arrays
 
+* Highlighting, thanks to @latkins! See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-highlighting.html and http://www.elasticsearch.org/guide/en/elasticsearch/guide/current/highlighting-intro.html for more
+
+* Added 1.4.0 support and CI integration
+
+* Can generate individual bulk operations, https://github.com/bitemyapp/bloodhound/issues/17, bulk requests should be more efficient now too - Vector instead of List.
+
 0.3.0.0
 ===================
 
