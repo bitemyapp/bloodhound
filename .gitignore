@@ -8,3 +8,5 @@ dist/
 *.o
 bloodhound-*-docs/
 bloodhound-*-docs.tar.gz
+bloodhound.iml
+.idea/
