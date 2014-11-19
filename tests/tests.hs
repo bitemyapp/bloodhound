@@ -21,6 +21,7 @@ import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Status as NHTS
 import           Prelude                   hiding (filter, putStrLn)
 import           Test.Hspec
+
 import           Test.Hspec.QuickCheck     (prop)
 import           Test.QuickCheck
 
@@ -69,12 +70,12 @@ mkServerVersion _                 = Nothing
 
 getServerVersion :: Server -> IO (Maybe ServerVersion)
 getServerVersion s = liftM extractVersion (getStatus s)
-  where   
+  where
     version'                    = T.splitOn "." . number . version
     toInt                       = read . T.unpack
     parseVersion v              = map toInt (version' v)
     extractVersion              = join . liftM (mkServerVersion . parseVersion)
-             
+
 
 
 testServerBranch :: IO (Maybe ServerVersion)
@@ -165,10 +166,10 @@ searchExpectNoResults search = do
 searchExpectAggs :: Search -> IO ()
 searchExpectAggs search = do
   reply <- searchAll testServer search
-  let isEmpty x = return (M.null x) 
+  let isEmpty x = return (M.null x)
   let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
   (result >>= aggregations >>= isEmpty) `shouldBe` Just False
-  
+
 searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) => Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> IO ()
 searchValidBucketAgg search aggKey extractor = do
   reply <- searchAll testServer search
@@ -183,6 +184,13 @@ searchTermsAggHint hints = do
       let search hint = mkAggregateSearch Nothing $ mkAggregations "users" $ terms hint
       forM_ hints $ searchExpectAggs . search
       forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
+
+searchTweetHighlight :: Search -> IO (Either String (Maybe HitHighlight))
+searchTweetHighlight search = do
+  reply <- searchByIndex testServer testIndex search
+  let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+  let myHighlight = fmap (hitHighlight . head . hits . searchHits) result
+  return myHighlight
 
 data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
 instance FromJSON BulkTest
@@ -312,7 +320,7 @@ main = hspec $ do
       _ <- insertOther
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
       let search = Search Nothing
-                   (Just IdentityFilter) (Just [sortSpec]) Nothing
+                   (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
                    False 0 10
       reply <- searchByIndex testServer testIndex search
       let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
@@ -484,6 +492,30 @@ main = hspec $ do
       let valid interval     = searchValidBucketAgg (search interval) "byDate" toDateHistogram
       forM_ intervals expect
       forM_ intervals valid
+
+  describe "Highlights API" $ do
+
+    it "returns highlight from query when there should be one" $ do
+      _ <- insertData
+      _ <- insertOther
+      let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+      let highlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
+
+      let search = mkHighlightSearch (Just query) highlight
+      myHighlight <- searchTweetHighlight search
+      myHighlight `shouldBe` Right (Just (M.fromList [("message",["Use <em>haskell</em>!"])]))
+
+    it "doesn't return highlight from a query when it shouldn't" $ do
+      _ <- insertData
+      _ <- insertOther
+      let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+      let highlight = Highlights Nothing [FieldHighlight (FieldName "user") Nothing]
+
+      let search = mkHighlightSearch (Just query) highlight
+      myHighlight <- searchTweetHighlight search
+      myHighlight `shouldBe` Right Nothing
+
+
 
   describe "ToJSON RegexpFlags" $ do
     it "generates the correct JSON for AllRegexpFlags" $

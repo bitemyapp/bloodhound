@@ -162,20 +162,33 @@ module Database.Bloodhound.Types
        , BucketAggregation(..)
        , TermsAggregation(..)
        , DateHistogramAggregation(..)
+
+       , Highlights(..)
+       , FieldHighlight(..)
+       , HighlightSettings(..)
+       , PlainHighlight(..)
+       , PostingsHighlight(..)
+       , FastVectorHighlight(..)
+       , CommonHighlight(..)
+       , NonPostings(..)
+       , HighlightEncoder(..)
+       , HighlightTag(..)
+       , HitHighlight
+
        , TermsResult(..)
        , DateHistogramResult(..)
          ) where
 
 import           Control.Applicative
 import           Data.Aeson
-import           Data.Aeson.Types                (parseMaybe)
+import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import           Data.List                       (nub)
 import           Data.List.NonEmpty              (NonEmpty (..))
+import qualified Data.Map.Strict                 as M
 import           Data.Monoid
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
-import qualified Data.Map.Strict                 as M
 import           Data.Time.Clock                 (UTCTime)
 import qualified Data.Vector                     as V
 import           GHC.Generics                    (Generic)
@@ -496,14 +509,70 @@ type TrackSortScores = Bool
 type From = Int
 type Size = Int
 
-data Search = Search { queryBody  :: Maybe Query
-                     , filterBody :: Maybe Filter
-                     , sortBody   :: Maybe Sort
-                     , aggBody    :: Maybe Aggregations
+data Search = Search { queryBody       :: Maybe Query
+                     , filterBody      :: Maybe Filter
+                     , sortBody        :: Maybe Sort
+                     , aggBody         :: Maybe Aggregations
+                     , highlight       :: Maybe Highlights
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from            :: From
                      , size            :: Size } deriving (Eq, Show)
+
+data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
+                             , highlightFields :: [FieldHighlight]
+                             } deriving (Show, Eq)
+
+data FieldHighlight = FieldHighlight FieldName (Maybe HighlightSettings)
+                      deriving (Show, Eq)
+
+
+data HighlightSettings = Plain PlainHighlight
+                       | Postings PostingsHighlight
+                       | FastVector FastVectorHighlight
+                         deriving (Show, Eq)
+data PlainHighlight =
+    PlainHighlight { plainCommon  :: Maybe CommonHighlight
+                   , plainNonPost :: Maybe NonPostings } deriving (Show, Eq)
+
+ -- This requires that index_options are set to 'offset' in the mapping.
+data PostingsHighlight = PostingsHighlight (Maybe CommonHighlight) deriving (Show, Eq)
+
+-- This requires that term_vector is set to 'with_positions_offsets' in the mapping.
+data FastVectorHighlight =
+    FastVectorHighlight { fvCommon          :: Maybe CommonHighlight
+                        , fvNonPostSettings :: Maybe NonPostings
+                        , boundaryChars     :: Maybe Text
+                        , boundaryMaxScan   :: Maybe Int
+                        , fragmentOffset    :: Maybe Int
+                        , matchedFields     :: [Text]
+                        , phraseLimit       :: Maybe Int
+                        } deriving (Show, Eq)
+
+data CommonHighlight =
+    CommonHighlight { order             :: Maybe Text
+                    , forceSource       :: Maybe Bool
+                    , tag               :: Maybe HighlightTag
+                    , encoder           :: Maybe HighlightEncoder
+                    , noMatchSize       :: Maybe Int
+                    , highlightQuery    :: Maybe Query
+                    , requireFieldMatch :: Maybe Bool
+                    } deriving (Show, Eq)
+
+-- Settings that are only applicable to FastVector and Plain highlighters.
+data NonPostings =
+    NonPostings { fragmentSize      :: Maybe Int
+                , numberOfFragments :: Maybe Int} deriving (Show, Eq)
+
+data HighlightEncoder = DefaultEncoder
+                      | HTMLEncoder
+                      deriving (Show, Eq)
+
+-- NOTE: Should the tags use some kind of HTML type, rather than Text?
+data HighlightTag = TagSchema Text
+                  | CustomTags ([Text], [Text]) -- Only uses more than the first value in the lists if fvh
+                  deriving (Show, Eq)
+
 
 data Query =
   TermQuery                     Term (Maybe Boost)
@@ -938,7 +1007,7 @@ data DistanceRange =
   DistanceRange { distanceFrom :: Distance
                 , distanceTo   :: Distance } deriving (Eq, Show)
 
-data FromJSON a => SearchResult a =
+data (FromJSON a) => SearchResult a =
   SearchResult { took         :: Int
                , timedOut     :: Bool
                , shards       :: ShardResult
@@ -947,22 +1016,25 @@ data FromJSON a => SearchResult a =
 
 type Score = Double
 
-data FromJSON a => SearchHits a =
+data (FromJSON a) => SearchHits a =
   SearchHits { hitsTotal :: Int
              , maxScore  :: Score
              , hits      :: [Hit a] } deriving (Eq, Show)
 
-data FromJSON a => Hit a =
-  Hit { hitIndex  :: IndexName
-      , hitType   :: MappingName
-      , hitDocId  :: DocId
-      , hitScore  :: Score
-      , hitSource :: a } deriving (Eq, Show)
+data (FromJSON a) => Hit a =
+  Hit { hitIndex     :: IndexName
+      , hitType      :: MappingName
+      , hitDocId     :: DocId
+      , hitScore     :: Score
+      , hitSource    :: a
+      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
               , shardsSuccessful :: Int
               , shardsFailed     :: Int } deriving (Eq, Show, Generic)
+
+type HitHighlight = M.Map Text [Text]
 
 showText :: Show a => a -> Text
 showText = T.pack . show
@@ -1003,7 +1075,7 @@ data Interval = Year
               | Day
               | Hour
               | Minute
-              | Second              
+              | Second
               | FractionalInterval Float TimeInterval deriving (Eq, Show)
 
 data Aggregation = TermsAgg TermsAggregation
@@ -1022,14 +1094,14 @@ data TermsAggregation = TermsAggregation { term              :: Either Text Text
                                          , termAggs          :: Maybe Aggregations
                                     } deriving (Eq, Show)
 
-data DateHistogramAggregation = DateHistogramAggregation { dateField       :: FieldName
-                                                         , dateInterval    :: Interval
-                                                         , dateFormat      :: Maybe Text
-                                                         , datePreZone     :: Maybe Text
-                                                         , datePostZone    :: Maybe Text
-                                                         , datePreOffset   :: Maybe Text
-                                                         , datePostOffset  :: Maybe Text
-                                                         , dateAggs        :: Maybe Aggregations
+data DateHistogramAggregation = DateHistogramAggregation { dateField      :: FieldName
+                                                         , dateInterval   :: Interval
+                                                         , dateFormat     :: Maybe Text
+                                                         , datePreZone    :: Maybe Text
+                                                         , datePostZone   :: Maybe Text
+                                                         , datePreOffset  :: Maybe Text
+                                                         , datePostOffset :: Maybe Text
+                                                         , dateAggs       :: Maybe Aggregations
                                                          } deriving (Eq, Show)
 
 
@@ -1053,7 +1125,7 @@ instance ToJSON TermInclusion where
 instance ToJSON CollectionMode where
   toJSON BreadthFirst = "breadth_first"
   toJSON DepthFirst   = "depth_first"
-  
+
 instance ToJSON ExecutionHint where
   toJSON Ordinals                     = "ordinals"
   toJSON GlobalOrdinals               = "global_ordinals"
@@ -1083,7 +1155,7 @@ instance ToJSON Aggregation where
   toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
     omitNulls ["terms" .= omitNulls [ toJSON' term,
                                       "include"        .= toJSON include,
-                                      "exclude"        .= toJSON exclude,                                    
+                                      "exclude"        .= toJSON exclude,
                                       "order"          .= toJSON order,
                                       "min_doc_count"  .= toJSON minDocCount,
                                       "size"           .= toJSON size,
@@ -1116,10 +1188,10 @@ class BucketAggregation a where
 
 data (FromJSON a, BucketAggregation a) => Bucket a = Bucket { buckets :: [a]} deriving (Show)
 
-data TermsResult = TermsResult { termKey            :: Text
-                               , termsDocCount      :: Int
-                               , termsAggs           :: Maybe AggregationResults } deriving (Show)
-                                                                                                         
+data TermsResult = TermsResult { termKey       :: Text
+                               , termsDocCount :: Int
+                               , termsAggs     :: Maybe AggregationResults } deriving (Show)
+
 data DateHistogramResult = DateHistogramResult { dateKey           :: Int
                                                , dateKeyStr        :: Maybe Text
                                                , dateDocCount      :: Int
@@ -1158,7 +1230,7 @@ instance FromJSON TermsResult where
 instance FromJSON DateHistogramResult where
   parseJSON (Object v) = DateHistogramResult   <$>
                          v .:  "key"           <*>
-                         v .:? "key_as_string" <*>                         
+                         v .:? "key_as_string" <*>
                          v .:  "doc_count"     <*>
                          v .:? "aggregations"
   parseJSON _ = mempty
@@ -1304,7 +1376,7 @@ instance ToJSON Query where
     object [ "match" .= toJSON matchQuery ]
 
   toJSON (QueryMultiMatchQuery multiMatchQuery) =
-    object [ "multi_match" .= toJSON multiMatchQuery ]
+      toJSON multiMatchQuery
 
   toJSON (QueryBoolQuery boolQuery) =
     object [ "bool" .= toJSON boolQuery ]
@@ -1756,15 +1828,97 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort searchAggs sTrackSortScores sFrom sSize) =
-    omitNulls [ "query" .= query
-              , "filter" .= sFilter
-              , "sort" .= sort
+  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize) =
+    omitNulls [ "query"        .= query
+              , "filter"       .= sFilter
+              , "sort"         .= sort
               , "aggregations" .= searchAggs
-              , "from" .= sFrom
-              , "size" .= sSize
-              , "track_scores" .= sTrackSortScores ]
+              , "highlight"    .= highlight
+              , "from"         .= sFrom
+              , "size"         .= sSize
+              , "track_scores" .= sTrackSortScores]
 
+
+instance ToJSON FieldHighlight where
+    toJSON (FieldHighlight (FieldName fName) (Just fSettings)) =
+        object [ fName .= fSettings ]
+    toJSON (FieldHighlight (FieldName fName) Nothing) =
+        object [ fName .= emptyObject ]
+
+instance ToJSON Highlights where
+    toJSON (Highlights global fields) =
+        omitNulls (("fields" .= toJSON fields)
+                  : highlightSettingsPairs global)
+
+instance ToJSON HighlightSettings where
+    toJSON hs = omitNulls (highlightSettingsPairs (Just hs))
+
+highlightSettingsPairs :: Maybe HighlightSettings -> [Pair]
+highlightSettingsPairs Nothing = []
+highlightSettingsPairs (Just (Plain plh)) = plainHighPairs (Just plh)
+highlightSettingsPairs (Just (Postings ph)) = postHighPairs (Just ph)
+highlightSettingsPairs (Just (FastVector fvh)) = fastVectorHighPairs (Just fvh)
+
+
+plainHighPairs :: Maybe PlainHighlight -> [Pair]
+plainHighPairs Nothing = []
+plainHighPairs (Just (PlainHighlight plCom plNonPost)) =
+    [ "type" .= String "plain"]
+    ++ commonHighlightPairs plCom
+    ++ nonPostingsToPairs plNonPost
+
+postHighPairs :: Maybe PostingsHighlight -> [Pair]
+postHighPairs Nothing = []
+postHighPairs (Just (PostingsHighlight pCom)) =
+    ("type" .= String "postings")
+    : commonHighlightPairs pCom
+
+fastVectorHighPairs :: Maybe FastVectorHighlight -> [Pair]
+fastVectorHighPairs Nothing = []
+fastVectorHighPairs (Just
+                     (FastVectorHighlight fvCom fvNonPostSettings fvBoundChars
+                                          fvBoundMaxScan fvFragOff fvMatchedFields
+                                          fvPhraseLim)) =
+                        [ "type" .= String "fvh"
+                        , "boundary_chars" .= fvBoundChars
+                        , "boundary_max_scan" .= fvBoundMaxScan
+                        , "fragment_offset" .= fvFragOff
+                        , "matched_fields" .= fvMatchedFields
+                        , "phraseLimit" .= fvPhraseLim]
+                        ++ commonHighlightPairs fvCom
+                        ++ nonPostingsToPairs fvNonPostSettings
+
+commonHighlightPairs :: Maybe CommonHighlight -> [Pair]
+commonHighlightPairs Nothing = []
+commonHighlightPairs (Just (CommonHighlight chScore chForceSource chTag chEncoder
+                                      chNoMatchSize chHighlightQuery
+                                      chRequireFieldMatch)) =
+    [ "order" .= chScore
+    , "force_source" .= chForceSource
+    , "encoder" .= chEncoder
+    , "no_match_size" .= chNoMatchSize
+    , "highlight_query" .= chHighlightQuery
+    , "require_fieldMatch" .= chRequireFieldMatch]
+    ++ highlightTagToPairs chTag
+
+
+nonPostingsToPairs :: Maybe NonPostings -> [Pair]
+nonPostingsToPairs Nothing = []
+nonPostingsToPairs (Just (NonPostings npFragSize npNumOfFrags)) =
+    [ "fragment_size" .= npFragSize
+    , "number_of_fragments" .= npNumOfFrags]
+
+
+
+instance ToJSON HighlightEncoder where
+    toJSON DefaultEncoder = String "default"
+    toJSON HTMLEncoder    = String "html"
+
+highlightTagToPairs :: Maybe HighlightTag -> [Pair]
+highlightTagToPairs (Just (TagSchema _))            = [ "scheme"    .=  String "default"]
+highlightTagToPairs (Just (CustomTags (pre, post))) = [ "pre_tags"  .= pre
+                                                      , "post_tags" .= post]
+highlightTagToPairs Nothing = []
 
 instance ToJSON SortSpec where
   toJSON (DefaultSortSpec
@@ -1914,15 +2068,16 @@ instance (FromJSON a) => FromJSON (SearchHits a) where
 
 instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
-                         v .: "_index" <*>
-                         v .: "_type"  <*>
-                         v .: "_id"    <*>
-                         v .: "_score" <*>
-                         v .: "_source"
+                         v .:  "_index"  <*>
+                         v .:  "_type"   <*>
+                         v .:  "_id"     <*>
+                         v .:  "_score"  <*>
+                         v .:  "_source" <*>
+                         v .:? "highlight"
   parseJSON _          = empty
 
 instance FromJSON ShardResult where
-  parseJSON (Object v) = ShardResult <$>
+  parseJSON (Object v) = ShardResult       <$>
                          v .: "total"      <*>
                          v .: "successful" <*>
                          v .: "failed"
