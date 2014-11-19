@@ -8,7 +8,7 @@
 [[https://travis-ci.org/bitemyapp/bloodhound][https://travis-ci.org/bitemyapp/bloodhound.svg]]
 
 #+CAPTION: Hackage version
-[[https://budueba.com/hackage/bloodhound]]
+[[https://budueba.com/hackage/bloodhound][https://budueba.com/hackage/bloodhound.svg]]
 
 * Elasticsearch client and query DSL for Haskell
 
