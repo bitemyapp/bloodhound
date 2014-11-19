@@ -250,7 +250,7 @@ searchByType (Server server) (IndexName indexName)
   url = joinPath [server, indexName, mappingName, "_search"]
 
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing Nothing Nothing False 0 0
+mkSearch query filter = Search query filter Nothing Nothing Nothing False 0 10
 
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
 mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False 0 0

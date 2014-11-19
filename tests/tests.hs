@@ -21,6 +21,7 @@ import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Status as NHTS
 import           Prelude                   hiding (filter, putStrLn)
 import           Test.Hspec
+
 import           Test.Hspec.QuickCheck     (prop)
 import           Test.QuickCheck
 

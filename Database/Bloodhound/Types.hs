@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveGeneric   #-}
-
 {-# LANGUAGE RecordWildCards #-}
 
 {-| Data types for describing actions and data structures performed to interact
