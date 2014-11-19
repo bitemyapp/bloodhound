@@ -22,15 +22,18 @@ module Database.Bloodhound.Client
        , mkShardCount
        , mkReplicaCount
        , getStatus
+       , encodeBulkOperations
+       , encodeBulkOperation
        )
        where
 
 import           Data.Aeson
 import           Data.ByteString.Builder
 import qualified Data.ByteString.Lazy.Char8 as L
-import           Data.List                  (foldl', intercalate, intersperse)
+import           Data.List                  (intercalate)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Text                  (Text)
+import qualified Data.Vector                as V
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method  as NHTM
 import qualified Network.HTTP.Types.Status  as NHTS
@@ -168,52 +171,53 @@ deleteDocument (Server server) (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
   delete $ joinPath [server, indexName, mappingName, docId]
 
-bulk :: Server -> [BulkOperation] -> IO Reply
+bulk :: Server -> V.Vector BulkOperation -> IO Reply
 bulk (Server server) bulkOps = post url body where
   url = joinPath [server, "_bulk"]
-  body = Just $ collapseStream bulkOps
+  body = Just $ encodeBulkOperations bulkOps
 
-collapseStream :: [BulkOperation] -> L.ByteString
-collapseStream stream = collapsed where
-  blobs = intersperse "\n" $ concat $ fmap getStreamChunk stream
+encodeBulkOperations :: V.Vector BulkOperation -> L.ByteString
+encodeBulkOperations stream = collapsed where
+  blobs = fmap encodeBulkOperation stream
   mashedTaters = mash (mempty :: Builder) blobs
   collapsed = toLazyByteString $ mappend mashedTaters (byteString "\n")
 
-mash :: Builder -> [L.ByteString] -> Builder
-mash = foldl' (\b x -> mappend b (lazyByteString x))
+mash :: Builder -> V.Vector L.ByteString -> Builder
+mash = V.foldl' (\b x -> b `mappend` "\n" `mappend` (lazyByteString x))
 
-mkMetadataValue :: Text -> String -> String -> String -> Value
-mkMetadataValue operation indexName mappingName docId =
+mkBulkStreamValue :: Text -> String -> String -> String -> Value
+mkBulkStreamValue operation indexName mappingName docId =
   object [operation .=
           object [ "_index" .= indexName
                  , "_type"  .= mappingName
                  , "_id"    .= docId]]
 
-getStreamChunk :: BulkOperation -> [L.ByteString]
-getStreamChunk (BulkIndex (IndexName indexName)
+encodeBulkOperation :: BulkOperation -> L.ByteString
+encodeBulkOperation (BulkIndex (IndexName indexName)
                 (MappingName mappingName)
-                (DocId docId) value) = blob where
-  metadata = mkMetadataValue "index" indexName mappingName docId
-  blob = [encode metadata, encode value]
+                (DocId docId) value) = blob
+    where metadata = mkBulkStreamValue "index" indexName mappingName docId
+          blob = encode metadata `mappend` "\n" `mappend` encode value
 
-getStreamChunk (BulkCreate (IndexName indexName)
+encodeBulkOperation (BulkCreate (IndexName indexName)
                 (MappingName mappingName)
-                (DocId docId) value) = blob where
-  metadata = mkMetadataValue "create" indexName mappingName docId
-  blob = [encode metadata, encode value]
+                (DocId docId) value) = blob
+    where metadata = mkBulkStreamValue "create" indexName mappingName docId
+          blob = encode metadata `mappend` "\n" `mappend` encode value
 
-getStreamChunk (BulkDelete (IndexName indexName)
+encodeBulkOperation (BulkDelete (IndexName indexName)
                 (MappingName mappingName)
-                (DocId docId)) = blob where
-  metadata = mkMetadataValue "delete" indexName mappingName docId
-  blob = [encode metadata]
+                (DocId docId)) = blob
+    where metadata = mkBulkStreamValue "delete" indexName mappingName docId
+          blob = encode metadata
 
-getStreamChunk (BulkUpdate (IndexName indexName)
+encodeBulkOperation (BulkUpdate (IndexName indexName)
                 (MappingName mappingName)
-                (DocId docId) value) = blob where
-  metadata = mkMetadataValue "update" indexName mappingName docId
-  doc = object ["doc" .= value]
-  blob = [encode metadata, encode doc]
+                (DocId docId) value) = blob
+    where metadata = mkBulkStreamValue "update" indexName mappingName docId
+          doc = object ["doc" .= value]
+          blob = encode metadata `mappend` "\n" `mappend` encode doc
+
 
 getDocument :: Server -> IndexName -> MappingName
                -> DocId -> IO Reply
@@ -246,11 +250,10 @@ searchByType (Server server) (IndexName indexName)
   url = joinPath [server, indexName, mappingName, "_search"]
 
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing Nothing Nothing False 0 10
+mkSearch query filter = Search query filter Nothing Nothing Nothing False 0 0
 
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
-mkAggregateSearch query aggregations = Search query Nothing Nothing (Just aggregations) Nothing False 0 0
-
+mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False 0 0
 
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
 mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False 0 10

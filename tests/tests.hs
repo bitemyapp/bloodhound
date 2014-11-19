@@ -6,7 +6,6 @@ module Main where
 import           Control.Applicative
 import           Control.Monad
 import           Data.Aeson
-import           Data.Aeson.Types          (parseMaybe)
 import           Data.HashMap.Strict       (fromList)
 import           Data.List                 (nub)
 import           Data.List.NonEmpty        (NonEmpty (..))
@@ -60,10 +59,12 @@ es10 :: ServerVersion
 es10 = ServerVersion 1 0 0
 
 serverBranch :: ServerVersion -> ServerVersion
-serverBranch (ServerVersion maj min patch) = ServerVersion maj min 0
+serverBranch (ServerVersion majorVer minorVer patchVer) =
+  ServerVersion majorVer minorVer patchVer
 
 mkServerVersion :: [Int] -> Maybe ServerVersion
-mkServerVersion [maj, min, patch] = Just (ServerVersion maj min patch)
+mkServerVersion [majorVer, minorVer, patchVer] =
+  Just (ServerVersion majorVer minorVer patchVer)
 mkServerVersion _                 = Nothing
 
 getServerVersion :: Server -> IO (Maybe ServerVersion)
@@ -246,7 +247,7 @@ main = hspec $ do
                      testMapping (DocId "2") (toJSON firstTest)
       let secondDoc = BulkCreate testIndex
                      testMapping (DocId "3") (toJSON secondTest)
-      let stream = [firstDoc, secondDoc]
+      let stream = V.fromList [firstDoc, secondDoc]
       _ <- bulk testServer stream
       _ <- refreshIndex testServer testIndex
       fDoc <- getDocument testServer testIndex testMapping (DocId "2")

@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric   #-}
+
 {-# LANGUAGE RecordWildCards #-}
 
 {-| Data types for describing actions and data structures performed to interact
@@ -175,14 +176,13 @@ module Database.Bloodhound.Types
        , HighlightTag(..)
        , HitHighlight
 
-       , TermsResult
-       , DateHistogramResult
+       , TermsResult(..)
+       , DateHistogramResult(..)
          ) where
 
 import           Control.Applicative
 import           Data.Aeson
-import           Data.Aeson.Types                (Pair (..), emptyObject,
-                                                  parseMaybe)
+import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import           Data.List                       (nub)
 import           Data.List.NonEmpty              (NonEmpty (..))
@@ -1061,7 +1061,7 @@ data ExecutionHint = Ordinals
                    | GlobalOrdinals
                    | GlobalOrdinalsHash
                    | GlobalOrdinalsLowCardinality
-                   | Map deriving(Eq, Show)
+                   | Map deriving (Eq, Show)
 
 data TimeInterval = Weeks
                   | Days
@@ -1153,7 +1153,7 @@ instance Show TimeInterval where
   show Seconds  = "s"
 
 instance ToJSON Aggregation where
-  toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint aggs)) =
+  toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
     omitNulls ["terms" .= omitNulls [ toJSON' term,
                                       "include"        .= toJSON include,
                                       "exclude"        .= toJSON exclude,
@@ -1164,11 +1164,11 @@ instance ToJSON Aggregation where
                                       "collect_mode"   .= toJSON collectMode,
                                       "execution_hint" .= toJSON executionHint
                                     ],
-               "aggs"  .= toJSON aggs ]
+               "aggs"  .= toJSON termAggs ]
     where
       toJSON' x = case x of { Left y -> "field" .= toJSON y;  Right y -> "script" .= toJSON y }
 
-  toJSON (DateHistogramAgg (DateHistogramAggregation field interval format preZone postZone preOffset postOffset aggs)) =
+  toJSON (DateHistogramAgg (DateHistogramAggregation field interval format preZone postZone preOffset postOffset dateHistoAggs)) =
     omitNulls ["date_histogram" .= omitNulls [ "field"       .= toJSON field,
                                                "interval"    .= toJSON interval,
                                                "format"      .= toJSON format,
@@ -1177,7 +1177,7 @@ instance ToJSON Aggregation where
                                                "pre_offset"  .= toJSON preOffset,
                                                "post_offset" .= toJSON postOffset
                                              ],
-               "aggs"           .= toJSON aggs ]
+               "aggs"           .= toJSON dateHistoAggs ]
 
 type AggregationResults = M.Map Text Value
 
@@ -1226,6 +1226,7 @@ instance FromJSON TermsResult where
                          v .:   "key"       <*>
                          v .:   "doc_count" <*>
                          v .:?  "aggregations"
+  parseJSON _ = mempty
 
 instance FromJSON DateHistogramResult where
   parseJSON (Object v) = DateHistogramResult   <$>
@@ -1233,6 +1234,7 @@ instance FromJSON DateHistogramResult where
                          v .:? "key_as_string" <*>
                          v .:  "doc_count"     <*>
                          v .:? "aggregations"
+  parseJSON _ = mempty
 
 instance Monoid Filter where
   mempty = IdentityFilter
@@ -1317,11 +1319,11 @@ instance ToJSON Filter where
   toJSON (RangeFilter (FieldName fieldName) (Left halfRange) rangeExecution cache) =
     object ["range" .=
             object [fieldName .=
-                    object [key .= val]
+                    object [rqFKey .= rqFVal]
                    , "execution" .= toJSON rangeExecution
                    , "_cache" .= cache]]
     where
-      (key, val) = halfRangeToKV halfRange
+      (rqFKey, rqFVal) = halfRangeToKV halfRange
 
   toJSON (RangeFilter (FieldName fieldName) (Right range) rangeExecution cache) =
     object ["range" .=
@@ -1535,8 +1537,8 @@ instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) (Left halfRange) boost) =
     object [ fieldName .= conjoined ]
     where conjoined = [ "boost" .= toJSON boost
-                      , key     .= val ]
-          (key, val) = halfRangeToKV halfRange
+                      , rqKey     .= rqVal ]
+          (rqKey, rqVal) = halfRangeToKV halfRange
 
 
 instance ToJSON PrefixQuery where
@@ -1827,15 +1829,16 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort aggs highlight sTrackSortScores sFrom sSize) =
+  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize) =
     omitNulls [ "query"        .= query
               , "filter"       .= sFilter
               , "sort"         .= sort
-              , "aggregations" .= aggs
+              , "aggregations" .= searchAggs
               , "highlight"    .= highlight
               , "from"         .= sFrom
               , "size"         .= sSize
               , "track_scores" .= sTrackSortScores]
+
 
 instance ToJSON FieldHighlight where
     toJSON (FieldHighlight (FieldName fName) (Just fSettings)) =
@@ -1917,7 +1920,6 @@ highlightTagToPairs (Just (TagSchema _))            = [ "scheme"    .=  String "
 highlightTagToPairs (Just (CustomTags (pre, post))) = [ "pre_tags"  .= pre
                                                       , "post_tags" .= post]
 highlightTagToPairs Nothing = []
-
 
 instance ToJSON SortSpec where
   toJSON (DefaultSortSpec
