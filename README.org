@@ -29,7 +29,7 @@ Current versions we test against are 1.0.3, 1.1.2, 1.2.3, 1.3.2, and 1.4.0. We a
 
 ** Stability
 
-Bloodhound is beta at the moment. We've got a solid library tested across multiple ES versions, but coverage of Elasticsearch functionality isn't 100% yet.
+Bloodhound is stable for production use. I will strive to avoid breaking API compatibility from here on forward, but dramatic features like a type-safe, fully integrated mapping API may require breaking things in the future.
 
 * Hackage page and Haddock documentation
 
