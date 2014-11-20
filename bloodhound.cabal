@@ -46,13 +46,13 @@ test-suite tests
                        bloodhound,
                        http-client,
                        http-types,
-                       containers           >= 0.5.0.0,
-                       hspec                >= 1.8,
-                       text                 >= 0.11,
-                       time                 >= 1.4,
-                       aeson                >= 0.7,
-                       semigroups           >= 0.15,
+                       containers,
+                       hspec                >= 1.8 && <2.1,
+                       text,
+                       time,
+                       aeson,
+                       semigroups,
                        QuickCheck,
-                       vector               >= 0.10.11,
-                       unordered-containers >=0.2.5.0
+                       vector,
+                       unordered-containers >= 0.2.5.0 && <0.3
   default-language:    Haskell2010
