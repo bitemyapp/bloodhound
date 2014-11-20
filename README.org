@@ -7,7 +7,7 @@
 #+CAPTION: Build Status
 [[https://travis-ci.org/bitemyapp/bloodhound][https://travis-ci.org/bitemyapp/bloodhound.svg]]
 
-Current Hackage version: *0.3.0.0*
+Current Hackage version: *0.4.0.0*
 
 * Elasticsearch client and query DSL for Haskell
 
