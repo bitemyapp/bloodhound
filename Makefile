@@ -20,16 +20,3 @@ repl:
 reset:
 	rm -rf .cabal-sandbox
 	cabal sandbox init
-
-haddock:
-	gen-docs.sh
-
-dist:
-	cabal sdist
-
-# export BHVER=0.3.0.0
-# upload:
-# 	cabal upload dist/bloodhound-$BHVER.tar.gz
-# cp -R ./dist/doc/html/bloodhound/ bloodhound-$BHVER-docs
-# tar cvz --format=ustar -f bloodhound-$BHVER-docs.tar.gz bloodhound-$BHVER-docs
-# curl -X PUT -H 'Content-Type: application/x-tar' -H 'Content-Encoding: gzip' --data-binary "@bloodhound-$BHVER-docs.tar.gz" "https://bitemyapp:$PASSWORD@hackage.haskell.org/package/bloodhound-$BHVER/docs"
