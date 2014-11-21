@@ -3,9 +3,9 @@ Bloodhound
 
 ![Bloodhound (dog)](./bloodhound.jpg)
 
-![https://travis-ci.org/bitemyapp/bloodhound.svg](https://travis-ci.org/bitemyapp/bloodhound)
+[![TravisCI](https://travis-ci.org/bitemyapp/bloodhound.svg)](https://travis-ci.org/bitemyapp/bloodhound)
 
-![https://img.shields.io/hackage/v/bloodhound.svg?style=flat](https://hackage.haskell.org/package/bloodhound/)
+[![Hackage](https://img.shields.io/hackage/v/bloodhound.svg?style=flat)](https://hackage.haskell.org/package/bloodhound)
 
 Elasticsearch client and query DSL for Haskell
 ==============================================
