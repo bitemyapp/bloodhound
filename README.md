@@ -1,47 +1,53 @@
-* Bloodhound
+Bloodhound
+==========
 
-#+CAPTION: Bloodhound (dog)
-[[./bloodhound.jpg]]
+![Bloodhound (dog)](./bloodhound.jpg)
 
+[<https://travis-ci.org/bitemyapp/bloodhound.svg>](https://travis-ci.org/bitemyapp/bloodhound)
 
-#+CAPTION: Build Status
-[[https://travis-ci.org/bitemyapp/bloodhound][https://travis-ci.org/bitemyapp/bloodhound.svg]]
+[<https://img.shields.io/hackage/v/bloodhound.svg?style=flat>](https://hackage.haskell.org/package/bloodhound/)
 
-[[https://img.shields.io/hackage/v/bloodhound.svg?style=flat]]
+Elasticsearch client and query DSL for Haskell
+==============================================
 
-* Elasticsearch client and query DSL for Haskell
-
-** Why?
+Why?
+----
 
 Search doesn't have to be hard. Let the dog do it.
 
-** Endorsements
+Endorsements
+------------
 
 "Bloodhound makes Elasticsearch almost tolerable!" - Almost-gruntled user
 
 "ES is a nightmare but Bloodhound at least makes it tolerable." - Same user, later opinion.
 
-** Version compatibility
+Version compatibility
+---------------------
 
-Elasticsearch >= 1.0 is recommended. Bloodhound mostly works with 0.9.x, but I don't recommend it if you expect everything to work. As of Bloodhound 0.3 all >=1.0 versions of Elasticsearch work.
+Elasticsearch \>= 1.0 is recommended. Bloodhound mostly works with 0.9.x, but I don't recommend it if you expect everything to work. As of Bloodhound 0.3 all \>=1.0 versions of Elasticsearch work.
 
-Current versions we test against are 1.0.3, 1.1.2, 1.2.3, 1.3.2, and 1.4.0. We also check that GHC 7.6 and 7.8 both build and pass tests. See our [[https://travis-ci.org/bitemyapp/bloodhound][TravisCI]] to learn more.
+Current versions we test against are 1.0.3, 1.1.2, 1.2.3, 1.3.2, and 1.4.0. We also check that GHC 7.6 and 7.8 both build and pass tests. See our [TravisCI](https://travis-ci.org/bitemyapp/bloodhound) to learn more.
 
-** Stability
+Stability
+---------
 
 Bloodhound is stable for production use. I will strive to avoid breaking API compatibility from here on forward, but dramatic features like a type-safe, fully integrated mapping API may require breaking things in the future.
 
-* Hackage page and Haddock documentation
+Hackage page and Haddock documentation
+======================================
 
-http://hackage.haskell.org/package/bloodhound
+<http://hackage.haskell.org/package/bloodhound>
 
-* Examples
+Examples
+========
 
-** Index Operations
+Index Operations
+----------------
 
-*** Create Index
+### Create Index
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- Formatted for use in ghci, so there are "let"s in front of the decls.
 
@@ -75,22 +81,22 @@ let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 response <- createIndex testServer defaultIndexSettings testIndex
 :}
 
-#+END_SRC
+```
 
-*** Delete Index
+### Delete Index
 
-**** Code
+#### Code
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- response :: Reply
 response <- deleteIndex testServer testIndex
 
-#+END_SRC
+```
 
-**** Example Response
+#### Example Response
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- print response if it was a success
 Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}
@@ -110,21 +116,21 @@ Response {responseStatus = Status {statusCode = 404, statusMessage = "Not Found"
         , responseCookieJar = CJ {expose = []}
         , responseClose' = ResponseClose}
 
-#+END_SRC
+```
 
-*** Refresh Index
+### Refresh Index
 
-**** Note, you *have* to do this if you expect to read what you just wrote
+#### Note, you **have** to do this if you expect to read what you just wrote
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 resp <- refreshIndex testServer testIndex
 
-#+END_SRC
+```
 
-**** Example Response
+#### Example Response
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- print resp on success
 Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}
@@ -135,13 +141,14 @@ Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}
         , responseCookieJar = CJ {expose = []}
         , responseClose' = ResponseClose}
 
-#+END_SRC
+```
 
-** Mapping Operations
+Mapping Operations
+------------------
 
-*** Create Mapping
+### Create Mapping
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- don't forget imports and the like at the top.
 
@@ -162,21 +169,22 @@ instance ToJSON TweetMapping where
 
 resp <- putMapping testServer testIndex testMapping TweetMapping
 
-#+END_SRC
+```
 
-*** Delete Mapping
+### Delete Mapping
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 resp <- deleteMapping testServer testIndex testMapping
 
-#+END_SRC
+```
 
-** Document Operations
+Document Operations
+-------------------
 
-*** Indexing Documents
+### Indexing Documents
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- don't forget the imports and derive generic setting for ghci
 -- at the beginning of the examples.
@@ -214,11 +222,11 @@ instance FromJSON Location
 
 resp <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
 
-#+END_SRC
+```
 
-**** Example Response
+#### Example Response
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 Response {responseStatus =
   Status {statusCode = 200, statusMessage = "OK"}
@@ -228,19 +236,19 @@ Response {responseStatus =
     , responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":2,\"created\":false}"
     , responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 
-#+END_SRC
+```
 
-*** Deleting Documents
+### Deleting Documents
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 resp <- deleteDocument testServer testIndex testMapping (DocId "1")
 
-#+END_SRC
+```
 
-*** Getting Documents
+### Getting Documents
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- n.b., you'll need the earlier imports. responseBody is from http-conduit
 
@@ -281,13 +289,14 @@ Right (Tweet {user = "bitemyapp"
             , age = 10000
             , location = Location {lat = 40.12, lon = -71.34}})
 
-#+END_SRC
+```
 
-** Bulk Operations
+Bulk Operations
+---------------
 
-*** Bulk create, index
+### Bulk create, index
 
-#+BEGIN_SRC haskell 
+``` {.haskell}
 
 -- don't forget the imports and derive generic setting for ghci
 -- at the beginning of the examples.
@@ -322,11 +331,11 @@ let stream = [firstDoc, secondDoc]
 resp <- bulk testServer stream
 :}
 
-#+END_SRC
+```
 
-*** Encoding individual bulk API operations
+### Encoding individual bulk API operations
 
-#+BEGIN_SRC haskell 
+``` {.haskell}
 -- the following functions are exported in Bloodhound so
 -- you can build up bulk operations yourself
 encodeBulkOperations :: V.Vector BulkOperation -> L.ByteString
@@ -356,15 +365,16 @@ let encodedOperations = encodeBulkOperations stream
 -- bulk :: Server -> V.Vector BulkOperation -> IO Reply
 _ <- bulk testServer stream
 
-#+END_SRC
+```
 
-** Search
+Search
+------
 
-*** Querying
+### Querying
 
-**** Term Query
+#### Term Query
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- exported by the Client module, just defaults some stuff.
 -- mkSearch :: Maybe Query -> Maybe Filter -> Search
@@ -397,31 +407,30 @@ Right [Hit {hitIndex = IndexName "twitter"
                              , age = 10000
                              , location = Location {lat = 40.12, lon = -71.34}}}]
 
-#+END_SRC
+```
 
-**** Match Query
+#### Match Query
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 let query = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
 let search = mkSearch (Just query) Nothing
 
-#+END_SRC
+```
 
+#### Multi-Match Query
 
-**** Multi-Match Query
-
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 let fields = [FieldName "user", FieldName "message"]
 let query = QueryMultiMatchQuery $ mkMultiMatchQuery fields (QueryString "bitemyapp")
 let search = mkSearch (Just query) Nothing
 
-#+END_SRC
+```
 
-**** Bool Query
+#### Bool Query
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 let innerQuery = QueryMatchQuery $
                  mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
@@ -429,11 +438,11 @@ let query = QueryBoolQuery $
             mkBoolQuery [innerQuery] [] []
 let search = mkSearch (Just query) Nothing
 
-#+END_SRC
+```
 
-**** Boosting Query
+#### Boosting Query
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 let posQuery = QueryMatchQuery $
                mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
@@ -442,15 +451,15 @@ let negQuery = QueryMatchQuery $
 let query = QueryBoostingQuery $
             BoostingQuery posQuery negQuery (Boost 0.2)
 
-#+END_SRC
+```
 
-**** Rest of the query/filter types
+#### Rest of the query/filter types
 
 Just follow the pattern you've seen here and check the Hackage API documentation.
 
-*** Sorting
+### Sorting
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
 
@@ -476,15 +485,15 @@ let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
 -- just add more sortspecs to the list if you want tie-breakers.
 let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False 0 10
 
-#+END_SRC
+```
 
-*** Filtering
+### Filtering
 
-**** And, Not, and Or filters
+#### And, Not, and Or filters
 
 Filters form a monoid and seminearring.
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 instance Monoid Filter where
   mempty = IdentityFilter
@@ -513,11 +522,11 @@ IdentityFilter <||> someOtherFilter
 
 NotFilter someOtherFilter False
 
-#+END_SRC
+```
 
-**** Identity Filter
+#### Identity Filter
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- And'ing two Identity
 let queryFilter = IdentityFilter <&&> IdentityFilter
@@ -526,13 +535,13 @@ let search = mkSearch Nothing (Just queryFilter)
 
 reply <- searchByType testServer testIndex testMapping search
 
-#+END_SRC
+```
 
-**** Boolean Filter
+#### Boolean Filter
 
 Similar to boolean queries.
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- Will return only items whose "user" field contains the term "bitemyapp"
 let queryFilter = BoolFilter (MustMatch (Term "user" "bitemyapp") False)
@@ -546,31 +555,31 @@ let queryFilter = BoolFilter (MustNotMatch (Term "user" "bitemyapp") False)
 -- clauses to match can be set using the minimum_should_match parameter.
 let queryFilter = BoolFilter (ShouldMatch [(Term "user" "bitemyapp")] False)
 
-#+END_SRC
+```
 
-**** Exists Filter
+#### Exists Filter
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- Will filter for documents that have the field "user"
 let existsFilter = ExistsFilter (FieldName "user")
 
-#+END_SRC
+```
 
-**** Geo BoundingBox Filter
+#### Geo BoundingBox Filter
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- topLeft and bottomRight
 let box = GeoBoundingBox (LatLon 40.73 (-74.1)) (LatLon 40.10 (-71.12))
 
 let constraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False GeoFilterMemory
 
-#+END_SRC
+```
 
-**** Geo Distance Filter
+#### Geo Distance Filter
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
 
@@ -585,13 +594,13 @@ let optimizeBbox = OptimizeGeoFilterType GeoFilterMemory
 
 let geoFilter = GeoDistanceFilter geoPoint distance SloppyArc optimizeBbox False
 
-#+END_SRC
+```
 
-**** Geo Distance Range Filter
+#### Geo Distance Range Filter
 
 Think of a donut and you won't be far off.
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
 
@@ -599,11 +608,11 @@ let distanceRange = DistanceRange (Distance 0.0 Miles) (Distance 10.0 Miles)
 
 let geoFilter = GeoDistanceRangeFilter geoPoint distanceRange
 
-#+END_SRC
+```
 
-**** Geo Polygon Filter
+#### Geo Polygon Filter
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- I think I drew a square here.
 let points = [LatLon 40.0 (-70.00),
@@ -613,22 +622,22 @@ let points = [LatLon 40.0 (-70.00),
 
 let geoFilter = GeoPolygonFilter (FieldName "tweet.location") points
 
-#+END_SRC
+```
 
-**** Document IDs filter
+#### Document IDs filter
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- takes a mapping name and a list of DocIds
 IdsFilter (MappingName "tweet") [DocId "1"]
 
-#+END_SRC
+```
 
-**** Range Filter
+#### Range Filter
 
-***** Full Range
+##### Full Range
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- RangeFilter :: FieldName
 --                -> Either HalfRange Range
@@ -639,21 +648,21 @@ let filter = RangeFilter (FieldName "age")
              (Right (RangeLtGt (LessThan 100000.0) (GreaterThan 1000.0)))
              RangeExecutionIndex False
 
-#+END_SRC
+```
 
-***** Half Range
+##### Half Range
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 let filter = RangeFilter (FieldName "age")
              (Left (HalfRangeLt (LessThan 100000.0)))
              RangeExecutionIndex False
 
-#+END_SRC
+```
 
-**** Regexp Filter
+#### Regexp Filter
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 
 -- RegexpFilter
 --   :: FieldName
@@ -678,47 +687,48 @@ let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
 --                | Intersection
 --                | Interval deriving (Eq, Show)
 
-#+END_SRC
+```
 
-*** Aggregations
-**** Adding aggregations to search
+### Aggregations
+
+#### Adding aggregations to search
+
 Aggregations can now be added to search queries, or made on their own.
-#+BEGIN_SRC haskell
+
+``` {.haskell}
 type Aggregations = M.Map Text Aggregation
 data Aggregation
   = TermsAgg TermsAggregation
   | DateHistogramAgg DateHistogramAggregation
-#+END_SRC
+```
 
-For convenience, ```mkAggregations``` exists, that will create an
-```Aggregations``` with the aggregation provided.
+For convenience, \`\`\`mkAggregations\`\`\` exists, that will create an \`\`\`Aggregations\`\`\` with the aggregation provided.
 
 For example:
-#+BEGIN_SRC haskell
+
+``` {.haskell}
  let a = mkAggregations "users" $ TermsAgg $ mkTermsAggregation "user"
  let search = mkAggregateSearch Nothing a
-#+END_SRC
+```
 
-Aggregations can be added to an existing search, using the
-```aggBody``` field
+Aggregations can be added to an existing search, using the \`\`\`aggBody\`\`\` field
 
-#+BEGIN_SRC haskell
+``` {.haskell}
  let search  = mkSearch (Just (MatchAllQuery Nothing)) Nothing
  let search' = search {aggBody = Just a}
-#+END_SRC
+```
 
-Since the ```Aggregations``` structure is just a Map Text
-Aggregation, M.insert can be used to add additional aggregations.
+Since the \`\`\`Aggregations\`\`\` structure is just a Map Text Aggregation, M.insert can be used to add additional aggregations.
 
-#+BEGIN_SRC haskell
+``` {.haskell}
  let a' = M.insert "age" (TermsAgg $ mkTermsAggregation "age") a
-#+END_SRC
+```
 
-**** Extracting aggregations from results
-Aggregations are part of the reply structure of every search, in the
-form of ~Maybe AggregationResults~
+#### Extracting aggregations from results
 
-#+BEGIN_SRC haskell
+Aggregations are part of the reply structure of every search, in the form of
+
+``` {.haskell}
 -- Lift decode and response body to be in the IO monad.
 let decode' = liftM decode
 let responseBody' = liftM responseBody
@@ -730,25 +740,24 @@ let response = decode' $ responseBody' reply :: IO (Maybe (SearchResult Tweet))
 let terms = do { response' <- response; return $ response' >>= aggregations >>= toTerms "users" }
 terms
 Just (Bucket {buckets = [TermsResult {termKey = "bitemyapp", termsDocCount = 1, termsAggs = Nothing}]})
-#+END_SRC
+```
 
-Note that bucket aggregation results, such as the TermsResult is a
-member of the type class ~BucketAggregation~:
+Note that bucket aggregation results, such as the TermsResult is a member of the type class :
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 class BucketAggregation a where
   key :: a -> Text
   docCount :: a -> Int
   aggs :: a -> Maybe AggregationResults
-#+END_SRC haskell
+```
 
-You can use the ~aggs~ function to get any nested results, if
-there were any.  For example, if there were a nested terms
-aggregation keyed to "age" in a TermsResult named ~termresult~, you would call ~aggs termresult >>=
-toTerms "age"~
+haskell
 
-**** Terms Aggregation
-#+BEGIN_SRC haskell
+You can use the function to get any nested results, if there were any. For example, if there were a nested terms aggregation keyed to "age" in a TermsResult named , you would call
+
+#### Terms Aggregation
+
+``` {.haskell}
 data TermsAggregation
   = TermsAggregation {term :: Either Text Text,
                       termInclude :: Maybe TermInclusion,
@@ -760,30 +769,27 @@ data TermsAggregation
                       termCollectMode :: Maybe CollectionMode,
                       termExecutionHint :: Maybe ExecutionHint,
                       termAggs :: Maybe Aggregations}
-#+END_SRC
+```
 
-Term Aggregations have two factory functions,
-~mkTermsAggregation~, and ~mkTermsScriptAggregation~, and can
-be used as follows:
+Term Aggregations have two factory functions, , and , and can be used as follows:
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 let ta = TermsAgg $ mkTermsAggregation "user"
-#+END_SRC
+```
 
-There are of course other options that can be added to a Terms
-Aggregation, such as the collection mode:
-#+BEGIN_SRC haskell
+There are of course other options that can be added to a Terms Aggregation, such as the collection mode:
+
+``` {.haskell}
 let ta   = mkTermsAggregation "user"
 let ta'  = ta { termCollectMode = Just BreadthFirst }
 let ta'' = TermsAgg ta'
-#+END_SRC
+```
 
-For more documentation on how the Terms Aggregation works, see
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html
+For more documentation on how the Terms Aggregation works, see <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html>
 
-**** Date Histogram Aggregation
+#### Date Histogram Aggregation
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 data DateHistogramAggregation
   = DateHistogramAggregation {dateField :: FieldName,
                               dateInterval :: Interval,
@@ -793,116 +799,132 @@ data DateHistogramAggregation
                               datePreOffset :: Maybe Text,
                               datePostOffset :: Maybe Text,
                               dateAggs :: Maybe Aggregations}
-#+END_SRC haskell
+```
 
-The Date Histogram Aggregation works much the same as the Terms
-Aggregation.
+haskell
 
-Relevant functions include ~mkDateHistogram~, and ~toDateHistogram~
+The Date Histogram Aggregation works much the same as the Terms Aggregation.
 
-#+BEGIN_SRC haskell
+Relevant functions include , and
+
+``` {.haskell}
 let dh = DateHistogramAgg (mkDateHistogram (FieldName "postDate") Minute)
-#+END_SRC
+```
 
-Date histograms also accept a ~FractionalInterval~:
+Date histograms also accept a :
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 FractionalInterval :: Float -> TimeInterval -> Interval
 -- TimeInterval is the following:
 data TimeInterval = Weeks | Days | Hours | Minutes | Seconds
-#+END_SRC
+```
 
 It can be used as follows:
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 let dh = DateHistogramAgg (mkDateHistogram (FieldName "postDate") (FractionalInterval 1.5 Minutes))
-#+END_SRC
+```
 
-The ~DateHistogramResult~ is defined as:
+The is defined as:
 
-#+BEGIN_SRC haskell
+``` {.haskell}
 data DateHistogramResult
   = DateHistogramResult {dateKey :: Int,
                          dateKeyStr :: Maybe Text,
                          dateDocCount :: Int,
                          dateHistogramAggs :: Maybe AggregationResults}
-#+END_SRC
+```
 
-It is an instance of ~BucketAggregation~, and can have nested
-aggregations in each bucket.
+It is an instance of , and can have nested aggregations in each bucket.
 
-Buckets can be extracted from a ~AggregationResult~ using
-~toDateHistogram name~
+Buckets can be extracted from a using
 
-For more information on the Date Histogram Aggregation, see:
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html
+For more information on the Date Histogram Aggregation, see: <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html>
 
-* Possible future functionality
+Possible future functionality
+=============================
 
-** Span Queries
+Span Queries
+------------
 
-Beginning here: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-span-first-query.html
+Beginning here: <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-span-first-query.html>
 
-** Function Score Query
+Function Score Query
+--------------------
 
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html>
 
-** Node discovery and failover
+Node discovery and failover
+---------------------------
 
 Might require TCP support.
 
-** Support for TCP access to Elasticsearch
+Support for TCP access to Elasticsearch
+---------------------------------------
 
 Pretend to be a transport client?
 
-** Bulk cluster-join merge
+Bulk cluster-join merge
+-----------------------
 
 Might require making a lucene index on disk with the appropriate format.
 
-** GeoShapeQuery
+GeoShapeQuery
+-------------
 
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-query.html
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-query.html>
 
-** GeoShapeFilter
+GeoShapeFilter
+--------------
 
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-filter.html
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-filter.html>
 
-** Geohash cell filter
+Geohash cell filter
+-------------------
 
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geohash-cell-filter.html
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geohash-cell-filter.html>
 
-** HasChild Filter
+HasChild Filter
+---------------
 
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-child-filter.html
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-child-filter.html>
 
-** HasParent Filter
+HasParent Filter
+----------------
 
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-parent-filter.html
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-parent-filter.html>
 
-** Indices Filter
+Indices Filter
+--------------
 
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-indices-filter.html
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-indices-filter.html>
 
-** Query Filter
+Query Filter
+------------
 
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-filter.html
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-filter.html>
 
-** Script based sorting
+Script based sorting
+--------------------
 
-http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_script_based_sorting
+<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_script_based_sorting>
 
-** Collapsing redundantly nested and/or structures
+Collapsing redundantly nested and/or structures
+-----------------------------------------------
 
 The Seminearring instance, if deeply nested can possibly produce nested structure that is redundant. Depending on how this affects ES perforamnce, reducing this structure might be valuable.
 
-** Runtime checking for cycles in data structures
+Runtime checking for cycles in data structures
+----------------------------------------------
 
-check for n > 1 occurrences in DFS:
+check for n \> 1 occurrences in DFS:
 
-http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-Dynamic.html
+<http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-Dynamic.html>
 
-http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-Dynamic-Map.html
+<http://hackage.haskell.org/package/stable-maps-0.0.5/docs/System-Mem-StableName-Dynamic-Map.html>
 
-* Photo Origin
+Photo Origin
+============
 
-Photo from HA! Designs: https://www.flickr.com/photos/hadesigns/
+Photo from HA! Designs: <https://www.flickr.com/photos/hadesigns/>
+
