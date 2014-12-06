@@ -1447,7 +1447,7 @@ instance ToJSON Query where
 omitNulls :: [(Text, Value)] -> Value
 omitNulls = object . filter notNull where
   notNull (_, Null)      = False
-  notNull (_, (Array a)) = (not . V.null) a
+  notNull (_, Array a) = (not . V.null) a
   notNull _              = True
 
 
