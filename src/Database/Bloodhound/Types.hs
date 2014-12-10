@@ -212,13 +212,13 @@ import           Database.Bloodhound.Types.Class
 -- $setup
 -- >>> :set -XOverloadedStrings
 -- >>> import Database.Bloodhound
--- no trailing slashes in servers, library handles building the path.
 -- >>> let testServer = (Server "http://localhost:9200")
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
+-- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 -- defaultIndexSettings is exported by Database.Bloodhound as well
--- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
+-- no trailing slashes in servers, library handles building the path.
 
 {-| 'Version' is embedded in 'Status' -}
 data Version = Version { number          :: Text

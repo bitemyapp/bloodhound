@@ -64,13 +64,14 @@ import           Database.Bloodhound.Types
 -- >>> :set -XOverloadedStrings
 -- >>> import Database.Bloodhound
 -- >>> import Test.DocTest.Prop (assert)
--- >>> error "blah"
--- no trailing slashes in servers, library handles building the path.
 -- >>> let testServer = (Server "http://localhost:9200")
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
--- defaultIndexSettings is exported by Database.Bloodhound as well
 -- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
+-- >>> _ <- deleteIndex testServer testIndex
+
+-- no trailing slashes in servers, library handles building the path.
+-- defaultIndexSettings is exported by Database.Bloodhound as well
 
 mkShardCount :: Int -> Maybe ShardCount
 mkShardCount n
@@ -124,10 +125,9 @@ getStatus (Server server) = do
 
 -- | createIndex will create an index given a 'Server',
 -- 'IndexSettings', and an 'IndexName'
-
 -- >>> response <- createIndex testServer defaultIndexSettings testIndex
--- >>> assert $ respIsTwoHunna response
--- >>> assert False
+-- >>> respIsTwoHunna response
+-- True
 createIndex :: Server -> IndexSettings -> IndexName -> IO Reply
 createIndex (Server server) indexSettings (IndexName indexName) =
   put url body
