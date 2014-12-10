@@ -20,7 +20,7 @@ main = defaultMainWithHooks simpleUserHooks
      generateBuildModule (fromFlag (buildVerbosity flags)) pkg lbi
      buildHook simpleUserHooks pkg lbi hooks flags
   , postHaddock = \args flags pkg lbi -> do
-     copyFiles normal (haddockOutputDir flags pkg) [("images","Hierarchy.png")]
+     -- copyFiles normal (haddockOutputDir flags pkg) [("images","Hierarchy.png")]
      postHaddock simpleUserHooks args flags pkg lbi
   }
 

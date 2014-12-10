@@ -2,23 +2,23 @@
 
 -------------------------------------------------------------------------------
 -- |
--- Module : Database.Bloodhound.Types
+-- Module : Database.Bloodhound.Client
 -- Copyright : (C) 2014 Chris Allen
 -- License : BSD-style (see the file LICENSE)
 -- Maintainer : Chris Allen <cma@bitemyapp.com
 -- Stability : provisional
--- Portability : DeriveGeneric, RecordWildCards
+-- Portability : OverloadedStrings
 --
--- Data types for describing actions and data structures performed to interact
--- with Elasticsearch. The two main buckets your queries against Elasticsearch
--- will fall into are 'Query's and 'Filter's. 'Filter's are more like
--- traditional database constraints and often have preferable performance
--- properties. 'Query's support human-written textual queries, such as fuzzy
--- queries.
+-- Client side functions for talking to Elasticsearch servers.
+--
+-- $setup
+--
 -------------------------------------------------------------------------------
 
 module Database.Bloodhound.Client
-       ( createIndex
+       ( 
+         -- module Database.Bloodhound.Client
+         createIndex
        , deleteIndex
        , indexExists
        , openIndex
@@ -68,10 +68,18 @@ import           Database.Bloodhound.Types
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
 -- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
+-- >>> data TweetMapping = TweetMapping deriving (Eq, Show)
 -- >>> _ <- deleteIndex testServer testIndex
+-- >>> _ <- deleteMapping testServer testIndex testMapping
+-- >>> :{
+--instance ToJSON TweetMapping where
+--          toJSON TweetMapping =
+--            object ["tweet" .=
+--              object ["properties" .=
+--                object ["location" .=
+--                  object ["type" .= ("geo_point" :: Text)]]]]
+-- :}
 
--- no trailing slashes in servers, library handles building the path.
--- defaultIndexSettings is exported by Database.Bloodhound as well
 
 mkShardCount :: Int -> Maybe ShardCount
 mkShardCount n
@@ -125,8 +133,11 @@ getStatus (Server server) = do
 
 -- | createIndex will create an index given a 'Server',
 -- 'IndexSettings', and an 'IndexName'
--- >>> response <- createIndex testServer defaultIndexSettings testIndex
+--
+-- >>> response <- createIndex testServer defaultIndexSettings (IndexName "didimakeanindex")
 -- >>> respIsTwoHunna response
+-- True
+-- >>> indexExists testServer (IndexName "didimakeanindex")
 -- True
 createIndex :: Server -> IndexSettings -> IndexName -> IO Reply
 createIndex (Server server) indexSettings (IndexName indexName) =
@@ -134,6 +145,15 @@ createIndex (Server server) indexSettings (IndexName indexName) =
   where url = joinPath [server, indexName]
         body = Just $ encode indexSettings
 
+-- | deleteIndex will delete an index given a 'Server',
+-- and an 'IndexName'
+--
+-- >>> response <- createIndex testServer defaultIndexSettings (IndexName "didimakeanindex")
+-- >>> response <- deleteIndex testServer (IndexName "didimakeanindex")
+-- >>> respIsTwoHunna response
+-- True
+-- >>> indexExists testServer testIndex
+-- False
 deleteIndex :: Server -> IndexName -> IO Reply
 deleteIndex (Server server) (IndexName indexName) =
   delete $ joinPath [server, indexName]
@@ -152,6 +172,13 @@ indexExists (Server server) (IndexName indexName) = do
   return exists
   where url = joinPath [server, indexName]
 
+-- | 'refreshIndex' will force a refresh on an index. You must
+-- do this if you want to read what you wrote.
+--
+-- >>> response <- createIndex testServer defaultIndexSettings testIndex
+-- >>> response <- refreshIndex testServer testIndex
+-- >>> respIsTwoHunna response
+-- True
 refreshIndex :: Server -> IndexName -> IO Reply
 refreshIndex (Server server) (IndexName indexName) =
   post url Nothing
@@ -174,9 +201,13 @@ openIndex = openOrCloseIndexes OpenIndex
 closeIndex :: Server -> IndexName -> IO Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
-{-| putMapping is an HTTP PUT and has upsert semantics. Mappings are schemas
-    for documents in indexes.
--}
+-- | 'putMapping' is an HTTP PUT and has upsert semantics. Mappings are schemas
+-- for documents in indexes.
+--
+-- >>> response <- createIndex testServer defaultIndexSettings testIndex
+-- >>> resp <- putMapping testServer testIndex testMapping TweetMapping
+-- >>> respIsTwoHunna resp
+-- True
 putMapping :: ToJSON a => Server -> IndexName
                  -> MappingName -> a -> IO Reply
 putMapping (Server server) (IndexName indexName) (MappingName mappingName) mapping =
@@ -184,6 +215,16 @@ putMapping (Server server) (IndexName indexName) (MappingName mappingName) mappi
   where url = joinPath [server, indexName, mappingName, "_mapping"]
         body = Just $ encode mapping
 
+-- | 'deleteMapping' is an HTTP DELETE and deletes a mapping for a given index.
+-- Mappings are schemas for documents in indexes.
+--
+-- >>> response <- createIndex testServer defaultIndexSettings testIndex
+-- >>> resp <- putMapping testServer testIndex testMapping TweetMapping
+-- >>> respIsTwoHunna resp
+-- True
+-- >>> resp <- deleteMapping testServer testIndex testMapping
+-- >>> respIsTwoHunna resp
+-- True
 deleteMapping :: Server -> IndexName -> MappingName -> IO Reply
 deleteMapping (Server server) (IndexName indexName)
   (MappingName mappingName) =
