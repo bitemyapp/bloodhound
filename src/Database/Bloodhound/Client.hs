@@ -1,3 +1,22 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+-------------------------------------------------------------------------------
+-- |
+-- Module : Database.Bloodhound.Types
+-- Copyright : (C) 2014 Chris Allen
+-- License : BSD-style (see the file LICENSE)
+-- Maintainer : Chris Allen <cma@bitemyapp.com
+-- Stability : provisional
+-- Portability : DeriveGeneric, RecordWildCards
+--
+-- Data types for describing actions and data structures performed to interact
+-- with Elasticsearch. The two main buckets your queries against Elasticsearch
+-- will fall into are 'Query's and 'Filter's. 'Filter's are more like
+-- traditional database constraints and often have preferable performance
+-- properties. 'Query's support human-written textual queries, such as fuzzy
+-- queries.
+-------------------------------------------------------------------------------
+
 module Database.Bloodhound.Client
        ( createIndex
        , deleteIndex
@@ -41,15 +60,22 @@ import           Prelude                    hiding (filter, head)
 
 import           Database.Bloodhound.Types
 
--- find way to avoid destructuring Servers and Indexes?
--- make get, post, put, delete helpers.
--- make dispatch take URL last for better variance and
--- utilization of partial application
+-- $setup
+-- >>> :set -XOverloadedStrings
+-- >>> import Database.Bloodhound
+-- >>> import Test.DocTest.Prop (assert)
+-- >>> error "blah"
+-- no trailing slashes in servers, library handles building the path.
+-- >>> let testServer = (Server "http://localhost:9200")
+-- >>> let testIndex = IndexName "twitter"
+-- >>> let testMapping = MappingName "tweet"
+-- defaultIndexSettings is exported by Database.Bloodhound as well
+-- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 mkShardCount :: Int -> Maybe ShardCount
 mkShardCount n
   | n < 1 = Nothing
-  | n > 1000 = Nothing -- seriously, what the fuck?
+  | n > 1000 = Nothing
   | otherwise = Just (ShardCount n)
 
 mkReplicaCount :: Int -> Maybe ReplicaCount
@@ -96,6 +122,12 @@ getStatus (Server server) = do
   response <- withManager defaultManagerSettings $ httpLbs request
   return $ decode (responseBody response)
 
+-- | createIndex will create an index given a 'Server',
+-- 'IndexSettings', and an 'IndexName'
+
+-- >>> response <- createIndex testServer defaultIndexSettings testIndex
+-- >>> assert $ respIsTwoHunna response
+-- >>> assert False
 createIndex :: Server -> IndexSettings -> IndexName -> IO Reply
 createIndex (Server server) indexSettings (IndexName indexName) =
   put url body

@@ -1,13 +1,25 @@
 {-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-{-| Data types for describing actions and data structures performed to interact
-    with Elasticsearch. The two main buckets your queries against Elasticsearch
-    will fall into are 'Query's and 'Filter's. 'Filter's are more like
-    traditional database constraints and often have preferable performance
-    properties. 'Query's support human-written textual queries, such as fuzzy
-    queries.
--}
+-------------------------------------------------------------------------------
+-- |
+-- Module : Database.Bloodhound.Types
+-- Copyright : (C) 2014 Chris Allen
+-- License : BSD-style (see the file LICENSE)
+-- Maintainer : Chris Allen <cma@bitemyapp.com
+-- Stability : provisional
+-- Portability : DeriveGeneric, RecordWildCards
+--
+-- Data types for describing actions and data structures performed to interact
+-- with Elasticsearch. The two main buckets your queries against Elasticsearch
+-- will fall into are 'Query's and 'Filter's. 'Filter's are more like
+-- traditional database constraints and often have preferable performance
+-- properties. 'Query's support human-written textual queries, such as fuzzy
+-- queries.
+-------------------------------------------------------------------------------
+
+
 
 module Database.Bloodhound.Types
        ( defaultCache
@@ -197,6 +209,16 @@ import qualified Network.HTTP.Types.Method       as NHTM
 
 import           Database.Bloodhound.Types.Class
 
+-- $setup
+-- >>> :set -XOverloadedStrings
+-- >>> import Database.Bloodhound
+-- no trailing slashes in servers, library handles building the path.
+-- >>> let testServer = (Server "http://localhost:9200")
+-- >>> let testIndex = IndexName "twitter"
+-- >>> let testMapping = MappingName "tweet"
+
+-- defaultIndexSettings is exported by Database.Bloodhound as well
+-- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 {-| 'Version' is embedded in 'Status' -}
 data Version = Version { number          :: Text
@@ -1007,7 +1029,7 @@ data DistanceRange =
   DistanceRange { distanceFrom :: Distance
                 , distanceTo   :: Distance } deriving (Eq, Show)
 
-data (FromJSON a) => SearchResult a =
+data SearchResult a =
   SearchResult { took         :: Int
                , timedOut     :: Bool
                , shards       :: ShardResult
@@ -1016,12 +1038,12 @@ data (FromJSON a) => SearchResult a =
 
 type Score = Double
 
-data (FromJSON a) => SearchHits a =
+data SearchHits a =
   SearchHits { hitsTotal :: Int
              , maxScore  :: Score
              , hits      :: [Hit a] } deriving (Eq, Show)
 
-data (FromJSON a) => Hit a =
+data Hit a =
   Hit { hitIndex     :: IndexName
       , hitType      :: MappingName
       , hitDocId     :: DocId
@@ -1186,7 +1208,7 @@ class BucketAggregation a where
   aggs :: a -> Maybe AggregationResults
 
 
-data (FromJSON a, BucketAggregation a) => Bucket a = Bucket { buckets :: [a]} deriving (Show)
+data Bucket a = Bucket { buckets :: [a]} deriving (Show)
 
 data TermsResult = TermsResult { termKey       :: Text
                                , termsDocCount :: Int

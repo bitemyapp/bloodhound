@@ -499,9 +499,9 @@ main = hspec $ do
       _ <- insertData
       _ <- insertOther
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
-      let highlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
+      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 
-      let search = mkHighlightSearch (Just query) highlight
+      let search = mkHighlightSearch (Just query) testHighlight
       myHighlight <- searchTweetHighlight search
       myHighlight `shouldBe` Right (Just (M.fromList [("message",["Use <em>haskell</em>!"])]))
 
@@ -509,9 +509,9 @@ main = hspec $ do
       _ <- insertData
       _ <- insertOther
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
-      let highlight = Highlights Nothing [FieldHighlight (FieldName "user") Nothing]
+      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "user") Nothing]
 
-      let search = mkHighlightSearch (Just query) highlight
+      let search = mkHighlightSearch (Just query) testHighlight
       myHighlight <- searchTweetHighlight search
       myHighlight `shouldBe` Right Nothing
 
