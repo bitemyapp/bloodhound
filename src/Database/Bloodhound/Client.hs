@@ -11,13 +11,15 @@
 --
 -- Client side functions for talking to Elasticsearch servers.
 --
--- $setup
---
 -------------------------------------------------------------------------------
 
 module Database.Bloodhound.Client
-       ( 
-         -- module Database.Bloodhound.Client
+       ( -- * Bloodhound client functions
+         -- | The examples in this module assume the following code has been run.
+         --   The :{ and :} will only work in GHCi.
+
+         -- $setup
+
          createIndex
        , deleteIndex
        , indexExists
