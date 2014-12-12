@@ -66,6 +66,8 @@ test-suite doctests
                     doctest-prop,
                     filepath
   if impl(ghc >= 7.8)
-    build-depends: directory >= 1.1 && < 1.2.2
+    build-depends: directory >= 1.1 && < 1.2.2,
+                   process   >= 1.1 && < 1.3
   else:
-    build-depends: directory >= 1.1 && < 1.2.1
+    build-depends: directory >= 1.1 && < 1.2.1,
+                   process   >= 1.1 && < 1.2
