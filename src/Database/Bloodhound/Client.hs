@@ -16,7 +16,8 @@
 module Database.Bloodhound.Client
        ( -- * Bloodhound client functions
          -- | The examples in this module assume the following code has been run.
-         --   The :{ and :} will only work in GHCi.
+         --   The :{ and :} will only work in GHCi. You'll only need the data types
+         --   and typeclass instances for the functions that make use of them.
 
          -- $setup
 
@@ -64,6 +65,7 @@ import           Database.Bloodhound.Types
 
 -- $setup
 -- >>> :set -XOverloadedStrings
+-- >>> :set -XDeriveGeneric
 -- >>> import Database.Bloodhound
 -- >>> import Test.DocTest.Prop (assert)
 -- >>> let testServer = (Server "http://localhost:9200")
@@ -73,6 +75,9 @@ import           Database.Bloodhound.Types
 -- >>> data TweetMapping = TweetMapping deriving (Eq, Show)
 -- >>> _ <- deleteIndex testServer testIndex
 -- >>> _ <- deleteMapping testServer testIndex testMapping
+-- >>> import GHC.Generics
+-- >>> import           Data.Time.Calendar        (Day (..))
+-- >>> import Data.Time.Clock (UTCTime (..), secondsToDiffTime)
 -- >>> :{
 --instance ToJSON TweetMapping where
 --          toJSON TweetMapping =
@@ -80,8 +85,28 @@ import           Database.Bloodhound.Types
 --              object ["properties" .=
 --                object ["location" .=
 --                  object ["type" .= ("geo_point" :: Text)]]]]
+--data Location = Location { lat :: Double
+--                         , lon :: Double } deriving (Eq, Generic, Show)
+--data Tweet = Tweet { user     :: Text
+--                    , postDate :: UTCTime
+--                    , message  :: Text
+--                    , age      :: Int
+--                    , location :: Location } deriving (Eq, Generic, Show)
+--exampleTweet = Tweet { user     = "bitemyapp"
+--                      , postDate = UTCTime
+--                                   (ModifiedJulianDay 55000)
+--                                   (secondsToDiffTime 10)
+--                      , message  = "Use haskell!"
+--                      , age      = 10000
+--                      , location = Location 40.12 (-71.34) }
+--instance ToJSON   Tweet
+--instance FromJSON Tweet
+--instance ToJSON   Location
+--instance FromJSON Location
+--data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
+--instance FromJSON BulkTest
+--instance ToJSON BulkTest
 -- :}
-
 
 mkShardCount :: Int -> Maybe ShardCount
 mkShardCount n
@@ -160,8 +185,11 @@ deleteIndex :: Server -> IndexName -> IO Reply
 deleteIndex (Server server) (IndexName indexName) =
   delete $ joinPath [server, indexName]
 
+statusCodeIs :: Int -> Reply -> Bool
+statusCodeIs n resp = NHTS.statusCode (responseStatus resp) == n
+
 respIsTwoHunna :: Reply -> Bool
-respIsTwoHunna resp = NHTS.statusCode (responseStatus resp) == 200
+respIsTwoHunna = statusCodeIs 200
 
 existentialQuery :: String -> IO (Reply, Bool)
 existentialQuery url = do
@@ -177,10 +205,8 @@ indexExists (Server server) (IndexName indexName) = do
 -- | 'refreshIndex' will force a refresh on an index. You must
 -- do this if you want to read what you wrote.
 --
--- >>> response <- createIndex testServer defaultIndexSettings testIndex
--- >>> response <- refreshIndex testServer testIndex
--- >>> respIsTwoHunna response
--- True
+-- >>> _ <- createIndex testServer defaultIndexSettings testIndex
+-- >>> _ <- refreshIndex testServer testIndex
 refreshIndex :: Server -> IndexName -> IO Reply
 refreshIndex (Server server) (IndexName indexName) =
   post url Nothing
@@ -206,10 +232,10 @@ closeIndex = openOrCloseIndexes CloseIndex
 -- | 'putMapping' is an HTTP PUT and has upsert semantics. Mappings are schemas
 -- for documents in indexes.
 --
--- >>> response <- createIndex testServer defaultIndexSettings testIndex
+-- >>> _ <- createIndex testServer defaultIndexSettings testIndex
 -- >>> resp <- putMapping testServer testIndex testMapping TweetMapping
--- >>> respIsTwoHunna resp
--- True
+-- >>> print resp
+-- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 putMapping :: ToJSON a => Server -> IndexName
                  -> MappingName -> a -> IO Reply
 putMapping (Server server) (IndexName indexName) (MappingName mappingName) mapping =
@@ -220,18 +246,24 @@ putMapping (Server server) (IndexName indexName) (MappingName mappingName) mappi
 -- | 'deleteMapping' is an HTTP DELETE and deletes a mapping for a given index.
 -- Mappings are schemas for documents in indexes.
 --
--- >>> response <- createIndex testServer defaultIndexSettings testIndex
--- >>> resp <- putMapping testServer testIndex testMapping TweetMapping
--- >>> respIsTwoHunna resp
--- True
+-- >>> _ <- createIndex testServer defaultIndexSettings testIndex
+-- >>> _ <- putMapping testServer testIndex testMapping TweetMapping
 -- >>> resp <- deleteMapping testServer testIndex testMapping
--- >>> respIsTwoHunna resp
--- True
+-- >>> print resp
+-- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 deleteMapping :: Server -> IndexName -> MappingName -> IO Reply
 deleteMapping (Server server) (IndexName indexName)
   (MappingName mappingName) =
   delete $ joinPath [server, indexName, mappingName, "_mapping"]
 
+-- | 'indexDocument' is the primary way to save a single document in
+--   Elasticsearch. The document itself is simply something we can
+--   convert into a JSON 'Value'. The 'DocId' will function as the
+--   primary key for the document.
+--
+-- >>> resp <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
+-- >>> print resp
+-- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 indexDocument :: ToJSON doc => Server -> IndexName -> MappingName
                  -> doc -> DocId -> IO Reply
 indexDocument (Server server) (IndexName indexName)
@@ -240,17 +272,36 @@ indexDocument (Server server) (IndexName indexName)
   where url = joinPath [server, indexName, mappingName, docId]
         body = Just (encode document)
 
+-- | 'deleteDocument' is the primary way to delete a single document.
+--
+-- >>> _ <- deleteDocument testServer testIndex testMapping (DocId "1")
 deleteDocument :: Server -> IndexName -> MappingName
                   -> DocId -> IO Reply
 deleteDocument (Server server) (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
   delete $ joinPath [server, indexName, mappingName, docId]
 
+-- | 'bulk' uses Elasticsearch's bulk API at
+--    http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html
+--    to perform bulk operations. The 'BulkOperation' data type encodes the
+--    index/update/delete/create operations. You pass a 'V.Vector' of 'BulkOperation's
+--    and a 'Server' to 'bulk' in order to send those operations up to your Elasticsearch
+--    server to be performed. I changed from [BulkOperation] to a Vector due to memory overhead.
+--
+-- >>> let stream = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))]
+-- >>> _ <- bulk testServer stream
+-- >>> _ <- refreshIndex testServer testIndex
 bulk :: Server -> V.Vector BulkOperation -> IO Reply
 bulk (Server server) bulkOps = post url body where
   url = joinPath [server, "_bulk"]
   body = Just $ encodeBulkOperations bulkOps
 
+-- | 'encodeBulkOperations' is a convenience function for dumping a vector of 'BulkOperation'
+--   into an 'L.ByteString'
+--
+-- >>> let bulkOps = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))]
+-- >>> encodeBulkOperations bulkOps
+-- "\n{\"index\":{\"_type\":\"tweet\",\"_id\":\"2\",\"_index\":\"twitter\"}}\n{\"name\":\"blah\"}\n"
 encodeBulkOperations :: V.Vector BulkOperation -> L.ByteString
 encodeBulkOperations stream = collapsed where
   blobs = fmap encodeBulkOperation stream
@@ -267,6 +318,12 @@ mkBulkStreamValue operation indexName mappingName docId =
                  , "_type"  .= mappingName
                  , "_id"    .= docId]]
 
+-- | 'encodeBulkOperation' is a convenience function for dumping a single 'BulkOperation'
+--   into an 'L.ByteString'
+--
+-- >>> let bulkOp = BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))
+-- >>> encodeBulkOperation bulkOp
+-- "{\"index\":{\"_type\":\"tweet\",\"_id\":\"2\",\"_index\":\"twitter\"}}\n{\"name\":\"blah\"}"
 encodeBulkOperation :: BulkOperation -> L.ByteString
 encodeBulkOperation (BulkIndex (IndexName indexName)
                 (MappingName mappingName)
