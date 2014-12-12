@@ -50,7 +50,7 @@ module Database.Bloodhound.Client
        where
 
 import           Data.Aeson
-import           Data.ByteString.Builder
+import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8 as L
 import           Data.List                  (intercalate)
 import           Data.Maybe                 (fromMaybe)
@@ -309,7 +309,7 @@ encodeBulkOperations stream = collapsed where
   collapsed = toLazyByteString $ mappend mashedTaters (byteString "\n")
 
 mash :: Builder -> V.Vector L.ByteString -> Builder
-mash = V.foldl' (\b x -> b `mappend` "\n" `mappend` (lazyByteString x))
+mash = V.foldl' (\b x -> b `mappend` (byteString "\n") `mappend` (lazyByteString x))
 
 mkBulkStreamValue :: Text -> String -> String -> String -> Value
 mkBulkStreamValue operation indexName mappingName docId =

@@ -24,7 +24,7 @@ library
                        Database.Bloodhound.Types.Class
   hs-source-dirs:      src
   build-depends:       base             >= 4.3     && <5,
-                       bytestring       >= 0.10.2  && <0.11,
+                       bytestring       >= 0.10.0  && <0.11,
                        containers       >= 0.5.0.0 && <0.6,
                        aeson            >= 0.7     && <0.9,
                        conduit          >= 1.0     && <1.3,
@@ -37,7 +37,7 @@ library
   default-language:    Haskell2010
 
 test-suite tests
-  ghc-options: -Wall
+  ghc-options: -Wall -fno-warn-orphans
   type: exitcode-stdio-1.0
   main-is: tests.hs
   hs-source-dirs: tests
@@ -62,12 +62,7 @@ test-suite doctests
   main-is:          doctests.hs
   hs-source-dirs:   tests
   build-depends:    base,
+                    directory,
                     doctest,
                     doctest-prop,
                     filepath
-  if impl(ghc >= 7.8)
-    build-depends: directory >= 1.1 && < 1.2.2,
-                   process   >= 1.1 && < 1.3
-  else:
-    build-depends: directory >= 1.1 && < 1.2.0,
-                   process   >= 1.1 && < 1.2
