@@ -33,7 +33,7 @@ library
                        time             >= 1.4     && <1.6,
                        text             >= 0.11    && <1.3,
                        http-types       >= 0.8     && <0.9,
-                       vector           >= 0.10.9 && <0.11
+                       vector           >= 0.10.9  && <0.11
   default-language:    Haskell2010
 
 test-suite tests
@@ -64,5 +64,8 @@ test-suite doctests
   build-depends:    base,
                     doctest,
                     doctest-prop,
-                    directory >= 1.1 && < 1.2.2,
                     filepath
+  if impl(ghc >= 7.8)
+    build-depends: directory >= 1.1 && < 1.2.2
+  else:
+    build-depends: directory >= 1.1 && < 1.2.1
