@@ -64,5 +64,5 @@ test-suite doctests
   build-depends:    base,
                     doctest,
                     doctest-prop,
-                    directory >= 1.1 && < 1.2.2
+                    directory >= 1.1 && < 1.2.2,
                     filepath
