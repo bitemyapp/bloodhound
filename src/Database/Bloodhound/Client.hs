@@ -350,7 +350,11 @@ encodeBulkOperation (BulkUpdate (IndexName indexName)
           doc = object ["doc" .= value]
           blob = encode metadata `mappend` "\n" `mappend` encode doc
 
-
+-- | 'getDocument' is a straight-forward way to fetch a single document from
+--   Elasticsearch using a 'Server', 'IndexName', 'MappingName', and a 'DocId'.
+--   The 'DocId' is the primary key for your Elasticsearch document.
+--
+-- >>> yourDoc <- getDocument testServer testIndex testMapping (DocId "1")
 getDocument :: Server -> IndexName -> MappingName
                -> DocId -> IO Reply
 getDocument (Server server) (IndexName indexName)
