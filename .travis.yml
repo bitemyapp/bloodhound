@@ -31,6 +31,8 @@ before_install:
 
 install:
  - cabal-1.20 update
+ - cabal-1.20 sandbox delete || true
+ - cabal-1.20 sandbox init
  - cabal-1.20 install --only-dependencies --enable-tests --enable-benchmarks --force-reinstalls
 
 # Here starts the actual work to be performed for the package under
