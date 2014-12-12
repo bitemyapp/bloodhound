@@ -31,17 +31,17 @@ before_install:
 
 install:
  - cabal-1.20 update
- - cabal-1.20 install --only-dependencies --enable-tests --enable-benchmarks --force-reinstalls
+ - cabal-1.20 install --only-dependencies --enable-tests --force-reinstalls
 
 # Here starts the actual work to be performed for the package under
 # test; any command which exits with a non-zero exit code causes the
 # build to fail.
 script:
  # -v2 provides useful information for debugging
- - cabal-1.20 configure --enable-tests --enable-benchmarks -v2
+ - cabal-1.20 configure --enable-tests -v2
 
  # this builds all libraries and executables
- # (including tests/benchmarks)
+ # (including tests)
  - cabal-1.20 build
 
  - cabal-1.20 test
