@@ -108,12 +108,22 @@ import           Database.Bloodhound.Types
 --instance ToJSON BulkTest
 -- :}
 
+-- | 'mkShardCount' is a straight-forward smart constructor for 'ShardCount'
+--   which rejects 'Int' values below 1 and above 1000.
+--
+-- >>> mkShardCount 10
+-- Just (ShardCount 10)
 mkShardCount :: Int -> Maybe ShardCount
 mkShardCount n
   | n < 1 = Nothing
   | n > 1000 = Nothing
   | otherwise = Just (ShardCount n)
 
+-- | 'mkReplicaCount' is a straight-forward smart constructor for 'ReplicaCount'
+--   which rejects 'Int' values below 1 and above 1000.
+--
+-- >>> mkReplicaCount 10
+-- Just (ReplicaCount 10)
 mkReplicaCount :: Int -> Maybe ReplicaCount
 mkReplicaCount n
   | n < 1 = Nothing
@@ -152,14 +162,17 @@ post   = dispatch NHTM.methodPost
 -- http://hackage.haskell.org/package/http-client-lens-0.1.0/docs/Network-HTTP-Client-Lens.html
 -- https://github.com/supki/libjenkins/blob/master/src/Jenkins/Rest/Internal.hs
 
+-- | 'getStatus' fetches the 'Status' of a 'Server'
+--
+-- >>> getStatus testServer
+-- Just (Status {ok = Nothing, status = 200, name = "Arena", version = Version {number = "1.4.1", build_hash = "89d3241d670db65f994242c8e8383b169779e2d4", build_timestamp = 2014-11-26 15:49:29 UTC, build_snapshot = False, lucene_version = "4.10.2"}, tagline = "You Know, for Search"})
 getStatus :: Server -> IO (Maybe Status)
 getStatus (Server server) = do
   request <- parseUrl $ joinPath [server]
   response <- withManager defaultManagerSettings $ httpLbs request
   return $ decode (responseBody response)
 
--- | createIndex will create an index given a 'Server',
--- 'IndexSettings', and an 'IndexName'
+-- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
 --
 -- >>> response <- createIndex testServer defaultIndexSettings (IndexName "didimakeanindex")
 -- >>> respIsTwoHunna response
@@ -172,8 +185,7 @@ createIndex (Server server) indexSettings (IndexName indexName) =
   where url = joinPath [server, indexName]
         body = Just $ encode indexSettings
 
--- | deleteIndex will delete an index given a 'Server',
--- and an 'IndexName'
+-- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
 --
 -- >>> response <- createIndex testServer defaultIndexSettings (IndexName "didimakeanindex")
 -- >>> response <- deleteIndex testServer (IndexName "didimakeanindex")
@@ -196,6 +208,10 @@ existentialQuery url = do
   reply <- head url
   return (reply, respIsTwoHunna reply)
 
+-- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
+--   in IO
+--
+-- >>> exists <- indexExists testServer testIndex
 indexExists :: Server -> IndexName -> IO Bool
 indexExists (Server server) (IndexName indexName) = do
   (_, exists) <- existentialQuery url
@@ -223,9 +239,17 @@ openOrCloseIndexes oci (Server server) (IndexName indexName) =
   where ociString = stringifyOCIndex oci
         url = joinPath [server, indexName, ociString]
 
+-- | 'openIndex' opens an index given a 'Server' and an 'IndexName'. Explained in further detail at 
+--   http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html
+--
+-- >>> reply <- openIndex testServer testIndex
 openIndex :: Server -> IndexName -> IO Reply
 openIndex = openOrCloseIndexes OpenIndex
 
+-- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at 
+--   http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html
+--
+-- >>> reply <- closeIndex testServer testIndex
 closeIndex :: Server -> IndexName -> IO Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
@@ -361,6 +385,10 @@ getDocument (Server server) (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
   get $ joinPath [server, indexName, mappingName, docId]
 
+-- | 'documentExists' enables you to check if a document exists. Returns 'Bool'
+--   in IO
+--
+-- >>> exists <- documentExists testServer testIndex testMapping (DocId "1")
 documentExists :: Server -> IndexName -> MappingName
                   -> DocId -> IO Bool
 documentExists (Server server) (IndexName indexName)
@@ -372,27 +400,75 @@ documentExists (Server server) (IndexName indexName)
 dispatchSearch :: String -> Search -> IO Reply
 dispatchSearch url search = post url (Just (encode search))
 
+-- | 'searchAll', given a 'Search', will perform that search against all indexes
+--   on an Elasticsearch server. Try to avoid doing this if it can be helped.
+--
+-- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
+-- >>> let search = mkSearch (Just query) Nothing
+-- >>> reply <- searchAll testServer search
 searchAll :: Server -> Search -> IO Reply
 searchAll (Server server) = dispatchSearch url where
   url = joinPath [server, "_search"]
 
+-- | 'searchByIndex', given a 'Search' and an 'IndexName', will perform that search
+--   against all mappings within an index on an Elasticsearch server.
+--
+-- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
+-- >>> let search = mkSearch (Just query) Nothing
+-- >>> reply <- searchByIndex testServer testIndex search
 searchByIndex :: Server -> IndexName -> Search -> IO Reply
 searchByIndex (Server server) (IndexName indexName) = dispatchSearch url where
   url = joinPath [server, indexName, "_search"]
 
+-- | 'searchByType', given a 'Search', 'IndexName', and 'MappingName', will perform that
+--   search against a specific mapping within an index on an Elasticsearch server.
+--
+-- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
+-- >>> let search = mkSearch (Just query) Nothing
+-- >>> reply <- searchByType testServer testIndex testMapping search
 searchByType :: Server -> IndexName -> MappingName -> Search -> IO Reply
 searchByType (Server server) (IndexName indexName)
   (MappingName mappingName) = dispatchSearch url where
   url = joinPath [server, indexName, mappingName, "_search"]
 
+-- | 'mkSearch' is a helper function for defaulting additional fields of a 'Search'
+--   to Nothing in case you only care about your 'Query' and 'Filter'. Use record update
+--   syntax if you want to add things like aggregations or highlights while still using
+--   this helper function.
+--
+-- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
+-- >>> mkSearch (Just query) Nothing
+-- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = 0, size = 10}
 mkSearch :: Maybe Query -> Maybe Filter -> Search
 mkSearch query filter = Search query filter Nothing Nothing Nothing False 0 10
 
+-- | 'mkAggregateSearch' is a helper function that defaults everything in a 'Search' except for
+--   the 'Query' and the 'Aggregation'.
+--
+-- >>> let terms = TermsAgg $ (mkTermsAggregation "user") { termCollectMode = Just BreadthFirst }
+-- >>> terms
+-- TermsAgg (TermsAggregation {term = Left "user", termInclude = Nothing, termExclude = Nothing, termOrder = Nothing, termMinDocCount = Nothing, termSize = Nothing, termShardSize = Nothing, termCollectMode = Just BreadthFirst, termExecutionHint = Nothing, termAggs = Nothing})
+-- >>> let myAggregation = mkAggregateSearch Nothing $ mkAggregations "users" terms
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
 mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False 0 0
 
+-- | 'mkHighlightSearch' is a helper function that defaults everything in a 'Search' except for
+--   the 'Query' and the 'Aggregation'.
+--
+-- >>> let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+-- >>> let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
+-- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
 mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False 0 10
 
+-- | 'pageSearch' is a helper function that takes a search and assigns the page from and to
+--   fields for the search.
+--
+-- >>> let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+-- >>> let search = mkSearch (Just query) Nothing
+-- >>> search
+-- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = 0, size = 10}
+-- >>> pageSearch 10 100 search
+-- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = 10, size = 100}
 pageSearch :: Int -> Int -> Search -> Search
 pageSearch pageFrom pageSize search = search { from = pageFrom, size = pageSize }

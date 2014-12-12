@@ -1,9 +1,21 @@
+0.5.0.0
+===================
+
+* Fixed and changed TermsQuery (This caused the major bump)
+
+* Removed benchmarks from travis.yml
+
+* Added doctests, examples for Database.Bloodhound.Client. Haddocks should be much nicer.
+
+* Various fixes, reformatting
+
 0.4.0.0
 ===================
 
 * Term and date aggregation - thanks to Christopher Guiney! (@chrisguiney)
 
 Following three thanks to Liam Atkins (@latkins)
+
 * omitNulls changed to exclude empty lists and null values
 
 * BoolQuery must/mustNot/Should changed from Maybe (Query|[Query]) to [Query] thanks to @latkins

@@ -7,9 +7,10 @@ module Main where
 import           Control.Applicative
 import           Control.Monad
 import           Data.Aeson
-import           Data.HashMap.Strict       (fromList)
+import qualified  Data.HashMap.Strict      as HM
 import           Data.List                 (nub)
 import           Data.List.NonEmpty        (NonEmpty (..))
+import qualified Data.List.NonEmpty        as NE
 import qualified Data.Map.Strict           as M
 import           Data.Text                 (Text)
 import qualified Data.Text                 as T
@@ -264,6 +265,14 @@ main = hspec $ do
     it "returns document for term query and identity filter" $ do
       _ <- insertData
       let query = TermQuery (Term "user" "bitemyapp") Nothing
+      let filter = IdentityFilter <&&> IdentityFilter
+      let search = mkSearch (Just query) (Just filter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for terms query and identity filter" $ do
+      _ <- insertData
+      let query = TermsQuery (NE.fromList [(Term "user" "bitemyapp")])
       let filter = IdentityFilter <&&> IdentityFilter
       let search = mkSearch (Just query) (Just filter)
       myTweet <- searchTweet search
@@ -542,19 +551,19 @@ main = hspec $ do
     it "checks that omitNulls drops list elements when it should" $
        let dropped = omitNulls $ [ "test1" .= (toJSON ([] :: [Int]))
                                  , "test2" .= (toJSON ("some value" :: Text))]
-       in dropped `shouldBe` Object (fromList [("test2", String "some value")])
+       in dropped `shouldBe` Object (HM.fromList [("test2", String "some value")])
 
     it "checks that omitNulls doesn't drop list elements when it shouldn't" $
        let notDropped = omitNulls $ [ "test1" .= (toJSON ([1] :: [Int]))
                                     , "test2" .= (toJSON ("some value" :: Text))]
-       in notDropped `shouldBe` Object (fromList [ ("test1", Array (V.fromList [Number 1.0]))
+       in notDropped `shouldBe` Object (HM.fromList [ ("test1", Array (V.fromList [Number 1.0]))
                                                  , ("test2", String "some value")])
     it "checks that omitNulls drops non list elements when it should" $
        let dropped = omitNulls $ [ "test1" .= (toJSON Null)
                                  , "test2" .= (toJSON ("some value" :: Text))]
-       in dropped `shouldBe` Object (fromList [("test2", String "some value")])
+       in dropped `shouldBe` Object (HM.fromList [("test2", String "some value")])
     it "checks that omitNulls doesn't drop non list elements when it shouldn't" $
        let notDropped = omitNulls $ [ "test1" .= (toJSON (1 :: Int))
                                     , "test2" .= (toJSON ("some value" :: Text))]
-       in notDropped `shouldBe` Object (fromList [ ("test1", Number 1.0)
+       in notDropped `shouldBe` Object (HM.fromList [ ("test1", Number 1.0)
                                                  , ("test2", String "some value")])

@@ -196,7 +196,7 @@ import           Data.Aeson
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import           Data.List                       (nub)
-import           Data.List.NonEmpty              (NonEmpty (..))
+import           Data.List.NonEmpty              (NonEmpty(..), toList)
 import qualified Data.Map.Strict                 as M
 import           Data.Monoid
 import           Data.Text                       (Text)
@@ -598,7 +598,7 @@ data HighlightTag = TagSchema Text
 
 data Query =
   TermQuery                     Term (Maybe Boost)
-  | TermsQuery                  [Term] MinimumMatch
+  | TermsQuery                  (NonEmpty Term)
   | QueryMatchQuery             MatchQuery
   | QueryMultiMatchQuery        MultiMatchQuery
   | QueryBoolQuery              BoolQuery
@@ -1380,12 +1380,12 @@ instance ToJSON Query where
       boosted = maybe [] (return . ("boost" .=)) boost
       merged = mappend base boosted
 
-  toJSON (TermsQuery terms termsQueryMinimumMatch) =
+  toJSON (TermsQuery terms) =
     object [ "terms" .= object conjoined ]
-    where conjoined =
-            [ "tags"                 .= fmap toJSON terms
-            , "minimum_should_match" .= toJSON termsQueryMinimumMatch ]
-
+    where conjoined = [ getTermsField terms .=
+                        fmap (toJSON . getTermValue) (toList terms)]
+          getTermsField ((Term f _ ) :| _) = f
+          getTermValue (Term _ v) = v
   toJSON (IdsQuery idsQueryMappingName docIds) =
     object [ "ids" .= object conjoined ]
     where conjoined = [ "type"   .= toJSON idsQueryMappingName
