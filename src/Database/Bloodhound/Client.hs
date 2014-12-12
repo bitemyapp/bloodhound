@@ -164,8 +164,9 @@ post   = dispatch NHTM.methodPost
 
 -- | 'getStatus' fetches the 'Status' of a 'Server'
 --
--- >>> getStatus testServer
--- Just (Status {ok = Nothing, status = 200, name = "Arena", version = Version {number = "1.4.1", build_hash = "89d3241d670db65f994242c8e8383b169779e2d4", build_timestamp = 2014-11-26 15:49:29 UTC, build_snapshot = False, lucene_version = "4.10.2"}, tagline = "You Know, for Search"})
+-- >>> serverStatus <- getStatus testServer
+-- >>> fmap status (serverStatus)
+-- Just 200
 getStatus :: Server -> IO (Maybe Status)
 getStatus (Server server) = do
   request <- parseUrl $ joinPath [server]
