@@ -462,8 +462,10 @@ mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSear
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
 mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False 0 10
 
--- | 'pageSearch' is a helper function that takes a search and assigns the page from and to
---   fields for the search.
+-- | 'pageSearch' is a helper function that takes a search and assigns the from
+--    and size fields for the search. The from parameter defines the offset
+--    from the first result you want to fetch. The size parameter allows you to
+--    configure the maximum amount of hits to be returned.
 --
 -- >>> let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
 -- >>> let search = mkSearch (Just query) Nothing
@@ -471,5 +473,8 @@ mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing 
 -- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = 0, size = 10}
 -- >>> pageSearch 10 100 search
 -- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = 10, size = 100}
-pageSearch :: Int -> Int -> Search -> Search
-pageSearch pageFrom pageSize search = search { from = pageFrom, size = pageSize }
+pageSearch :: Int     -- ^ The result offset
+           -> Int     -- ^ The number of results to return
+           -> Search  -- ^ The current seach
+           -> Search  -- ^ The paged search
+pageSearch resultOffset pageSize search = search { from = resultOffset, size = pageSize }
