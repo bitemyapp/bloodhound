@@ -444,7 +444,7 @@ main = hspec $ do
     it "returns document for range double filter" $ do
       _ <- insertData
       let filter = RangeFilterDouble (FieldName "age")
-                   (RangeDoubleGtLt 100000.0 1000.0)
+                   (RangeDoubleGtLt 1000.0 100000.0)
                    RangeExecutionIndex False
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search

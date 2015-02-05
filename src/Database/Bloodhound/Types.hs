@@ -1407,10 +1407,10 @@ instance ToJSON Filter where
       rangeObject (RangeDoubleGte t)      = ["gte" .= t]
       rangeObject (RangeDoubleLt t)       = ["lt"  .= t]
       rangeObject (RangeDoubleGt t)       = ["gt"  .= t]
-      rangeObject (RangeDoubleGteLte l g) = ["lte" .= l, "gte" .= g]
-      rangeObject (RangeDoubleGtLte l g)  = ["lt"  .= l, "gte" .= g]
-      rangeObject (RangeDoubleGteLt l g)  = ["lte" .= l, "gt"  .= g]
-      rangeObject (RangeDoubleGtLt l g)   = ["lt"  .= l, "gt"  .= g]
+      rangeObject (RangeDoubleGteLte l g) = ["gte" .= l, "lte" .= g]
+      rangeObject (RangeDoubleGtLte l g)  = ["gt"  .= l, "lte" .= g]
+      rangeObject (RangeDoubleGteLt l g)  = ["gte" .= l, "lt"  .= g]
+      rangeObject (RangeDoubleGtLt l g)   = ["gt"  .= l, "lt"  .= g]
 
   toJSON (RegexpFilter (FieldName fieldName)
           (Regexp regexText) flags (CacheName cacheName) cache (CacheKey cacheKey)) =
