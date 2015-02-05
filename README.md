@@ -316,7 +316,7 @@ let sndOp   = BulkIndex testIndex
 -- Some explanation, the final "Value" type that BulkIndex,
 -- BulkCreate, and BulkUpdate accept is the actual document
 -- data that your operation applies to. BulkDelete doesn't
--- take a value because it's just deleting whatever DocId 
+-- take a value because it's just deleting whatever DocId
 -- you pass.
 
 -- list of bulk operations
@@ -656,6 +656,28 @@ let filter = RangeFilter (FieldName "age")
 
 ```
 
+##### Typed Ranges
+
+These look slightly different:
+
+``` {.haskell}
+
+-- RangeFilterText   :: FieldName
+--                      -> RangeText
+--                      -> RangeExecution
+--                      -> Cache
+
+-- RangeFilterDouble :: FieldName
+--                      -> RangeDouble
+--                      -> RangeExecution
+--                      -> Cache
+
+let filter = RangeFilterDouble (FieldName "age")
+             (RangeDoubleGtLt 1000.0 100000.0)
+             RangeExecutionIndex False
+
+```
+
 #### Regexp Filter
 
 ``` {.haskell}
@@ -923,4 +945,3 @@ Photo Origin
 ============
 
 Photo from HA! Designs: <https://www.flickr.com/photos/hadesigns/>
-
