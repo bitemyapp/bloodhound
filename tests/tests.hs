@@ -441,6 +441,15 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for range double filter" $ do
+      _ <- insertData
+      let filter = RangeFilterDouble (FieldName "age")
+                   (RangeDoubleGtLt 100000.0 1000.0)
+                   RangeExecutionIndex False
+      let search = mkSearch Nothing (Just filter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
     it "returns document for regexp filter" $ do
       _ <- insertData
       let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
