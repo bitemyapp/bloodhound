@@ -35,6 +35,11 @@ Hackage page and Haddock documentation
 
 <http://hackage.haskell.org/package/bloodhound>
 
+Elasticsearch Tutorial
+======================
+
+It's not using Bloodhound, but if you need an introduction to or overview of Elasticsearch and how to use it, you can use [this screencast](http://vimeo.com/106463167).
+
 Examples
 ========
 
