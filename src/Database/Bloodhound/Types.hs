@@ -167,6 +167,7 @@ module Database.Bloodhound.Types
        , CollectionMode(..)
        , TermOrder(..)
        , TermInclusion(..)
+
        , Aggregation(..)
        , Aggregations
        , AggregationResults
