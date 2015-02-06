@@ -266,7 +266,7 @@ let maybeResult = decode body :: Maybe (EsResult Tweet)
 
 -- use either if you want to know why something failed to parse.
 -- (string errors, sadly)
-let eitherResult = decode body :: Either String (EsResult Tweet)
+let eitherResult = eitherDecode body :: Either String (EsResult Tweet)
 
 -- print eitherResult should look like:
 Right (EsResult {_index = "twitter"
@@ -283,7 +283,7 @@ Right (EsResult {_index = "twitter"
 -- _source in EsResult is parametric, we dispatch the type by passing in what we expect (Tweet) as a parameter to EsResult.
 
 -- use the _source record accessor to get at your document
-λ> fmap _source result
+fmap _source eitherResult
 Right (Tweet {user = "bitemyapp"
             , postDate = 2009-06-18 00:00:10 UTC
             , message = "Use haskell!"
