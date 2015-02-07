@@ -443,7 +443,7 @@ main = hspec $ do
 
     it "returns document for range date filter" $ do
       _ <- insertData
-      let filter = RangeFilter (FieldName "age")
+      let filter = RangeFilter (FieldName "postDate")
                    (RangeDateGteLte
                     (UTCTime
                      (ModifiedJulianDay 55000)
