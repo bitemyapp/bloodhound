@@ -72,6 +72,14 @@ module Database.Bloodhound.Types
        , Regexp(..)
        , RegexpFlags(..)
        , RegexpFlag(..)
+       , LessThan(..)
+       , LessThanEq(..)
+       , GreaterThan(..)
+       , GreaterThanEq(..)
+       , LessThanD(..)
+       , LessThanEqD(..)
+       , GreaterThanD(..)
+       , GreaterThanEqD(..)
        , FieldName(..)
        , IndexName(..)
        , MappingName(..)
@@ -938,42 +946,52 @@ data RegexpFlag = AnyString
                 | Intersection
                 | Interval deriving (Eq, Show)
 
-data RangeValue = RangeDateLte UTCTime
-                | RangeDateLt UTCTime
-                | RangeDateGte UTCTime
-                | RangeDateGt UTCTime
-                | RangeDateGtLt UTCTime UTCTime
-                | RangeDateGteLte UTCTime UTCTime
-                | RangeDateGteLt UTCTime UTCTime
-                | RangeDateGtLte UTCTime UTCTime
-                | RangeDoubleLte Double
-                | RangeDoubleLt Double
-                | RangeDoubleGte Double
-                | RangeDoubleGt Double
-                | RangeDoubleGtLt Double Double
-                | RangeDoubleGteLte Double Double
-                | RangeDoubleGteLt Double Double
-                | RangeDoubleGtLte Double Double
+newtype LessThan = LessThan Double deriving (Eq, Show)
+newtype LessThanEq = LessThanEq Double deriving (Eq, Show)
+newtype GreaterThan = GreaterThan Double deriving (Eq, Show)
+newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Show)
+
+newtype LessThanD = LessThanD UTCTime deriving (Eq, Show)
+newtype LessThanEqD = LessThanEqD UTCTime deriving (Eq, Show)
+newtype GreaterThanD = GreaterThanD UTCTime deriving (Eq, Show)
+newtype GreaterThanEqD = GreaterThanEqD UTCTime deriving (Eq, Show)
+
+data RangeValue = RangeDateLte LessThanEqD
+                | RangeDateLt LessThanD
+                | RangeDateGte GreaterThanEqD
+                | RangeDateGt GreaterThanD
+                | RangeDateGtLt GreaterThanD LessThanD
+                | RangeDateGteLte GreaterThanEqD LessThanEqD
+                | RangeDateGteLt GreaterThanEqD LessThanD
+                | RangeDateGtLte GreaterThanD LessThanEqD
+                | RangeDoubleLte LessThanEq
+                | RangeDoubleLt LessThan
+                | RangeDoubleGte GreaterThanEq
+                | RangeDoubleGt GreaterThan
+                | RangeDoubleGtLt GreaterThan LessThan
+                | RangeDoubleGteLte GreaterThanEq LessThanEq
+                | RangeDoubleGteLt GreaterThanEq LessThan
+                | RangeDoubleGtLte GreaterThan LessThanEq
                 deriving (Eq, Show)
 
 rangeValueToPair :: RangeValue -> [Pair]
 rangeValueToPair rv = case rv of
-  RangeDateLte t        -> ["lte" .= t]
-  RangeDateGte t        -> ["gte" .= t]
-  RangeDateLt t         -> ["lt"  .= t]
-  RangeDateGt t         -> ["gt"  .= t]
-  RangeDateGteLte l g   -> ["gte" .= l, "lte" .= g]
-  RangeDateGtLte l g    -> ["gt"  .= l, "lte" .= g]
-  RangeDateGteLt l g    -> ["gte" .= l, "lt"  .= g]
-  RangeDateGtLt l g     -> ["gt"  .= l, "lt"  .= g]
-  RangeDoubleLte t      -> ["lte" .= t]
-  RangeDoubleGte t      -> ["gte" .= t]
-  RangeDoubleLt t       -> ["lt"  .= t]
-  RangeDoubleGt t       -> ["gt"  .= t]
-  RangeDoubleGteLte l g -> ["gte" .= l, "lte" .= g]
-  RangeDoubleGtLte l g  -> ["gt"  .= l, "lte" .= g]
-  RangeDoubleGteLt l g  -> ["gte" .= l, "lt"  .= g]
-  RangeDoubleGtLt l g   -> ["gt"  .= l, "lt"  .= g]
+  RangeDateLte (LessThanEqD t)                       -> ["lte" .= t]
+  RangeDateGte (GreaterThanEqD t)                    -> ["gte" .= t]
+  RangeDateLt (LessThanD t)                          -> ["lt"  .= t]
+  RangeDateGt (GreaterThanD t)                       -> ["gt"  .= t]
+  RangeDateGteLte (GreaterThanEqD l) (LessThanEqD g) -> ["gte" .= l, "lte" .= g]
+  RangeDateGtLte (GreaterThanD l) (LessThanEqD g)    -> ["gt"  .= l, "lte" .= g]
+  RangeDateGteLt (GreaterThanEqD l) (LessThanD g)    -> ["gte" .= l, "lt"  .= g]
+  RangeDateGtLt (GreaterThanD l) (LessThanD g)       -> ["gt"  .= l, "lt"  .= g]
+  RangeDoubleLte (LessThanEq t)                      -> ["lte" .= t]
+  RangeDoubleGte (GreaterThanEq t)                   -> ["gte" .= t]
+  RangeDoubleLt (LessThan t)                         -> ["lt"  .= t]
+  RangeDoubleGt (GreaterThan t)                      -> ["gt"  .= t]
+  RangeDoubleGteLte (GreaterThanEq l) (LessThanEq g) -> ["gte" .= l, "lte" .= g]
+  RangeDoubleGtLte (GreaterThan l) (LessThanEq g)    -> ["gt"  .= l, "lte" .= g]
+  RangeDoubleGteLt (GreaterThanEq l) (LessThan g)    -> ["gte" .= l, "lt"  .= g]
+  RangeDoubleGtLt (GreaterThan l) (LessThan g)       -> ["gt"  .= l, "lt"  .= g]
 
 data Term = Term { termField :: Text
                  , termValue :: Text } deriving (Eq, Show)

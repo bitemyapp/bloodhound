@@ -435,7 +435,7 @@ main = hspec $ do
     it "returns document for Double range filter" $ do
       _ <- insertData
       let filter = RangeFilter (FieldName "age")
-                   (RangeDoubleGtLt 1000.0 100000.0)
+                   (RangeDoubleGtLt (GreaterThan 1000.0) (LessThan 100000.0))
                    RangeExecutionIndex False
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
@@ -445,12 +445,12 @@ main = hspec $ do
       _ <- insertData
       let filter = RangeFilter (FieldName "postDate")
                    (RangeDateGtLt
-                    (UTCTime
-                     (ModifiedJulianDay 55000)
-                     (secondsToDiffTime 9))
-                    (UTCTime
-                     (ModifiedJulianDay 55000)
-                     (secondsToDiffTime 11)))
+                    (GreaterThanD (UTCTime
+                                (ModifiedJulianDay 55000)
+                                (secondsToDiffTime 9)))
+                    (LessThanD (UTCTime
+                                (ModifiedJulianDay 55000)
+                                (secondsToDiffTime 11))))
                    RangeExecutionIndex False
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
