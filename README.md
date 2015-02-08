@@ -631,51 +631,44 @@ IdsFilter (MappingName "tweet") [DocId "1"]
 
 #### Range Filter
 
-##### Full Range
-
 ``` {.haskell}
 
 -- RangeFilter :: FieldName
---                -> Either HalfRange Range
+--                -> RangeValue
 --                -> RangeExecution
 --                -> Cache -> Filter
 
 let filter = RangeFilter (FieldName "age")
-             (Right (RangeLtGt (LessThan 100000.0) (GreaterThan 1000.0)))
+             (RangeGtLt (GreaterThan 1000.0) (LessThan 100000.0))
              RangeExecutionIndex False
 
 ```
-
-##### Half Range
 
 ``` {.haskell}
 
 let filter = RangeFilter (FieldName "age")
-             (Left (HalfRangeLt (LessThan 100000.0)))
+             (RangeLte (LessThanEq 100000.0))
              RangeExecutionIndex False
 
 ```
 
-##### Typed Ranges
+##### Date Ranges
 
-These look slightly different:
+Date ranges are expressed in UTCTime. Date ranges use the same range bound constructors as numerics, except that they end in "D".
+
+Note that compatibility with ES is tested only down to seconds.
 
 ``` {.haskell}
 
--- RangeFilterText   :: FieldName
---                      -> RangeText
---                      -> RangeExecution
---                      -> Cache
-
--- RangeFilterDouble :: FieldName
---                      -> RangeDouble
---                      -> RangeExecution
---                      -> Cache
-
-let filter = RangeFilterDouble (FieldName "age")
-             (RangeDoubleGtLt 1000.0 100000.0)
+let filter = RangeFilter (FieldName "postDate")
+             (RangeDateGtLte
+              (GreaterThanD (UTCTime
+                          (ModifiedJulianDay 55000)
+                          (secondsToDiffTime 9)))
+              (LessThanEqD (UTCTime
+                            (ModifiedJulianDay 55000)
+                            (secondsToDiffTime 11))))
              RangeExecutionIndex False
-
 ```
 
 #### Regexp Filter
