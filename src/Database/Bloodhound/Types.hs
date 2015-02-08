@@ -24,9 +24,7 @@
 module Database.Bloodhound.Types
        ( defaultCache
        , defaultIndexSettings
-       , halfRangeToKV
        , mkSort
-       , rangeToKV
        , showText
        , unpackId
        , mkMatchQuery
@@ -69,13 +67,16 @@ module Database.Bloodhound.Types
        , DistanceRange(..)
        , OptimizeBbox(..)
        , LatLon(..)
-       , Range(..)
-       , HalfRange(..)
+       , RangeValue(..)
        , RangeExecution(..)
        , LessThan(..)
        , LessThanEq(..)
        , GreaterThan(..)
        , GreaterThanEq(..)
+       , LessThanD(..)
+       , LessThanEqD(..)
+       , GreaterThanD(..)
+       , GreaterThanEqD(..)
        , Regexp(..)
        , RegexpFlags(..)
        , RegexpFlag(..)
@@ -636,10 +637,10 @@ data RegexpQuery =
 
 data RangeQuery =
   RangeQuery { rangeQueryField :: FieldName
-             , rangeQueryRange :: Either HalfRange Range
+             , rangeQueryRange :: RangeValue
              , rangeQueryBoost :: Boost } deriving (Eq, Show)
 
-mkRangeQuery :: FieldName -> Either HalfRange Range -> RangeQuery
+mkRangeQuery :: FieldName -> RangeValue -> RangeQuery
 mkRangeQuery f r = RangeQuery f r (Boost 1.0)
 
 data SimpleQueryStringQuery =
@@ -922,29 +923,13 @@ data Filter = AndFilter [Filter] Cache
             | LimitFilter Int
             | MissingFilter FieldName Existence NullValue
             | PrefixFilter  FieldName PrefixValue Cache
-            | RangeFilter   FieldName (Either HalfRange Range) RangeExecution Cache
+            | RangeFilter   FieldName RangeValue RangeExecution Cache
             | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
             | TermFilter    Term Cache
               deriving (Eq, Show)
 
 data ZeroTermsQuery = ZeroTermsNone
                     | ZeroTermsAll deriving (Eq, Show)
-
--- lt, lte | gt, gte
-newtype LessThan      = LessThan      Double deriving (Eq, Show)
-newtype LessThanEq    = LessThanEq    Double deriving (Eq, Show)
-newtype GreaterThan   = GreaterThan   Double deriving (Eq, Show)
-newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Show)
-
-data HalfRange = HalfRangeLt  LessThan
-               | HalfRangeLte LessThanEq
-               | HalfRangeGt  GreaterThan
-               | HalfRangeGte GreaterThanEq deriving (Eq, Show)
-
-data Range = RangeLtGt   LessThan GreaterThan
-           | RangeLtGte  LessThan GreaterThanEq
-           | RangeLteGt  LessThanEq GreaterThan
-           | RangeLteGte LessThanEq GreaterThanEq deriving (Eq, Show)
 
 data RangeExecution = RangeExecutionIndex
                     | RangeExecutionFielddata deriving (Eq, Show)
@@ -962,19 +947,52 @@ data RegexpFlag = AnyString
                 | Intersection
                 | Interval deriving (Eq, Show)
 
-halfRangeToKV :: HalfRange -> (Text, Double)
-halfRangeToKV (HalfRangeLt  (LessThan n))      = ("lt",  n)
-halfRangeToKV (HalfRangeLte (LessThanEq n))    = ("lte", n)
-halfRangeToKV (HalfRangeGt  (GreaterThan n))   = ("gt",  n)
-halfRangeToKV (HalfRangeGte (GreaterThanEq n)) = ("gte", n)
+newtype LessThan = LessThan Double deriving (Eq, Show)
+newtype LessThanEq = LessThanEq Double deriving (Eq, Show)
+newtype GreaterThan = GreaterThan Double deriving (Eq, Show)
+newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Show)
 
-rangeToKV :: Range -> (Text, Double, Text, Double)
-rangeToKV (RangeLtGt   (LessThan m)   (GreaterThan   n)) = ("lt",  m, "gt",  n)
-rangeToKV (RangeLtGte  (LessThan m)   (GreaterThanEq n)) = ("lt",  m, "gte", n)
-rangeToKV (RangeLteGt  (LessThanEq m) (GreaterThan   n)) = ("lte", m, "gt",  n)
-rangeToKV (RangeLteGte (LessThanEq m) (GreaterThanEq n)) = ("lte", m, "gte", n)
+newtype LessThanD = LessThanD UTCTime deriving (Eq, Show)
+newtype LessThanEqD = LessThanEqD UTCTime deriving (Eq, Show)
+newtype GreaterThanD = GreaterThanD UTCTime deriving (Eq, Show)
+newtype GreaterThanEqD = GreaterThanEqD UTCTime deriving (Eq, Show)
 
--- phew. Coulda used Agda style case breaking there but, you know, whatever. :)
+data RangeValue = RangeDateLte LessThanEqD
+                | RangeDateLt LessThanD
+                | RangeDateGte GreaterThanEqD
+                | RangeDateGt GreaterThanD
+                | RangeDateGtLt GreaterThanD LessThanD
+                | RangeDateGteLte GreaterThanEqD LessThanEqD
+                | RangeDateGteLt GreaterThanEqD LessThanD
+                | RangeDateGtLte GreaterThanD LessThanEqD
+                | RangeDoubleLte LessThanEq
+                | RangeDoubleLt LessThan
+                | RangeDoubleGte GreaterThanEq
+                | RangeDoubleGt GreaterThan
+                | RangeDoubleGtLt GreaterThan LessThan
+                | RangeDoubleGteLte GreaterThanEq LessThanEq
+                | RangeDoubleGteLt GreaterThanEq LessThan
+                | RangeDoubleGtLte GreaterThan LessThanEq
+                deriving (Eq, Show)
+
+rangeValueToPair :: RangeValue -> [Pair]
+rangeValueToPair rv = case rv of
+  RangeDateLte (LessThanEqD t)                       -> ["lte" .= t]
+  RangeDateGte (GreaterThanEqD t)                    -> ["gte" .= t]
+  RangeDateLt (LessThanD t)                          -> ["lt"  .= t]
+  RangeDateGt (GreaterThanD t)                       -> ["gt"  .= t]
+  RangeDateGteLte (GreaterThanEqD l) (LessThanEqD g) -> ["gte" .= l, "lte" .= g]
+  RangeDateGtLte (GreaterThanD l) (LessThanEqD g)    -> ["gt"  .= l, "lte" .= g]
+  RangeDateGteLt (GreaterThanEqD l) (LessThanD g)    -> ["gte" .= l, "lt"  .= g]
+  RangeDateGtLt (GreaterThanD l) (LessThanD g)       -> ["gt"  .= l, "lt"  .= g]
+  RangeDoubleLte (LessThanEq t)                      -> ["lte" .= t]
+  RangeDoubleGte (GreaterThanEq t)                   -> ["gte" .= t]
+  RangeDoubleLt (LessThan t)                         -> ["lt"  .= t]
+  RangeDoubleGt (GreaterThan t)                      -> ["gt"  .= t]
+  RangeDoubleGteLte (GreaterThanEq l) (LessThanEq g) -> ["gte" .= l, "lte" .= g]
+  RangeDoubleGtLte (GreaterThan l) (LessThanEq g)    -> ["gt"  .= l, "lte" .= g]
+  RangeDoubleGteLt (GreaterThanEq l) (LessThan g)    -> ["gte" .= l, "lt"  .= g]
+  RangeDoubleGtLt (GreaterThan l) (LessThan g)       -> ["gt"  .= l, "lt"  .= g]
 
 data Term = Term { termField :: Text
                  , termValue :: Text } deriving (Eq, Show)
@@ -1338,24 +1356,11 @@ instance ToJSON Filter where
             object [fieldName .= fieldValue
                    , "_cache" .= cache]]
 
-  toJSON (RangeFilter (FieldName fieldName) (Left halfRange) rangeExecution cache) =
+  toJSON (RangeFilter (FieldName fieldName) rangeValue rangeExecution cache) =
     object ["range" .=
-            object [fieldName .=
-                    object [rqFKey .= rqFVal]
+            object [ fieldName .= object (rangeValueToPair rangeValue)
                    , "execution" .= toJSON rangeExecution
                    , "_cache" .= cache]]
-    where
-      (rqFKey, rqFVal) = halfRangeToKV halfRange
-
-  toJSON (RangeFilter (FieldName fieldName) (Right range) rangeExecution cache) =
-    object ["range" .=
-            object [fieldName .=
-                    object [lessKey .= lessVal
-                           , greaterKey .= greaterVal]
-                   , "execution" .= toJSON rangeExecution
-                   , "_cache" .= cache]]
-    where
-      (lessKey, lessVal, greaterKey, greaterVal) = rangeToKV range
 
   toJSON (RegexpFilter (FieldName fieldName)
           (Regexp regexText) flags (CacheName cacheName) cache (CacheKey cacheKey)) =
@@ -1549,18 +1554,9 @@ instance ToJSON QueryStringQuery where
 
 
 instance ToJSON RangeQuery where
-  toJSON (RangeQuery (FieldName fieldName) (Right range) boost) =
+  toJSON (RangeQuery (FieldName fieldName) range boost) =
     object [ fieldName .= conjoined ]
-    where conjoined = [ "boost" .= toJSON boost
-                      , lessKey .= lessVal
-                      , greaterKey .= greaterVal ]
-          (lessKey, lessVal, greaterKey, greaterVal) = rangeToKV range
-
-  toJSON (RangeQuery (FieldName fieldName) (Left halfRange) boost) =
-    object [ fieldName .= conjoined ]
-    where conjoined = [ "boost" .= toJSON boost
-                      , rqKey     .= rqVal ]
-          (rqKey, rqVal) = halfRangeToKV halfRange
+    where conjoined = [ "boost" .= toJSON boost ] ++ (rangeValueToPair range)
 
 
 instance ToJSON PrefixQuery where

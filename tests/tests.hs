@@ -432,14 +432,30 @@ main = hspec $ do
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for range filter" $ do
+    it "returns document for Double range filter" $ do
       _ <- insertData
       let filter = RangeFilter (FieldName "age")
-                   (Right (RangeLtGt (LessThan 100000.0) (GreaterThan 1000.0)))
+                   (RangeDoubleGtLt (GreaterThan 1000.0) (LessThan 100000.0))
                    RangeExecutionIndex False
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
       myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for UTCTime date filter" $ do
+      _ <- insertData
+      let filter = RangeFilter (FieldName "postDate")
+                   (RangeDateGtLt
+                    (GreaterThanD (UTCTime
+                                (ModifiedJulianDay 55000)
+                                (secondsToDiffTime 9)))
+                    (LessThanD (UTCTime
+                                (ModifiedJulianDay 55000)
+                                (secondsToDiffTime 11))))
+                   RangeExecutionIndex False
+      let search = mkSearch Nothing (Just filter)
+      myTweet <- searchTweet search
+      myTweet `shouldBe` Right exampleTweet
+
 
     it "returns document for regexp filter" $ do
       _ <- insertData
