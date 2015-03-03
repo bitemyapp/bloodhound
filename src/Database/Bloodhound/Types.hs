@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -39,6 +41,8 @@ module Database.Bloodhound.Types
        , toTerms
        , toDateHistogram
        , omitNulls
+       , BHEnv(..)
+       , MonadBloodhound(..)
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -194,6 +198,8 @@ module Database.Bloodhound.Types
          ) where
 
 import           Control.Applicative
+import           Control.Monad.IO.Class
+import           Control.Monad.Reader
 import           Data.Aeson
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
@@ -221,6 +227,16 @@ import           Database.Bloodhound.Types.Class
 
 -- defaultIndexSettings is exported by Database.Bloodhound as well
 -- no trailing slashes in servers, library handles building the path.
+
+data BHEnv = BHEnv { bhServer  :: Server
+                   , bhManager :: Manager
+                   }
+
+class (Functor m, Applicative m, MonadIO m) => MonadBloodhound m where
+  getBHEnv :: m BHEnv
+
+instance (Functor m, Applicative m, MonadIO m) => MonadBloodhound (ReaderT BHEnv m) where
+  getBHEnv = ask
 
 {-| 'Version' is embedded in 'Status' -}
 data Version = Version { number          :: Text

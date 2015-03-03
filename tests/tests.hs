@@ -6,6 +6,7 @@ module Main where
 
 import           Control.Applicative
 import           Control.Monad
+import           Control.Monad.Reader
 import           Data.Aeson
 import qualified  Data.HashMap.Strict      as HM
 import           Data.List                 (nub)
@@ -34,15 +35,23 @@ testIndex   = IndexName "bloodhound-tests-twitter-1"
 testMapping :: MappingName
 testMapping = MappingName "tweet"
 
+
+--TODO: similar convenience function in Client
+-- withTestEnv :: MonadIO m => Reader m a -> IO a
+withTestEnv f = withManager defaultManagerSettings $ \mgr -> do
+  let env = BHEnv { bhServer = testServer
+                  , bhManager = mgr }
+  runReaderT f env
+
 validateStatus :: Response body -> Int -> Expectation
 validateStatus resp expected =
   (NHTS.statusCode $ responseStatus resp)
   `shouldBe` (expected :: Int)
 
-createExampleIndex :: IO Reply
-createExampleIndex = createIndex testServer defaultIndexSettings testIndex
-deleteExampleIndex :: IO Reply
-deleteExampleIndex = deleteIndex testServer testIndex
+-- createExampleIndex :: IO Reply
+createExampleIndex = createIndex defaultIndexSettings testIndex
+-- deleteExampleIndex :: IO Reply
+deleteExampleIndex = deleteIndex testIndex
 
 data ServerVersion = ServerVersion Int Int Int deriving (Show, Eq, Ord)
 
@@ -70,18 +79,16 @@ mkServerVersion [majorVer, minorVer, patchVer] =
   Just (ServerVersion majorVer minorVer patchVer)
 mkServerVersion _                 = Nothing
 
-getServerVersion :: Server -> IO (Maybe ServerVersion)
-getServerVersion s = liftM extractVersion (getStatus s)
+-- getServerVersion :: IO (Maybe ServerVersion)
+getServerVersion = liftM extractVersion (withTestEnv getStatus)
   where
     version'                    = T.splitOn "." . number . version
     toInt                       = read . T.unpack
     parseVersion v              = map toInt (version' v)
     extractVersion              = join . liftM (mkServerVersion . parseVersion)
 
-
-
 testServerBranch :: IO (Maybe ServerVersion)
-testServerBranch = getServerVersion testServer >>= \v -> return $ liftM serverBranch v
+testServerBranch = getServerVersion >>= \v -> return $ liftM serverBranch v
 
 atleast :: ServerVersion -> IO Bool
 atleast v = testServerBranch >>= \x -> return $ x >= Just (serverBranch v)
@@ -136,60 +143,63 @@ otherTweet = Tweet { user     = "notmyapp"
                    , age      = 1000
                    , location = Location 40.12 (-71.34) }
 
-insertData :: IO ()
+insertData :: ReaderT BHEnv IO ()
 insertData = do
   _ <- deleteExampleIndex
   _ <- createExampleIndex
-  _ <- putMapping testServer testIndex testMapping TweetMapping
-  _ <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
-  _ <- refreshIndex testServer testIndex
+  _ <- putMapping testIndex testMapping TweetMapping
+  _ <- indexDocument testIndex testMapping exampleTweet (DocId "1")
+  _ <- refreshIndex testIndex
   return ()
 
-insertOther :: IO ()
+-- insertOther :: IO ()
 insertOther = do
-  _ <- indexDocument testServer testIndex testMapping otherTweet (DocId "2")
-  _ <- refreshIndex testServer testIndex
+  _ <- indexDocument testIndex testMapping otherTweet (DocId "2")
+  _ <- refreshIndex testIndex
   return ()
 
-searchTweet :: Search -> IO (Either String Tweet)
+-- searchTweet :: Search -> IO (Either String Tweet)
 searchTweet search = do
-  reply <- searchByIndex testServer testIndex search
+  reply <- searchByIndex testIndex search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
   let myTweet = fmap (hitSource . head . hits . searchHits) result
   return myTweet
 
-searchExpectNoResults :: Search -> IO ()
+-- searchExpectNoResults :: Search -> IO ()
 searchExpectNoResults search = do
-  reply <- searchByIndex testServer testIndex search
+  reply <- searchByIndex testIndex search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
   let emptyHits = fmap (hits . searchHits) result
-  emptyHits `shouldBe` Right []
+  liftIO $
+    emptyHits `shouldBe` Right []
 
-searchExpectAggs :: Search -> IO ()
+-- searchExpectAggs :: Search -> IO ()
 searchExpectAggs search = do
-  reply <- searchAll testServer search
+  reply <- searchAll search
   let isEmpty x = return (M.null x)
   let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
-  (result >>= aggregations >>= isEmpty) `shouldBe` Just False
+  liftIO $
+    (result >>= aggregations >>= isEmpty) `shouldBe` Just False
 
-searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) => Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> IO ()
+-- searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) => Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> IO ()
 searchValidBucketAgg search aggKey extractor = do
-  reply <- searchAll testServer search
+  reply <- searchAll search
   let bucketDocs = docCount . head . buckets
   let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
   let count = result >>= aggregations >>= extractor aggKey >>= \x -> return (bucketDocs x)
-  count `shouldBe` Just 1
+  liftIO $
+    count `shouldBe` Just 1
 
-searchTermsAggHint :: [ExecutionHint] -> IO ()
+-- searchTermsAggHint :: [ExecutionHint] -> IO ()
 searchTermsAggHint hints = do
       let terms hint = TermsAgg $ (mkTermsAggregation "user") { termExecutionHint = Just hint }
       let search hint = mkAggregateSearch Nothing $ mkAggregations "users" $ terms hint
       forM_ hints $ searchExpectAggs . search
       forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
 
-searchTweetHighlight :: Search -> IO (Either String (Maybe HitHighlight))
+-- searchTweetHighlight :: Search -> IO (Either String (Maybe HitHighlight))
 searchTweetHighlight search = do
-  reply <- searchByIndex testServer testIndex search
+  reply <- searchByIndex testIndex search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
   let myHighlight = fmap (hitHighlight . head . hits . searchHits) result
   return myHighlight
@@ -223,26 +233,27 @@ main :: IO ()
 main = hspec $ do
 
   describe "index create/delete API" $ do
-    it "creates and then deletes the requested index" $ do
+    it "creates and then deletes the requested index" $ withTestEnv $ do
       -- priming state.
       _ <- deleteExampleIndex
       resp <- createExampleIndex
       deleteResp <- deleteExampleIndex
-      validateStatus resp 200
-      validateStatus deleteResp 200
+      liftIO $ do
+        validateStatus resp 200
+        validateStatus deleteResp 200
 
 
   describe "document API" $ do
-    it "indexes, gets, and then deletes the generated document" $ do
+    it "indexes, gets, and then deletes the generated document" $ withTestEnv $ do
       _ <- insertData
-      docInserted <- getDocument testServer testIndex testMapping (DocId "1")
+      docInserted <- getDocument testIndex testMapping (DocId "1")
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
-      fmap _source newTweet `shouldBe` Right exampleTweet
+      liftIO $ (fmap _source newTweet `shouldBe` Right exampleTweet)
 
 
   describe "bulk API" $ do
-    it "inserts all documents we request" $ do
+    it "inserts all documents we request" $ withTestEnv $ do
       _ <- insertData
       let firstTest = BulkTest "blah"
       let secondTest = BulkTest "bloo"
@@ -251,49 +262,54 @@ main = hspec $ do
       let secondDoc = BulkCreate testIndex
                      testMapping (DocId "3") (toJSON secondTest)
       let stream = V.fromList [firstDoc, secondDoc]
-      _ <- bulk testServer stream
-      _ <- refreshIndex testServer testIndex
-      fDoc <- getDocument testServer testIndex testMapping (DocId "2")
-      sDoc <- getDocument testServer testIndex testMapping (DocId "3")
+      _ <- bulk stream
+      _ <- refreshIndex testIndex
+      fDoc <- getDocument testIndex testMapping (DocId "2")
+      sDoc <- getDocument testIndex testMapping (DocId "3")
       let maybeFirst  = eitherDecode $ responseBody fDoc :: Either String (EsResult BulkTest)
       let maybeSecond = eitherDecode $ responseBody sDoc :: Either String (EsResult BulkTest)
-      fmap _source maybeFirst `shouldBe` Right firstTest
-      fmap _source maybeSecond `shouldBe` Right secondTest
+      liftIO $ do
+        fmap _source maybeFirst `shouldBe` Right firstTest
+        fmap _source maybeSecond `shouldBe` Right secondTest
 
 
   describe "query API" $ do
-    it "returns document for term query and identity filter" $ do
+    it "returns document for term query and identity filter" $ withTestEnv $ do
       _ <- insertData
       let query = TermQuery (Term "user" "bitemyapp") Nothing
       let filter = IdentityFilter <&&> IdentityFilter
       let search = mkSearch (Just query) (Just filter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for terms query and identity filter" $ do
+    it "returns document for terms query and identity filter" $ withTestEnv $ do
       _ <- insertData
       let query = TermsQuery (NE.fromList [(Term "user" "bitemyapp")])
       let filter = IdentityFilter <&&> IdentityFilter
       let search = mkSearch (Just query) (Just filter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for match query" $ do
+    it "returns document for match query" $ withTestEnv $ do
       _ <- insertData
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
       let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for multi-match query" $ do
+    it "returns document for multi-match query" $ withTestEnv $ do
       _ <- insertData
       let fields = [FieldName "user", FieldName "message"]
       let query = QueryMultiMatchQuery $ mkMultiMatchQuery fields (QueryString "bitemyapp")
       let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for bool query" $ do
+    it "returns document for bool query" $ withTestEnv $ do
       _ <- insertData
       let innerQuery = QueryMatchQuery $
                        mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
@@ -301,18 +317,20 @@ main = hspec $ do
                   mkBoolQuery [innerQuery] [] []
       let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for boosting query" $ do
+    it "returns document for boosting query" $ withTestEnv $ do
       _ <- insertData
       let posQuery = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
       let negQuery = QueryMatchQuery $ mkMatchQuery (FieldName "user") (QueryString "notmyapp")
       let query = QueryBoostingQuery $ BoostingQuery posQuery negQuery (Boost 0.2)
       let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for common terms query" $ do
+    it "returns document for common terms query" $ withTestEnv $ do
       _ <- insertData
       let query = QueryCommonTermsQuery $
                   CommonTermsQuery (FieldName "user")
@@ -321,55 +339,61 @@ main = hspec $ do
                   Or Or Nothing Nothing Nothing Nothing
       let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
 
   describe "sorting" $ do
-    it "returns documents in the right order" $ do
+    it "returns documents in the right order" $ withTestEnv $ do
       _ <- insertData
       _ <- insertOther
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
       let search = Search Nothing
                    (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
                    False 0 10
-      reply <- searchByIndex testServer testIndex search
+      reply <- searchByIndex testIndex search
       let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
       let myTweet = fmap (hitSource . head . hits . searchHits) result
-      myTweet `shouldBe` Right otherTweet
+      liftIO $
+        myTweet `shouldBe` Right otherTweet
 
 
   describe "filtering API" $ do
-    it "returns document for composed boolmatch and identity" $ do
+    it "returns document for composed boolmatch and identity" $ withTestEnv $ do
       _ <- insertData
       let queryFilter = BoolFilter (MustMatch (Term "user" "bitemyapp") False)
                         <&&> IdentityFilter
       let search = mkSearch Nothing (Just queryFilter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for term filter" $ do
+    it "returns document for term filter" $ withTestEnv $ do
       _ <- insertData
       let termFilter = TermFilter (Term "user" "bitemyapp") False
       let search = mkSearch Nothing (Just termFilter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for existential filter" $ do
+    it "returns document for existential filter" $ withTestEnv $ do
       _ <- insertData
       let search = mkSearch Nothing (Just (ExistsFilter (FieldName "user")))
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for geo boundingbox filter" $ do
+    it "returns document for geo boundingbox filter" $ withTestEnv $ do
       _ <- insertData
       let box = GeoBoundingBox (LatLon 40.73 (-74.1)) (LatLon 40.10 (-71.12))
       let bbConstraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False GeoFilterMemory
       let geoFilter = GeoBoundingBoxFilter bbConstraint
       let search = mkSearch Nothing (Just geoFilter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "doesn't return document for nonsensical boundingbox filter" $ do
+    it "doesn't return document for nonsensical boundingbox filter" $ withTestEnv $ do
       _ <- insertData
       let box          = GeoBoundingBox (LatLon 0.73 (-4.1)) (LatLon 0.10 (-1.12))
       let bbConstraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False GeoFilterMemory
@@ -377,7 +401,7 @@ main = hspec $ do
       let search       = mkSearch Nothing (Just geoFilter)
       searchExpectNoResults search
 
-    it "returns document for geo distance filter" $ do
+    it "returns document for geo distance filter" $ withTestEnv $ do
       _ <- insertData
       let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
       let distance = Distance 10.0 Miles
@@ -385,18 +409,20 @@ main = hspec $ do
       let geoFilter = GeoDistanceFilter geoPoint distance SloppyArc optimizeBbox False
       let search = mkSearch Nothing (Just geoFilter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for geo distance range filter" $ do
+    it "returns document for geo distance range filter" $ withTestEnv $ do
       _ <- insertData
       let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
       let distanceRange = DistanceRange (Distance 0.0 Miles) (Distance 10.0 Miles)
       let geoFilter = GeoDistanceRangeFilter geoPoint distanceRange
       let search = mkSearch Nothing (Just geoFilter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "doesn't return document for wild geo distance range filter" $ do
+    it "doesn't return document for wild geo distance range filter" $ withTestEnv $ do
       _ <- insertData
       let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
       let distanceRange = DistanceRange (Distance 100.0 Miles) (Distance 1000.0 Miles)
@@ -404,7 +430,7 @@ main = hspec $ do
       let search = mkSearch Nothing (Just geoFilter)
       searchExpectNoResults search
 
-    it "returns document for geo polygon filter" $ do
+    it "returns document for geo polygon filter" $ withTestEnv $ do
       _ <- insertData
       let points = [LatLon 40.0 (-70.00),
                     LatLon 40.0 (-72.00),
@@ -413,9 +439,10 @@ main = hspec $ do
       let geoFilter = GeoPolygonFilter (FieldName "tweet.location") points
       let search = mkSearch Nothing (Just geoFilter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "doesn't return document for bad geo polygon filter" $ do
+    it "doesn't return document for bad geo polygon filter" $ withTestEnv $ do
       _ <- insertData
       let points = [LatLon 40.0 (-70.00),
                     LatLon 40.0 (-71.00),
@@ -425,23 +452,25 @@ main = hspec $ do
       let search = mkSearch Nothing (Just geoFilter)
       searchExpectNoResults search
 
-    it "returns document for ids filter" $ do
+    it "returns document for ids filter" $ withTestEnv $ do
       _ <- insertData
       let filter = IdsFilter (MappingName "tweet") [DocId "1"]
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for Double range filter" $ do
+    it "returns document for Double range filter" $ withTestEnv $ do
       _ <- insertData
       let filter = RangeFilter (FieldName "age")
                    (RangeDoubleGtLt (GreaterThan 1000.0) (LessThan 100000.0))
                    RangeExecutionIndex False
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for UTCTime date filter" $ do
+    it "returns document for UTCTime date filter" $ withTestEnv $ do
       _ <- insertData
       let filter = RangeFilter (FieldName "postDate")
                    (RangeDateGtLt
@@ -454,18 +483,20 @@ main = hspec $ do
                    RangeExecutionIndex False
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
 
-    it "returns document for regexp filter" $ do
+    it "returns document for regexp filter" $ withTestEnv $ do
       _ <- insertData
       let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
                    AllRegexpFlags (CacheName "test") False (CacheKey "key")
       let search = mkSearch Nothing (Just filter)
       myTweet <- searchTweet search
-      myTweet `shouldBe` Right exampleTweet
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
 
-    it "doesn't return document for non-matching regexp filter" $ do
+    it "doesn't return document for non-matching regexp filter" $ withTestEnv $ do
       _ <- insertData
       let filter = RegexpFilter (FieldName "user")
                    (Regexp "boy") AllRegexpFlags
@@ -474,40 +505,40 @@ main = hspec $ do
       searchExpectNoResults search
 
   describe "Aggregation API" $ do
-    it "returns term aggregation results" $ do
+    it "returns term aggregation results" $ withTestEnv $ do
       _ <- insertData
       let terms = TermsAgg $ mkTermsAggregation "user"
       let search = mkAggregateSearch Nothing $ mkAggregations "users" terms
       searchExpectAggs search
       searchValidBucketAgg search "users" toTerms
 
-    it "can give collection hint parameters to term aggregations" $ when' (atleast es13) $ do
+    it "can give collection hint parameters to term aggregations" $ when' (atleast es13) $ withTestEnv $ do
       _ <- insertData
       let terms = TermsAgg $ (mkTermsAggregation "user") { termCollectMode = Just BreadthFirst }
       let search = mkAggregateSearch Nothing $ mkAggregations "users" terms
       searchExpectAggs search
       searchValidBucketAgg search "users" toTerms
 
-    it "can give execution hint paramters to term aggregations" $ when' (atmost es11) $ do
+    it "can give execution hint paramters to term aggregations" $ when' (atmost es11) $ withTestEnv $ do
       _ <- insertData
       searchTermsAggHint [Map, Ordinals]
 
-    it "can give execution hint paramters to term aggregations" $ when' (is es12) $ do
+    it "can give execution hint paramters to term aggregations" $ when' (is es12) $ withTestEnv $ do
       _ <- insertData
       searchTermsAggHint [GlobalOrdinals, GlobalOrdinalsHash, GlobalOrdinalsLowCardinality, Map, Ordinals]
 
-    it "can give execution hint paramters to term aggregations" $ when' (atleast es12) $ do
+    it "can give execution hint paramters to term aggregations" $ when' (atleast es12) $ withTestEnv $ do
       _ <- insertData
       searchTermsAggHint [GlobalOrdinals, GlobalOrdinalsHash, GlobalOrdinalsLowCardinality, Map]
 
-    it "returns date histogram aggregation results" $ do
+    it "returns date histogram aggregation results" $ withTestEnv $ do
       _ <- insertData
       let histogram = DateHistogramAgg $ mkDateHistogram (FieldName "postDate") Minute
       let search = mkAggregateSearch Nothing (mkAggregations "byDate" histogram)
       searchExpectAggs search
       searchValidBucketAgg search "byDate" toDateHistogram
 
-    it "returns date histogram using fractional date" $ do
+    it "returns date histogram using fractional date" $ withTestEnv $ do
       _ <- insertData
       let periods            = [Year, Quarter, Month, Week, Day, Hour, Minute, Second]
       let fractionals        = map (FractionalInterval 1.5) [Weeks, Days, Hours, Minutes, Seconds]
@@ -521,7 +552,7 @@ main = hspec $ do
 
   describe "Highlights API" $ do
 
-    it "returns highlight from query when there should be one" $ do
+    it "returns highlight from query when there should be one" $ withTestEnv $ do
       _ <- insertData
       _ <- insertOther
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
@@ -529,9 +560,10 @@ main = hspec $ do
 
       let search = mkHighlightSearch (Just query) testHighlight
       myHighlight <- searchTweetHighlight search
-      myHighlight `shouldBe` Right (Just (M.fromList [("message",["Use <em>haskell</em>!"])]))
+      liftIO $
+        myHighlight `shouldBe` Right (Just (M.fromList [("message",["Use <em>haskell</em>!"])]))
 
-    it "doesn't return highlight from a query when it shouldn't" $ do
+    it "doesn't return highlight from a query when it shouldn't" $ withTestEnv $ do
       _ <- insertData
       _ <- insertOther
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
@@ -539,7 +571,8 @@ main = hspec $ do
 
       let search = mkHighlightSearch (Just query) testHighlight
       myHighlight <- searchTweetHighlight search
-      myHighlight `shouldBe` Right Nothing
+      liftIO $
+        myHighlight `shouldBe` Right Nothing
 
 
 
