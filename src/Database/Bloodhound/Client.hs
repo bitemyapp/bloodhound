@@ -20,8 +20,8 @@ module Database.Bloodhound.Client
          --   and typeclass instances for the functions that make use of them.
 
          -- $setup
-
-         createIndex
+         withBH
+       , createIndex
        , deleteIndex
        , indexExists
        , openIndex
@@ -52,6 +52,7 @@ module Database.Bloodhound.Client
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Monad.Reader
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8 as L
@@ -72,12 +73,12 @@ import           Database.Bloodhound.Types
 -- >>> import Database.Bloodhound
 -- >>> import Test.DocTest.Prop (assert)
 -- >>> let testServer = (Server "http://localhost:9200")
+-- >>> let runBH = withBH defaultManagerSettings testServer
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
 -- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 -- >>> data TweetMapping = TweetMapping deriving (Eq, Show)
--- >>> _ <- deleteIndex testServer testIndex
--- >>> _ <- deleteMapping testServer testIndex testMapping
+-- >>> _ <- runBH $ deleteIndex testIndex >> deleteMapping testIndex testMapping
 -- >>> import GHC.Generics
 -- >>> import           Data.Time.Calendar        (Day (..))
 -- >>> import Data.Time.Clock (UTCTime (..), secondsToDiffTime)
@@ -158,6 +159,14 @@ joinPath ps = do
 bindM2 :: (Applicative m, Monad m) => (a -> b -> m c) -> m a -> m b -> m c
 bindM2 f ma mb = join (f <$> ma <*> mb)
 
+-- | Convenience function that sets up a mananager and BHEnv and runs
+-- the given set of bloodhound operations. Connections will be
+-- pipelined automatically in accordance with the given manager settings
+withBH :: ManagerSettings -> Server -> BH a -> IO a
+withBH ms s f = withManager ms $ \mgr -> do
+  let env = BHEnv { bhServer  = s
+                  , bhManager = mgr }
+  runReaderT f env
 
 -- Shortcut functions for HTTP methods
 delete :: MonadBloodhound m => String -> m Reply
@@ -177,7 +186,7 @@ post   = dispatch NHTM.methodPost
 
 -- | 'getStatus' fetches the 'Status' of a 'Server'
 --
--- >>> serverStatus <- getStatus testServer
+-- >>> serverStatus <- runBH getStatus
 -- >>> fmap status (serverStatus)
 -- Just 200
 getStatus :: MonadBloodhound m => m (Maybe Status)
@@ -190,10 +199,10 @@ getStatus = do
 
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
 --
--- >>> response <- createIndex testServer defaultIndexSettings (IndexName "didimakeanindex")
+-- >>> response <- runBH $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
 -- >>> respIsTwoHunna response
 -- True
--- >>> indexExists testServer (IndexName "didimakeanindex")
+-- >>> runBH $ indexExists (IndexName "didimakeanindex")
 -- True
 createIndex :: MonadBloodhound m => IndexSettings -> IndexName -> m Reply
 createIndex indexSettings (IndexName indexName) =
@@ -203,11 +212,11 @@ createIndex indexSettings (IndexName indexName) =
 
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
 --
--- >>> response <- createIndex testServer defaultIndexSettings (IndexName "didimakeanindex")
--- >>> response <- deleteIndex testServer (IndexName "didimakeanindex")
+-- >>> _ <- runBH $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
+-- >>> response <- runBH $ deleteIndex (IndexName "didimakeanindex")
 -- >>> respIsTwoHunna response
 -- True
--- >>> indexExists testServer testIndex
+-- >>> runBH $ indexExists testIndex
 -- False
 deleteIndex :: MonadBloodhound m => IndexName -> m Reply
 deleteIndex (IndexName indexName) =
@@ -227,7 +236,7 @@ existentialQuery url = do
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
 --
--- >>> exists <- indexExists testServer testIndex
+-- >>> exists <- runBH $ indexExists testIndex
 indexExists :: MonadBloodhound m => IndexName -> m Bool
 indexExists (IndexName indexName) = do
   (_, exists) <- existentialQuery =<< joinPath [indexName]
@@ -236,8 +245,8 @@ indexExists (IndexName indexName) = do
 -- | 'refreshIndex' will force a refresh on an index. You must
 -- do this if you want to read what you wrote.
 --
--- >>> _ <- createIndex testServer defaultIndexSettings testIndex
--- >>> _ <- refreshIndex testServer testIndex
+-- >>> _ <- runBH $ createIndex defaultIndexSettings testIndex
+-- >>> _ <- runBH $ refreshIndex testIndex
 refreshIndex :: MonadBloodhound m => IndexName -> m Reply
 refreshIndex (IndexName indexName) =
   bindM2 post url (return Nothing)
@@ -257,22 +266,22 @@ openOrCloseIndexes oci (IndexName indexName) =
 -- | 'openIndex' opens an index given a 'Server' and an 'IndexName'. Explained in further detail at 
 --   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
--- >>> reply <- openIndex testServer testIndex
+-- >>> reply <- runBH $ openIndex testIndex
 openIndex :: MonadBloodhound m => IndexName -> m Reply
 openIndex = openOrCloseIndexes OpenIndex
 
 -- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at 
 --   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
--- >>> reply <- closeIndex testServer testIndex
+-- >>> reply <- runBH $ closeIndex testIndex
 closeIndex :: MonadBloodhound m => IndexName -> m Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
 -- | 'putMapping' is an HTTP PUT and has upsert semantics. Mappings are schemas
 -- for documents in indexes.
 --
--- >>> _ <- createIndex testServer defaultIndexSettings testIndex
--- >>> resp <- putMapping testServer testIndex testMapping TweetMapping
+-- >>> _ <- runBH $ createIndex defaultIndexSettings testIndex
+-- >>> resp <- runBH $ putMapping testIndex testMapping TweetMapping
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 putMapping :: (MonadBloodhound m, ToJSON a) => IndexName
@@ -285,9 +294,9 @@ putMapping (IndexName indexName) (MappingName mappingName) mapping =
 -- | 'deleteMapping' is an HTTP DELETE and deletes a mapping for a given index.
 -- Mappings are schemas for documents in indexes.
 --
--- >>> _ <- createIndex testServer defaultIndexSettings testIndex
--- >>> _ <- putMapping testServer testIndex testMapping TweetMapping
--- >>> resp <- deleteMapping testServer testIndex testMapping
+-- >>> _ <- runBH $ createIndex defaultIndexSettings testIndex
+-- >>> _ <- runBH $ putMapping testIndex testMapping TweetMapping
+-- >>> resp <- runBH $ deleteMapping testIndex testMapping
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 deleteMapping :: MonadBloodhound m => IndexName -> MappingName -> m Reply
@@ -300,7 +309,7 @@ deleteMapping (IndexName indexName)
 --   convert into a JSON 'Value'. The 'DocId' will function as the
 --   primary key for the document.
 --
--- >>> resp <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
+-- >>> resp <- runBH $ indexDocument testIndex testMapping exampleTweet (DocId "1")
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 indexDocument :: (ToJSON doc, MonadBloodhound m) => IndexName -> MappingName
@@ -313,7 +322,7 @@ indexDocument (IndexName indexName)
 
 -- | 'deleteDocument' is the primary way to delete a single document.
 --
--- >>> _ <- deleteDocument testServer testIndex testMapping (DocId "1")
+-- >>> _ <- runBH $ deleteDocument testIndex testMapping (DocId "1")
 deleteDocument :: MonadBloodhound m => IndexName -> MappingName
                   -> DocId -> m Reply
 deleteDocument (IndexName indexName)
@@ -328,8 +337,8 @@ deleteDocument (IndexName indexName)
 --    server to be performed. I changed from [BulkOperation] to a Vector due to memory overhead.
 --
 -- >>> let stream = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))]
--- >>> _ <- bulk testServer stream
--- >>> _ <- refreshIndex testServer testIndex
+-- >>> _ <- runBH $ bulk stream
+-- >>> _ <- runBH $ refreshIndex testIndex
 bulk :: MonadBloodhound m => V.Vector BulkOperation -> m Reply
 bulk bulkOps = bindM2 post url (return body)
   where url = joinPath ["_bulk"]
@@ -393,7 +402,7 @@ encodeBulkOperation (BulkUpdate (IndexName indexName)
 --   Elasticsearch using a 'Server', 'IndexName', 'MappingName', and a 'DocId'.
 --   The 'DocId' is the primary key for your Elasticsearch document.
 --
--- >>> yourDoc <- getDocument testServer testIndex testMapping (DocId "1")
+-- >>> yourDoc <- runBH $ getDocument testIndex testMapping (DocId "1")
 getDocument :: MonadBloodhound m => IndexName -> MappingName
                -> DocId -> m Reply
 getDocument (IndexName indexName)
@@ -403,7 +412,7 @@ getDocument (IndexName indexName)
 -- | 'documentExists' enables you to check if a document exists. Returns 'Bool'
 --   in IO
 --
--- >>> exists <- documentExists testServer testIndex testMapping (DocId "1")
+-- >>> exists <- runBH $ documentExists testIndex testMapping (DocId "1")
 documentExists :: MonadBloodhound m => IndexName -> MappingName
                   -> DocId -> m Bool
 documentExists (IndexName indexName)
@@ -420,7 +429,7 @@ dispatchSearch url search = post url (Just (encode search))
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
--- >>> reply <- searchAll testServer search
+-- >>> reply <- runBH $ searchAll search
 searchAll :: MonadBloodhound m => Search -> m Reply
 searchAll = bindM2 dispatchSearch url . return
   where url = joinPath ["_search"]
@@ -430,7 +439,7 @@ searchAll = bindM2 dispatchSearch url . return
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
--- >>> reply <- searchByIndex testServer testIndex search
+-- >>> reply <- runBH $ searchByIndex testIndex search
 searchByIndex :: MonadBloodhound m => IndexName -> Search -> m Reply
 searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, "_search"]
@@ -440,7 +449,7 @@ searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
--- >>> reply <- searchByType testServer testIndex testMapping search
+-- >>> reply <- runBH $ searchByType testIndex testMapping search
 searchByType :: MonadBloodhound m => IndexName -> MappingName -> Search
                 -> m Reply
 searchByType (IndexName indexName)

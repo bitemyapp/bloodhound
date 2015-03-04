@@ -35,22 +35,17 @@ testIndex   = IndexName "bloodhound-tests-twitter-1"
 testMapping :: MappingName
 testMapping = MappingName "tweet"
 
-
---TODO: similar convenience function in Client
--- withTestEnv :: MonadIO m => Reader m a -> IO a
-withTestEnv f = withManager defaultManagerSettings $ \mgr -> do
-  let env = BHEnv { bhServer = testServer
-                  , bhManager = mgr }
-  runReaderT f env
+withTestEnv :: BH a -> IO a
+withTestEnv = withBH defaultManagerSettings testServer
 
 validateStatus :: Response body -> Int -> Expectation
 validateStatus resp expected =
   (NHTS.statusCode $ responseStatus resp)
   `shouldBe` (expected :: Int)
 
--- createExampleIndex :: IO Reply
+createExampleIndex :: BH Reply
 createExampleIndex = createIndex defaultIndexSettings testIndex
--- deleteExampleIndex :: IO Reply
+deleteExampleIndex :: BH Reply
 deleteExampleIndex = deleteIndex testIndex
 
 data ServerVersion = ServerVersion Int Int Int deriving (Show, Eq, Ord)
@@ -79,7 +74,7 @@ mkServerVersion [majorVer, minorVer, patchVer] =
   Just (ServerVersion majorVer minorVer patchVer)
 mkServerVersion _                 = Nothing
 
--- getServerVersion :: IO (Maybe ServerVersion)
+getServerVersion :: IO (Maybe ServerVersion)
 getServerVersion = liftM extractVersion (withTestEnv getStatus)
   where
     version'                    = T.splitOn "." . number . version
@@ -152,20 +147,20 @@ insertData = do
   _ <- refreshIndex testIndex
   return ()
 
--- insertOther :: IO ()
+insertOther :: BH ()
 insertOther = do
   _ <- indexDocument testIndex testMapping otherTweet (DocId "2")
   _ <- refreshIndex testIndex
   return ()
 
--- searchTweet :: Search -> IO (Either String Tweet)
+searchTweet :: Search -> BH (Either String Tweet)
 searchTweet search = do
   reply <- searchByIndex testIndex search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
   let myTweet = fmap (hitSource . head . hits . searchHits) result
   return myTweet
 
--- searchExpectNoResults :: Search -> IO ()
+searchExpectNoResults :: Search -> BH ()
 searchExpectNoResults search = do
   reply <- searchByIndex testIndex search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
@@ -173,7 +168,7 @@ searchExpectNoResults search = do
   liftIO $
     emptyHits `shouldBe` Right []
 
--- searchExpectAggs :: Search -> IO ()
+searchExpectAggs :: Search -> BH ()
 searchExpectAggs search = do
   reply <- searchAll search
   let isEmpty x = return (M.null x)
@@ -181,7 +176,7 @@ searchExpectAggs search = do
   liftIO $
     (result >>= aggregations >>= isEmpty) `shouldBe` Just False
 
--- searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) => Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> IO ()
+searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) => Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> BH ()
 searchValidBucketAgg search aggKey extractor = do
   reply <- searchAll search
   let bucketDocs = docCount . head . buckets
@@ -190,14 +185,14 @@ searchValidBucketAgg search aggKey extractor = do
   liftIO $
     count `shouldBe` Just 1
 
--- searchTermsAggHint :: [ExecutionHint] -> IO ()
+searchTermsAggHint :: [ExecutionHint] -> BH ()
 searchTermsAggHint hints = do
       let terms hint = TermsAgg $ (mkTermsAggregation "user") { termExecutionHint = Just hint }
       let search hint = mkAggregateSearch Nothing $ mkAggregations "users" $ terms hint
       forM_ hints $ searchExpectAggs . search
       forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
 
--- searchTweetHighlight :: Search -> IO (Either String (Maybe HitHighlight))
+searchTweetHighlight :: Search -> BH (Either String (Maybe HitHighlight))
 searchTweetHighlight search = do
   reply <- searchByIndex testIndex search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)

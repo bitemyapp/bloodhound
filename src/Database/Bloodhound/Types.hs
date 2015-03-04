@@ -41,6 +41,7 @@ module Database.Bloodhound.Types
        , toTerms
        , toDateHistogram
        , omitNulls
+       , BH
        , BHEnv(..)
        , MonadBloodhound(..)
        , Version(..)
@@ -228,12 +229,22 @@ import           Database.Bloodhound.Types.Class
 -- defaultIndexSettings is exported by Database.Bloodhound as well
 -- no trailing slashes in servers, library handles building the path.
 
+{-| Common environment for Elasticsearch calls. Connections will be
+    pipelined according to the provided HTTP connection manager.
+-}
 data BHEnv = BHEnv { bhServer  :: Server
                    , bhManager :: Manager
                    }
 
+{-| All API calls to Elasticsearch operate within
+    MonadBloodhound. The idea is that it can be easily embedded in your
+    own monad transformer stack. A default instance for a ReaderT and
+    alias 'BH' is provided for the simple case.
+-}
 class (Functor m, Applicative m, MonadIO m) => MonadBloodhound m where
   getBHEnv :: m BHEnv
+
+type BH a = ReaderT BHEnv IO a
 
 instance (Functor m, Applicative m, MonadIO m) => MonadBloodhound (ReaderT BHEnv m) where
   getBHEnv = ask
