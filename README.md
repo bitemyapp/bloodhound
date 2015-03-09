@@ -928,7 +928,7 @@ Script based sorting
 Collapsing redundantly nested and/or structures
 -----------------------------------------------
 
-The Seminearring instance, if deeply nested can possibly produce nested structure that is redundant. Depending on how this affects ES perforamnce, reducing this structure might be valuable.
+The Seminearring instance, if deeply nested can possibly produce nested structure that is redundant. Depending on how this affects ES performance, reducing this structure might be valuable.
 
 Runtime checking for cycles in data structures
 ----------------------------------------------
