@@ -137,7 +137,7 @@ mkReplicaCount n
 emptyBody :: L.ByteString
 emptyBody = L.pack ""
 
-dispatch :: MonadBloodhound m => Method -> String -> Maybe L.ByteString
+dispatch :: MonadBH m => Method -> String -> Maybe L.ByteString
             -> m Reply
 dispatch dMethod url body = do
   initReq <- liftIO $ parseUrl url
@@ -151,7 +151,7 @@ dispatch dMethod url body = do
 joinPath' :: [String] -> String
 joinPath' = intercalate "/"
 
-joinPath :: MonadBloodhound m => [String] -> m String
+joinPath :: MonadBH m => [String] -> m String
 joinPath ps = do
   Server s <- bhServer <$> getBHEnv
   return $ joinPath' (s:ps)
@@ -169,15 +169,15 @@ withBH ms s f = withManager ms $ \mgr -> do
   runReaderT f env
 
 -- Shortcut functions for HTTP methods
-delete :: MonadBloodhound m => String -> m Reply
+delete :: MonadBH m => String -> m Reply
 delete = flip (dispatch NHTM.methodDelete) Nothing
-get    :: MonadBloodhound m => String -> m Reply
+get    :: MonadBH m => String -> m Reply
 get    = flip (dispatch NHTM.methodGet) Nothing
-head   :: MonadBloodhound m => String -> m Reply
+head   :: MonadBH m => String -> m Reply
 head   = flip (dispatch NHTM.methodHead) Nothing
-put    :: MonadBloodhound m => String -> Maybe L.ByteString -> m Reply
+put    :: MonadBH m => String -> Maybe L.ByteString -> m Reply
 put    = dispatch NHTM.methodPost
-post   :: MonadBloodhound m => String -> Maybe L.ByteString -> m Reply
+post   :: MonadBH m => String -> Maybe L.ByteString -> m Reply
 post   = dispatch NHTM.methodPost
 
 -- indexDocument s ix name doc = put (root </> s </> ix </> name </> doc) (Just encode doc)
@@ -189,7 +189,7 @@ post   = dispatch NHTM.methodPost
 -- >>> serverStatus <- runBH getStatus
 -- >>> fmap status (serverStatus)
 -- Just 200
-getStatus :: MonadBloodhound m => m (Maybe Status)
+getStatus :: MonadBH m => m (Maybe Status)
 getStatus = do
   url <- joinPath []
   request <- liftIO $ parseUrl url
@@ -204,7 +204,7 @@ getStatus = do
 -- True
 -- >>> runBH $ indexExists (IndexName "didimakeanindex")
 -- True
-createIndex :: MonadBloodhound m => IndexSettings -> IndexName -> m Reply
+createIndex :: MonadBH m => IndexSettings -> IndexName -> m Reply
 createIndex indexSettings (IndexName indexName) =
   bindM2 put url (return body)
   where url = joinPath [indexName]
@@ -218,7 +218,7 @@ createIndex indexSettings (IndexName indexName) =
 -- True
 -- >>> runBH $ indexExists testIndex
 -- False
-deleteIndex :: MonadBloodhound m => IndexName -> m Reply
+deleteIndex :: MonadBH m => IndexName -> m Reply
 deleteIndex (IndexName indexName) =
   delete =<< joinPath [indexName]
 
@@ -228,7 +228,7 @@ statusCodeIs n resp = NHTS.statusCode (responseStatus resp) == n
 respIsTwoHunna :: Reply -> Bool
 respIsTwoHunna = statusCodeIs 200
 
-existentialQuery :: MonadBloodhound m => String -> m (Reply, Bool)
+existentialQuery :: MonadBH m => String -> m (Reply, Bool)
 existentialQuery url = do
   reply <- head url
   return (reply, respIsTwoHunna reply)
@@ -237,7 +237,7 @@ existentialQuery url = do
 --   in IO
 --
 -- >>> exists <- runBH $ indexExists testIndex
-indexExists :: MonadBloodhound m => IndexName -> m Bool
+indexExists :: MonadBH m => IndexName -> m Bool
 indexExists (IndexName indexName) = do
   (_, exists) <- existentialQuery =<< joinPath [indexName]
   return exists
@@ -247,7 +247,7 @@ indexExists (IndexName indexName) = do
 --
 -- >>> _ <- runBH $ createIndex defaultIndexSettings testIndex
 -- >>> _ <- runBH $ refreshIndex testIndex
-refreshIndex :: MonadBloodhound m => IndexName -> m Reply
+refreshIndex :: MonadBH m => IndexName -> m Reply
 refreshIndex (IndexName indexName) =
   bindM2 post url (return Nothing)
   where url = joinPath [indexName, "_refresh"]
@@ -257,7 +257,7 @@ stringifyOCIndex oci = case oci of
   OpenIndex  -> "_open"
   CloseIndex -> "_close"
 
-openOrCloseIndexes :: MonadBloodhound m => OpenCloseIndex -> IndexName -> m Reply
+openOrCloseIndexes :: MonadBH m => OpenCloseIndex -> IndexName -> m Reply
 openOrCloseIndexes oci (IndexName indexName) =
   bindM2 post url (return Nothing)
   where ociString = stringifyOCIndex oci
@@ -267,14 +267,14 @@ openOrCloseIndexes oci (IndexName indexName) =
 --   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> reply <- runBH $ openIndex testIndex
-openIndex :: MonadBloodhound m => IndexName -> m Reply
+openIndex :: MonadBH m => IndexName -> m Reply
 openIndex = openOrCloseIndexes OpenIndex
 
 -- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at 
 --   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> reply <- runBH $ closeIndex testIndex
-closeIndex :: MonadBloodhound m => IndexName -> m Reply
+closeIndex :: MonadBH m => IndexName -> m Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
 -- | 'putMapping' is an HTTP PUT and has upsert semantics. Mappings are schemas
@@ -284,7 +284,7 @@ closeIndex = openOrCloseIndexes CloseIndex
 -- >>> resp <- runBH $ putMapping testIndex testMapping TweetMapping
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
-putMapping :: (MonadBloodhound m, ToJSON a) => IndexName
+putMapping :: (MonadBH m, ToJSON a) => IndexName
                  -> MappingName -> a -> m Reply
 putMapping (IndexName indexName) (MappingName mappingName) mapping =
   bindM2 put url (return body)
@@ -299,7 +299,7 @@ putMapping (IndexName indexName) (MappingName mappingName) mapping =
 -- >>> resp <- runBH $ deleteMapping testIndex testMapping
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
-deleteMapping :: MonadBloodhound m => IndexName -> MappingName -> m Reply
+deleteMapping :: MonadBH m => IndexName -> MappingName -> m Reply
 deleteMapping (IndexName indexName)
   (MappingName mappingName) =
   delete =<< joinPath [indexName, mappingName, "_mapping"]
@@ -312,7 +312,7 @@ deleteMapping (IndexName indexName)
 -- >>> resp <- runBH $ indexDocument testIndex testMapping exampleTweet (DocId "1")
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
-indexDocument :: (ToJSON doc, MonadBloodhound m) => IndexName -> MappingName
+indexDocument :: (ToJSON doc, MonadBH m) => IndexName -> MappingName
                  -> doc -> DocId -> m Reply
 indexDocument (IndexName indexName)
   (MappingName mappingName) document (DocId docId) =
@@ -323,7 +323,7 @@ indexDocument (IndexName indexName)
 -- | 'deleteDocument' is the primary way to delete a single document.
 --
 -- >>> _ <- runBH $ deleteDocument testIndex testMapping (DocId "1")
-deleteDocument :: MonadBloodhound m => IndexName -> MappingName
+deleteDocument :: MonadBH m => IndexName -> MappingName
                   -> DocId -> m Reply
 deleteDocument (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
@@ -339,7 +339,7 @@ deleteDocument (IndexName indexName)
 -- >>> let stream = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))]
 -- >>> _ <- runBH $ bulk stream
 -- >>> _ <- runBH $ refreshIndex testIndex
-bulk :: MonadBloodhound m => V.Vector BulkOperation -> m Reply
+bulk :: MonadBH m => V.Vector BulkOperation -> m Reply
 bulk bulkOps = bindM2 post url (return body)
   where url = joinPath ["_bulk"]
         body = Just $ encodeBulkOperations bulkOps
@@ -403,7 +403,7 @@ encodeBulkOperation (BulkUpdate (IndexName indexName)
 --   The 'DocId' is the primary key for your Elasticsearch document.
 --
 -- >>> yourDoc <- runBH $ getDocument testIndex testMapping (DocId "1")
-getDocument :: MonadBloodhound m => IndexName -> MappingName
+getDocument :: MonadBH m => IndexName -> MappingName
                -> DocId -> m Reply
 getDocument (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
@@ -413,7 +413,7 @@ getDocument (IndexName indexName)
 --   in IO
 --
 -- >>> exists <- runBH $ documentExists testIndex testMapping (DocId "1")
-documentExists :: MonadBloodhound m => IndexName -> MappingName
+documentExists :: MonadBH m => IndexName -> MappingName
                   -> DocId -> m Bool
 documentExists (IndexName indexName)
   (MappingName mappingName) (DocId docId) = do
@@ -421,7 +421,7 @@ documentExists (IndexName indexName)
   return exists
   where url = joinPath [indexName, mappingName, docId]
 
-dispatchSearch :: MonadBloodhound m => String -> Search -> m Reply
+dispatchSearch :: MonadBH m => String -> Search -> m Reply
 dispatchSearch url search = post url (Just (encode search))
 
 -- | 'searchAll', given a 'Search', will perform that search against all indexes
@@ -430,7 +430,7 @@ dispatchSearch url search = post url (Just (encode search))
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> reply <- runBH $ searchAll search
-searchAll :: MonadBloodhound m => Search -> m Reply
+searchAll :: MonadBH m => Search -> m Reply
 searchAll = bindM2 dispatchSearch url . return
   where url = joinPath ["_search"]
 
@@ -440,7 +440,7 @@ searchAll = bindM2 dispatchSearch url . return
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> reply <- runBH $ searchByIndex testIndex search
-searchByIndex :: MonadBloodhound m => IndexName -> Search -> m Reply
+searchByIndex :: MonadBH m => IndexName -> Search -> m Reply
 searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, "_search"]
 
@@ -450,7 +450,7 @@ searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> reply <- runBH $ searchByType testIndex testMapping search
-searchByType :: MonadBloodhound m => IndexName -> MappingName -> Search
+searchByType :: MonadBH m => IndexName -> MappingName -> Search
                 -> m Reply
 searchByType (IndexName indexName)
   (MappingName mappingName) = bindM2 dispatchSearch url . return

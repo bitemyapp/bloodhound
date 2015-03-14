@@ -43,7 +43,7 @@ module Database.Bloodhound.Types
        , omitNulls
        , BH
        , BHEnv(..)
-       , MonadBloodhound(..)
+       , MonadBH(..)
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -237,16 +237,16 @@ data BHEnv = BHEnv { bhServer  :: Server
                    }
 
 {-| All API calls to Elasticsearch operate within
-    MonadBloodhound. The idea is that it can be easily embedded in your
+    MonadBH. The idea is that it can be easily embedded in your
     own monad transformer stack. A default instance for a ReaderT and
     alias 'BH' is provided for the simple case.
 -}
-class (Functor m, Applicative m, MonadIO m) => MonadBloodhound m where
+class (Functor m, Applicative m, MonadIO m) => MonadBH m where
   getBHEnv :: m BHEnv
 
 type BH a = ReaderT BHEnv IO a
 
-instance (Functor m, Applicative m, MonadIO m) => MonadBloodhound (ReaderT BHEnv m) where
+instance (Functor m, Applicative m, MonadIO m) => MonadBH (ReaderT BHEnv m) where
   getBHEnv = ask
 
 {-| 'Version' is embedded in 'Status' -}
