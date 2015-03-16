@@ -269,7 +269,7 @@ instance (MonadReader r m) => MonadReader r (BH m) where
     local f (BH (ReaderT m)) = BH $ ReaderT $ \r ->
       local f (m r)
 
-instance (Functor m, Applicative m, MonadIO m) => MonadBloodhound (BH m) where
+instance (Functor m, Applicative m, MonadIO m) => MonadBH (BH m) where
   getBHEnv = BH getBHEnv
 
 
