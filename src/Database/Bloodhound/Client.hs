@@ -52,18 +52,17 @@ module Database.Bloodhound.Client
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Reader
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
-import qualified Data.ByteString.Lazy.Char8 as L
-import           Data.List                  (intercalate)
-import           Data.Maybe                 (fromMaybe)
-import           Data.Text                  (Text)
-import qualified Data.Vector                as V
+import qualified Data.ByteString.Lazy.Char8   as L
+import           Data.List                    (intercalate)
+import           Data.Maybe                   (fromMaybe)
+import           Data.Text                    (Text)
+import qualified Data.Vector                  as V
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method  as NHTM
-import qualified Network.HTTP.Types.Status  as NHTS
-import           Prelude                    hiding (filter, head)
+import qualified Network.HTTP.Types.Method    as NHTM
+import qualified Network.HTTP.Types.Status    as NHTS
+import           Prelude                      hiding (filter, head)
 
 import           Database.Bloodhound.Types
 
@@ -161,12 +160,14 @@ bindM2 f ma mb = join (f <$> ma <*> mb)
 
 -- | Convenience function that sets up a mananager and BHEnv and runs
 -- the given set of bloodhound operations. Connections will be
--- pipelined automatically in accordance with the given manager settings
-withBH :: ManagerSettings -> Server -> BH a -> IO a
+-- pipelined automatically in accordance with the given manager
+-- settings in IO. If you've got your own monad transformer stack, you
+-- should use 'runBH' directly.
+withBH :: ManagerSettings -> Server -> BH IO a -> IO a
 withBH ms s f = withManager ms $ \mgr -> do
   let env = BHEnv { bhServer  = s
                   , bhManager = mgr }
-  runReaderT f env
+  runBH env f
 
 -- Shortcut functions for HTTP methods
 delete :: MonadBH m => String -> m Reply
@@ -263,14 +264,14 @@ openOrCloseIndexes oci (IndexName indexName) =
   where ociString = stringifyOCIndex oci
         url = joinPath [indexName, ociString]
 
--- | 'openIndex' opens an index given a 'Server' and an 'IndexName'. Explained in further detail at 
+-- | 'openIndex' opens an index given a 'Server' and an 'IndexName'. Explained in further detail at
 --   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> reply <- runBH $ openIndex testIndex
 openIndex :: MonadBH m => IndexName -> m Reply
 openIndex = openOrCloseIndexes OpenIndex
 
--- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at 
+-- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at
 --   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> reply <- runBH $ closeIndex testIndex

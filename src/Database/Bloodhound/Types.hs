@@ -1,8 +1,11 @@
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -42,6 +45,7 @@ module Database.Bloodhound.Types
        , toDateHistogram
        , omitNulls
        , BH
+       , runBH
        , BHEnv(..)
        , MonadBH(..)
        , Version(..)
@@ -199,15 +203,16 @@ module Database.Bloodhound.Types
          ) where
 
 import           Control.Applicative
-import           Control.Monad.IO.Class
+import           Control.Monad.Error
 import           Control.Monad.Reader
+import           Control.Monad.State
+import           Control.Monad.Writer
 import           Data.Aeson
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import           Data.List                       (nub)
-import           Data.List.NonEmpty              (NonEmpty(..), toList)
+import           Data.List.NonEmpty              (NonEmpty (..), toList)
 import qualified Data.Map.Strict                 as M
-import           Data.Monoid
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime)
@@ -244,10 +249,35 @@ data BHEnv = BHEnv { bhServer  :: Server
 class (Functor m, Applicative m, MonadIO m) => MonadBH m where
   getBHEnv :: m BHEnv
 
-type BH a = ReaderT BHEnv IO a
+newtype BH m a = BH {
+      unBH :: ReaderT BHEnv m a
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadIO
+               , MonadState s
+               , MonadWriter w
+               , MonadError e
+               , MonadPlus
+               , MonadFix)
+
+instance MonadTrans BH where
+  lift = BH . lift
+
+instance (MonadReader r m) => MonadReader r (BH m) where
+    ask = lift ask
+    local f (BH (ReaderT m)) = BH $ ReaderT $ \r ->
+      local f (m r)
+
+instance (Functor m, Applicative m, MonadIO m) => MonadBloodhound (BH m) where
+  getBHEnv = BH getBHEnv
+
 
 instance (Functor m, Applicative m, MonadIO m) => MonadBH (ReaderT BHEnv m) where
   getBHEnv = ask
+
+runBH :: BHEnv -> BH m a -> m a
+runBH e f = runReaderT (unBH f) e
 
 {-| 'Version' is embedded in 'Status' -}
 data Version = Version { number          :: Text
