@@ -58,6 +58,7 @@ import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.List                    (intercalate)
 import           Data.Maybe                   (fromMaybe)
 import           Data.Text                    (Text)
+import qualified Data.Text                    as T
 import qualified Data.Vector                  as V
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method    as NHTM
@@ -136,7 +137,7 @@ mkReplicaCount n
 emptyBody :: L.ByteString
 emptyBody = L.pack ""
 
-dispatch :: MonadBH m => Method -> String -> Maybe L.ByteString
+dispatch :: MonadBH m => Method -> Text -> Maybe L.ByteString
             -> m Reply
 dispatch dMethod url body = do
   initReq <- liftIO $ parseUrl url
@@ -147,10 +148,10 @@ dispatch dMethod url body = do
   mgr <- bhManager <$> getBHEnv
   liftIO $ httpLbs req mgr
 
-joinPath' :: [String] -> String
-joinPath' = intercalate "/"
+joinPath' :: [Text] -> Text
+joinPath' = T.intercalate "/"
 
-joinPath :: MonadBH m => [String] -> m String
+joinPath :: MonadBH m => [Text] -> m Text
 joinPath ps = do
   Server s <- bhServer <$> getBHEnv
   return $ joinPath' (s:ps)
@@ -170,15 +171,15 @@ withBH ms s f = withManager ms $ \mgr -> do
   runBH env f
 
 -- Shortcut functions for HTTP methods
-delete :: MonadBH m => String -> m Reply
+delete :: MonadBH m => Text -> m Reply
 delete = flip (dispatch NHTM.methodDelete) Nothing
-get    :: MonadBH m => String -> m Reply
+get    :: MonadBH m => Text -> m Reply
 get    = flip (dispatch NHTM.methodGet) Nothing
-head   :: MonadBH m => String -> m Reply
+head   :: MonadBH m => Text -> m Reply
 head   = flip (dispatch NHTM.methodHead) Nothing
-put    :: MonadBH m => String -> Maybe L.ByteString -> m Reply
+put    :: MonadBH m => Text -> Maybe L.ByteString -> m Reply
 put    = dispatch NHTM.methodPost
-post   :: MonadBH m => String -> Maybe L.ByteString -> m Reply
+post   :: MonadBH m => Text -> Maybe L.ByteString -> m Reply
 post   = dispatch NHTM.methodPost
 
 -- indexDocument s ix name doc = put (root </> s </> ix </> name </> doc) (Just encode doc)
@@ -229,7 +230,7 @@ statusCodeIs n resp = NHTS.statusCode (responseStatus resp) == n
 respIsTwoHunna :: Reply -> Bool
 respIsTwoHunna = statusCodeIs 200
 
-existentialQuery :: MonadBH m => String -> m (Reply, Bool)
+existentialQuery :: MonadBH m => Text -> m (Reply, Bool)
 existentialQuery url = do
   reply <- head url
   return (reply, respIsTwoHunna reply)
@@ -253,7 +254,7 @@ refreshIndex (IndexName indexName) =
   bindM2 post url (return Nothing)
   where url = joinPath [indexName, "_refresh"]
 
-stringifyOCIndex :: OpenCloseIndex -> String
+stringifyOCIndex :: OpenCloseIndex -> Text
 stringifyOCIndex oci = case oci of
   OpenIndex  -> "_open"
   CloseIndex -> "_close"
@@ -360,7 +361,7 @@ encodeBulkOperations stream = collapsed where
 mash :: Builder -> V.Vector L.ByteString -> Builder
 mash = V.foldl' (\b x -> b `mappend` (byteString "\n") `mappend` (lazyByteString x))
 
-mkBulkStreamValue :: Text -> String -> String -> String -> Value
+mkBulkStreamValue :: Text -> Text -> Text -> Text -> Value
 mkBulkStreamValue operation indexName mappingName docId =
   object [operation .=
           object [ "_index" .= indexName
@@ -422,7 +423,7 @@ documentExists (IndexName indexName)
   return exists
   where url = joinPath [indexName, mappingName, docId]
 
-dispatchSearch :: MonadBH m => String -> Search -> m Reply
+dispatchSearch :: MonadBH m => Text -> Search -> m Reply
 dispatchSearch url search = post url (Just (encode search))
 
 -- | 'searchAll', given a 'Search', will perform that search against all indexes
