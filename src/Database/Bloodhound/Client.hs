@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -51,19 +52,25 @@ module Database.Bloodhound.Client
 
 import           Control.Applicative
 import           Control.Monad
+import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Data.Aeson
+import qualified Data.ByteString.Char8        as B8
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
+import           Data.Default.Class
 import           Data.List                    (intercalate)
 import           Data.Maybe                   (fromMaybe)
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
+import qualified Data.Text.Encoding           as T
 import qualified Data.Vector                  as V
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method    as NHTM
 import qualified Network.HTTP.Types.Status    as NHTS
 import           Prelude                      hiding (filter, head)
+import           URI.ByteString               hiding (Query)
+import qualified URI.ByteString               as UB
 
 import           Database.Bloodhound.Types
 
@@ -140,7 +147,7 @@ emptyBody = L.pack ""
 dispatch :: MonadBH m => Method -> Text -> Maybe L.ByteString
             -> m Reply
 dispatch dMethod url body = do
-  initReq <- liftIO $ parseUrl url
+  initReq <- liftIO $ parseUrl' url
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
   let req = initReq { method = dMethod
                     , requestBody = reqBody
@@ -194,7 +201,7 @@ post   = dispatch NHTM.methodPost
 getStatus :: MonadBH m => m (Maybe Status)
 getStatus = do
   url <- joinPath []
-  request <- liftIO $ parseUrl url
+  request <- liftIO $ parseUrl' url
   mgr <- bhManager <$> getBHEnv
   response <- liftIO $ httpLbs request mgr
   return $ decode (responseBody response)
@@ -504,3 +511,31 @@ pageSearch :: Int     -- ^ The result offset
            -> Search  -- ^ The current seach
            -> Search  -- ^ The paged search
 pageSearch resultOffset pageSize search = search { from = resultOffset, size = pageSize }
+
+parseUrl' :: MonadThrow m => Text -> m Request
+parseUrl' t =
+  case parseURI laxURIParserOptions (T.encodeUtf8 t) of
+    Right uri -> setURI def uri
+    Left e -> throwM $ InvalidUrlException (T.unpack t) ("Invalid URL: " ++ show e)
+
+setURI :: MonadThrow m => Request -> URI -> m Request
+setURI req URI{..} = do
+  Authority {..} <- maybe missingUA return uriAuthority
+  let req' = req { secure = isSecure
+                 , host   = getHost authorityHost
+                 , port   = thePort
+                 , path   = uriPath
+                 }
+      thePort = maybe defPort (read . B8.unpack . getPort) authorityPort
+      addAuth = maybe id addAuth' authorityUserInfo
+  return $ setQueryString theQueryString $ addAuth req'
+  where
+    missingUA = throwM $ InvalidUrlException "N/A" "Missing URI host/port"
+    addAuth' UserInfo {..} = applyBasicProxyAuth uiUsername uiPassword
+    defPort
+      | isSecure  = 443
+      | otherwise = 80
+    isSecure = case uriScheme of
+      Scheme "https" -> True
+      _              -> False
+    theQueryString = [(k , Just v) | (k, v) <- getQuery uriQuery]
