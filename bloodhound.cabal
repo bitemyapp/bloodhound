@@ -49,20 +49,23 @@ test-suite tests
   type: exitcode-stdio-1.0
   main-is: tests.hs
   hs-source-dirs: tests
-  build-depends:       base,
-                       bloodhound,
-                       http-client,
-                       http-types,
-                       containers,
-                       hspec                >= 1.8 && <2.1,
-                       text,
-                       time,
-                       aeson,
-                       semigroups,
-                       QuickCheck,
-                       vector,
-                       unordered-containers >= 0.2.5.0 && <0.3,
-                       mtl
+  if impl(ghc >= 7.8)
+    build-depends:       base,
+                         bloodhound,
+                         http-client,
+                         http-types,
+                         containers,
+                         hspec                >= 1.8 && <2.1,
+                         text,
+                         time,
+                         aeson,
+                         semigroups,
+                         QuickCheck,
+                         vector,
+                         unordered-containers >= 0.2.5.0 && <0.3,
+                         mtl
+  else
+    buildable: False
   default-language:    Haskell2010
 
 test-suite doctests
