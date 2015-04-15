@@ -39,7 +39,7 @@ library
                        transformers     >= 0.2     && <0.5,
                        http-types       >= 0.8     && <0.9,
                        vector           >= 0.10.9  && <0.11,
-                       uri-bytestring,
+                       uri-bytestring   >= 0.0.1   && <0.1,
                        exceptions,
                        data-default-class
   default-language:    Haskell2010
