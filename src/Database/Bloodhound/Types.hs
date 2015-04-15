@@ -258,6 +258,7 @@ newtype BH m a = BH {
                , MonadState s
                , MonadWriter w
                , MonadError e
+               , Alternative
                , MonadPlus
                , MonadFix)
 

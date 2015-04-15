@@ -55,11 +55,9 @@ import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Data.Aeson
-import qualified Data.ByteString.Char8        as B8
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Default.Class
-import           Data.List                    (intercalate)
 import           Data.Maybe                   (fromMaybe)
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
@@ -70,7 +68,6 @@ import qualified Network.HTTP.Types.Method    as NHTM
 import qualified Network.HTTP.Types.Status    as NHTS
 import           Prelude                      hiding (filter, head)
 import           URI.ByteString               hiding (Query)
-import qualified URI.ByteString               as UB
 
 import           Database.Bloodhound.Types
 
@@ -526,7 +523,7 @@ setURI req URI{..} = do
                  , port   = thePort
                  , path   = uriPath
                  }
-      thePort = maybe defPort (read . B8.unpack . getPort) authorityPort
+      thePort = maybe defPort getPort authorityPort
       addAuth = maybe id addAuth' authorityUserInfo
   return $ setQueryString theQueryString $ addAuth req'
   where
