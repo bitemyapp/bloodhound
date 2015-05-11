@@ -519,11 +519,11 @@ setURI :: MonadThrow m => Request -> URI -> m Request
 setURI req URI{..} = do
   Authority {..} <- maybe missingUA return uriAuthority
   let req' = req { secure = isSecure
-                 , host   = getHost authorityHost
+                 , host   = hostBS authorityHost
                  , port   = thePort
                  , path   = uriPath
                  }
-      thePort = maybe defPort getPort authorityPort
+      thePort = maybe defPort portNumber authorityPort
       addAuth = maybe id addAuth' authorityUserInfo
   return $ setQueryString theQueryString $ addAuth req'
   where
@@ -535,4 +535,4 @@ setURI req URI{..} = do
     isSecure = case uriScheme of
       Scheme "https" -> True
       _              -> False
-    theQueryString = [(k , Just v) | (k, v) <- getQuery uriQuery]
+    theQueryString = [(k , Just v) | (k, v) <- queryPairs uriQuery]
