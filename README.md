@@ -861,6 +861,20 @@ Buckets can be extracted from a using
 
 For more information on the Date Histogram Aggregation, see: <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html>
 
+
+Contributors
+============
+
+* [Chris Allen](https://github.com/bitemyapp)
+* [Liam Atkinson](https://github.com/latkins)
+* [Christopher Guiney](https://github.com/chrisguiney)
+* [Curtis Carter](https://github.com/ccarter)
+* [Michael Xavier](https://github.com/MichaelXavier)
+* [Bob Long](https://github.com/bobjflong)
+* [Maximilian Tagher](https://github.com/MaxGabriel)
+* [Anna Kopp](https://github.com/annakopp)
+* [Matvey B. Aksenov](https://github.com/supki)
+
 Possible future functionality
 =============================
 
