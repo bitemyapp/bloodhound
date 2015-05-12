@@ -208,7 +208,7 @@ module Database.Bloodhound.Types
          ) where
 
 import           Control.Applicative
-import           Control.Monad.Except
+import           Control.Monad.Error
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer
