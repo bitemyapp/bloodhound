@@ -60,6 +60,9 @@ module Database.Bloodhound.Types
        , Search(..)
        , SearchResult(..)
        , SearchHits(..)
+       , TrackSortScores
+       , From
+       , Size
        , ShardResult(..)
        , Hit(..)
        , Filter(..)
@@ -147,6 +150,8 @@ module Database.Bloodhound.Types
        , IgnoreTermFrequency(..)
        , MaxQueryTerms(..)
        , ScoreType(..)
+       , Score
+       , Cache
        , TypeName(..)
        , BoostTerms(..)
        , MaxWordLength(..)
@@ -203,7 +208,7 @@ module Database.Bloodhound.Types
          ) where
 
 import           Control.Applicative
-import           Control.Monad.Error
+import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer
@@ -257,7 +262,7 @@ newtype BH m a = BH {
                , MonadIO
                , MonadState s
                , MonadWriter w
-               , MonadError e
+               , MonadErrorw e
                , Alternative
                , MonadPlus
                , MonadFix)
