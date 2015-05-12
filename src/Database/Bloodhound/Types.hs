@@ -1,6 +1,11 @@
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -39,6 +44,10 @@ module Database.Bloodhound.Types
        , toTerms
        , toDateHistogram
        , omitNulls
+       , BH
+       , runBH
+       , BHEnv(..)
+       , MonadBH(..)
        , Version(..)
        , Status(..)
        , Existence(..)
@@ -51,6 +60,9 @@ module Database.Bloodhound.Types
        , Search(..)
        , SearchResult(..)
        , SearchHits(..)
+       , TrackSortScores
+       , From(..)
+       , Size(..)
        , ShardResult(..)
        , Hit(..)
        , Filter(..)
@@ -138,6 +150,8 @@ module Database.Bloodhound.Types
        , IgnoreTermFrequency(..)
        , MaxQueryTerms(..)
        , ScoreType(..)
+       , Score
+       , Cache
        , TypeName(..)
        , BoostTerms(..)
        , MaxWordLength(..)
@@ -194,13 +208,16 @@ module Database.Bloodhound.Types
          ) where
 
 import           Control.Applicative
+import           Control.Monad.Error
+import           Control.Monad.Reader
+import           Control.Monad.State
+import           Control.Monad.Writer
 import           Data.Aeson
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import           Data.List                       (nub)
-import           Data.List.NonEmpty              (NonEmpty(..), toList)
+import           Data.List.NonEmpty              (NonEmpty (..), toList)
 import qualified Data.Map.Strict                 as M
-import           Data.Monoid
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime)
@@ -221,6 +238,52 @@ import           Database.Bloodhound.Types.Class
 
 -- defaultIndexSettings is exported by Database.Bloodhound as well
 -- no trailing slashes in servers, library handles building the path.
+
+{-| Common environment for Elasticsearch calls. Connections will be
+    pipelined according to the provided HTTP connection manager.
+-}
+data BHEnv = BHEnv { bhServer  :: Server
+                   , bhManager :: Manager
+                   }
+
+{-| All API calls to Elasticsearch operate within
+    MonadBH. The idea is that it can be easily embedded in your
+    own monad transformer stack. A default instance for a ReaderT and
+    alias 'BH' is provided for the simple case.
+-}
+class (Functor m, Applicative m, MonadIO m) => MonadBH m where
+  getBHEnv :: m BHEnv
+
+newtype BH m a = BH {
+      unBH :: ReaderT BHEnv m a
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadIO
+               , MonadState s
+               , MonadWriter w
+               , MonadError e
+               , Alternative
+               , MonadPlus
+               , MonadFix)
+
+instance MonadTrans BH where
+  lift = BH . lift
+
+instance (MonadReader r m) => MonadReader r (BH m) where
+    ask = lift ask
+    local f (BH (ReaderT m)) = BH $ ReaderT $ \r ->
+      local f (m r)
+
+instance (Functor m, Applicative m, MonadIO m) => MonadBH (BH m) where
+  getBHEnv = BH getBHEnv
+
+
+instance (Functor m, Applicative m, MonadIO m) => MonadBH (ReaderT BHEnv m) where
+  getBHEnv = ask
+
+runBH :: BHEnv -> BH m a -> m a
+runBH e f = runReaderT (unBH f) e
 
 {-| 'Version' is embedded in 'Status' -}
 data Version = Version { number          :: Text
@@ -400,22 +463,22 @@ newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic)
 
 {-| 'Server' is used with the client functions to point at the ES instance
 -}
-newtype Server = Server String deriving (Eq, Show)
+newtype Server = Server Text deriving (Eq, Show)
 
 {-| 'IndexName' is used to describe which index to query/create/delete
 -}
-newtype IndexName = IndexName String deriving (Eq, Generic, Show)
+newtype IndexName = IndexName Text deriving (Eq, Generic, Show)
 
 {-| 'MappingName' is part of mappings which are how ES describes and schematizes
     the data in the indices.
 -}
-newtype MappingName = MappingName String deriving (Eq, Generic, Show)
+newtype MappingName = MappingName Text deriving (Eq, Generic, Show)
 
 {-| 'DocId' is a generic wrapper value for expressing unique Document IDs.
     Can be set by the user or created by ES itself. Often used in client
     functions for poking at specific documents.
 -}
-newtype DocId = DocId String deriving (Eq, Generic, Show)
+newtype DocId = DocId Text deriving (Eq, Generic, Show)
 
 {-| 'QueryString' is used to wrap query text bodies, be they human written or not.
 -}
@@ -526,12 +589,12 @@ newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Show, Generic)
 
 {-| 'unpackId' is a silly convenience function that gets used once.
 -}
-unpackId :: DocId -> String
+unpackId :: DocId -> Text
 unpackId (DocId docId) = docId
 
 type TrackSortScores = Bool
-type From = Int
-type Size = Int
+newtype From = From Int deriving (Eq, Show, ToJSON)
+newtype Size = Size Int deriving (Eq, Show, ToJSON)
 
 data Search = Search { queryBody       :: Maybe Query
                      , filterBody      :: Maybe Filter
@@ -1195,29 +1258,29 @@ instance Show TimeInterval where
 instance ToJSON Aggregation where
   toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
     omitNulls ["terms" .= omitNulls [ toJSON' term,
-                                      "include"        .= toJSON include,
-                                      "exclude"        .= toJSON exclude,
-                                      "order"          .= toJSON order,
-                                      "min_doc_count"  .= toJSON minDocCount,
-                                      "size"           .= toJSON size,
-                                      "shard_size"     .= toJSON shardSize,
-                                      "collect_mode"   .= toJSON collectMode,
-                                      "execution_hint" .= toJSON executionHint
+                                      "include"        .= include,
+                                      "exclude"        .= exclude,
+                                      "order"          .= order,
+                                      "min_doc_count"  .= minDocCount,
+                                      "size"           .= size,
+                                      "shard_size"     .= shardSize,
+                                      "collect_mode"   .= collectMode,
+                                      "execution_hint" .= executionHint
                                     ],
-               "aggs"  .= toJSON termAggs ]
+               "aggs"  .= termAggs ]
     where
-      toJSON' x = case x of { Left y -> "field" .= toJSON y;  Right y -> "script" .= toJSON y }
+      toJSON' x = case x of { Left y -> "field" .= y;  Right y -> "script" .= y }
 
   toJSON (DateHistogramAgg (DateHistogramAggregation field interval format preZone postZone preOffset postOffset dateHistoAggs)) =
-    omitNulls ["date_histogram" .= omitNulls [ "field"       .= toJSON field,
-                                               "interval"    .= toJSON interval,
-                                               "format"      .= toJSON format,
-                                               "pre_zone"    .= toJSON preZone,
-                                               "post_zone"   .= toJSON postZone,
-                                               "pre_offset"  .= toJSON preOffset,
-                                               "post_offset" .= toJSON postOffset
+    omitNulls ["date_histogram" .= omitNulls [ "field"       .= field,
+                                               "interval"    .= interval,
+                                               "format"      .= format,
+                                               "pre_zone"    .= preZone,
+                                               "post_zone"   .= postZone,
+                                               "pre_offset"  .= preOffset,
+                                               "post_offset" .= postOffset
                                              ],
-               "aggs"           .= toJSON dateHistoAggs ]
+               "aggs"           .= dateHistoAggs ]
 
 type AggregationResults = M.Map Text Value
 
@@ -1295,7 +1358,7 @@ instance ToJSON Filter where
 
   toJSON (NotFilter notFilter cache) =
     object ["not" .=
-            object ["filter"  .= toJSON notFilter
+            object ["filter"  .= notFilter
                    , "_cache" .= cache]]
 
   toJSON (IdentityFilter) =
@@ -1311,26 +1374,26 @@ instance ToJSON Filter where
             ["field"  .= fieldName]]
 
   toJSON (BoolFilter boolMatch) =
-    object ["bool"    .= toJSON boolMatch]
+    object ["bool"    .= boolMatch]
 
   toJSON (GeoBoundingBoxFilter bbConstraint) =
-    object ["geo_bounding_box" .= toJSON bbConstraint]
+    object ["geo_bounding_box" .= bbConstraint]
 
   toJSON (GeoDistanceFilter (GeoPoint (FieldName distanceGeoField) geoDistLatLon)
           distance distanceType optimizeBbox cache) =
     object ["geo_distance" .=
-            object ["distance" .= toJSON distance
-                   , "distance_type" .= toJSON distanceType
+            object ["distance" .= distance
+                   , "distance_type" .= distanceType
                    , "optimize_bbox" .= optimizeBbox
-                   , distanceGeoField .= toJSON geoDistLatLon
+                   , distanceGeoField .= geoDistLatLon
                    , "_cache" .= cache]]
 
   toJSON (GeoDistanceRangeFilter (GeoPoint (FieldName gddrField) drLatLon)
           (DistanceRange geoDistRangeDistFrom drDistanceTo)) =
     object ["geo_distance_range" .=
-            object ["from" .= toJSON geoDistRangeDistFrom
-                   , "to"  .= toJSON drDistanceTo
-                   , gddrField .= toJSON drLatLon]]
+            object ["from" .= geoDistRangeDistFrom
+                   , "to"  .= drDistanceTo
+                   , gddrField .= drLatLon]]
 
   toJSON (GeoPolygonFilter (FieldName geoPolygonFilterField) latLons) =
     object ["geo_polygon" .=
@@ -1340,7 +1403,7 @@ instance ToJSON Filter where
   toJSON (IdsFilter (MappingName mappingName) values) =
     object ["ids" .=
             object ["type" .= mappingName
-                   , "values" .= fmap (T.pack . unpackId) values]]
+                   , "values" .= fmap unpackId values]]
 
   toJSON (LimitFilter limit) =
     object ["limit" .= object ["value" .= limit]]
@@ -1359,7 +1422,7 @@ instance ToJSON Filter where
   toJSON (RangeFilter (FieldName fieldName) rangeValue rangeExecution cache) =
     object ["range" .=
             object [ fieldName .= object (rangeValueToPair rangeValue)
-                   , "execution" .= toJSON rangeExecution
+                   , "execution" .= rangeExecution
                    , "_cache" .= cache]]
 
   toJSON (RegexpFilter (FieldName fieldName)
@@ -1367,14 +1430,14 @@ instance ToJSON Filter where
     object ["regexp" .=
             object [fieldName .=
                     object ["value"  .= regexText
-                           , "flags" .= toJSON flags]
+                           , "flags" .= flags]
                    , "_name"      .= cacheName
                    , "_cache"     .= cache
                    , "_cache_key" .= cacheKey]]
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
-    object [ geoPointField  .= toJSON geoPointLatLon ]
+    object [ geoPointField  .= geoPointLatLon ]
 
 
 instance ToJSON Query where
@@ -1394,82 +1457,82 @@ instance ToJSON Query where
           getTermValue (Term _ v) = v
   toJSON (IdsQuery idsQueryMappingName docIds) =
     object [ "ids" .= object conjoined ]
-    where conjoined = [ "type"   .= toJSON idsQueryMappingName
+    where conjoined = [ "type"   .= idsQueryMappingName
                       , "values" .= fmap toJSON docIds ]
 
   toJSON (QueryQueryStringQuery qQueryStringQuery) =
-    object [ "query_string" .= toJSON qQueryStringQuery ]
+    object [ "query_string" .= qQueryStringQuery ]
 
   toJSON (QueryMatchQuery matchQuery) =
-    object [ "match" .= toJSON matchQuery ]
+    object [ "match" .= matchQuery ]
 
   toJSON (QueryMultiMatchQuery multiMatchQuery) =
       toJSON multiMatchQuery
 
   toJSON (QueryBoolQuery boolQuery) =
-    object [ "bool" .= toJSON boolQuery ]
+    object [ "bool" .= boolQuery ]
 
   toJSON (QueryBoostingQuery boostingQuery) =
-    object [ "boosting" .= toJSON boostingQuery ]
+    object [ "boosting" .= boostingQuery ]
 
   toJSON (QueryCommonTermsQuery commonTermsQuery) =
-    object [ "common" .= toJSON commonTermsQuery ]
+    object [ "common" .= commonTermsQuery ]
 
   toJSON (ConstantScoreFilter csFilter boost) =
-    object [ "constant_score" .= toJSON csFilter
-           , "boost" .= toJSON boost]
+    object [ "constant_score" .= csFilter
+           , "boost" .= boost]
 
   toJSON (ConstantScoreQuery query boost) =
-    object [ "constant_score" .= toJSON query
-           , "boost"          .= toJSON boost]
+    object [ "constant_score" .= query
+           , "boost"          .= boost]
 
   toJSON (QueryDisMaxQuery disMaxQuery) =
-    object [ "dis_max" .= toJSON disMaxQuery ]
+    object [ "dis_max" .= disMaxQuery ]
 
   toJSON (QueryFilteredQuery qFilteredQuery) =
-    object [ "filtered" .= toJSON qFilteredQuery ]
+    object [ "filtered" .= qFilteredQuery ]
 
   toJSON (QueryFuzzyLikeThisQuery fuzzyQuery) =
-    object [ "fuzzy_like_this" .= toJSON fuzzyQuery ]
+    object [ "fuzzy_like_this" .= fuzzyQuery ]
 
   toJSON (QueryFuzzyLikeFieldQuery fuzzyFieldQuery) =
-    object [ "fuzzy_like_this_field" .= toJSON fuzzyFieldQuery ]
+    object [ "fuzzy_like_this_field" .= fuzzyFieldQuery ]
 
   toJSON (QueryFuzzyQuery fuzzyQuery) =
-    object [ "fuzzy" .= toJSON fuzzyQuery ]
+    object [ "fuzzy" .= fuzzyQuery ]
 
   toJSON (QueryHasChildQuery childQuery) =
-    object [ "has_child" .= toJSON childQuery ]
+    object [ "has_child" .= childQuery ]
 
   toJSON (QueryHasParentQuery parentQuery) =
-    object [ "has_parent" .= toJSON parentQuery ]
+    object [ "has_parent" .= parentQuery ]
 
   toJSON (QueryIndicesQuery qIndicesQuery) =
-    object [ "indices" .= toJSON qIndicesQuery ]
+    object [ "indices" .= qIndicesQuery ]
 
   toJSON (MatchAllQuery boost) =
     object [ "match_all" .= omitNulls [ "boost" .= boost ] ]
 
   toJSON (QueryMoreLikeThisQuery query) =
-    object [ "more_like_this" .= toJSON query ]
+    object [ "more_like_this" .= query ]
 
   toJSON (QueryMoreLikeThisFieldQuery query) =
-    object [ "more_like_this_field" .= toJSON query ]
+    object [ "more_like_this_field" .= query ]
 
   toJSON (QueryNestedQuery query) =
-    object [ "nested" .= toJSON query ]
+    object [ "nested" .= query ]
 
   toJSON (QueryPrefixQuery query) =
-    object [ "prefix" .= toJSON query ]
+    object [ "prefix" .= query ]
 
   toJSON (QueryRangeQuery query) =
-    object [ "range"  .= toJSON query ]
+    object [ "range"  .= query ]
 
   toJSON (QueryRegexpQuery query) =
-    object [ "regexp" .= toJSON query ]
+    object [ "regexp" .= query ]
 
   toJSON (QuerySimpleQueryStringQuery query) =
-    object [ "simple_query_string" .= toJSON query ]
+    object [ "simple_query_string" .= query ]
 
 
 omitNulls :: [(Text, Value)] -> Value
@@ -1482,7 +1545,7 @@ omitNulls = object . filter notNull where
 instance ToJSON SimpleQueryStringQuery where
   toJSON SimpleQueryStringQuery {..} =
     omitNulls (base ++ maybeAdd)
-    where base = [ "query" .= toJSON simpleQueryStringQuery ]
+    where base = [ "query" .= simpleQueryStringQuery ]
           maybeAdd = [ "fields" .= simpleQueryStringField
                      , "default_operator" .= simpleQueryStringOperator
                      , "analyzer" .= simpleQueryStringAnalyzer
@@ -1518,7 +1581,7 @@ instance ToJSON RegexpQuery where
           rqQueryBoost) =
    object [ rqQueryField .= omitNulls base ]
    where base = [ "value" .= regexpQueryQuery
-                , "flags" .= toJSON rqQueryFlags
+                , "flags" .= rqQueryFlags
                 , "boost" .= rqQueryBoost ]
 
 
@@ -1534,7 +1597,7 @@ instance ToJSON QueryStringQuery where
           qsLenient qsLocale) =
     omitNulls base
     where
-      base = [ "query" .= toJSON qsQueryString
+      base = [ "query" .= qsQueryString
              , "default_field" .= qsDefaultField
              , "default_operator" .= qsOperator
              , "analyzer" .= qsAnalyzer
@@ -1556,21 +1619,21 @@ instance ToJSON QueryStringQuery where
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) range boost) =
     object [ fieldName .= conjoined ]
-    where conjoined = [ "boost" .= toJSON boost ] ++ (rangeValueToPair range)
+    where conjoined = [ "boost" .= boost ] ++ (rangeValueToPair range)
 
 
 instance ToJSON PrefixQuery where
   toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =
     object [ fieldName .= omitNulls base ]
-    where base = [ "value" .= toJSON queryValue
+    where base = [ "value" .= queryValue
                  , "boost" .= boost ]
 
 
 instance ToJSON NestedQuery where
   toJSON (NestedQuery nqPath nqScoreType nqQuery) =
-    object [ "path"       .= toJSON nqPath
-           , "score_mode" .= toJSON nqScoreType
-           , "query"      .= toJSON nqQuery ]
+    object [ "path"       .= nqPath
+           , "score_mode" .= nqScoreType
+           , "query"      .= nqQuery ]
 
 
 instance ToJSON MoreLikeThisFieldQuery where
@@ -1578,7 +1641,7 @@ instance ToJSON MoreLikeThisFieldQuery where
           percent mtf mqt stopwords mindf maxdf
           minwl maxwl boostTerms boost analyzer) =
     object [ fieldName .= omitNulls base ]
-    where base = [ "like_text" .= toJSON text
+    where base = [ "like_text" .= text
                  , "percent_terms_to_match" .= percent
                  , "min_term_freq" .= mtf
                  , "max_query_terms" .= mqt
@@ -1597,7 +1660,7 @@ instance ToJSON MoreLikeThisQuery where
           mtf mqt stopwords mindf maxdf
           minwl maxwl boostTerms boost analyzer) =
     omitNulls base
-    where base = [ "like_text" .= toJSON text
+    where base = [ "like_text" .= text
                  , "fields" .= fields
                  , "percent_terms_to_match" .= percent
                  , "min_term_freq" .= mtf
@@ -1614,34 +1677,34 @@ instance ToJSON MoreLikeThisQuery where
 
 instance ToJSON IndicesQuery where
   toJSON (IndicesQuery indices query noMatch) =
-    omitNulls [ "indices" .= toJSON indices
-              , "no_match_query" .= toJSON noMatch
-              , "query" .= toJSON query ]
+    omitNulls [ "indices" .= indices
+              , "no_match_query" .= noMatch
+              , "query" .= query ]
 
 
 instance ToJSON HasParentQuery where
   toJSON (HasParentQuery queryType query scoreType) =
-    omitNulls [ "parent_type" .= toJSON queryType
-              , "score_type" .= toJSON scoreType
-              , "query" .= toJSON query ]
+    omitNulls [ "parent_type" .= queryType
+              , "score_type" .= scoreType
+              , "query" .= query ]
 
 
 instance ToJSON HasChildQuery where
   toJSON (HasChildQuery queryType query scoreType) =
-    omitNulls [ "query" .= toJSON query
-              , "score_type" .= toJSON scoreType
-              , "type"  .= toJSON queryType ]
+    omitNulls [ "query" .= query
+              , "score_type" .= scoreType
+              , "type"  .= queryType ]
 
 
 instance ToJSON FuzzyQuery where
   toJSON (FuzzyQuery (FieldName fieldName) queryText
           prefixLength maxEx fuzziness boost) =
     object [ fieldName .= omitNulls base ]
-    where base = [ "value"          .= toJSON queryText
-                 , "fuzziness"      .= toJSON fuzziness
-                 , "prefix_length"  .= toJSON prefixLength
-                 , "boost" .= toJSON boost
-                 , "max_expansions" .= toJSON maxEx ]
+    where base = [ "value"          .= queryText
+                 , "fuzziness"      .= fuzziness
+                 , "prefix_length"  .= prefixLength
+                 , "boost" .= boost
+                 , "max_expansions" .= maxEx ]
 
 
 instance ToJSON FuzzyLikeFieldQuery where
@@ -1649,41 +1712,41 @@ instance ToJSON FuzzyLikeFieldQuery where
           fieldText maxTerms ignoreFreq fuzziness prefixLength
           boost analyzer) =
     object [ fieldName .=
-             omitNulls [ "like_text"       .= toJSON fieldText
-                       , "max_query_terms" .= toJSON maxTerms
-                       , "ignore_tf"       .= toJSON ignoreFreq
-                       , "fuzziness"       .= toJSON fuzziness
-                       , "prefix_length"   .= toJSON prefixLength
-                       , "analyzer" .= toJSON analyzer
-                       , "boost"           .= toJSON boost ]]
+             omitNulls [ "like_text"       .= fieldText
+                       , "max_query_terms" .= maxTerms
+                       , "ignore_tf"       .= ignoreFreq
+                       , "fuzziness"       .= fuzziness
+                       , "prefix_length"   .= prefixLength
+                       , "analyzer" .= analyzer
+                       , "boost"           .= boost ]]
 
 
 instance ToJSON FuzzyLikeThisQuery where
   toJSON (FuzzyLikeThisQuery fields text maxTerms
           ignoreFreq fuzziness prefixLength boost analyzer) =
     omitNulls base
-    where base = [ "fields"          .= toJSON fields
-                 , "like_text"       .= toJSON text
-                 , "max_query_terms" .= toJSON maxTerms
-                 , "ignore_tf"       .= toJSON ignoreFreq
-                 , "fuzziness"       .= toJSON fuzziness
-                 , "prefix_length"   .= toJSON prefixLength
-                 , "analyzer"        .= toJSON analyzer
-                 , "boost"           .= toJSON boost ]
+    where base = [ "fields"          .= fields
+                 , "like_text"       .= text
+                 , "max_query_terms" .= maxTerms
+                 , "ignore_tf"       .= ignoreFreq
+                 , "fuzziness"       .= fuzziness
+                 , "prefix_length"   .= prefixLength
+                 , "analyzer"        .= analyzer
+                 , "boost"           .= boost ]
 
 
 instance ToJSON FilteredQuery where
   toJSON (FilteredQuery query fFilter) =
-    object [ "query"  .= toJSON query
-           , "filter" .= toJSON fFilter ]
+    object [ "query"  .= query
+           , "filter" .= fFilter ]
 
 
 instance ToJSON DisMaxQuery where
   toJSON (DisMaxQuery queries tiebreaker boost) =
     omitNulls base
-    where base = [ "queries"     .= toJSON queries
-                 , "boost"       .= toJSON boost
-                 , "tie_breaker" .= toJSON tiebreaker ]
+    where base = [ "queries"     .= queries
+                 , "boost"       .= boost
+                 , "tie_breaker" .= tiebreaker ]
 
 
 instance ToJSON CommonTermsQuery where
@@ -1691,38 +1754,38 @@ instance ToJSON CommonTermsQuery where
           (QueryString query) cf lfo hfo msm
           boost analyzer disableCoord) =
     object [fieldName .= omitNulls base ]
-    where base = [ "query"              .= toJSON query
-                 , "cutoff_frequency"   .= toJSON cf
-                 , "low_freq_operator"  .= toJSON lfo
-                 , "minimum_should_match" .= toJSON msm
-                 , "boost" .= toJSON boost
-                 , "analyzer" .= toJSON analyzer
-                 , "disable_coord" .= toJSON disableCoord
-                 , "high_freq_operator" .= toJSON hfo ]
+    where base = [ "query"              .= query
+                 , "cutoff_frequency"   .= cf
+                 , "low_freq_operator"  .= lfo
+                 , "minimum_should_match" .= msm
+                 , "boost" .= boost
+                 , "analyzer" .= analyzer
+                 , "disable_coord" .= disableCoord
+                 , "high_freq_operator" .= hfo ]
 
 
 instance ToJSON CommonMinimumMatch where
   toJSON (CommonMinimumMatch mm) = toJSON mm
   toJSON (CommonMinimumMatchHighLow (MinimumMatchHighLow lowF highF)) =
-    object [ "low_freq"  .= toJSON lowF
-           , "high_freq" .= toJSON highF ]
+    object [ "low_freq"  .= lowF
+           , "high_freq" .= highF ]
 
 instance ToJSON BoostingQuery where
   toJSON (BoostingQuery bqPositiveQuery bqNegativeQuery bqNegativeBoost) =
-    object [ "positive"       .= toJSON bqPositiveQuery
-           , "negative"       .= toJSON bqNegativeQuery
-           , "negative_boost" .= toJSON bqNegativeBoost ]
+    object [ "positive"       .= bqPositiveQuery
+           , "negative"       .= bqNegativeQuery
+           , "negative_boost" .= bqNegativeBoost ]
 
 
 instance ToJSON BoolQuery where
   toJSON (BoolQuery mustM notM shouldM bqMin boost disableCoord) =
     omitNulls base
-    where base = [ "must" .= toJSON mustM
-                 , "must_not" .= toJSON notM
-                 , "should" .= toJSON shouldM
-                 , "minimum_should_match" .= toJSON bqMin
-                 , "boost" .= toJSON boost
-                 , "disable_coord" .= toJSON disableCoord ]
+    where base = [ "must" .= mustM
+                 , "must_not" .= notM
+                 , "should" .= shouldM
+                 , "minimum_should_match" .= bqMin
+                 , "boost" .= boost
+                 , "disable_coord" .= disableCoord ]
 
 
 instance ToJSON MatchQuery where
@@ -1732,13 +1795,13 @@ instance ToJSON MatchQuery where
           analyzer maxExpansions lenient) =
     object [ fieldName .= omitNulls base ]
     where base = [ "query" .= mqQueryString
-                 , "operator" .= toJSON booleanOperator
-                 , "zero_terms_query" .= toJSON zeroTermsQuery
-                 , "cutoff_frequency" .= toJSON cutoffFrequency
-                 , "type" .= toJSON matchQueryType
-                 , "analyzer" .= toJSON analyzer
-                 , "max_expansions" .= toJSON maxExpansions
-                 , "lenient" .= toJSON lenient ]
+                 , "operator" .= booleanOperator
+                 , "zero_terms_query" .= zeroTermsQuery
+                 , "cutoff_frequency" .= cutoffFrequency
+                 , "type" .= matchQueryType
+                 , "analyzer" .= analyzer
+                 , "max_expansions" .= maxExpansions
+                 , "lenient" .= lenient ]
 
 
 instance ToJSON MultiMatchQuery where
@@ -1747,14 +1810,14 @@ instance ToJSON MultiMatchQuery where
     object ["multi_match" .= omitNulls base]
     where base = [ "fields" .= fmap toJSON fields
                  , "query" .= query
-                 , "operator" .= toJSON boolOp
-                 , "zero_terms_query" .= toJSON ztQ
-                 , "tiebreaker" .= toJSON tb
-                 , "type" .= toJSON mmqt
-                 , "cutoff_frequency" .= toJSON cf
-                 , "analyzer" .= toJSON analyzer
-                 , "max_expansions" .= toJSON maxEx
-                 , "lenient" .= toJSON lenient ]
+                 , "operator" .= boolOp
+                 , "zero_terms_query" .= ztQ
+                 , "tiebreaker" .= tb
+                 , "type" .= mmqt
+                 , "cutoff_frequency" .= cf
+                 , "analyzer" .= analyzer
+                 , "max_expansions" .= maxEx
+                 , "lenient" .= lenient ]
 
 
 instance ToJSON MultiMatchQueryType where
@@ -1866,7 +1929,7 @@ instance ToJSON FieldHighlight where
 
 instance ToJSON Highlights where
     toJSON (Highlights global fields) =
-        omitNulls (("fields" .= toJSON fields)
+        omitNulls (("fields" .= fields)
                   : highlightSettingsPairs global)
 
 instance ToJSON HighlightSettings where
@@ -1944,16 +2007,16 @@ instance ToJSON SortSpec where
           (DefaultSort (FieldName dsSortFieldName) dsSortOrder dsIgnoreUnmapped
            dsSortMode dsMissingSort dsNestedFilter)) =
     object [dsSortFieldName .= omitNulls base] where
-      base = [ "order" .= toJSON dsSortOrder
+      base = [ "order" .= dsSortOrder
              , "ignore_unmapped" .= dsIgnoreUnmapped
              , "mode" .= dsSortMode
              , "missing" .= dsMissingSort
              , "nested_filter" .= dsNestedFilter ]
 
   toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
-    object [ "unit" .= toJSON units
-           , field .= toJSON gdsLatLon
-           , "order" .= toJSON gdsSortOrder ]
+    object [ "unit" .= units
+           , field .= gdsLatLon
+           , "order" .= gdsSortOrder ]
 
 
 instance ToJSON SortOrder where
@@ -2015,7 +2078,7 @@ instance ToJSON OptimizeBbox where
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON (GeoBoundingBoxConstraint
           (FieldName gbbcGeoBBField) gbbcConstraintBox cache type') =
-    object [gbbcGeoBBField .= toJSON gbbcConstraintBox
+    object [gbbcGeoBBField .= gbbcConstraintBox
            , "_cache"  .= cache
            , "type" .= type']
 
@@ -2027,8 +2090,8 @@ instance ToJSON GeoFilterType where
 
 instance ToJSON GeoBoundingBox where
   toJSON (GeoBoundingBox gbbTopLeft gbbBottomRight) =
-    object ["top_left"      .= toJSON gbbTopLeft
-           , "bottom_right" .= toJSON gbbBottomRight]
+    object ["top_left"      .= gbbTopLeft
+           , "bottom_right" .= gbbBottomRight]
 
 
 instance ToJSON LatLon where
@@ -2061,9 +2124,9 @@ instance ToJSON Term where
 
 
 instance ToJSON BoolMatch where
-  toJSON (MustMatch    term  cache) = object ["must"     .= toJSON term,
+  toJSON (MustMatch    term  cache) = object ["must"     .= term,
                                               "_cache" .= cache]
-  toJSON (MustNotMatch term  cache) = object ["must_not" .= toJSON term,
+  toJSON (MustNotMatch term  cache) = object ["must_not" .= term,
                                               "_cache" .= cache]
   toJSON (ShouldMatch  terms cache) = object ["should"   .= fmap toJSON terms,
                                               "_cache" .= cache]

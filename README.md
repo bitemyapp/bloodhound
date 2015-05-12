@@ -57,6 +57,7 @@ Index Operations
 
 :set -XDeriveGeneric
 :{
+import Control.Applicative
 import Database.Bloodhound
 import Data.Aeson
 import Data.Either (Either(..))
@@ -72,14 +73,17 @@ import qualified Network.HTTP.Types.Status as NHTS
 let testServer = (Server "http://localhost:9200")
 let testIndex = IndexName "twitter"
 let testMapping = MappingName "tweet"
+let withBH' = withBH defaultManagerSettings testServer
 
 -- defaultIndexSettings is exported by Database.Bloodhound as well
 let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
--- createIndex returns IO Reply
+-- createIndex returns MonadBH m => m Reply. You can use withBH for
+   one-off commands or you can use runBH to group together commands
+   and to pass in your own HTTP manager for pipelining.
 
 -- response :: Reply, Reply is a synonym for Network.HTTP.Conduit.Response
-response <- createIndex testServer defaultIndexSettings testIndex
+response <- withBH' $ createIndex defaultIndexSettings testIndex
 :}
 
 ```
@@ -91,7 +95,7 @@ response <- createIndex testServer defaultIndexSettings testIndex
 ``` {.haskell}
 
 -- response :: Reply
-response <- deleteIndex testServer testIndex
+response <- withBH' $ deleteIndex testIndex
 
 ```
 
@@ -125,7 +129,7 @@ Response {responseStatus = Status {statusCode = 404, statusMessage = "Not Found"
 
 ``` {.haskell}
 
-resp <- refreshIndex testServer testIndex
+resp <- withBH' $ refreshIndex testIndex
 
 ```
 
@@ -168,7 +172,7 @@ instance ToJSON TweetMapping where
           object ["type" .= ("geo_point" :: Text)]]]]
 :}
 
-resp <- putMapping testServer testIndex testMapping TweetMapping
+resp <- withBH' $ putMapping testIndex testMapping TweetMapping
 
 ```
 
@@ -176,7 +180,7 @@ resp <- putMapping testServer testIndex testMapping TweetMapping
 
 ``` {.haskell}
 
-resp <- deleteMapping testServer testIndex testMapping
+resp <- withBH' $ deleteMapping testIndex testMapping
 
 ```
 
@@ -221,7 +225,7 @@ instance FromJSON Location
 -- λ> encode $ Location 10.0 10.0
 -- "{\"lat\":10,\"lon\":10}"
 
-resp <- indexDocument testServer testIndex testMapping exampleTweet (DocId "1")
+resp <- withBH' $ indexDocument testIndex testMapping exampleTweet (DocId "1")
 
 ```
 
@@ -243,7 +247,7 @@ Response {responseStatus =
 
 ``` {.haskell}
 
-resp <- deleteDocument testServer testIndex testMapping (DocId "1")
+resp <- withBH' $ deleteDocument testIndex testMapping (DocId "1")
 
 ```
 
@@ -253,7 +257,7 @@ resp <- deleteDocument testServer testIndex testMapping (DocId "1")
 
 -- n.b., you'll need the earlier imports. responseBody is from http-conduit
 
-resp <- getDocument testServer testIndex testMapping (DocId "1")
+resp <- withBH' $ getDocument testIndex testMapping (DocId "1")
 
 -- responseBody :: Response body -> body
 let body = responseBody resp
@@ -328,8 +332,8 @@ let sndOp   = BulkIndex testIndex
 let stream = [firstDoc, secondDoc]
 
 -- Fire off the actual bulk request
--- bulk :: Server -> [BulkOperation] -> IO Reply
-resp <- bulk testServer stream
+-- bulk :: Vector BulkOperation -> IO Reply
+resp <- withBH' $ bulk stream
 :}
 
 ```
@@ -363,8 +367,8 @@ let firstDocEncoded = encode firstDoc :: L.ByteString
 let encodedOperations = encodeBulkOperations stream
 
 -- to insert into a particular server
--- bulk :: Server -> V.Vector BulkOperation -> IO Reply
-_ <- bulk testServer stream
+-- bulk :: V.Vector BulkOperation -> IO Reply
+_ <- withBH' $ bulk stream
 
 ```
 
@@ -379,7 +383,7 @@ Search
 
 -- exported by the Client module, just defaults some stuff.
 -- mkSearch :: Maybe Query -> Maybe Filter -> Search
--- mkSearch query filter = Search query filter Nothing False 0 10
+-- mkSearch query filter = Search query filter Nothing False (From 0) (Size 10)
 
 let query = TermQuery (Term "user" "bitemyapp") Nothing
 
@@ -393,7 +397,7 @@ let filter = IdentityFilter <&&> IdentityFilter
 let search = mkSearch (Just query) (Just filter)
 
 -- you can also searchByType and specify the mapping name.
-reply <- searchByIndex testServer testIndex search
+reply <- withBH' $ searchByIndex testIndex search
 
 let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
 
@@ -484,7 +488,7 @@ let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
 --              -> From -> Size
 
 -- just add more sortspecs to the list if you want tie-breakers.
-let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False 0 10
+let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False (From 0) (Size 10)
 
 ```
 
@@ -534,7 +538,7 @@ let queryFilter = IdentityFilter <&&> IdentityFilter
 
 let search = mkSearch Nothing (Just queryFilter)
 
-reply <- searchByType testServer testIndex testMapping search
+reply <- withBH' $ searchByType testIndex testMapping search
 
 ```
 
@@ -748,7 +752,7 @@ Aggregations are part of the reply structure of every search, in the form of
 -- Lift decode and response body to be in the IO monad.
 let decode' = liftM decode
 let responseBody' = liftM responseBody
-let reply = searchByIndex testServer testIndex search
+let reply = withBH' $ searchByIndex testIndex search
 let response = decode' $ responseBody' reply :: IO (Maybe (SearchResult Tweet))
 
 -- Now that we have our response, we can extract our terms aggregation result -- which is a list of buckets.
@@ -856,6 +860,20 @@ It is an instance of , and can have nested aggregations in each bucket.
 Buckets can be extracted from a using
 
 For more information on the Date Histogram Aggregation, see: <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html>
+
+
+Contributors
+============
+
+* [Chris Allen](https://github.com/bitemyapp)
+* [Liam Atkinson](https://github.com/latkins)
+* [Christopher Guiney](https://github.com/chrisguiney)
+* [Curtis Carter](https://github.com/ccarter)
+* [Michael Xavier](https://github.com/MichaelXavier)
+* [Bob Long](https://github.com/bobjflong)
+* [Maximilian Tagher](https://github.com/MaxGabriel)
+* [Anna Kopp](https://github.com/annakopp)
+* [Matvey B. Aksenov](https://github.com/supki)
 
 Possible future functionality
 =============================
