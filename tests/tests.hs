@@ -345,7 +345,7 @@ main = hspec $ do
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
       let search = Search Nothing
                    (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
-                   False 0 10
+                   False (From 0) (Size 10)
       reply <- searchByIndex testIndex search
       let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
       let myTweet = fmap (hitSource . head . hits . searchHits) result

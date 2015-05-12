@@ -61,8 +61,8 @@ module Database.Bloodhound.Types
        , SearchResult(..)
        , SearchHits(..)
        , TrackSortScores
-       , From
-       , Size
+       , From(..)
+       , Size(..)
        , ShardResult(..)
        , Hit(..)
        , Filter(..)
@@ -593,8 +593,8 @@ unpackId :: DocId -> Text
 unpackId (DocId docId) = docId
 
 type TrackSortScores = Bool
-type From = Int
-type Size = Int
+newtype From = From Int deriving (Eq, Show, ToJSON)
+newtype Size = Size Int deriving (Eq, Show, ToJSON)
 
 data Search = Search { queryBody       :: Maybe Query
                      , filterBody      :: Maybe Filter

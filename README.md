@@ -383,7 +383,7 @@ Search
 
 -- exported by the Client module, just defaults some stuff.
 -- mkSearch :: Maybe Query -> Maybe Filter -> Search
--- mkSearch query filter = Search query filter Nothing False 0 10
+-- mkSearch query filter = Search query filter Nothing False (From 0) (Size 10)
 
 let query = TermQuery (Term "user" "bitemyapp") Nothing
 
@@ -488,7 +488,7 @@ let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
 --              -> From -> Size
 
 -- just add more sortspecs to the list if you want tie-breakers.
-let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False 0 10
+let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False (From 0) (Size 10)
 
 ```
 
