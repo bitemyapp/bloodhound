@@ -1125,6 +1125,13 @@ data SearchHits a =
              , maxScore  :: Score
              , hits      :: [Hit a] } deriving (Eq, Show)
 
+
+instance Monoid (SearchHits a) where
+  mempty = SearchHits 0 Nothing mempty
+  mappend (SearchHits ta ma ha) (SearchHits tb mb hb) =
+    SearchHits (ta + tb) (max ma mb) (ha <> hb)
+
+
 data Hit a =
   Hit { hitIndex     :: IndexName
       , hitType      :: MappingName

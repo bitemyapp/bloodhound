@@ -62,7 +62,8 @@ test-suite tests
                        QuickCheck,
                        vector,
                        unordered-containers >= 0.2.5.0 && <0.3,
-                       mtl
+                       mtl,
+                       quickcheck-properties
   default-language:    Haskell2010
 
 test-suite doctests

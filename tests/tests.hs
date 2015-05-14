@@ -1,31 +1,33 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main where
 
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Reader
 import           Data.Aeson
-import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (nub)
-import           Data.List.NonEmpty        (NonEmpty (..))
-import qualified Data.List.NonEmpty        as NE
-import qualified Data.Map.Strict           as M
-import           Data.Text                 (Text)
-import qualified Data.Text                 as T
-import           Data.Time.Calendar        (Day (..))
-import           Data.Time.Clock           (UTCTime (..), secondsToDiffTime)
-import qualified Data.Vector               as V
+import qualified Data.HashMap.Strict             as HM
+import           Data.List                       (nub)
+import           Data.List.NonEmpty              (NonEmpty (..))
+import qualified Data.List.NonEmpty              as NE
+import qualified Data.Map.Strict                 as M
+import           Data.Text                       (Text)
+import qualified Data.Text                       as T
+import           Data.Time.Calendar              (Day (..))
+import           Data.Time.Clock                 (UTCTime (..),
+                                                  secondsToDiffTime)
+import qualified Data.Vector                     as V
 import           Database.Bloodhound
-import           GHC.Generics              (Generic)
+import           GHC.Generics                    (Generic)
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Status as NHTS
-import           Prelude                   hiding (filter, putStrLn)
+import qualified Network.HTTP.Types.Status       as NHTS
+import           Prelude                         hiding (filter, putStrLn)
 import           Test.Hspec
+import           Test.QuickCheck.Property.Monoid
 
-import           Test.Hspec.QuickCheck     (prop)
+import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck
 
 testServer  :: Server
@@ -223,6 +225,40 @@ instance Arbitrary RegexpFlag where
                     , pure Intersection
                     , pure Interval
                     ]
+
+arbitraryScore :: Gen Score
+arbitraryScore = fmap getPositive <$> arbitrary
+
+instance Arbitrary Text where
+  arbitrary = T.pack <$> arbitrary
+
+instance (Arbitrary k, Arbitrary v, Ord k) => Arbitrary (M.Map k v) where
+  arbitrary = M.fromList <$> arbitrary
+
+instance Arbitrary IndexName where
+  arbitrary = IndexName <$> arbitrary
+
+instance Arbitrary MappingName where
+  arbitrary = MappingName <$> arbitrary
+
+instance Arbitrary DocId where
+  arbitrary = DocId <$> arbitrary
+
+instance Arbitrary a => Arbitrary (Hit a) where
+  arbitrary = Hit <$> arbitrary
+                  <*> arbitrary
+                  <*> arbitrary
+                  <*> arbitraryScore
+                  <*> arbitrary
+                  <*> arbitrary
+
+
+instance Arbitrary a => Arbitrary (SearchHits a) where
+  arbitrary = sized $ \n -> resize (n `div` 2) $ do
+    tot <- getPositive <$> arbitrary
+    score <- arbitraryScore
+    hs <- arbitrary
+    return $ SearchHits tot score hs
 
 main :: IO ()
 main = hspec $ do
@@ -610,4 +646,7 @@ main = hspec $ do
        let notDropped = omitNulls $ [ "test1" .= (toJSON (1 :: Int))
                                     , "test2" .= (toJSON ("some value" :: Text))]
        in notDropped `shouldBe` Object (HM.fromList [ ("test1", Number 1.0)
-                                                 , ("test2", String "some value")])
+                                                   , ("test2", String "some value")])
+  describe "Monoid (SearchHits a)" $ do
+    prop "abides the monoid laws" $ eq $
+      prop_Monoid (T :: T (SearchHits ()))
