@@ -1118,7 +1118,7 @@ data SearchResult a =
                , searchHits   :: SearchHits a
                , aggregations :: Maybe AggregationResults } deriving (Eq, Show)
 
-type Score = Double
+type Score = Maybe Double
 
 data SearchHits a =
   SearchHits { hitsTotal :: Int
