@@ -254,7 +254,7 @@ instance Arbitrary a => Arbitrary (Hit a) where
 
 
 instance Arbitrary a => Arbitrary (SearchHits a) where
-  arbitrary = do
+  arbitrary = sized $ \n -> resize (n `div` 2) $ do
     tot <- getPositive <$> arbitrary
     score <- arbitraryScore
     hs <- arbitrary
