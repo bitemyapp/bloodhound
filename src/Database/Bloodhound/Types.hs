@@ -892,13 +892,14 @@ data MatchQuery =
              , matchQueryMatchType       :: Maybe MatchQueryType
              , matchQueryAnalyzer        :: Maybe Analyzer
              , matchQueryMaxExpansions   :: Maybe MaxExpansions
-             , matchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
+             , matchQueryLenient         :: Maybe Lenient
+             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Show)
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
 -}
 mkMatchQuery :: FieldName -> QueryString -> MatchQuery
-mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing
+mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing
 
 data MatchQueryType =
   MatchPhrase
@@ -1800,7 +1801,7 @@ instance ToJSON MatchQuery where
   toJSON (MatchQuery (FieldName fieldName)
           (QueryString mqQueryString) booleanOperator
           zeroTermsQuery cutoffFrequency matchQueryType
-          analyzer maxExpansions lenient) =
+          analyzer maxExpansions lenient boost) =
     object [ fieldName .= omitNulls base ]
     where base = [ "query" .= mqQueryString
                  , "operator" .= booleanOperator
@@ -1809,7 +1810,8 @@ instance ToJSON MatchQuery where
                  , "type" .= matchQueryType
                  , "analyzer" .= analyzer
                  , "max_expansions" .= maxExpansions
-                 , "lenient" .= lenient ]
+                 , "lenient" .= lenient
+                 , "boost" .= boost ]
 
 
 instance ToJSON MultiMatchQuery where
