@@ -471,7 +471,7 @@ searchByType (IndexName indexName)
 -- >>> mkSearch (Just query) Nothing
 -- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10}
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10)
+mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) Nothing
 
 -- | 'mkAggregateSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -481,7 +481,7 @@ mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 
 -- TermsAgg (TermsAggregation {term = Left "user", termInclude = Nothing, termExclude = Nothing, termOrder = Nothing, termMinDocCount = Nothing, termSize = Nothing, termShardSize = Nothing, termCollectMode = Just BreadthFirst, termExecutionHint = Nothing, termAggs = Nothing})
 -- >>> let myAggregation = mkAggregateSearch Nothing $ mkAggregations "users" terms
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
-mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0)
+mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) Nothing
 
 -- | 'mkHighlightSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -490,7 +490,7 @@ mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSear
 -- >>> let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 -- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
-mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10)
+mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) Nothing
 
 -- | 'pageSearch' is a helper function that takes a search and assigns the from
 --    and size fields for the search. The from parameter defines the offset
