@@ -16,9 +16,6 @@ source-repository head
   type:     git
   location: https://github.com/bitemyapp/bloodhound.git
 
-flag DevelopmentMode
-  Default: False
-
 library
   ghc-options: -Wall
   exposed-modules:     Database.Bloodhound
