@@ -64,6 +64,10 @@ module Database.Bloodhound.Types
        , From(..)
        , Size(..)
        , Source(..)
+       , PatternOrPatterns(..)
+       , Include(..)
+       , Exclude(..)
+       , Pattern(..)
        , ShardResult(..)
        , Hit(..)
        , Filter(..)
@@ -610,9 +614,17 @@ data Search = Search { queryBody       :: Maybe Query
 
 data Source =
   NoSource
-  | SourceFields FieldOrFields
-  | SourceIncludeExclude [Text] [Text]
+  | SourcePatterns PatternOrPatterns
+  | SourceIncludeExclude Include Exclude
     deriving (Show, Eq)
+
+data PatternOrPatterns = PopPattern   Pattern
+                       | PopPatterns [Pattern] deriving (Eq, Show)
+
+data Include = Include [Pattern] deriving (Eq, Show)
+data Exclude = Exclude [Pattern] deriving (Eq, Show)
+
+newtype Pattern = Pattern Text deriving (Eq, Show)
 
 data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
                              , highlightFields :: [FieldHighlight]
@@ -1940,8 +1952,21 @@ instance ToJSON Search where
 
 instance ToJSON Source where
     toJSON NoSource                         = toJSON False
-    toJSON (SourceFields fields)            = toJSON fields
+    toJSON (SourcePatterns patterns)        = toJSON patterns
     toJSON (SourceIncludeExclude incl excl) = object [ "include" .= incl, "exclude" .= excl ]
+
+instance ToJSON PatternOrPatterns where
+  toJSON (PopPattern pattern)   = toJSON pattern
+  toJSON (PopPatterns patterns) = toJSON patterns
+
+instance ToJSON Include where
+  toJSON (Include patterns) = toJSON patterns
+
+instance ToJSON Exclude where
+  toJSON (Exclude patterns) = toJSON patterns
+
+instance ToJSON Pattern where
+  toJSON (Pattern pattern) = toJSON pattern
 
 
 instance ToJSON FieldHighlight where
