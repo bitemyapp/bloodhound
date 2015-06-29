@@ -47,6 +47,7 @@ test-suite tests
   hs-source-dirs: tests
   build-depends:       base,
                        bloodhound,
+                       bytestring,
                        http-client,
                        http-types,
                        containers,

@@ -1,3 +1,15 @@
+0.6.0.1
+===================
+
+* Allow Aeson 0.9
+
+0.6.0.0
+===================
+
+* Moved to BHMonad, thanks to @MichaelXavier! Now there's a reader of config information and IO is lifted.
+
+* SearchHits have a Monoid now, makes combining search results nicer, allows for defaulting when a search cannot be performed.
+
 0.5.0.0
 ===================
 

@@ -1208,6 +1208,7 @@ data TermsAggregation = TermsAggregation { term              :: Either Text Text
 data DateHistogramAggregation = DateHistogramAggregation { dateField      :: FieldName
                                                          , dateInterval   :: Interval
                                                          , dateFormat     :: Maybe Text
+                                                         -- pre and post deprecated in 1.5
                                                          , datePreZone    :: Maybe Text
                                                          , datePostZone   :: Maybe Text
                                                          , datePreOffset  :: Maybe Text
