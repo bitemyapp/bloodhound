@@ -58,6 +58,7 @@ module Database.Bloodhound.Types
        , EsResult(..)
        , Query(..)
        , Search(..)
+       , SearchType(..)
        , SearchResult(..)
        , SearchHits(..)
        , TrackSortScores
@@ -604,7 +605,16 @@ data Search = Search { queryBody       :: Maybe Query
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from            :: From
-                     , size            :: Size } deriving (Eq, Show)
+                     , size            :: Size 
+                     , searchType      :: SearchType } deriving (Eq, Show)
+
+data SearchType = SearchTypeQueryThenFetch 
+                | SearchTypeDfsQueryThenFetch
+                | SearchTypeCount
+                | SearchTypeScan
+                | SearchTypeQueryAndFetch
+                | SearchTypeDfsQueryAndFetch
+  deriving (Eq, Show)
 
 data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
                              , highlightFields :: [FieldHighlight]
@@ -1919,7 +1929,7 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize) =
+  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _) =
     omitNulls [ "query"        .= query
               , "filter"       .= sFilter
               , "sort"         .= sort

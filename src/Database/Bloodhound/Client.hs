@@ -59,6 +59,7 @@ import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Default.Class
 import           Data.Maybe                   (fromMaybe)
+import           Data.Monoid                  ((<>))
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as T
@@ -160,10 +161,28 @@ joinPath ps = do
   Server s <- bhServer <$> getBHEnv
   return $ joinPath' (s:ps)
 
+appendQueryParam :: Text -> Text -> Text
+appendQueryParam originalUrl newParams = originalUrl <> joiner <> newParams
+  where joiner 
+          | T.any (== '?') originalUrl = "&"
+          | otherwise                  = "?"
+
+appendSearchTypeParam :: Text -> SearchType -> Text
+appendSearchTypeParam originalUrl st = appendQueryParam originalUrl (keyEq <> stParams)
+  where keyEq = "search_type="
+        stParams
+          | st == SearchTypeDfsQueryThenFetch = "dfs_query_then_fetch"
+          | st == SearchTypeCount             = "count"
+          | st == SearchTypeScan              = "scan&scroll=1m"
+          | st == SearchTypeQueryAndFetch     = "query_and_fetch"
+          | st == SearchTypeDfsQueryAndFetch  = "dfs_query_and_fetch"
+        -- used to catch 'SearchTypeQueryThenFetch', which is also the default
+          | otherwise                         = "query_then_fetch" 
+
 bindM2 :: (Applicative m, Monad m) => (a -> b -> m c) -> m a -> m b -> m c
 bindM2 f ma mb = join (f <$> ma <*> mb)
 
--- | Convenience function that sets up a mananager and BHEnv and runs
+-- | Convenience function that sets up a manager and BHEnv and runs
 -- the given set of bloodhound operations. Connections will be
 -- pipelined automatically in accordance with the given manager
 -- settings in IO. If you've got your own monad transformer stack, you
@@ -428,7 +447,8 @@ documentExists (IndexName indexName)
   where url = joinPath [indexName, mappingName, docId]
 
 dispatchSearch :: MonadBH m => Text -> Search -> m Reply
-dispatchSearch url search = post url (Just (encode search))
+dispatchSearch url search = post url' (Just (encode search))
+  where url' = appendSearchTypeParam url (searchType search)
 
 -- | 'searchAll', given a 'Search', will perform that search against all indexes
 --   on an Elasticsearch server. Try to avoid doing this if it can be helped.
@@ -471,7 +491,7 @@ searchByType (IndexName indexName)
 -- >>> mkSearch (Just query) Nothing
 -- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10}
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10)
+mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch
 
 -- | 'mkAggregateSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -481,7 +501,7 @@ mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 
 -- TermsAgg (TermsAggregation {term = Left "user", termInclude = Nothing, termExclude = Nothing, termOrder = Nothing, termMinDocCount = Nothing, termSize = Nothing, termShardSize = Nothing, termCollectMode = Just BreadthFirst, termExecutionHint = Nothing, termAggs = Nothing})
 -- >>> let myAggregation = mkAggregateSearch Nothing $ mkAggregations "users" terms
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
-mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0)
+mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) SearchTypeQueryThenFetch
 
 -- | 'mkHighlightSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -490,7 +510,7 @@ mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSear
 -- >>> let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 -- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
-mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10)
+mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch
 
 -- | 'pageSearch' is a helper function that takes a search and assigns the from
 --    and size fields for the search. The from parameter defines the offset
