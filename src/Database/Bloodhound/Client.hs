@@ -54,6 +54,7 @@ module Database.Bloodhound.Client
        )
        where
 
+import qualified Blaze.ByteString.Builder as BB
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Catch
@@ -72,6 +73,7 @@ import qualified Data.Vector                  as V
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method    as NHTM
 import qualified Network.HTTP.Types.Status    as NHTS
+import qualified Network.HTTP.Types.URI       as NHTU
 import           Prelude                      hiding (filter, head)
 import           URI.ByteString               hiding (Query)
 
@@ -168,11 +170,12 @@ joinPath ps = do
 
 -- | Severely dumbed down query renderer. Assumes your data doesn't
 -- need any encoding
-addQuery :: [(Text, Text)] -> Text -> Text
-addQuery ps u = u <> "?" <> params
+addQuery :: [(Text, Maybe Text)] -> Text -> Text
+addQuery q u = u <> rendered
   where
-    params = T.intercalate "&" (uncurry mkParam <$> ps)
-    mkParam k v = k <> "=" <> v
+    rendered =
+      T.decodeUtf8 $ BB.toByteString $ NHTU.renderQueryText prependQuestionMark q
+    prependQuestionMark = True
 
 
 bindM2 :: (Applicative m, Monad m) => (a -> b -> m c) -> m a -> m b -> m c
@@ -346,7 +349,9 @@ indexDocument (IndexName indexName)
           ExternalGTE (ExternalDocVersion v) -> versionParams v "external_gte"
           ForceVersion (ExternalDocVersion v) -> versionParams v "force"
         vt = T.pack . show . docVersionNumber
-        versionParams v t = [("version", vt v), ("version_type", t)]
+        versionParams v t = [ ("version", Just $ vt v)
+                            , ("version_type", Just t)
+                            ]
         body = Just (encode document)
 
 -- | 'deleteDocument' is the primary way to delete a single document.

@@ -5,6 +5,7 @@
 module Main where
 
 import           Control.Applicative
+import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Reader
 import           Data.Aeson
@@ -688,10 +689,10 @@ main = hspec $ do
 
   describe "Enum DocVersion" $ do
     it "follows the laws of Enum, Bounded" $ do
-      return (succ maxBound :: DocVersion) `shouldThrow` anyErrorCall
-      return (pred minBound :: DocVersion) `shouldThrow` anyErrorCall
-      return (toEnum 0 :: DocVersion) `shouldThrow` anyErrorCall
-      return (toEnum 9200000000000000001 :: DocVersion) `shouldThrow` anyErrorCall
+      evaluate (succ maxBound :: DocVersion) `shouldThrow` anyErrorCall
+      evaluate (pred minBound :: DocVersion) `shouldThrow` anyErrorCall
+      evaluate (toEnum 0 :: DocVersion) `shouldThrow` anyErrorCall
+      evaluate (toEnum 9200000000000000001 :: DocVersion) `shouldThrow` anyErrorCall
       enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
       enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
-      enumFromThen minBound (pred maxBound :: DocVersion) `shouldBe` [minBound, pred maxBound, maxBound]
+      enumFromThen minBound (pred maxBound :: DocVersion) `shouldBe` [minBound, pred maxBound]
