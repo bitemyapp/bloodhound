@@ -225,7 +225,7 @@ instance FromJSON Location
 -- λ> encode $ Location 10.0 10.0
 -- "{\"lat\":10,\"lon\":10}"
 
-resp <- withBH' $ indexDocument testIndex testMapping exampleTweet (DocId "1")
+resp <- withBH' $ indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
 
 ```
 
@@ -368,7 +368,7 @@ let encodedOperations = encodeBulkOperations stream
 
 -- to insert into a particular server
 -- bulk :: V.Vector BulkOperation -> IO Reply
-_ <- withBH' $ bulk stream
+_ <- withBH' $ bulk streamp
 
 ```
 
