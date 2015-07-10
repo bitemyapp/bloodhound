@@ -333,7 +333,7 @@ deleteMapping (IndexName indexName)
 --   convert into a JSON 'Value'. The 'DocId' will function as the
 --   primary key for the document.
 --
--- >>> resp <- runBH' $ indexDocument defaultIndexDocumentSettings testIndex testMapping exampleTweet (DocId "1")
+-- >>> resp <- runBH' $ indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 indexDocument :: (ToJSON doc, MonadBH m) => IndexName -> MappingName
