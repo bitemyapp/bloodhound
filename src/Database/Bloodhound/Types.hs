@@ -29,6 +29,7 @@
 module Database.Bloodhound.Types
        ( defaultCache
        , defaultIndexSettings
+       , defaultIndexDocumentSettings
        , mkSort
        , showText
        , unpackId
@@ -41,6 +42,8 @@ module Database.Bloodhound.Types
        , mkTermsAggregation
        , mkTermsScriptAggregation
        , mkDateHistogram
+       , mkDocVersion
+       , docVersionNumber
        , toTerms
        , toDateHistogram
        , omitNulls
@@ -56,6 +59,10 @@ module Database.Bloodhound.Types
        , Server(..)
        , Reply
        , EsResult(..)
+       , DocVersion
+       , ExternalDocVersion(..)
+       , VersionControl(..)
+       , IndexDocumentSettings(..)
        , Query(..)
        , Search(..)
        , SearchResult(..)
@@ -218,10 +225,12 @@ import qualified Data.ByteString.Lazy.Char8      as L
 import           Data.List                       (nub)
 import           Data.List.NonEmpty              (NonEmpty (..), toList)
 import qualified Data.Map.Strict                 as M
+import           Data.Maybe
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime)
 import qualified Data.Vector                     as V
+import           GHC.Enum
 import           GHC.Generics                    (Generic)
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method       as NHTM
@@ -371,9 +380,77 @@ data BulkOperation =
 data EsResult a = EsResult { _index   :: Text
                            , _type    :: Text
                            , _id      :: Text
-                           , _version :: Int
+                           , _version :: DocVersion
                            , found    :: Maybe Bool
                            , _source  :: a } deriving (Eq, Show)
+
+{-| 'DocVersion' is an integer version number for a document between 1
+and 9.2e+18 used for <<https://www.elastic.co/guide/en/elasticsearch/guide/current/optimistic-concurrency-control.html optimistic concurrency control>>.
+-}
+newtype DocVersion = DocVersion {
+      docVersionNumber :: Int
+    } deriving (Eq, Show, Ord, ToJSON)
+
+-- | Smart constructor for in-range doc version
+mkDocVersion :: Int -> Maybe DocVersion
+mkDocVersion i
+  | i >= (docVersionNumber minBound) && i <= (docVersionNumber maxBound) =
+    Just $ DocVersion i
+  | otherwise = Nothing
+
+
+{-| 'ExternalDocVersion' is a convenience wrapper if your code uses its
+own version numbers instead of ones from ES.
+-}
+newtype ExternalDocVersion = ExternalDocVersion DocVersion
+    deriving (Eq, Show, Ord, Bounded, Enum, ToJSON)
+
+{-| 'VersionControl' is specified when indexing documents as a
+optimistic concurrency control.
+-}
+data VersionControl = NoVersionControl
+                    -- ^ Don't send a version. This is a pure overwrite.
+                    | InternalVersion DocVersion
+                    -- ^ Use the default ES versioning scheme. Only
+                    -- index the document if the version is the same
+                    -- as the one specified. Only applicable to
+                    -- updates, as you should be getting Version from
+                    -- a search result.
+                    | ExternalGT ExternalDocVersion
+                    -- ^ Use your own version numbering. Only index
+                    -- the document if the version is strictly higher
+                    -- OR the document doesn't exist. The given
+                    -- version will be used as the new version number
+                    -- for the stored document. N.B. All updates must
+                    -- increment this number, meaning there is some
+                    -- global, external ordering of updates.
+                    | ExternalGTE ExternalDocVersion
+                    -- ^ Use your own version numbering. Only index
+                    -- the document if the version is equal or higher
+                    -- than the stored version. Will succeed if there
+                    -- is no existing document. The given version will
+                    -- be used as the new version number for the
+                    -- stored document. Use with care, as this could
+                    -- result in data loss.
+                    | ForceVersion ExternalDocVersion
+                    -- ^ The document will always be indexed and the
+                    -- given version will be the new version. This is
+                    -- typically used for correcting errors. Use with
+                    -- care, as this could result in data loss.
+                    deriving (Show, Eq, Ord)
+
+{-| 'IndexDocumentSettings' are special settings supplied when indexing
+a document. For the best backwards compatiblity when new fields are
+added, you should probably prefer to start with 'defaultIndexDocumentSettings'
+-}
+data IndexDocumentSettings = IndexDocumentSettings {
+      idsVersionControl :: VersionControl
+    }
+
+{-| Reasonable default settings. Chooses no version control.
+-}
+defaultIndexDocumentSettings :: IndexDocumentSettings
+defaultIndexDocumentSettings = IndexDocumentSettings NoVersionControl
 
 {-| 'Sort' is a synonym for a list of 'SortSpec's. Sort behavior is order
     dependent with later sorts acting as tie-breakers for earlier sorts.
@@ -2173,3 +2250,26 @@ instance FromJSON ShardResult where
                          v .: "successful" <*>
                          v .: "failed"
   parseJSON _          = empty
+
+
+instance FromJSON DocVersion where
+  parseJSON v = do
+    i <- parseJSON v
+    maybe (fail "DocVersion out of range") return $ mkDocVersion i
+
+instance Bounded DocVersion where
+  minBound = DocVersion 1
+  maxBound = DocVersion 9200000000000000000 -- 9.2e+18
+
+instance Enum DocVersion where
+  succ x
+    | x /= maxBound = DocVersion (succ $ docVersionNumber x)
+    | otherwise     = succError "DocVersion"
+  pred x
+    | x /= minBound = DocVersion (pred $ docVersionNumber x)
+    | otherwise     = predError "DocVersion"
+  toEnum i =
+    fromMaybe (error $ show i ++ " out of DocVersion range") $ mkDocVersion i
+  fromEnum = docVersionNumber
+  enumFrom = boundedEnumFrom
+  enumFromThen = boundedEnumFromThen

@@ -37,7 +37,8 @@ library
                        vector           >= 0.10.9  && <0.11,
                        uri-bytestring   >= 0.1     && <0.2,
                        exceptions,
-                       data-default-class
+                       data-default-class,
+                       blaze-builder
   default-language:    Haskell2010
 
 test-suite tests
