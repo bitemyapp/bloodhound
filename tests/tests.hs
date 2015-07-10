@@ -25,7 +25,7 @@ import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Status       as NHTS
 import           Prelude                         hiding (filter)
 import           Test.Hspec
-import           Test.QuickCheck.Property.Monoid
+import           Test.QuickCheck.Property.Monoid (prop_Monoid, eq, T(..))
 
 import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck
@@ -147,18 +147,27 @@ otherTweet = Tweet { user     = "notmyapp"
                    , age      = 1000
                    , location = Location 40.12 (-71.34) }
 
-insertData :: BH IO ()
-insertData = do
+resetIndex :: BH IO ()
+resetIndex = do
   _ <- deleteExampleIndex
   _ <- createExampleIndex
   _ <- putMapping testIndex testMapping TweetMapping
-  _ <- indexDocument testIndex testMapping exampleTweet (DocId "1")
-  _ <- refreshIndex testIndex
   return ()
+
+insertData :: BH IO Reply
+insertData = do
+  resetIndex
+  insertData' defaultIndexDocumentSettings
+
+insertData' :: IndexDocumentSettings -> BH IO Reply
+insertData' ids = do
+  r <- indexDocument testIndex testMapping ids exampleTweet (DocId "1")
+  _ <- refreshIndex testIndex
+  return r
 
 insertOther :: BH IO ()
 insertOther = do
-  _ <- indexDocument testIndex testMapping otherTweet (DocId "2")
+  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings otherTweet (DocId "2")
   _ <- refreshIndex testIndex
   return ()
 
@@ -290,6 +299,14 @@ main = hspec $ do
                      (responseBody docInserted) :: Either String (EsResult Tweet)
       liftIO $ (fmap _source newTweet `shouldBe` Right exampleTweet)
 
+    it "can use optimistic concurrency control" $ withTestEnv $ do
+      let ev = ExternalDocVersion minBound
+      let cfg = defaultIndexDocumentSettings { idsVersionControl = ExternalGT ev }
+      resetIndex
+      res <- insertData' cfg
+      liftIO $ isCreated res `shouldBe` True
+      res' <- insertData' cfg
+      liftIO $ isVersionConflict res' `shouldBe` True
 
   describe "bulk API" $ do
     it "inserts all documents we request" $ withTestEnv $ do
@@ -659,3 +676,22 @@ main = hspec $ do
   describe "Monoid (SearchHits a)" $ do
     prop "abides the monoid laws" $ eq $
       prop_Monoid (T :: T (SearchHits ()))
+
+  describe "mkDocVersion" $ do
+    prop "can never construct an out of range docVersion" $ \i ->
+      let res = mkDocVersion i
+      in case res of
+        Nothing -> property True
+        Just dv -> (dv >= minBound) .&&.
+                   (dv <= maxBound) .&&.
+                   docVersionNumber dv === i
+
+  describe "Enum DocVersion" $ do
+    it "follows the laws of Enum, Bounded" $ do
+      return (succ maxBound :: DocVersion) `shouldThrow` anyErrorCall
+      return (pred minBound :: DocVersion) `shouldThrow` anyErrorCall
+      return (toEnum 0 :: DocVersion) `shouldThrow` anyErrorCall
+      return (toEnum 9200000000000000001 :: DocVersion) `shouldThrow` anyErrorCall
+      enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
+      enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
+      enumFromThen minBound (pred maxBound :: DocVersion) `shouldBe` [minBound, pred maxBound, maxBound]

@@ -47,6 +47,10 @@ module Database.Bloodhound.Client
        , getStatus
        , encodeBulkOperations
        , encodeBulkOperation
+       -- * Reply-handling tools
+       , isVersionConflict
+       , isSuccess
+       , isCreated
        )
        where
 
@@ -58,7 +62,9 @@ import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Default.Class
+import           Data.Ix
 import           Data.Maybe                   (fromMaybe)
+import           Data.Monoid
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as T
@@ -159,6 +165,15 @@ joinPath :: MonadBH m => [Text] -> m Text
 joinPath ps = do
   Server s <- bhServer <$> getBHEnv
   return $ joinPath' (s:ps)
+
+-- | Severely dumbed down query renderer. Assumes your data doesn't
+-- need any encoding
+addQuery :: [(Text, Text)] -> Text -> Text
+addQuery ps u = u <> "?" <> params
+  where
+    params = T.intercalate "&" (uncurry mkParam <$> ps)
+    mkParam k v = k <> "=" <> v
+
 
 bindM2 :: (Applicative m, Monad m) => (a -> b -> m c) -> m a -> m b -> m c
 bindM2 f ma mb = join (f <$> ma <*> mb)
@@ -315,15 +330,23 @@ deleteMapping (IndexName indexName)
 --   convert into a JSON 'Value'. The 'DocId' will function as the
 --   primary key for the document.
 --
--- >>> resp <- runBH' $ indexDocument testIndex testMapping exampleTweet (DocId "1")
+-- >>> resp <- runBH' $ indexDocument defaultIndexDocumentSettings testIndex testMapping exampleTweet (DocId "1")
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 indexDocument :: (ToJSON doc, MonadBH m) => IndexName -> MappingName
-                 -> doc -> DocId -> m Reply
+                 -> IndexDocumentSettings -> doc -> DocId -> m Reply
 indexDocument (IndexName indexName)
-  (MappingName mappingName) document (DocId docId) =
+  (MappingName mappingName) cfg document (DocId docId) =
   bindM2 put url (return body)
-  where url = joinPath [indexName, mappingName, docId]
+  where url = addQuery params <$> joinPath [indexName, mappingName, docId]
+        params = case idsVersionControl cfg of
+          NoVersionControl -> []
+          InternalVersion v -> versionParams v "internal"
+          ExternalGT (ExternalDocVersion v) -> versionParams v "external_gt"
+          ExternalGTE (ExternalDocVersion v) -> versionParams v "external_gte"
+          ForceVersion (ExternalDocVersion v) -> versionParams v "force"
+        vt = T.pack . show . docVersionNumber
+        versionParams v t = [("version", vt v), ("version_type", t)]
         body = Just (encode document)
 
 -- | 'deleteDocument' is the primary way to delete a single document.
@@ -536,3 +559,17 @@ setURI req URI{..} = do
       Scheme "https" -> True
       _              -> False
     theQueryString = [(k , Just v) | (k, v) <- queryPairs uriQuery]
+
+-- | Was there an optimistic concurrency control conflict when
+-- indexing a document?
+isVersionConflict :: Reply -> Bool
+isVersionConflict = statusCheck (== 409)
+
+isSuccess :: Reply -> Bool
+isSuccess = statusCheck (inRange (200, 299))
+
+isCreated :: Reply -> Bool
+isCreated = statusCheck (== 201)
+
+statusCheck :: (Int -> Bool) -> Reply -> Bool
+statusCheck prd = prd . NHTS.statusCode . responseStatus
