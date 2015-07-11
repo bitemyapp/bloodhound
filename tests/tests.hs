@@ -525,7 +525,6 @@ main = hspec $ do
       liftIO $
         myTweet `shouldBe` Right exampleTweet
 
-
     it "returns document for regexp filter" $ withTestEnv $ do
       _ <- insertData
       let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
@@ -542,6 +541,20 @@ main = hspec $ do
                    (CacheName "test") False (CacheKey "key")
       let search = mkSearch Nothing (Just filter)
       searchExpectNoResults search
+
+    it "returns document for query filter, uncached" $ withTestEnv $ do
+      _ <- insertData
+      let filter = QueryFilter (TermQuery (Term "user" "bitemyapp") Nothing) True
+          search = mkSearch Nothing (Just filter)
+      myTweet <- searchTweet search
+      liftIO $ myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for query filter, cached" $ withTestEnv $ do
+      _ <- insertData
+      let filter = QueryFilter (TermQuery (Term "user" "bitemyapp") Nothing) False
+          search = mkSearch Nothing (Just filter)
+      myTweet <- searchTweet search
+      liftIO $ myTweet `shouldBe` Right exampleTweet
 
   describe "Aggregation API" $ do
     it "returns term aggregation results" $ withTestEnv $ do
