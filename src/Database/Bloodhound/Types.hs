@@ -1063,6 +1063,7 @@ data Filter = AndFilter [Filter] Cache
             | LimitFilter Int
             | MissingFilter FieldName Existence NullValue
             | PrefixFilter  FieldName PrefixValue Cache
+            | QueryFilter   Query Cache
             | RangeFilter   FieldName RangeValue RangeExecution Cache
             | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
             | TermFilter    Term Cache
@@ -1504,6 +1505,13 @@ instance ToJSON Filter where
     object ["prefix" .=
             object [fieldName .= fieldValue
                    , "_cache" .= cache]]
+
+  toJSON (QueryFilter query False) =
+    object ["query" .= toJSON query ]
+  toJSON (QueryFilter query True) =
+    object ["fquery" .=
+            object [ "query"  .= toJSON query
+                   , "_cache" .= True ]]
 
   toJSON (RangeFilter (FieldName fieldName) rangeValue rangeExecution cache) =
     object ["range" .=
