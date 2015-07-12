@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -36,6 +36,7 @@ module Database.Bloodhound.Client
        , searchAll
        , searchByIndex
        , searchByType
+       , scanSearch
        , refreshIndex
        , mkSearch
        , mkAggregateSearch
@@ -481,6 +482,40 @@ searchByType :: MonadBH m => IndexName -> MappingName -> Search
 searchByType (IndexName indexName)
   (MappingName mappingName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, mappingName, "_search"]
+
+scanSearch' :: MonadBH m => Search -> m (Maybe ScrollId)
+scanSearch' search = do
+    let url = joinPath ["_search"]
+        search' = search { searchType = SearchTypeScan }
+    resp' <- bindM2 dispatchSearch url (return search')
+    let msr = decode' $ responseBody resp' :: Maybe (SearchResult ())
+        msid = maybe Nothing scrollId msr 
+    return msid
+
+scroll' :: (FromJSON a, MonadBH m) => Maybe ScrollId -> m ([Hit a], Maybe ScrollId)
+scroll' Nothing = return ([], Nothing)
+scroll' (Just sid) = do
+    url <- joinPath ["_search/scroll?scroll=1m"]
+    resp' <- post url (Just . L.fromStrict $ T.encodeUtf8 sid)
+    let msr = decode' $ responseBody resp' :: FromJSON a => Maybe (SearchResult a)
+        resp = case msr of
+            Just sr -> (hits $ searchHits sr, scrollId sr)
+            _       -> ([], Nothing)
+    return resp
+
+simpleAccumilator :: (FromJSON a, MonadBH m) => [Hit a] -> ([Hit a], Maybe ScrollId) -> m ([Hit a], Maybe ScrollId)
+simpleAccumilator oldHits (newHits, Nothing) = return (oldHits ++ newHits, Nothing)
+simpleAccumilator oldHits ([], _) = return (oldHits, Nothing)
+simpleAccumilator oldHits (newHits, msid) = do
+    (newHits', msid') <- scroll' msid
+    simpleAccumilator (oldHits ++ newHits) (newHits', msid')
+
+scanSearch :: (FromJSON a, MonadBH m) => Search -> m [Hit a]
+scanSearch search = do
+    msid <- scanSearch' search 
+    (hits, msid') <- scroll' msid
+    (totalHits, _) <- simpleAccumilator [] (hits, msid')
+    return totalHits
 
 -- | 'mkSearch' is a helper function for defaulting additional fields of a 'Search'
 --   to Nothing in case you only care about your 'Query' and 'Filter'. Use record update

@@ -60,6 +60,7 @@ module Database.Bloodhound.Types
        , Search(..)
        , SearchType(..)
        , SearchResult(..)
+       , ScrollId
        , SearchHits(..)
        , TrackSortScores
        , From(..)
@@ -1126,7 +1127,10 @@ data SearchResult a =
                , timedOut     :: Bool
                , shards       :: ShardResult
                , searchHits   :: SearchHits a
-               , aggregations :: Maybe AggregationResults } deriving (Eq, Show)
+               , aggregations :: Maybe AggregationResults 
+               , scrollId     :: Maybe ScrollId } deriving (Eq, Show)
+
+type ScrollId = Text  -- Fixme: Newtype
 
 type Score = Maybe Double
 
@@ -2157,7 +2161,8 @@ instance (FromJSON a) => FromJSON (SearchResult a) where
                          v .:  "timed_out"    <*>
                          v .:  "_shards"      <*>
                          v .:  "hits"         <*>
-                         v .:? "aggregations"
+                         v .:? "aggregations" <*>
+                         v .:? "_scroll_id"
   parseJSON _          = empty
 
 instance (FromJSON a) => FromJSON (SearchHits a) where
