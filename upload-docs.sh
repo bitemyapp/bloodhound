@@ -10,7 +10,7 @@ if [ ! -f "$cabal_file" ]; then
 fi
 
 pkg=bloodhound
-ver=0.6.0.0
+ver=0.7.0.0
 
 if [ -z "$pkg" ]; then
   echo "Unable to determine package name"

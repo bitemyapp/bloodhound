@@ -1,3 +1,16 @@
+0.7.0.0
+===================
+
+* Added QueryFilter thanks to Bjørn Nordbø!
+
+* Support for optimistic concurrency control thanks again to @MichaelXavier!
+
+
+0.6.0.0
+===================
+
+* Refactored concrete IO types and unsophisticated connection management into a proper `MonadBH` typeclass. This tremendous work was done by @MichaelXavier!
+
 0.5.0.0
 ===================
 
