@@ -56,6 +56,7 @@ module Database.Bloodhound.Types
        , Existence(..)
        , NullValue(..)
        , IndexSettings(..)
+       , IndexTemplate(..)
        , Server(..)
        , Reply
        , EsResult(..)
@@ -101,6 +102,8 @@ module Database.Bloodhound.Types
        , RegexpFlag(..)
        , FieldName(..)
        , IndexName(..)
+       , TemplateName(..)
+       , TemplatePattern(..)
        , MappingName(..)
        , DocId(..)
        , CacheName(..)
@@ -222,8 +225,9 @@ import           Control.Monad.Writer
 import           Data.Aeson
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
-import           Data.List                       (nub)
+import           Data.List                       (nub, foldl')
 import           Data.List.NonEmpty              (NonEmpty (..), toList)
+import qualified Data.HashMap.Strict             as HM (union)
 import qualified Data.Map.Strict                 as M
 import           Data.Maybe
 import           Data.Text                       (Text)
@@ -347,6 +351,20 @@ data FieldType = GeoPointType
 
 data FieldDefinition =
   FieldDefinition { fieldType :: FieldType } deriving (Eq, Show)
+
+{-| An 'IndexTemplate' defines a template that will automatically be
+    applied to new indices created. The templates include both
+    'IndexSettings' and mappings, and a simple 'TemplatePattern' that
+    controls if the template will be applied to the index created.
+    Specify mappings as follows: @[toJSON TweetMapping, ...]@
+
+    https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html
+-}
+data IndexTemplate =
+  IndexTemplate { templatePattern :: TemplatePattern
+                , templateSettings :: Maybe IndexSettings
+                , templateMappings :: [Value]
+                }
 
 data MappingField =
   MappingField   { mappingFieldName :: FieldName
@@ -545,6 +563,14 @@ newtype Server = Server Text deriving (Eq, Show)
 {-| 'IndexName' is used to describe which index to query/create/delete
 -}
 newtype IndexName = IndexName Text deriving (Eq, Generic, Show)
+
+{-| 'TemplateName' is used to describe which template to query/create/delete
+-}
+newtype TemplateName = TemplateName Text deriving (Eq, Show, Generic)
+
+{-| 'TemplatePattern' represents a pattern which is matched against index names
+-}
+newtype TemplatePattern = TemplatePattern Text deriving (Eq, Show, Generic)
 
 {-| 'MappingName' is part of mappings which are how ES describes and schematizes
     the data in the indices.
@@ -1953,6 +1979,8 @@ instance ToJSON IgnoreTermFrequency
 instance ToJSON MaxQueryTerms
 instance ToJSON TypeName
 instance ToJSON IndexName
+instance ToJSON TemplateName
+instance ToJSON TemplatePattern
 instance ToJSON BoostTerms
 instance ToJSON MaxWordLength
 instance ToJSON MinWordLength
@@ -1991,6 +2019,16 @@ instance FromJSON Status where
 instance ToJSON IndexSettings where
   toJSON (IndexSettings s r) = object ["settings" .= object ["shards" .= s, "replicas" .= r]]
 
+instance ToJSON IndexTemplate where
+  toJSON (IndexTemplate p s m) =
+    objectNoNulls [ "template" .= p
+                  , "settings" .= s
+                  , "mappings" .= foldl' merge (object []) m
+                  ]
+   where
+     objectNoNulls = object . filter (\(_, v) -> v /= Null)
+     merge (Object o1) (Object o2) = toJSON $ HM.union o1 o2
+     merge _           _           = undefined
 
 instance (FromJSON a) => FromJSON (EsResult a) where
   parseJSON (Object v) = EsResult <$>

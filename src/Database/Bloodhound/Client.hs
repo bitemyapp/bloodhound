@@ -27,6 +27,9 @@ module Database.Bloodhound.Client
        , indexExists
        , openIndex
        , closeIndex
+       , putTemplate
+       , templateExists
+       , deleteTemplate
        , putMapping
        , deleteMapping
        , indexDocument
@@ -300,6 +303,35 @@ openIndex = openOrCloseIndexes OpenIndex
 -- >>> reply <- runBH' $ closeIndex testIndex
 closeIndex :: MonadBH m => IndexName -> m Reply
 closeIndex = openOrCloseIndexes CloseIndex
+
+-- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
+--   Explained in further detail at
+--   <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html>
+--
+--   >>> let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--   >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
+putTemplate :: MonadBH m => IndexTemplate -> TemplateName -> m Reply
+putTemplate indexTemplate (TemplateName templateName) =
+  bindM2 put url (return body)
+  where url = joinPath ["_template", templateName]
+        body = Just $ encode indexTemplate
+
+-- | 'templateExists' checks to see if a template exists.
+--
+--   >>> exists <- runBH' $ templateExists (TemplateName "tweet-tpl")
+templateExists :: MonadBH m => TemplateName -> m Bool
+templateExists (TemplateName templateName) = do
+  (_, exists) <- existentialQuery =<< joinPath ["_template", templateName]
+  return exists
+
+-- | 'deleteTemplate' is an HTTP DELETE and deletes a template.
+--
+--   >>> let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--   >>> _ <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
+--   >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
+deleteTemplate :: MonadBH m => TemplateName -> m Reply
+deleteTemplate (TemplateName templateName) =
+  delete =<< joinPath ["_template", templateName]
 
 -- | 'putMapping' is an HTTP PUT and has upsert semantics. Mappings are schemas
 -- for documents in indexes.
