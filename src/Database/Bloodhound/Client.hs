@@ -200,7 +200,7 @@ get    = flip (dispatch NHTM.methodGet) Nothing
 head   :: MonadBH m => Text -> m Reply
 head   = flip (dispatch NHTM.methodHead) Nothing
 put    :: MonadBH m => Text -> Maybe L.ByteString -> m Reply
-put    = dispatch NHTM.methodPost
+put    = dispatch NHTM.methodPut
 post   :: MonadBH m => Text -> Maybe L.ByteString -> m Reply
 post   = dispatch NHTM.methodPost
 
