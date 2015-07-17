@@ -344,7 +344,9 @@ putMapping :: (MonadBH m, ToJSON a) => IndexName
                  -> MappingName -> a -> m Reply
 putMapping (IndexName indexName) (MappingName mappingName) mapping =
   bindM2 put url (return body)
-  where url = joinPath [indexName, mappingName, "_mapping"]
+  where url = joinPath [indexName, "_mapping", mappingName]
+        -- "_mapping" and mappingName above were originally transposed
+        -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
         body = Just $ encode mapping
 
 -- | 'deleteMapping' is an HTTP DELETE and deletes a mapping for a given index.
@@ -358,7 +360,9 @@ putMapping (IndexName indexName) (MappingName mappingName) mapping =
 deleteMapping :: MonadBH m => IndexName -> MappingName -> m Reply
 deleteMapping (IndexName indexName)
   (MappingName mappingName) =
-  delete =<< joinPath [indexName, mappingName, "_mapping"]
+  -- "_mapping" and mappingName below were originally transposed
+  -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
+  delete =<< joinPath [indexName, "_mapping", mappingName]
 
 -- | 'indexDocument' is the primary way to save a single document in
 --   Elasticsearch. The document itself is simply something we can
