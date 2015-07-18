@@ -1,4 +1,4 @@
 import Test.DocTest
 
 main :: IO ()
-main = doctest ["-isrc", "Database"]
+main = doctest ["-i src", "Database.Bloodhound"]
