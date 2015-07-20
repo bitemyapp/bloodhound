@@ -2020,14 +2020,14 @@ instance ToJSON IndexSettings where
   toJSON (IndexSettings s r) = object ["settings" .= object ["shards" .= s, "replicas" .= r]]
 
 instance ToJSON IndexTemplate where
-  toJSON (IndexTemplate p s m) =
-    objectNoNulls [ "template" .= p
-                  , "settings" .= s
-                  , "mappings" .= foldl' merge (object []) m
-                  ]
+  toJSON (IndexTemplate p s m) = merge
+    (object [ "template" .= p
+            , "mappings" .= foldl' merge (object []) m
+            ])
+    (toJSON s)
    where
-     objectNoNulls = object . filter (\(_, v) -> v /= Null)
      merge (Object o1) (Object o2) = toJSON $ HM.union o1 o2
+     merge o           Null        = o
      merge _           _           = undefined
 
 instance (FromJSON a) => FromJSON (EsResult a) where
