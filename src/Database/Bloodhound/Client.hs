@@ -378,7 +378,7 @@ indexDocument (IndexName indexName)
   (MappingName mappingName) cfg document (DocId docId) =
   bindM2 put url (return body)
   where url = addQuery params <$> joinPath [indexName, mappingName, docId]
-        params = case idsVersionControl cfg of
+        versionCtlParams = case idsVersionControl cfg of
           NoVersionControl -> []
           InternalVersion v -> versionParams v "internal"
           ExternalGT (ExternalDocVersion v) -> versionParams v "external_gt"
@@ -388,6 +388,10 @@ indexDocument (IndexName indexName)
         versionParams v t = [ ("version", Just $ vt v)
                             , ("version_type", Just t)
                             ]
+        parentParams = case idsParent cfg of
+          Nothing -> []
+          Just (DocumentParent (DocId p)) -> [ ("parent", Just p) ]
+        params = versionCtlParams ++ parentParams
         body = Just (encode document)
 
 -- | 'deleteDocument' is the primary way to delete a single document.

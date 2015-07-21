@@ -63,6 +63,7 @@ module Database.Bloodhound.Types
        , DocVersion
        , ExternalDocVersion(..)
        , VersionControl(..)
+       , DocumentParent(..)
        , IndexDocumentSettings(..)
        , Query(..)
        , Search(..)
@@ -457,18 +458,23 @@ data VersionControl = NoVersionControl
                     -- care, as this could result in data loss.
                     deriving (Show, Eq, Ord)
 
+{-| 'DocumentParent' is used to specify a parent document.
+-}
+newtype DocumentParent = DocumentParent DocId
+
 {-| 'IndexDocumentSettings' are special settings supplied when indexing
 a document. For the best backwards compatiblity when new fields are
 added, you should probably prefer to start with 'defaultIndexDocumentSettings'
 -}
-data IndexDocumentSettings = IndexDocumentSettings {
-      idsVersionControl :: VersionControl
-    }
+data IndexDocumentSettings =
+  IndexDocumentSettings { idsVersionControl :: VersionControl
+                        , idsParent         :: Maybe DocumentParent
+                        }
 
-{-| Reasonable default settings. Chooses no version control.
+{-| Reasonable default settings. Chooses no version control and no parent.
 -}
 defaultIndexDocumentSettings :: IndexDocumentSettings
-defaultIndexDocumentSettings = IndexDocumentSettings NoVersionControl
+defaultIndexDocumentSettings = IndexDocumentSettings NoVersionControl Nothing
 
 {-| 'Sort' is a synonym for a list of 'SortSpec's. Sort behavior is order
     dependent with later sorts acting as tie-breakers for earlier sorts.
