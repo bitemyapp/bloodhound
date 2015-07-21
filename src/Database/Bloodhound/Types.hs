@@ -461,6 +461,7 @@ data VersionControl = NoVersionControl
 {-| 'DocumentParent' is used to specify a parent document.
 -}
 newtype DocumentParent = DocumentParent DocId
+  deriving (Eq, Show)
 
 {-| 'IndexDocumentSettings' are special settings supplied when indexing
 a document. For the best backwards compatiblity when new fields are
@@ -469,7 +470,7 @@ added, you should probably prefer to start with 'defaultIndexDocumentSettings'
 data IndexDocumentSettings =
   IndexDocumentSettings { idsVersionControl :: VersionControl
                         , idsParent         :: Maybe DocumentParent
-                        }
+                        } deriving (Eq, Show)
 
 {-| Reasonable default settings. Chooses no version control and no parent.
 -}
