@@ -383,7 +383,7 @@ Search
 
 -- exported by the Client module, just defaults some stuff.
 -- mkSearch :: Maybe Query -> Maybe Filter -> Search
--- mkSearch query filter = Search query filter Nothing False (From 0) (Size 10)
+-- mkSearch query filter = Search query filter Nothing False (From 0) (Size 10) Nothing
 
 let query = TermQuery (Term "user" "bitemyapp") Nothing
 
@@ -486,9 +486,22 @@ let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
 --              -> Maybe Sort
 --              -> TrackSortScores
 --              -> From -> Size
+--              -> Maybe [FieldName]
 
 -- just add more sortspecs to the list if you want tie-breakers.
-let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False (From 0) (Size 10)
+let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False (From 0) (Size 10) Nothing
+
+```
+
+### Field selection
+
+If you only want certain fields from the source document returned, you can
+set the "fields" field of the Search record.
+
+``` {.haskell}
+
+let search' = mkSearch (Just (MatchAllQuery Nothing)) Nothing
+    search  = search' { fields = Just [FieldName "updated"] }
 
 ```
 
