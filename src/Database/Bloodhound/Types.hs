@@ -714,7 +714,8 @@ data Search = Search { queryBody       :: Maybe Query
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from            :: From
-                     , size            :: Size } deriving (Eq, Show)
+                     , size            :: Size
+                     , fields          :: Maybe [FieldName] } deriving (Eq, Show)
 
 data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
                              , highlightFields :: [FieldHighlight]
@@ -2049,7 +2050,7 @@ instance (FromJSON a) => FromJSON (EsResult a) where
 
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize) =
+  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize sFields) =
     omitNulls [ "query"        .= query
               , "filter"       .= sFilter
               , "sort"         .= sort
@@ -2057,7 +2058,8 @@ instance ToJSON Search where
               , "highlight"    .= highlight
               , "from"         .= sFrom
               , "size"         .= sSize
-              , "track_scores" .= sTrackSortScores]
+              , "track_scores" .= sTrackSortScores
+              , "fields"       .= sFields]
 
 
 instance ToJSON FieldHighlight where
