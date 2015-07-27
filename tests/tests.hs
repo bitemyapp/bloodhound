@@ -303,6 +303,12 @@ main = hspec $ do
                      (responseBody docInserted) :: Either String (EsResult Tweet)
       liftIO $ (fmap getSource newTweet `shouldBe` Right (Just exampleTweet))
 
+    it "produces a parseable result when looking up a bogus document" $ withTestEnv $ do
+      doc <- getDocument testIndex testMapping  (DocId "bogus")
+      let noTweet = eitherDecode
+                    (responseBody doc) :: Either String (EsResult Tweet)
+      liftIO $ fmap foundResult noTweet `shouldBe` Right Nothing
+
     it "can use optimistic concurrency control" $ withTestEnv $ do
       let ev = ExternalDocVersion minBound
       let cfg = defaultIndexDocumentSettings { idsVersionControl = ExternalGT ev }
