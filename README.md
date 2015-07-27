@@ -276,23 +276,22 @@ let eitherResult = eitherDecode body :: Either String (EsResult Tweet)
 Right (EsResult {_index = "twitter"
                , _type = "tweet"
                , _id = "1"
-               , _version = 2
-               , found = Just True
-               , _source = Tweet {user = "bitemyapp"
-               , postDate = 2009-06-18 00:00:10 UTC
-               , message = "Use haskell!"
-               , age = 10000
-               , location = Location {lat = 40.12, lon = -71.34}}})
+               , foundResult = Just (EsResultFound { _version = 2
+                                                   , _source = Tweet {user = "bitemyapp"
+                                                                     , postDate = 2009-06-18 00:00:10 UTC
+                                                                     , message = "Use haskell!"
+                                                                     , age = 10000
+                                                                     , location = Location {lat = 40.12, lon = -71.34}}})})
 
--- _source in EsResult is parametric, we dispatch the type by passing in what we expect (Tweet) as a parameter to EsResult.
+-- _source in EsResultFound is parametric, we dispatch the type by passing in what we expect (Tweet) as a parameter to EsResult.
 
 -- use the _source record accessor to get at your document
-fmap _source eitherResult
-Right (Tweet {user = "bitemyapp"
-            , postDate = 2009-06-18 00:00:10 UTC
-            , message = "Use haskell!"
-            , age = 10000
-            , location = Location {lat = 40.12, lon = -71.34}})
+fmap (fmap _source . foundResult) eitherResult
+Right (Just (Tweet {user = "bitemyapp"
+                   , postDate = 2009-06-18 00:00:10 UTC
+                   , message = "Use haskell!"
+                   , age = 10000
+                   , location = Location {lat = 40.12, lon = -71.34}}))
 
 ```
 
