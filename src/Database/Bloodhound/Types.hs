@@ -103,6 +103,7 @@ module Database.Bloodhound.Types
        , RegexpFlags(..)
        , RegexpFlag(..)
        , FieldName(..)
+       , Script(..)
        , IndexName(..)
        , TemplateName(..)
        , TemplatePattern(..)
@@ -201,6 +202,7 @@ module Database.Bloodhound.Types
        , Bucket(..)
        , BucketAggregation(..)
        , TermsAggregation(..)
+       , ValueCountAggregation(..)
        , DateHistogramAggregation(..)
 
        , Highlights(..)
@@ -606,6 +608,12 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Show)
      a document needs to be specified, usually in 'Query's or 'Filter's.
 -}
 newtype FieldName = FieldName Text deriving (Eq, Show)
+
+
+{-| 'Script' is often used in place of 'FieldName' to specify more
+complex ways of extracting a value from a document.
+-}
+newtype Script = Script { scriptText :: Text } deriving (Eq, Show)
 
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
@@ -1310,7 +1318,8 @@ data Interval = Year
               | FractionalInterval Float TimeInterval deriving (Eq, Show)
 
 data Aggregation = TermsAgg TermsAggregation
-                 | DateHistogramAgg DateHistogramAggregation deriving (Eq, Show)
+                 | DateHistogramAgg DateHistogramAggregation
+                 | ValueCountAgg ValueCountAggregation deriving (Eq, Show)
 
 
 data TermsAggregation = TermsAggregation { term              :: Either Text Text
@@ -1336,6 +1345,8 @@ data DateHistogramAggregation = DateHistogramAggregation { dateField      :: Fie
                                                          , dateAggs       :: Maybe Aggregations
                                                          } deriving (Eq, Show)
 
+data ValueCountAggregation = FieldValueCount FieldName
+                           | ScriptValueCount Script deriving (Eq, Show)
 
 mkTermsAggregation :: Text -> TermsAggregation
 mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
@@ -1409,6 +1420,10 @@ instance ToJSON Aggregation where
                                                "post_offset" .= postOffset
                                              ],
                "aggs"           .= dateHistoAggs ]
+  toJSON (ValueCountAgg a) = object ["value_count" .= v]
+    where v = case a of
+                (FieldValueCount (FieldName n)) -> object ["field" .= n]
+                (ScriptValueCount (Script s))   -> object ["script" .= s]
 
 type AggregationResults = M.Map Text Value
 
