@@ -60,6 +60,7 @@ module Database.Bloodhound.Types
        , Server(..)
        , Reply
        , EsResult(..)
+       , EsResultFound(..)
        , DocVersion
        , ExternalDocVersion(..)
        , VersionControl(..)
@@ -394,14 +395,21 @@ data BulkOperation =
   | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Show)
 
 {-| 'EsResult' describes the standard wrapper JSON document that you see in
-    successful Elasticsearch responses.
+    successful Elasticsearch lookups or lookups that couldn't find the document.
 -}
 data EsResult a = EsResult { _index   :: Text
                            , _type    :: Text
                            , _id      :: Text
-                           , _version :: DocVersion
-                           , found    :: Maybe Bool
-                           , _source  :: a } deriving (Eq, Show)
+                           , foundResult :: Maybe (EsResultFound a)} deriving (Eq, Show)
+
+
+{-| 'EsResultFound' contains the document and its metadata inside of an
+    'EsResult' when the document was successfully found.
+-}
+data EsResultFound a = EsResultFound {  _version :: DocVersion
+                                     , _source  :: a } deriving (Eq, Show)
+
+
 
 {-| 'DocVersion' is an integer version number for a document between 1
 and 9.2e+18 used for <<https://www.elastic.co/guide/en/elasticsearch/guide/current/optimistic-concurrency-control.html optimistic concurrency control>>.
@@ -2039,15 +2047,22 @@ instance ToJSON IndexTemplate where
      merge _           _           = undefined
 
 instance (FromJSON a) => FromJSON (EsResult a) where
-  parseJSON (Object v) = EsResult <$>
-                         v .:  "_index"   <*>
-                         v .:  "_type"    <*>
-                         v .:  "_id"      <*>
-                         v .:  "_version" <*>
-                         v .:? "found"    <*>
-                         v .:  "_source"
+  parseJSON jsonVal@(Object v) = do
+    found <- v .:? "found" .!= False
+    fr <- if found
+             then parseJSON jsonVal
+             else return Nothing
+    EsResult <$> v .:  "_index"   <*>
+                 v .:  "_type"    <*>
+                 v .:  "_id"      <*>
+                 pure fr
   parseJSON _          = empty
 
+instance (FromJSON a) => FromJSON (EsResultFound a) where
+  parseJSON (Object v) = EsResultFound <$>
+                         v .: "_version" <*>
+                         v .: "_source"
+  parseJSON _          = empty
 
 instance ToJSON Search where
   toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize sFields) =

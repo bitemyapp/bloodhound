@@ -278,6 +278,9 @@ instance Arbitrary a => Arbitrary (SearchHits a) where
     hs <- arbitrary
     return $ SearchHits tot score hs
 
+getSource :: EsResult a -> Maybe a
+getSource = fmap _source . foundResult
+
 main :: IO ()
 main = hspec $ do
 
@@ -298,7 +301,13 @@ main = hspec $ do
       docInserted <- getDocument testIndex testMapping (DocId "1")
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
-      liftIO $ (fmap _source newTweet `shouldBe` Right exampleTweet)
+      liftIO $ (fmap getSource newTweet `shouldBe` Right (Just exampleTweet))
+
+    it "produces a parseable result when looking up a bogus document" $ withTestEnv $ do
+      doc <- getDocument testIndex testMapping  (DocId "bogus")
+      let noTweet = eitherDecode
+                    (responseBody doc) :: Either String (EsResult Tweet)
+      liftIO $ fmap foundResult noTweet `shouldBe` Right Nothing
 
     it "can use optimistic concurrency control" $ withTestEnv $ do
       let ev = ExternalDocVersion minBound
@@ -344,8 +353,8 @@ main = hspec $ do
       let maybeFirst  = eitherDecode $ responseBody fDoc :: Either String (EsResult BulkTest)
       let maybeSecond = eitherDecode $ responseBody sDoc :: Either String (EsResult BulkTest)
       liftIO $ do
-        fmap _source maybeFirst `shouldBe` Right firstTest
-        fmap _source maybeSecond `shouldBe` Right secondTest
+        fmap getSource maybeFirst `shouldBe` Right (Just firstTest)
+        fmap getSource maybeSecond `shouldBe` Right (Just secondTest)
 
 
   describe "query API" $ do
@@ -377,8 +386,8 @@ main = hspec $ do
 
     it "returns document for multi-match query" $ withTestEnv $ do
       _ <- insertData
-      let fields = [FieldName "user", FieldName "message"]
-      let query = QueryMultiMatchQuery $ mkMultiMatchQuery fields (QueryString "bitemyapp")
+      let flds = [FieldName "user", FieldName "message"]
+      let query = QueryMultiMatchQuery $ mkMultiMatchQuery flds (QueryString "bitemyapp")
       let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
       liftIO $
