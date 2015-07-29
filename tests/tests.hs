@@ -47,7 +47,7 @@ validateStatus resp expected =
   `shouldBe` (expected :: Int)
 
 createExampleIndex :: BH IO Reply
-createExampleIndex = createIndex defaultIndexSettings testIndex
+createExampleIndex = createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) testIndex
 deleteExampleIndex :: BH IO Reply
 deleteExampleIndex = deleteIndex testIndex
 
