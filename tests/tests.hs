@@ -14,6 +14,7 @@ import           Data.List                       (nub)
 import           Data.List.NonEmpty              (NonEmpty (..))
 import qualified Data.List.NonEmpty              as NE
 import qualified Data.Map.Strict                 as M
+import           Data.Monoid
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Calendar              (Day (..))
@@ -174,15 +175,16 @@ insertOther = do
 
 searchTweet :: Search -> BH IO (Either String Tweet)
 searchTweet search = do
-  reply <- searchByIndex testIndex search
-  let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+  result <- searchTweets search
   let myTweet = fmap (hitSource . head . hits . searchHits) result
   return myTweet
 
+searchTweets :: Search -> BH IO (Either String (SearchResult Tweet))
+searchTweets search = eitherDecode . responseBody <$> searchByIndex testIndex search
+
 searchExpectNoResults :: Search -> BH IO ()
 searchExpectNoResults search = do
-  reply <- searchByIndex testIndex search
-  let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+  result <- searchTweets search
   let emptyHits = fmap (hits . searchHits) result
   liftIO $
     emptyHits `shouldBe` Right []
@@ -214,8 +216,7 @@ searchTermsAggHint hints = do
 
 searchTweetHighlight :: Search -> BH IO (Either String (Maybe HitHighlight))
 searchTweetHighlight search = do
-  reply <- searchByIndex testIndex search
-  let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+  result <- searchTweets search
   let myHighlight = fmap (hitHighlight . head . hits . searchHits) result
   return myHighlight
 
@@ -435,8 +436,7 @@ main = hspec $ do
       let search = Search Nothing
                    (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) Nothing
-      reply <- searchByIndex testIndex search
-      let result = eitherDecode (responseBody reply) :: Either String (SearchResult Tweet)
+      result <- searchTweets search
       let myTweet = fmap (hitSource . head . hits . searchHits) result
       liftIO $
         myTweet `shouldBe` Right otherTweet
@@ -628,6 +628,19 @@ main = hspec $ do
       _ <- insertData
       searchTermsAggHint [GlobalOrdinals, GlobalOrdinalsHash, GlobalOrdinalsLowCardinality, Map]
 
+
+    it "can execute value_count aggregations" $ withTestEnv $ do
+      _ <- insertData
+      _ <- insertOther
+      let ags = mkAggregations "user_count" (ValueCountAgg (FieldValueCount (FieldName "user"))) <>
+                mkAggregations "bogus_count" (ValueCountAgg (FieldValueCount (FieldName "bogus")))
+      let search = mkAggregateSearch Nothing ags
+      let countPair k n = (k, object ["value" .= Number n])
+      res <- searchTweets search
+      liftIO $
+        fmap aggregations res `shouldBe` Right (Just (M.fromList [ countPair "user_count" 2
+                                                                 , countPair "bogus_count" 0
+                                                                 ]))
     -- Interaction of date serialization and date histogram aggregation is broken.
     -- it "returns date histogram aggregation results" $ withTestEnv $ do
     --   _ <- insertData
