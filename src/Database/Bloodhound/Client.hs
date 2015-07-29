@@ -68,6 +68,7 @@ import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Default.Class
 import           Data.Ix
+import qualified Data.List                    as LS (filter)
 import           Data.Maybe                   (fromMaybe)
 import           Data.Monoid
 import           Data.Text                    (Text)
@@ -501,12 +502,14 @@ getDocument (IndexName indexName)
 --
 -- >>> exists <- runBH' $ documentExists testIndex testMapping (DocId "1")
 documentExists :: MonadBH m => IndexName -> MappingName
-                  -> DocId -> m Bool
-documentExists (IndexName indexName)
-  (MappingName mappingName) (DocId docId) = do
+               -> Maybe DocumentParent -> DocId -> m Bool
+documentExists (IndexName indexName) (MappingName mappingName)
+               parent (DocId docId) = do
   (_, exists) <- existentialQuery =<< url
   return exists
-  where url = joinPath [indexName, mappingName, docId]
+  where url = addQuery params <$> joinPath [indexName, mappingName, docId]
+        parentParam = fmap (\(DocumentParent (DocId p)) -> p) parent
+        params = LS.filter (\(_, v) -> v /= Nothing) [("parent", parentParam)]
 
 dispatchSearch :: MonadBH m => Text -> Search -> m Reply
 dispatchSearch url search = post url' (Just (encode search))
