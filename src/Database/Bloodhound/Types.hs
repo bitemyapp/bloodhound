@@ -2058,7 +2058,11 @@ instance FromJSON Status where
 
 
 instance ToJSON IndexSettings where
-  toJSON (IndexSettings s r) = object ["settings" .= object ["shards" .= s, "replicas" .= r]]
+  toJSON (IndexSettings s r) = object ["settings" .=
+                                 object ["index" .=
+                                   object ["number_of_shards" .= s, "number_of_replicas" .= r]
+                                 ]
+                               ]
 
 instance ToJSON IndexTemplate where
   toJSON (IndexTemplate p s m) = merge

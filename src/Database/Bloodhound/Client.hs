@@ -91,7 +91,7 @@ import           Database.Bloodhound.Types
 -- >>> let runBH' = withBH defaultManagerSettings testServer
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
--- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
+-- >>> let defaultIndexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0)
 -- >>> data TweetMapping = TweetMapping deriving (Eq, Show)
 -- >>> _ <- runBH' $ deleteIndex testIndex >> deleteMapping testIndex testMapping
 -- >>> import GHC.Generics
