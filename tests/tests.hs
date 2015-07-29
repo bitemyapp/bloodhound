@@ -635,11 +635,24 @@ main = hspec $ do
       let ags = mkAggregations "user_count" (ValueCountAgg (FieldValueCount (FieldName "user"))) <>
                 mkAggregations "bogus_count" (ValueCountAgg (FieldValueCount (FieldName "bogus")))
       let search = mkAggregateSearch Nothing ags
-      let countPair k n = (k, object ["value" .= Number n])
+      let docCountPair k n = (k, object ["value" .= Number n])
       res <- searchTweets search
       liftIO $
-        fmap aggregations res `shouldBe` Right (Just (M.fromList [ countPair "user_count" 2
-                                                                 , countPair "bogus_count" 0
+        fmap aggregations res `shouldBe` Right (Just (M.fromList [ docCountPair "user_count" 2
+                                                                 , docCountPair "bogus_count" 0
+                                                                 ]))
+
+    it "can execute filter aggregations" $ withTestEnv $ do
+      _ <- insertData
+      _ <- insertOther
+      let ags = mkAggregations "bitemyapps" (FilterAgg (FilterAggregation (TermFilter (Term "user" "bitemyapp") defaultCache) Nothing)) <>
+                mkAggregations "notmyapps" (FilterAgg (FilterAggregation (TermFilter (Term "user" "notmyapp") defaultCache) Nothing))
+      let search = mkAggregateSearch Nothing ags
+      let docCountPair k n = (k, object ["doc_count" .= Number n])
+      res <- searchTweets search
+      liftIO $
+        fmap aggregations res `shouldBe` Right (Just (M.fromList [ docCountPair "bitemyapps" 1
+                                                                 , docCountPair "notmyapps" 1
                                                                  ]))
     -- Interaction of date serialization and date histogram aggregation is broken.
     -- it "returns date histogram aggregation results" $ withTestEnv $ do

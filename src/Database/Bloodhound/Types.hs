@@ -203,6 +203,7 @@ module Database.Bloodhound.Types
        , BucketAggregation(..)
        , TermsAggregation(..)
        , ValueCountAggregation(..)
+       , FilterAggregation(..)
        , DateHistogramAggregation(..)
 
        , Highlights(..)
@@ -1319,7 +1320,8 @@ data Interval = Year
 
 data Aggregation = TermsAgg TermsAggregation
                  | DateHistogramAgg DateHistogramAggregation
-                 | ValueCountAgg ValueCountAggregation deriving (Eq, Show)
+                 | ValueCountAgg ValueCountAggregation
+                 | FilterAgg FilterAggregation deriving (Eq, Show)
 
 
 data TermsAggregation = TermsAggregation { term              :: Either Text Text
@@ -1345,8 +1347,13 @@ data DateHistogramAggregation = DateHistogramAggregation { dateField      :: Fie
                                                          , dateAggs       :: Maybe Aggregations
                                                          } deriving (Eq, Show)
 
+-- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-valuecount-aggregation.html> for more information.
 data ValueCountAggregation = FieldValueCount FieldName
                            | ScriptValueCount Script deriving (Eq, Show)
+
+-- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
+data FilterAggregation = FilterAggregation { faFilter :: Filter
+                                           , faAggs :: Maybe Aggregations} deriving (Eq, Show)
 
 mkTermsAggregation :: Text -> TermsAggregation
 mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
@@ -1424,6 +1431,9 @@ instance ToJSON Aggregation where
     where v = case a of
                 (FieldValueCount (FieldName n)) -> object ["field" .= n]
                 (ScriptValueCount (Script s))   -> object ["script" .= s]
+  toJSON (FilterAgg (FilterAggregation filt ags)) =
+    omitNulls [ "filter" .= filt
+              , "aggs" .= ags]
 
 type AggregationResults = M.Map Text Value
 
