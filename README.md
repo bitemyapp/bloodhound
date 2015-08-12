@@ -225,7 +225,7 @@ instance FromJSON Location
 -- λ> encode $ Location 10.0 10.0
 -- "{\"lat\":10,\"lon\":10}"
 
-resp <- withBH' $ indexDocument testIndex testMapping exampleTweet (DocId "1")
+resp <- withBH' $ indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
 
 ```
 
@@ -276,23 +276,22 @@ let eitherResult = eitherDecode body :: Either String (EsResult Tweet)
 Right (EsResult {_index = "twitter"
                , _type = "tweet"
                , _id = "1"
-               , _version = 2
-               , found = Just True
-               , _source = Tweet {user = "bitemyapp"
-               , postDate = 2009-06-18 00:00:10 UTC
-               , message = "Use haskell!"
-               , age = 10000
-               , location = Location {lat = 40.12, lon = -71.34}}})
+               , foundResult = Just (EsResultFound { _version = 2
+                                                   , _source = Tweet {user = "bitemyapp"
+                                                                     , postDate = 2009-06-18 00:00:10 UTC
+                                                                     , message = "Use haskell!"
+                                                                     , age = 10000
+                                                                     , location = Location {lat = 40.12, lon = -71.34}}})})
 
--- _source in EsResult is parametric, we dispatch the type by passing in what we expect (Tweet) as a parameter to EsResult.
+-- _source in EsResultFound is parametric, we dispatch the type by passing in what we expect (Tweet) as a parameter to EsResult.
 
 -- use the _source record accessor to get at your document
-fmap _source eitherResult
-Right (Tweet {user = "bitemyapp"
-            , postDate = 2009-06-18 00:00:10 UTC
-            , message = "Use haskell!"
-            , age = 10000
-            , location = Location {lat = 40.12, lon = -71.34}})
+fmap (fmap _source . foundResult) eitherResult
+Right (Just (Tweet {user = "bitemyapp"
+                   , postDate = 2009-06-18 00:00:10 UTC
+                   , message = "Use haskell!"
+                   , age = 10000
+                   , location = Location {lat = 40.12, lon = -71.34}}))
 
 ```
 
@@ -368,7 +367,7 @@ let encodedOperations = encodeBulkOperations stream
 
 -- to insert into a particular server
 -- bulk :: V.Vector BulkOperation -> IO Reply
-_ <- withBH' $ bulk stream
+_ <- withBH' $ bulk streamp
 
 ```
 
@@ -383,7 +382,7 @@ Search
 
 -- exported by the Client module, just defaults some stuff.
 -- mkSearch :: Maybe Query -> Maybe Filter -> Search
--- mkSearch query filter = Search query filter Nothing False (From 0) (Size 10)
+-- mkSearch query filter = Search query filter Nothing False (From 0) (Size 10) Nothing
 
 let query = TermQuery (Term "user" "bitemyapp") Nothing
 
@@ -486,9 +485,22 @@ let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
 --              -> Maybe Sort
 --              -> TrackSortScores
 --              -> From -> Size
+--              -> Maybe [FieldName]
 
 -- just add more sortspecs to the list if you want tie-breakers.
-let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False (From 0) (Size 10)
+let search = Search Nothing (Just IdentityFilter) (Just [sortSpec]) False (From 0) (Size 10) Nothing
+
+```
+
+### Field selection
+
+If you only want certain fields from the source document returned, you can
+set the "fields" field of the Search record.
+
+``` {.haskell}
+
+let search' = mkSearch (Just (MatchAllQuery Nothing)) Nothing
+    search  = search' { fields = Just [FieldName "updated"] }
 
 ```
 
