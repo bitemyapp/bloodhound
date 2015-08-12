@@ -1,5 +1,5 @@
 name:                bloodhound
-version:             0.6.0.0
+version:             0.7.0.1
 synopsis:            ElasticSearch client library for Haskell
 description:         ElasticSearch made awesome for Haskell hackers
 homepage:            https://github.com/bitemyapp/bloodhound
@@ -16,9 +16,6 @@ source-repository head
   type:     git
   location: https://github.com/bitemyapp/bloodhound.git
 
-flag DevelopmentMode
-  Default: False
-
 library
   ghc-options: -Wall
   exposed-modules:     Database.Bloodhound
@@ -29,7 +26,7 @@ library
   build-depends:       base             >= 4.3     && <5,
                        bytestring       >= 0.10.0  && <0.11,
                        containers       >= 0.5.0.0 && <0.6,
-                       aeson            >= 0.7     && <0.9,
+                       aeson            >= 0.7     && <0.10,
                        http-client      >= 0.3     && <0.5,
                        semigroups       >= 0.15    && <0.17,
                        time             >= 1.4     && <1.6,
@@ -37,10 +34,12 @@ library
                        mtl              >= 1.0     && <2.3,
                        transformers     >= 0.2     && <0.5,
                        http-types       >= 0.8     && <0.9,
-                       vector           >= 0.10.9  && <0.11,
+                       vector           >= 0.10.9  && <0.12,
                        uri-bytestring   >= 0.1     && <0.2,
                        exceptions,
-                       data-default-class
+                       data-default-class,
+                       blaze-builder,
+                       unordered-containers
   default-language:    Haskell2010
 
 test-suite tests
@@ -50,6 +49,7 @@ test-suite tests
   hs-source-dirs: tests
   build-depends:       base,
                        bloodhound,
+                       bytestring,
                        http-client,
                        http-types,
                        containers,
@@ -66,15 +66,20 @@ test-suite tests
   default-language:    Haskell2010
 
 test-suite doctests
+  ghc-options:      -threaded -Wall
   default-language: Haskell2010
   type:             exitcode-stdio-1.0
   main-is:          doctests.hs
-  hs-source-dirs:   tests
+  hs-source-dirs:   tests, src
   if impl(ghc >= 7.8)
     build-depends:    base,
                       directory,
-                      doctest,
+                      doctest >= 0.10.1,
                       doctest-prop,
                       filepath
   else
     buildable: False
+
+Source-Repository head
+  Type:     git
+  Location: git://github.com/bitemyapp/bloodhound.git
