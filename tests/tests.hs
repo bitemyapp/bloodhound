@@ -435,7 +435,7 @@ main = hspec $ do
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
       let search = Search Nothing
                    (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
-                   False (From 0) (Size 10) Nothing
+                   False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing
       result <- searchTweets search
       let myTweet = fmap (hitSource . head . hits . searchHits) result
       liftIO $
