@@ -1,3 +1,10 @@
+0.7.0.0
+===================
+
+* Added QueryFilter thanks to Bjørn Nordbø!
+
+* Support for optimistic concurrency control thanks again to @MichaelXavier!
+
 0.6.0.1
 ===================
 

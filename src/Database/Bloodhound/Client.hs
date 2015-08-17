@@ -27,6 +27,9 @@ module Database.Bloodhound.Client
        , indexExists
        , openIndex
        , closeIndex
+       , putTemplate
+       , templateExists
+       , deleteTemplate
        , putMapping
        , deleteMapping
        , indexDocument
@@ -48,9 +51,14 @@ module Database.Bloodhound.Client
        , getStatus
        , encodeBulkOperations
        , encodeBulkOperation
+       -- * Reply-handling tools
+       , isVersionConflict
+       , isSuccess
+       , isCreated
        )
        where
 
+import qualified Blaze.ByteString.Builder as BB
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Catch
@@ -59,8 +67,9 @@ import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Default.Class
+import           Data.Ix
 import           Data.Maybe                   (fromMaybe)
-import           Data.Monoid                  ((<>))
+import           Data.Monoid
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as T
@@ -68,6 +77,7 @@ import qualified Data.Vector                  as V
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method    as NHTM
 import qualified Network.HTTP.Types.Status    as NHTS
+import qualified Network.HTTP.Types.URI       as NHTU
 import           Prelude                      hiding (filter, head)
 import           URI.ByteString               hiding (Query)
 
@@ -82,7 +92,7 @@ import           Database.Bloodhound.Types
 -- >>> let runBH' = withBH defaultManagerSettings testServer
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
--- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
+-- >>> let defaultIndexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0)
 -- >>> data TweetMapping = TweetMapping deriving (Eq, Show)
 -- >>> _ <- runBH' $ deleteIndex testIndex >> deleteMapping testIndex testMapping
 -- >>> import GHC.Generics
@@ -162,14 +172,8 @@ joinPath ps = do
   Server s <- bhServer <$> getBHEnv
   return $ joinPath' (s:ps)
 
-appendQueryParam :: Text -> Text -> Text
-appendQueryParam originalUrl newParams = originalUrl <> joiner <> newParams
-  where joiner 
-          | T.any (== '?') originalUrl = "&"
-          | otherwise                  = "?"
-
 appendSearchTypeParam :: Text -> SearchType -> Text
-appendSearchTypeParam originalUrl st = appendQueryParam originalUrl (keyEq <> stParams)
+appendSearchTypeParam originalUrl st = addQuery [(keyEq, Just stParams)] originalUrl 
   where keyEq = "search_type="
         stParams
           | st == SearchTypeDfsQueryThenFetch = "dfs_query_then_fetch"
@@ -179,6 +183,15 @@ appendSearchTypeParam originalUrl st = appendQueryParam originalUrl (keyEq <> st
           | st == SearchTypeDfsQueryAndFetch  = "dfs_query_and_fetch"
         -- used to catch 'SearchTypeQueryThenFetch', which is also the default
           | otherwise                         = "query_then_fetch" 
+
+-- | Severely dumbed down query renderer. Assumes your data doesn't
+-- need any encoding
+addQuery :: [(Text, Maybe Text)] -> Text -> Text
+addQuery q u = u <> rendered
+  where
+    rendered =
+      T.decodeUtf8 $ BB.toByteString $ NHTU.renderQueryText prependQuestionMark q
+    prependQuestionMark = True
 
 bindM2 :: (Applicative m, Monad m) => (a -> b -> m c) -> m a -> m b -> m c
 bindM2 f ma mb = join (f <$> ma <*> mb)
@@ -202,7 +215,7 @@ get    = flip (dispatch NHTM.methodGet) Nothing
 head   :: MonadBH m => Text -> m Reply
 head   = flip (dispatch NHTM.methodHead) Nothing
 put    :: MonadBH m => Text -> Maybe L.ByteString -> m Reply
-put    = dispatch NHTM.methodPost
+put    = dispatch NHTM.methodPut
 post   :: MonadBH m => Text -> Maybe L.ByteString -> m Reply
 post   = dispatch NHTM.methodPost
 
@@ -303,6 +316,35 @@ openIndex = openOrCloseIndexes OpenIndex
 closeIndex :: MonadBH m => IndexName -> m Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
+-- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
+--   Explained in further detail at
+--   <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html>
+--
+--   >>> let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--   >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
+putTemplate :: MonadBH m => IndexTemplate -> TemplateName -> m Reply
+putTemplate indexTemplate (TemplateName templateName) =
+  bindM2 put url (return body)
+  where url = joinPath ["_template", templateName]
+        body = Just $ encode indexTemplate
+
+-- | 'templateExists' checks to see if a template exists.
+--
+--   >>> exists <- runBH' $ templateExists (TemplateName "tweet-tpl")
+templateExists :: MonadBH m => TemplateName -> m Bool
+templateExists (TemplateName templateName) = do
+  (_, exists) <- existentialQuery =<< joinPath ["_template", templateName]
+  return exists
+
+-- | 'deleteTemplate' is an HTTP DELETE and deletes a template.
+--
+--   >>> let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--   >>> _ <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
+--   >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
+deleteTemplate :: MonadBH m => TemplateName -> m Reply
+deleteTemplate (TemplateName templateName) =
+  delete =<< joinPath ["_template", templateName]
+
 -- | 'putMapping' is an HTTP PUT and has upsert semantics. Mappings are schemas
 -- for documents in indexes.
 --
@@ -314,7 +356,9 @@ putMapping :: (MonadBH m, ToJSON a) => IndexName
                  -> MappingName -> a -> m Reply
 putMapping (IndexName indexName) (MappingName mappingName) mapping =
   bindM2 put url (return body)
-  where url = joinPath [indexName, mappingName, "_mapping"]
+  where url = joinPath [indexName, "_mapping", mappingName]
+        -- "_mapping" and mappingName above were originally transposed
+        -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
         body = Just $ encode mapping
 
 -- | 'deleteMapping' is an HTTP DELETE and deletes a mapping for a given index.
@@ -328,22 +372,38 @@ putMapping (IndexName indexName) (MappingName mappingName) mapping =
 deleteMapping :: MonadBH m => IndexName -> MappingName -> m Reply
 deleteMapping (IndexName indexName)
   (MappingName mappingName) =
-  delete =<< joinPath [indexName, mappingName, "_mapping"]
+  -- "_mapping" and mappingName below were originally transposed
+  -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
+  delete =<< joinPath [indexName, "_mapping", mappingName]
 
 -- | 'indexDocument' is the primary way to save a single document in
 --   Elasticsearch. The document itself is simply something we can
 --   convert into a JSON 'Value'. The 'DocId' will function as the
 --   primary key for the document.
 --
--- >>> resp <- runBH' $ indexDocument testIndex testMapping exampleTweet (DocId "1")
+-- >>> resp <- runBH' $ indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 indexDocument :: (ToJSON doc, MonadBH m) => IndexName -> MappingName
-                 -> doc -> DocId -> m Reply
+                 -> IndexDocumentSettings -> doc -> DocId -> m Reply
 indexDocument (IndexName indexName)
-  (MappingName mappingName) document (DocId docId) =
+  (MappingName mappingName) cfg document (DocId docId) =
   bindM2 put url (return body)
-  where url = joinPath [indexName, mappingName, docId]
+  where url = addQuery params <$> joinPath [indexName, mappingName, docId]
+        versionCtlParams = case idsVersionControl cfg of
+          NoVersionControl -> []
+          InternalVersion v -> versionParams v "internal"
+          ExternalGT (ExternalDocVersion v) -> versionParams v "external_gt"
+          ExternalGTE (ExternalDocVersion v) -> versionParams v "external_gte"
+          ForceVersion (ExternalDocVersion v) -> versionParams v "force"
+        vt = T.pack . show . docVersionNumber
+        versionParams v t = [ ("version", Just $ vt v)
+                            , ("version_type", Just t)
+                            ]
+        parentParams = case idsParent cfg of
+          Nothing -> []
+          Just (DocumentParent (DocId p)) -> [ ("parent", Just p) ]
+        params = versionCtlParams ++ parentParams
         body = Just (encode document)
 
 -- | 'deleteDocument' is the primary way to delete a single document.
@@ -524,9 +584,9 @@ scanSearch search = do
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> mkSearch (Just query) Nothing
--- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10}
+-- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, fields = Nothing}
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch
+mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing
 
 -- | 'mkAggregateSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -536,7 +596,7 @@ mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 
 -- TermsAgg (TermsAggregation {term = Left "user", termInclude = Nothing, termExclude = Nothing, termOrder = Nothing, termMinDocCount = Nothing, termSize = Nothing, termShardSize = Nothing, termCollectMode = Just BreadthFirst, termExecutionHint = Nothing, termAggs = Nothing})
 -- >>> let myAggregation = mkAggregateSearch Nothing $ mkAggregations "users" terms
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
-mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) SearchTypeQueryThenFetch
+mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) SearchTypeQueryThenFetch Nothing
 
 -- | 'mkHighlightSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -545,7 +605,7 @@ mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSear
 -- >>> let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 -- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
-mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch
+mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing
 
 -- | 'pageSearch' is a helper function that takes a search and assigns the from
 --    and size fields for the search. The from parameter defines the offset
@@ -555,9 +615,9 @@ mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing 
 -- >>> let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> search
--- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10}
+-- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, fields = Nothing}
 -- >>> pageSearch (From 10) (Size 100) search
--- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 10, size = Size 100}
+-- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 10, size = Size 100, fields = Nothing}
 pageSearch :: From     -- ^ The result offset
            -> Size     -- ^ The number of results to return
            -> Search  -- ^ The current seach
@@ -591,3 +651,17 @@ setURI req URI{..} = do
       Scheme "https" -> True
       _              -> False
     theQueryString = [(k , Just v) | (k, v) <- queryPairs uriQuery]
+
+-- | Was there an optimistic concurrency control conflict when
+-- indexing a document?
+isVersionConflict :: Reply -> Bool
+isVersionConflict = statusCheck (== 409)
+
+isSuccess :: Reply -> Bool
+isSuccess = statusCheck (inRange (200, 299))
+
+isCreated :: Reply -> Bool
+isCreated = statusCheck (== 201)
+
+statusCheck :: (Int -> Bool) -> Reply -> Bool
+statusCheck prd = prd . NHTS.statusCode . responseStatus

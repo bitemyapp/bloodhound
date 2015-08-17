@@ -29,6 +29,7 @@
 module Database.Bloodhound.Types
        ( defaultCache
        , defaultIndexSettings
+       , defaultIndexDocumentSettings
        , mkSort
        , showText
        , unpackId
@@ -41,6 +42,8 @@ module Database.Bloodhound.Types
        , mkTermsAggregation
        , mkTermsScriptAggregation
        , mkDateHistogram
+       , mkDocVersion
+       , docVersionNumber
        , toTerms
        , toDateHistogram
        , omitNulls
@@ -53,9 +56,16 @@ module Database.Bloodhound.Types
        , Existence(..)
        , NullValue(..)
        , IndexSettings(..)
+       , IndexTemplate(..)
        , Server(..)
        , Reply
        , EsResult(..)
+       , EsResultFound(..)
+       , DocVersion
+       , ExternalDocVersion(..)
+       , VersionControl(..)
+       , DocumentParent(..)
+       , IndexDocumentSettings(..)
        , Query(..)
        , Search(..)
        , SearchType(..)
@@ -95,7 +105,10 @@ module Database.Bloodhound.Types
        , RegexpFlags(..)
        , RegexpFlag(..)
        , FieldName(..)
+       , Script(..)
        , IndexName(..)
+       , TemplateName(..)
+       , TemplatePattern(..)
        , MappingName(..)
        , DocId(..)
        , CacheName(..)
@@ -191,6 +204,8 @@ module Database.Bloodhound.Types
        , Bucket(..)
        , BucketAggregation(..)
        , TermsAggregation(..)
+       , ValueCountAggregation(..)
+       , FilterAggregation(..)
        , DateHistogramAggregation(..)
 
        , Highlights(..)
@@ -217,13 +232,16 @@ import           Control.Monad.Writer
 import           Data.Aeson
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
-import           Data.List                       (nub)
+import           Data.List                       (nub, foldl')
 import           Data.List.NonEmpty              (NonEmpty (..), toList)
+import qualified Data.HashMap.Strict             as HM (union)
 import qualified Data.Map.Strict                 as M
+import           Data.Maybe
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime)
 import qualified Data.Vector                     as V
+import           GHC.Enum
 import           GHC.Generics                    (Generic)
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method       as NHTM
@@ -341,6 +359,20 @@ data FieldType = GeoPointType
 data FieldDefinition =
   FieldDefinition { fieldType :: FieldType } deriving (Eq, Show)
 
+{-| An 'IndexTemplate' defines a template that will automatically be
+    applied to new indices created. The templates include both
+    'IndexSettings' and mappings, and a simple 'TemplatePattern' that
+    controls if the template will be applied to the index created.
+    Specify mappings as follows: @[toJSON TweetMapping, ...]@
+
+    https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html
+-}
+data IndexTemplate =
+  IndexTemplate { templatePattern :: TemplatePattern
+                , templateSettings :: Maybe IndexSettings
+                , templateMappings :: [Value]
+                }
+
 data MappingField =
   MappingField   { mappingFieldName :: FieldName
                  , fieldDefinition  :: FieldDefinition } deriving (Eq, Show)
@@ -368,14 +400,95 @@ data BulkOperation =
   | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Show)
 
 {-| 'EsResult' describes the standard wrapper JSON document that you see in
-    successful Elasticsearch responses.
+    successful Elasticsearch lookups or lookups that couldn't find the document.
 -}
 data EsResult a = EsResult { _index   :: Text
                            , _type    :: Text
                            , _id      :: Text
-                           , _version :: Int
-                           , found    :: Maybe Bool
-                           , _source  :: a } deriving (Eq, Show)
+                           , foundResult :: Maybe (EsResultFound a)} deriving (Eq, Show)
+
+
+{-| 'EsResultFound' contains the document and its metadata inside of an
+    'EsResult' when the document was successfully found.
+-}
+data EsResultFound a = EsResultFound {  _version :: DocVersion
+                                     , _source  :: a } deriving (Eq, Show)
+
+
+
+{-| 'DocVersion' is an integer version number for a document between 1
+and 9.2e+18 used for <<https://www.elastic.co/guide/en/elasticsearch/guide/current/optimistic-concurrency-control.html optimistic concurrency control>>.
+-}
+newtype DocVersion = DocVersion {
+      docVersionNumber :: Int
+    } deriving (Eq, Show, Ord, ToJSON)
+
+-- | Smart constructor for in-range doc version
+mkDocVersion :: Int -> Maybe DocVersion
+mkDocVersion i
+  | i >= (docVersionNumber minBound) && i <= (docVersionNumber maxBound) =
+    Just $ DocVersion i
+  | otherwise = Nothing
+
+
+{-| 'ExternalDocVersion' is a convenience wrapper if your code uses its
+own version numbers instead of ones from ES.
+-}
+newtype ExternalDocVersion = ExternalDocVersion DocVersion
+    deriving (Eq, Show, Ord, Bounded, Enum, ToJSON)
+
+{-| 'VersionControl' is specified when indexing documents as a
+optimistic concurrency control.
+-}
+data VersionControl = NoVersionControl
+                    -- ^ Don't send a version. This is a pure overwrite.
+                    | InternalVersion DocVersion
+                    -- ^ Use the default ES versioning scheme. Only
+                    -- index the document if the version is the same
+                    -- as the one specified. Only applicable to
+                    -- updates, as you should be getting Version from
+                    -- a search result.
+                    | ExternalGT ExternalDocVersion
+                    -- ^ Use your own version numbering. Only index
+                    -- the document if the version is strictly higher
+                    -- OR the document doesn't exist. The given
+                    -- version will be used as the new version number
+                    -- for the stored document. N.B. All updates must
+                    -- increment this number, meaning there is some
+                    -- global, external ordering of updates.
+                    | ExternalGTE ExternalDocVersion
+                    -- ^ Use your own version numbering. Only index
+                    -- the document if the version is equal or higher
+                    -- than the stored version. Will succeed if there
+                    -- is no existing document. The given version will
+                    -- be used as the new version number for the
+                    -- stored document. Use with care, as this could
+                    -- result in data loss.
+                    | ForceVersion ExternalDocVersion
+                    -- ^ The document will always be indexed and the
+                    -- given version will be the new version. This is
+                    -- typically used for correcting errors. Use with
+                    -- care, as this could result in data loss.
+                    deriving (Show, Eq, Ord)
+
+{-| 'DocumentParent' is used to specify a parent document.
+-}
+newtype DocumentParent = DocumentParent DocId
+  deriving (Eq, Show)
+
+{-| 'IndexDocumentSettings' are special settings supplied when indexing
+a document. For the best backwards compatiblity when new fields are
+added, you should probably prefer to start with 'defaultIndexDocumentSettings'
+-}
+data IndexDocumentSettings =
+  IndexDocumentSettings { idsVersionControl :: VersionControl
+                        , idsParent         :: Maybe DocumentParent
+                        } deriving (Eq, Show)
+
+{-| Reasonable default settings. Chooses no version control and no parent.
+-}
+defaultIndexDocumentSettings :: IndexDocumentSettings
+defaultIndexDocumentSettings = IndexDocumentSettings NoVersionControl Nothing
 
 {-| 'Sort' is a synonym for a list of 'SortSpec's. Sort behavior is order
     dependent with later sorts acting as tie-breakers for earlier sorts.
@@ -471,6 +584,14 @@ newtype Server = Server Text deriving (Eq, Show)
 -}
 newtype IndexName = IndexName Text deriving (Eq, Generic, Show)
 
+{-| 'TemplateName' is used to describe which template to query/create/delete
+-}
+newtype TemplateName = TemplateName Text deriving (Eq, Show, Generic)
+
+{-| 'TemplatePattern' represents a pattern which is matched against index names
+-}
+newtype TemplatePattern = TemplatePattern Text deriving (Eq, Show, Generic)
+
 {-| 'MappingName' is part of mappings which are how ES describes and schematizes
     the data in the indices.
 -}
@@ -490,6 +611,12 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Show)
      a document needs to be specified, usually in 'Query's or 'Filter's.
 -}
 newtype FieldName = FieldName Text deriving (Eq, Show)
+
+
+{-| 'Script' is often used in place of 'FieldName' to specify more
+complex ways of extracting a value from a document.
+-}
+newtype Script = Script { scriptText :: Text } deriving (Eq, Show)
 
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
@@ -607,7 +734,8 @@ data Search = Search { queryBody       :: Maybe Query
                      , trackSortScores :: TrackSortScores
                      , from            :: From
                      , size            :: Size 
-                     , searchType      :: SearchType } deriving (Eq, Show)
+                     , searchType      :: SearchType
+                     , fields          :: Maybe [FieldName] } deriving (Eq, Show)
 
 data SearchType = SearchTypeQueryThenFetch 
                 | SearchTypeDfsQueryThenFetch
@@ -997,6 +1125,7 @@ data Filter = AndFilter [Filter] Cache
             | LimitFilter Int
             | MissingFilter FieldName Existence NullValue
             | PrefixFilter  FieldName PrefixValue Cache
+            | QueryFilter   Query Cache
             | RangeFilter   FieldName RangeValue RangeExecution Cache
             | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
             | TermFilter    Term Cache
@@ -1204,7 +1333,9 @@ data Interval = Year
               | FractionalInterval Float TimeInterval deriving (Eq, Show)
 
 data Aggregation = TermsAgg TermsAggregation
-                 | DateHistogramAgg DateHistogramAggregation deriving (Eq, Show)
+                 | DateHistogramAgg DateHistogramAggregation
+                 | ValueCountAgg ValueCountAggregation
+                 | FilterAgg FilterAggregation deriving (Eq, Show)
 
 
 data TermsAggregation = TermsAggregation { term              :: Either Text Text
@@ -1230,6 +1361,13 @@ data DateHistogramAggregation = DateHistogramAggregation { dateField      :: Fie
                                                          , dateAggs       :: Maybe Aggregations
                                                          } deriving (Eq, Show)
 
+-- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-valuecount-aggregation.html> for more information.
+data ValueCountAggregation = FieldValueCount FieldName
+                           | ScriptValueCount Script deriving (Eq, Show)
+
+-- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
+data FilterAggregation = FilterAggregation { faFilter :: Filter
+                                           , faAggs :: Maybe Aggregations} deriving (Eq, Show)
 
 mkTermsAggregation :: Text -> TermsAggregation
 mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
@@ -1303,6 +1441,13 @@ instance ToJSON Aggregation where
                                                "post_offset" .= postOffset
                                              ],
                "aggs"           .= dateHistoAggs ]
+  toJSON (ValueCountAgg a) = object ["value_count" .= v]
+    where v = case a of
+                (FieldValueCount (FieldName n)) -> object ["field" .= n]
+                (ScriptValueCount (Script s))   -> object ["script" .= s]
+  toJSON (FilterAgg (FilterAggregation filt ags)) =
+    omitNulls [ "filter" .= filt
+              , "aggs" .= ags]
 
 type AggregationResults = M.Map Text Value
 
@@ -1441,6 +1586,13 @@ instance ToJSON Filter where
     object ["prefix" .=
             object [fieldName .= fieldValue
                    , "_cache" .= cache]]
+
+  toJSON (QueryFilter query False) =
+    object ["query" .= toJSON query ]
+  toJSON (QueryFilter query True) =
+    object ["fquery" .=
+            object [ "query"  .= toJSON query
+                   , "_cache" .= True ]]
 
   toJSON (RangeFilter (FieldName fieldName) rangeValue rangeExecution cache) =
     object ["range" .=
@@ -1882,6 +2034,8 @@ instance ToJSON IgnoreTermFrequency
 instance ToJSON MaxQueryTerms
 instance ToJSON TypeName
 instance ToJSON IndexName
+instance ToJSON TemplateName
+instance ToJSON TemplatePattern
 instance ToJSON BoostTerms
 instance ToJSON MaxWordLength
 instance ToJSON MinWordLength
@@ -1918,22 +2072,43 @@ instance FromJSON Status where
 
 
 instance ToJSON IndexSettings where
-  toJSON (IndexSettings s r) = object ["settings" .= object ["shards" .= s, "replicas" .= r]]
+  toJSON (IndexSettings s r) = object ["settings" .=
+                                 object ["index" .=
+                                   object ["number_of_shards" .= s, "number_of_replicas" .= r]
+                                 ]
+                               ]
 
+instance ToJSON IndexTemplate where
+  toJSON (IndexTemplate p s m) = merge
+    (object [ "template" .= p
+            , "mappings" .= foldl' merge (object []) m
+            ])
+    (toJSON s)
+   where
+     merge (Object o1) (Object o2) = toJSON $ HM.union o1 o2
+     merge o           Null        = o
+     merge _           _           = undefined
 
 instance (FromJSON a) => FromJSON (EsResult a) where
-  parseJSON (Object v) = EsResult <$>
-                         v .:  "_index"   <*>
-                         v .:  "_type"    <*>
-                         v .:  "_id"      <*>
-                         v .:  "_version" <*>
-                         v .:? "found"    <*>
-                         v .:  "_source"
+  parseJSON jsonVal@(Object v) = do
+    found <- v .:? "found" .!= False
+    fr <- if found
+             then parseJSON jsonVal
+             else return Nothing
+    EsResult <$> v .:  "_index"   <*>
+                 v .:  "_type"    <*>
+                 v .:  "_id"      <*>
+                 pure fr
   parseJSON _          = empty
 
+instance (FromJSON a) => FromJSON (EsResultFound a) where
+  parseJSON (Object v) = EsResultFound <$>
+                         v .: "_version" <*>
+                         v .: "_source"
+  parseJSON _          = empty
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _) =
+  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields) =
     omitNulls [ "query"        .= query
               , "filter"       .= sFilter
               , "sort"         .= sort
@@ -1941,7 +2116,8 @@ instance ToJSON Search where
               , "highlight"    .= highlight
               , "from"         .= sFrom
               , "size"         .= sSize
-              , "track_scores" .= sTrackSortScores]
+              , "track_scores" .= sTrackSortScores
+              , "fields"       .= sFields]
 
 
 instance ToJSON FieldHighlight where
@@ -2188,3 +2364,26 @@ instance FromJSON ShardResult where
                          v .: "successful" <*>
                          v .: "failed"
   parseJSON _          = empty
+
+
+instance FromJSON DocVersion where
+  parseJSON v = do
+    i <- parseJSON v
+    maybe (fail "DocVersion out of range") return $ mkDocVersion i
+
+instance Bounded DocVersion where
+  minBound = DocVersion 1
+  maxBound = DocVersion 9200000000000000000 -- 9.2e+18
+
+instance Enum DocVersion where
+  succ x
+    | x /= maxBound = DocVersion (succ $ docVersionNumber x)
+    | otherwise     = succError "DocVersion"
+  pred x
+    | x /= minBound = DocVersion (pred $ docVersionNumber x)
+    | otherwise     = predError "DocVersion"
+  toEnum i =
+    fromMaybe (error $ show i ++ " out of DocVersion range") $ mkDocVersion i
+  fromEnum = docVersionNumber
+  enumFrom = boundedEnumFrom
+  enumFromThen = boundedEnumFromThen
