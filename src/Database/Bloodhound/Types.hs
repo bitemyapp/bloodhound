@@ -68,7 +68,9 @@ module Database.Bloodhound.Types
        , IndexDocumentSettings(..)
        , Query(..)
        , Search(..)
+       , SearchType(..)
        , SearchResult(..)
+       , ScrollId
        , SearchHits(..)
        , TrackSortScores
        , From(..)
@@ -731,8 +733,17 @@ data Search = Search { queryBody       :: Maybe Query
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from            :: From
-                     , size            :: Size
+                     , size            :: Size 
+                     , searchType      :: SearchType
                      , fields          :: Maybe [FieldName] } deriving (Eq, Show)
+
+data SearchType = SearchTypeQueryThenFetch 
+                | SearchTypeDfsQueryThenFetch
+                | SearchTypeCount
+                | SearchTypeScan
+                | SearchTypeQueryAndFetch
+                | SearchTypeDfsQueryAndFetch
+  deriving (Eq, Show)
 
 data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
                              , highlightFields :: [FieldHighlight]
@@ -1246,7 +1257,10 @@ data SearchResult a =
                , timedOut     :: Bool
                , shards       :: ShardResult
                , searchHits   :: SearchHits a
-               , aggregations :: Maybe AggregationResults } deriving (Eq, Show)
+               , aggregations :: Maybe AggregationResults 
+               , scrollId     :: Maybe ScrollId } deriving (Eq, Show)
+
+type ScrollId = Text  -- Fixme: Newtype
 
 type Score = Maybe Double
 
@@ -2096,7 +2110,7 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
   parseJSON _          = empty
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize sFields) =
+  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields) =
     omitNulls [ "query"        .= query
               , "filter"       .= sFilter
               , "sort"         .= sort
@@ -2325,7 +2339,8 @@ instance (FromJSON a) => FromJSON (SearchResult a) where
                          v .:  "timed_out"    <*>
                          v .:  "_shards"      <*>
                          v .:  "hits"         <*>
-                         v .:? "aggregations"
+                         v .:? "aggregations" <*>
+                         v .:? "_scroll_id"
   parseJSON _          = empty
 
 instance (FromJSON a) => FromJSON (SearchHits a) where
