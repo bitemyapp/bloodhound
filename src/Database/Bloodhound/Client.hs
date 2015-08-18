@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -39,6 +39,7 @@ module Database.Bloodhound.Client
        , searchAll
        , searchByIndex
        , searchByType
+       , scanSearch
        , refreshIndex
        , mkSearch
        , mkAggregateSearch
@@ -171,6 +172,18 @@ joinPath ps = do
   Server s <- bhServer <$> getBHEnv
   return $ joinPath' (s:ps)
 
+appendSearchTypeParam :: Text -> SearchType -> Text
+appendSearchTypeParam originalUrl st = addQuery [(keyEq, Just stParams)] originalUrl 
+  where keyEq = "search_type="
+        stParams
+          | st == SearchTypeDfsQueryThenFetch = "dfs_query_then_fetch"
+          | st == SearchTypeCount             = "count"
+          | st == SearchTypeScan              = "scan&scroll=1m"
+          | st == SearchTypeQueryAndFetch     = "query_and_fetch"
+          | st == SearchTypeDfsQueryAndFetch  = "dfs_query_and_fetch"
+        -- used to catch 'SearchTypeQueryThenFetch', which is also the default
+          | otherwise                         = "query_then_fetch" 
+
 -- | Severely dumbed down query renderer. Assumes your data doesn't
 -- need any encoding
 addQuery :: [(Text, Maybe Text)] -> Text -> Text
@@ -180,11 +193,10 @@ addQuery q u = u <> rendered
       T.decodeUtf8 $ BB.toByteString $ NHTU.renderQueryText prependQuestionMark q
     prependQuestionMark = True
 
-
 bindM2 :: (Applicative m, Monad m) => (a -> b -> m c) -> m a -> m b -> m c
 bindM2 f ma mb = join (f <$> ma <*> mb)
 
--- | Convenience function that sets up a mananager and BHEnv and runs
+-- | Convenience function that sets up a manager and BHEnv and runs
 -- the given set of bloodhound operations. Connections will be
 -- pipelined automatically in accordance with the given manager
 -- settings in IO. If you've got your own monad transformer stack, you
@@ -496,7 +508,8 @@ documentExists (IndexName indexName)
   where url = joinPath [indexName, mappingName, docId]
 
 dispatchSearch :: MonadBH m => Text -> Search -> m Reply
-dispatchSearch url search = post url (Just (encode search))
+dispatchSearch url search = post url' (Just (encode search))
+  where url' = appendSearchTypeParam url (searchType search)
 
 -- | 'searchAll', given a 'Search', will perform that search against all indexes
 --   on an Elasticsearch server. Try to avoid doing this if it can be helped.
@@ -530,6 +543,40 @@ searchByType (IndexName indexName)
   (MappingName mappingName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, mappingName, "_search"]
 
+scanSearch' :: MonadBH m => Search -> m (Maybe ScrollId)
+scanSearch' search = do
+    let url = joinPath ["_search"]
+        search' = search { searchType = SearchTypeScan }
+    resp' <- bindM2 dispatchSearch url (return search')
+    let msr = decode' $ responseBody resp' :: Maybe (SearchResult ())
+        msid = maybe Nothing scrollId msr 
+    return msid
+
+scroll' :: (FromJSON a, MonadBH m) => Maybe ScrollId -> m ([Hit a], Maybe ScrollId)
+scroll' Nothing = return ([], Nothing)
+scroll' (Just sid) = do
+    url <- joinPath ["_search/scroll?scroll=1m"]
+    resp' <- post url (Just . L.fromStrict $ T.encodeUtf8 sid)
+    let msr = decode' $ responseBody resp' :: FromJSON a => Maybe (SearchResult a)
+        resp = case msr of
+            Just sr -> (hits $ searchHits sr, scrollId sr)
+            _       -> ([], Nothing)
+    return resp
+
+simpleAccumilator :: (FromJSON a, MonadBH m) => [Hit a] -> ([Hit a], Maybe ScrollId) -> m ([Hit a], Maybe ScrollId)
+simpleAccumilator oldHits (newHits, Nothing) = return (oldHits ++ newHits, Nothing)
+simpleAccumilator oldHits ([], _) = return (oldHits, Nothing)
+simpleAccumilator oldHits (newHits, msid) = do
+    (newHits', msid') <- scroll' msid
+    simpleAccumilator (oldHits ++ newHits) (newHits', msid')
+
+scanSearch :: (FromJSON a, MonadBH m) => Search -> m [Hit a]
+scanSearch search = do
+    msid <- scanSearch' search 
+    (hits, msid') <- scroll' msid
+    (totalHits, _) <- simpleAccumilator [] (hits, msid')
+    return totalHits
+
 -- | 'mkSearch' is a helper function for defaulting additional fields of a 'Search'
 --   to Nothing in case you only care about your 'Query' and 'Filter'. Use record update
 --   syntax if you want to add things like aggregations or highlights while still using
@@ -537,9 +584,9 @@ searchByType (IndexName indexName)
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> mkSearch (Just query) Nothing
--- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, fields = Nothing}
+-- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, searchType = SearchTypeQueryThenFetch, fields = Nothing}
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) Nothing
+mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing
 
 -- | 'mkAggregateSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -549,7 +596,7 @@ mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 
 -- TermsAgg (TermsAggregation {term = Left "user", termInclude = Nothing, termExclude = Nothing, termOrder = Nothing, termMinDocCount = Nothing, termSize = Nothing, termShardSize = Nothing, termCollectMode = Just BreadthFirst, termExecutionHint = Nothing, termAggs = Nothing})
 -- >>> let myAggregation = mkAggregateSearch Nothing $ mkAggregations "users" terms
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
-mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) Nothing
+mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) SearchTypeQueryThenFetch Nothing
 
 -- | 'mkHighlightSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -558,7 +605,7 @@ mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSear
 -- >>> let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 -- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
-mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) Nothing
+mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing
 
 -- | 'pageSearch' is a helper function that takes a search and assigns the from
 --    and size fields for the search. The from parameter defines the offset
@@ -568,9 +615,9 @@ mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing 
 -- >>> let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> search
--- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, fields = Nothing}
+-- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, searchType = SearchTypeQueryThenFetch, fields = Nothing}
 -- >>> pageSearch (From 10) (Size 100) search
--- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 10, size = Size 100, fields = Nothing}
+-- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 10, size = Size 100, searchType = SearchTypeQueryThenFetch, fields = Nothing}
 pageSearch :: From     -- ^ The result offset
            -> Size     -- ^ The number of results to return
            -> Search  -- ^ The current seach
