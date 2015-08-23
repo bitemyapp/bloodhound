@@ -26,6 +26,7 @@ before_install:
  - echo 'deb http://download.fpcomplete.com/ubuntu/precise stable main' | sudo tee /etc/apt/sources.list.d/fpco.list
  - sudo apt-get update
  - sudo apt-get install stack -y
+ - stack setup
  - wget --no-check-certificate https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ESVER.deb
  - sudo dpkg --force-all -i elasticsearch-$ESVER.deb
  - sudo service elasticsearch start
