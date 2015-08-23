@@ -543,9 +543,9 @@ searchByType (IndexName indexName)
   (MappingName mappingName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, mappingName, "_search"]
 
-scanSearch' :: MonadBH m => Search -> m (Maybe ScrollId)
-scanSearch' search = do
-    let url = joinPath ["_search"]
+scanSearch' :: MonadBH m => IndexName -> MappingName -> Search -> m (Maybe ScrollId)
+scanSearch' (IndexName indexName) (MappingName mappingName) search = do
+    let url = joinPath [indexName, mappingName, "_search"]
         search' = search { searchType = SearchTypeScan }
     resp' <- bindM2 dispatchSearch url (return search')
     let msr = decode' $ responseBody resp' :: Maybe (SearchResult ())
@@ -570,9 +570,11 @@ simpleAccumilator oldHits (newHits, msid) = do
     (newHits', msid') <- scroll' msid
     simpleAccumilator (oldHits ++ newHits) (newHits', msid')
 
-scanSearch :: (FromJSON a, MonadBH m) => Search -> m [Hit a]
-scanSearch search = do
-    msid <- scanSearch' search 
+-- | 'scanSearch' uses the 'scan&scroll' API of elastic, 
+-- for a given 'IndexName' and 'MappingName',
+scanSearch :: (FromJSON a, MonadBH m) => IndexName -> MappingName -> Search -> m [Hit a]
+scanSearch indexName mappingName search = do
+    msid <- scanSearch' indexName mappingName search 
     (hits, msid') <- scroll' msid
     (totalHits, _) <- simpleAccumilator [] (hits, msid')
     return totalHits
