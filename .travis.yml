@@ -22,7 +22,7 @@ env:
 # Note: the distinction between `before_install` and `install` is not
 #       important.
 before_install:
- - rm -rf ~/.ghc
+ - rm -rf ~/.ghc ~/.cabal
  - sudo add-apt-repository -y ppa:hvr/ghc
  - sudo apt-get update
  - sudo apt-get install cabal-install-1.22 ghc-$GHCVER
