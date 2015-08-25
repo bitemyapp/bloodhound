@@ -47,7 +47,7 @@ module Database.Bloodhound.Types
        , toTerms
        , toDateHistogram
        , omitNulls
-       , BH
+       , BH(..)
        , runBH
        , BHEnv(..)
        , MonadBH(..)
