@@ -220,6 +220,17 @@ searchTweetHighlight search = do
   let myHighlight = fmap (hitHighlight . head . hits . searchHits) result
   return myHighlight
 
+searchExpectSource :: Source -> Either String Value -> BH IO ()
+searchExpectSource src expected = do
+  _ <- insertData
+  let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+  let search = (mkSearch (Just query) Nothing) { source = Just src }
+  reply <- searchAll search
+  let result = eitherDecode (responseBody reply) :: Either String (SearchResult Value)
+  let value = fmap (hitSource . head . hits . searchHits) result
+  liftIO $
+    value `shouldBe` expected
+
 data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
 instance FromJSON BulkTest
 instance ToJSON BulkTest
@@ -435,7 +446,7 @@ main = hspec $ do
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
       let search = Search Nothing
                    (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
-                   False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing
+                   False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
       result <- searchTweets search
       let myTweet = fmap (hitSource . head . hits . searchHits) result
       liftIO $
@@ -698,7 +709,32 @@ main = hspec $ do
       liftIO $
         myHighlight `shouldBe` Right Nothing
 
+  describe "Source filtering" $ do
 
+    it "doesn't include source when sources are disabled" $ withTestEnv $ do
+      searchExpectSource
+        NoSource
+        (Left "key \"_source\" not present")
+
+    it "includes a source" $ withTestEnv $ do
+      searchExpectSource
+        (SourcePatterns (PopPattern (Pattern "message")))
+        (Right (Object (HM.fromList [("message", String "Use haskell!")])))
+
+    it "includes sources" $ withTestEnv $ do
+      searchExpectSource
+        (SourcePatterns (PopPatterns [Pattern "user", Pattern "message"]))
+        (Right (Object (HM.fromList [("user",String "bitemyapp"),("message", String "Use haskell!")])))
+
+    it "includes source patterns" $ withTestEnv $ do
+      searchExpectSource
+        (SourcePatterns (PopPattern (Pattern "*ge")))
+        (Right (Object (HM.fromList [("age", Number 10000),("message", String "Use haskell!")])))
+
+    it "excludes source patterns" $ withTestEnv $ do
+      searchExpectSource
+        (SourceIncludeExclude (Include []) (Exclude [Pattern "l*", Pattern "*ge", Pattern "postDate"]))
+        (Right (Object (HM.fromList [("user",String "bitemyapp")])))
 
   describe "ToJSON RegexpFlags" $ do
     it "generates the correct JSON for AllRegexpFlags" $
