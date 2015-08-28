@@ -173,16 +173,16 @@ joinPath ps = do
   return $ joinPath' (s:ps)
 
 appendSearchTypeParam :: Text -> SearchType -> Text
-appendSearchTypeParam originalUrl st = addQuery [(keyEq, Just stParams)] originalUrl
-  where keyEq = "search_type="
-        stParams
-          | st == SearchTypeDfsQueryThenFetch = "dfs_query_then_fetch"
-          | st == SearchTypeCount             = "count"
-          | st == SearchTypeScan              = "scan&scroll=1m"
-          | st == SearchTypeQueryAndFetch     = "query_and_fetch"
-          | st == SearchTypeDfsQueryAndFetch  = "dfs_query_and_fetch"
+appendSearchTypeParam originalUrl st = addQuery params originalUrl
+  where stText = "search_type"
+        params
+          | st == SearchTypeDfsQueryThenFetch = [(stText, Just "dfs_query_then_fetch")]
+          | st == SearchTypeCount             = [(stText, Just "count")]
+          | st == SearchTypeScan              = [(stText, Just "scan"), ("scroll", Just "1m")]
+          | st == SearchTypeQueryAndFetch     = [(stText, Just "query_and_fetch")]
+          | st == SearchTypeDfsQueryAndFetch  = [(stText, Just "dfs_query_and_fetch")]
         -- used to catch 'SearchTypeQueryThenFetch', which is also the default
-          | otherwise                         = "query_then_fetch"
+          | otherwise                         = [(stText, Just "query_then_fetch")]
 
 -- | Severely dumbed down query renderer. Assumes your data doesn't
 -- need any encoding
@@ -543,9 +543,9 @@ searchByType (IndexName indexName)
   (MappingName mappingName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, mappingName, "_search"]
 
-scanSearch' :: MonadBH m => Search -> m (Maybe ScrollId)
-scanSearch' search = do
-    let url = joinPath ["_search"]
+scanSearch' :: MonadBH m => IndexName -> MappingName -> Search -> m (Maybe ScrollId)
+scanSearch' (IndexName indexName) (MappingName mappingName) search = do
+    let url = joinPath [indexName, mappingName, "_search"]
         search' = search { searchType = SearchTypeScan }
     resp' <- bindM2 dispatchSearch url (return search')
     let msr = decode' $ responseBody resp' :: Maybe (SearchResult ())
@@ -570,9 +570,11 @@ simpleAccumilator oldHits (newHits, msid) = do
     (newHits', msid') <- scroll' msid
     simpleAccumilator (oldHits ++ newHits) (newHits', msid')
 
-scanSearch :: (FromJSON a, MonadBH m) => Search -> m [Hit a]
-scanSearch search = do
-    msid <- scanSearch' search
+-- | 'scanSearch' uses the 'scan&scroll' API of elastic,
+-- for a given 'IndexName' and 'MappingName',
+scanSearch :: (FromJSON a, MonadBH m) => IndexName -> MappingName -> Search -> m [Hit a]
+scanSearch indexName mappingName search = do
+    msid <- scanSearch' indexName mappingName search
     (hits, msid') <- scroll' msid
     (totalHits, _) <- simpleAccumilator [] (hits, msid')
     return totalHits
