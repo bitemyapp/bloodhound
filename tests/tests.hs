@@ -798,3 +798,16 @@ main = hspec $ do
       enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
       enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
       enumFromThen minBound (pred maxBound :: DocVersion) `shouldBe` [minBound, pred maxBound]
+
+  describe "scan&scroll API" $ do
+    it "returns documents using the scan&scroll API" $ withTestEnv $ do
+      _ <- insertData
+      _ <- insertOther
+      let search = (mkSearch (Just $ MatchAllQuery Nothing) Nothing) { size = (Size 1) }
+      regular_search <- searchTweet search
+      scan_search' <- scanSearch testIndex testMapping search :: BH IO [Hit Tweet]
+      let scan_search = map hitSource scan_search'
+      liftIO $
+        regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored 
+      liftIO $
+        scan_search `shouldMatchList` [exampleTweet, otherTweet]
