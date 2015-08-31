@@ -75,6 +75,11 @@ module Database.Bloodhound.Types
        , TrackSortScores
        , From(..)
        , Size(..)
+       , Source(..)
+       , PatternOrPatterns(..)
+       , Include(..)
+       , Exclude(..)
+       , Pattern(..)
        , ShardResult(..)
        , Hit(..)
        , Filter(..)
@@ -733,17 +738,32 @@ data Search = Search { queryBody       :: Maybe Query
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from            :: From
-                     , size            :: Size 
+                     , size            :: Size
                      , searchType      :: SearchType
-                     , fields          :: Maybe [FieldName] } deriving (Eq, Show)
+                     , fields          :: Maybe [FieldName]
+                     , source          :: Maybe Source } deriving (Eq, Show)
 
-data SearchType = SearchTypeQueryThenFetch 
+data SearchType = SearchTypeQueryThenFetch
                 | SearchTypeDfsQueryThenFetch
                 | SearchTypeCount
                 | SearchTypeScan
                 | SearchTypeQueryAndFetch
                 | SearchTypeDfsQueryAndFetch
   deriving (Eq, Show)
+
+data Source =
+  NoSource
+  | SourcePatterns PatternOrPatterns
+  | SourceIncludeExclude Include Exclude
+    deriving (Show, Eq)
+
+data PatternOrPatterns = PopPattern   Pattern
+                       | PopPatterns [Pattern] deriving (Eq, Show)
+
+data Include = Include [Pattern] deriving (Eq, Show)
+data Exclude = Exclude [Pattern] deriving (Eq, Show)
+
+newtype Pattern = Pattern Text deriving (Eq, Show)
 
 data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
                              , highlightFields :: [FieldHighlight]
@@ -1257,7 +1277,7 @@ data SearchResult a =
                , timedOut     :: Bool
                , shards       :: ShardResult
                , searchHits   :: SearchHits a
-               , aggregations :: Maybe AggregationResults 
+               , aggregations :: Maybe AggregationResults
                , scrollId     :: Maybe ScrollId } deriving (Eq, Show)
 
 type ScrollId = Text  -- Fixme: Newtype
@@ -2110,7 +2130,7 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
   parseJSON _          = empty
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields) =
+  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource) =
     omitNulls [ "query"        .= query
               , "filter"       .= sFilter
               , "sort"         .= sort
@@ -2119,7 +2139,27 @@ instance ToJSON Search where
               , "from"         .= sFrom
               , "size"         .= sSize
               , "track_scores" .= sTrackSortScores
-              , "fields"       .= sFields]
+              , "fields"       .= sFields
+              , "_source"      .= sSource]
+
+
+instance ToJSON Source where
+    toJSON NoSource                         = toJSON False
+    toJSON (SourcePatterns patterns)        = toJSON patterns
+    toJSON (SourceIncludeExclude incl excl) = object [ "include" .= incl, "exclude" .= excl ]
+
+instance ToJSON PatternOrPatterns where
+  toJSON (PopPattern pattern)   = toJSON pattern
+  toJSON (PopPatterns patterns) = toJSON patterns
+
+instance ToJSON Include where
+  toJSON (Include patterns) = toJSON patterns
+
+instance ToJSON Exclude where
+  toJSON (Exclude patterns) = toJSON patterns
+
+instance ToJSON Pattern where
+  toJSON (Pattern pattern) = toJSON pattern
 
 
 instance ToJSON FieldHighlight where
