@@ -230,6 +230,7 @@ module Database.Bloodhound.Types
          ) where
 
 import           Control.Applicative
+import           Control.Monad.Catch
 import           Control.Monad.Error
 import           Control.Monad.Reader
 import           Control.Monad.State
@@ -237,9 +238,9 @@ import           Control.Monad.Writer
 import           Data.Aeson
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
-import           Data.List                       (nub, foldl')
-import           Data.List.NonEmpty              (NonEmpty (..), toList)
 import qualified Data.HashMap.Strict             as HM (union)
+import           Data.List                       (foldl', nub)
+import           Data.List.NonEmpty              (NonEmpty (..), toList)
 import qualified Data.Map.Strict                 as M
 import           Data.Maybe
 import           Data.Text                       (Text)
@@ -290,7 +291,10 @@ newtype BH m a = BH {
                , MonadError e
                , Alternative
                , MonadPlus
-               , MonadFix)
+               , MonadFix
+               , MonadThrow
+               , MonadCatch
+               , MonadMask)
 
 instance MonadTrans BH where
   lift = BH . lift
@@ -373,7 +377,7 @@ data FieldDefinition =
     https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html
 -}
 data IndexTemplate =
-  IndexTemplate { templatePattern :: TemplatePattern
+  IndexTemplate { templatePattern  :: TemplatePattern
                 , templateSettings :: Maybe IndexSettings
                 , templateMappings :: [Value]
                 }
@@ -407,9 +411,9 @@ data BulkOperation =
 {-| 'EsResult' describes the standard wrapper JSON document that you see in
     successful Elasticsearch lookups or lookups that couldn't find the document.
 -}
-data EsResult a = EsResult { _index   :: Text
-                           , _type    :: Text
-                           , _id      :: Text
+data EsResult a = EsResult { _index      :: Text
+                           , _type       :: Text
+                           , _id         :: Text
                            , foundResult :: Maybe (EsResultFound a)} deriving (Eq, Show)
 
 
@@ -417,7 +421,7 @@ data EsResult a = EsResult { _index   :: Text
     'EsResult' when the document was successfully found.
 -}
 data EsResultFound a = EsResultFound {  _version :: DocVersion
-                                     , _source  :: a } deriving (Eq, Show)
+                                     , _source   :: a } deriving (Eq, Show)
 
 
 
@@ -1388,7 +1392,7 @@ data ValueCountAggregation = FieldValueCount FieldName
 
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
 data FilterAggregation = FilterAggregation { faFilter :: Filter
-                                           , faAggs :: Maybe Aggregations} deriving (Eq, Show)
+                                           , faAggs   :: Maybe Aggregations} deriving (Eq, Show)
 
 mkTermsAggregation :: Text -> TermsAggregation
 mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
