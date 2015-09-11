@@ -1360,7 +1360,8 @@ data Interval = Year
 data Aggregation = TermsAgg TermsAggregation
                  | DateHistogramAgg DateHistogramAggregation
                  | ValueCountAgg ValueCountAggregation
-                 | FilterAgg FilterAggregation deriving (Eq, Show)
+                 | FilterAgg FilterAggregation 
+                 | SumAgg SumAggregation deriving (Eq, Show)
 
 
 data TermsAggregation = TermsAggregation { term              :: Either Text Text
@@ -1389,6 +1390,11 @@ data DateHistogramAggregation = DateHistogramAggregation { dateField      :: Fie
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-valuecount-aggregation.html> for more information.
 data ValueCountAggregation = FieldValueCount FieldName
                            | ScriptValueCount Script deriving (Eq, Show)
+
+
+data SumAggregation = FieldSum FieldName
+                    | ScriptSum Script deriving (Eq, Show)
+
 
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
 data FilterAggregation = FilterAggregation { faFilter :: Filter
@@ -1466,10 +1472,18 @@ instance ToJSON Aggregation where
                                                "post_offset" .= postOffset
                                              ],
                "aggs"           .= dateHistoAggs ]
+
   toJSON (ValueCountAgg a) = object ["value_count" .= v]
     where v = case a of
                 (FieldValueCount (FieldName n)) -> object ["field" .= n]
                 (ScriptValueCount (Script s))   -> object ["script" .= s]
+
+  toJSON (SumAgg a) = object ["sum" .= v]
+    where v = case a of
+                (FieldSum (FieldName n)) -> object ["field" .= n]
+                (ScriptSum (Script s))   -> object ["script" .= s]
+
+
   toJSON (FilterAgg (FilterAggregation filt ags)) =
     omitNulls [ "filter" .= filt
               , "aggs" .= ags]
