@@ -210,6 +210,7 @@ module Database.Bloodhound.Types
        , BucketAggregation(..)
        , TermsAggregation(..)
        , ValueCountAggregation(..)
+       , SumAggregation(..)
        , FilterAggregation(..)
        , DateHistogramAggregation(..)
 
