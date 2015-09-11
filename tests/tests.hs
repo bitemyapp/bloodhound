@@ -33,7 +33,7 @@ import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck
 
 testServer  :: Server
-testServer  = Server "http://localhost:9200"
+testServer  = Server "http://192.168.59.103:9200"
 testIndex   :: IndexName
 testIndex   = IndexName "bloodhound-tests-twitter-1"
 testMapping :: MappingName
@@ -638,6 +638,20 @@ main = hspec $ do
     it "can give execution hint parameters to term aggregations" $ when' (atleast es12) $ withTestEnv $ do
       _ <- insertData
       searchTermsAggHint [GlobalOrdinals, GlobalOrdinalsHash, GlobalOrdinalsLowCardinality, Map]
+
+    it "can execute sum aggregations" $ withTestEnv $ do
+      _ <- insertData
+      _ <- insertOther
+      let ags = mkAggregations "age_sum" (SumAgg (FieldSum (FieldName "age"))) <>
+                mkAggregations "bogus_sum" (SumAgg (FieldSum (FieldName "bogus")))
+      let search = mkAggregateSearch Nothing ags
+      let docSumPair k n = (k, object ["value" .= Number n])
+      let ageSum = fromIntegral $ sum $ fmap age [exampleTweet, otherTweet]
+      res <- searchTweets search
+      liftIO $
+        fmap aggregations res `shouldBe` Right (Just (M.fromList [ docSumPair "age_sum" ageSum
+                                                                 , docSumPair "bogus_sum" 0
+                                                                 ]))
 
 
     it "can execute value_count aggregations" $ withTestEnv $ do
