@@ -47,7 +47,7 @@ module Database.Bloodhound.Types
        , toTerms
        , toDateHistogram
        , omitNulls
-       , BH
+       , BH(..)
        , runBH
        , BHEnv(..)
        , MonadBH(..)
@@ -75,6 +75,11 @@ module Database.Bloodhound.Types
        , TrackSortScores
        , From(..)
        , Size(..)
+       , Source(..)
+       , PatternOrPatterns(..)
+       , Include(..)
+       , Exclude(..)
+       , Pattern(..)
        , ShardResult(..)
        , Hit(..)
        , Filter(..)
@@ -225,6 +230,7 @@ module Database.Bloodhound.Types
          ) where
 
 import           Control.Applicative
+import           Control.Monad.Catch
 import           Control.Monad.Error
 import           Control.Monad.Reader
 import           Control.Monad.State
@@ -232,9 +238,9 @@ import           Control.Monad.Writer
 import           Data.Aeson
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
-import           Data.List                       (nub, foldl')
-import           Data.List.NonEmpty              (NonEmpty (..), toList)
 import qualified Data.HashMap.Strict             as HM (union)
+import           Data.List                       (foldl', nub)
+import           Data.List.NonEmpty              (NonEmpty (..), toList)
 import qualified Data.Map.Strict                 as M
 import           Data.Maybe
 import           Data.Text                       (Text)
@@ -285,7 +291,10 @@ newtype BH m a = BH {
                , MonadError e
                , Alternative
                , MonadPlus
-               , MonadFix)
+               , MonadFix
+               , MonadThrow
+               , MonadCatch
+               , MonadMask)
 
 instance MonadTrans BH where
   lift = BH . lift
@@ -368,7 +377,7 @@ data FieldDefinition =
     https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html
 -}
 data IndexTemplate =
-  IndexTemplate { templatePattern :: TemplatePattern
+  IndexTemplate { templatePattern  :: TemplatePattern
                 , templateSettings :: Maybe IndexSettings
                 , templateMappings :: [Value]
                 }
@@ -402,9 +411,9 @@ data BulkOperation =
 {-| 'EsResult' describes the standard wrapper JSON document that you see in
     successful Elasticsearch lookups or lookups that couldn't find the document.
 -}
-data EsResult a = EsResult { _index   :: Text
-                           , _type    :: Text
-                           , _id      :: Text
+data EsResult a = EsResult { _index      :: Text
+                           , _type       :: Text
+                           , _id         :: Text
                            , foundResult :: Maybe (EsResultFound a)} deriving (Eq, Show)
 
 
@@ -412,7 +421,7 @@ data EsResult a = EsResult { _index   :: Text
     'EsResult' when the document was successfully found.
 -}
 data EsResultFound a = EsResultFound {  _version :: DocVersion
-                                     , _source  :: a } deriving (Eq, Show)
+                                     , _source   :: a } deriving (Eq, Show)
 
 
 
@@ -733,17 +742,32 @@ data Search = Search { queryBody       :: Maybe Query
                        -- default False
                      , trackSortScores :: TrackSortScores
                      , from            :: From
-                     , size            :: Size 
+                     , size            :: Size
                      , searchType      :: SearchType
-                     , fields          :: Maybe [FieldName] } deriving (Eq, Show)
+                     , fields          :: Maybe [FieldName]
+                     , source          :: Maybe Source } deriving (Eq, Show)
 
-data SearchType = SearchTypeQueryThenFetch 
+data SearchType = SearchTypeQueryThenFetch
                 | SearchTypeDfsQueryThenFetch
                 | SearchTypeCount
                 | SearchTypeScan
                 | SearchTypeQueryAndFetch
                 | SearchTypeDfsQueryAndFetch
   deriving (Eq, Show)
+
+data Source =
+  NoSource
+  | SourcePatterns PatternOrPatterns
+  | SourceIncludeExclude Include Exclude
+    deriving (Show, Eq)
+
+data PatternOrPatterns = PopPattern   Pattern
+                       | PopPatterns [Pattern] deriving (Eq, Show)
+
+data Include = Include [Pattern] deriving (Eq, Show)
+data Exclude = Exclude [Pattern] deriving (Eq, Show)
+
+newtype Pattern = Pattern Text deriving (Eq, Show)
 
 data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
                              , highlightFields :: [FieldHighlight]
@@ -1031,13 +1055,14 @@ data MatchQuery =
              , matchQueryMatchType       :: Maybe MatchQueryType
              , matchQueryAnalyzer        :: Maybe Analyzer
              , matchQueryMaxExpansions   :: Maybe MaxExpansions
-             , matchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
+             , matchQueryLenient         :: Maybe Lenient
+             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Show)
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
 -}
 mkMatchQuery :: FieldName -> QueryString -> MatchQuery
-mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing
+mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing
 
 data MatchQueryType =
   MatchPhrase
@@ -1256,7 +1281,7 @@ data SearchResult a =
                , timedOut     :: Bool
                , shards       :: ShardResult
                , searchHits   :: SearchHits a
-               , aggregations :: Maybe AggregationResults 
+               , aggregations :: Maybe AggregationResults
                , scrollId     :: Maybe ScrollId } deriving (Eq, Show)
 
 type ScrollId = Text  -- Fixme: Newtype
@@ -1367,7 +1392,7 @@ data ValueCountAggregation = FieldValueCount FieldName
 
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
 data FilterAggregation = FilterAggregation { faFilter :: Filter
-                                           , faAggs :: Maybe Aggregations} deriving (Eq, Show)
+                                           , faAggs   :: Maybe Aggregations} deriving (Eq, Show)
 
 mkTermsAggregation :: Text -> TermsAggregation
 mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
@@ -1967,7 +1992,7 @@ instance ToJSON MatchQuery where
   toJSON (MatchQuery (FieldName fieldName)
           (QueryString mqQueryString) booleanOperator
           zeroTermsQuery cutoffFrequency matchQueryType
-          analyzer maxExpansions lenient) =
+          analyzer maxExpansions lenient boost) =
     object [ fieldName .= omitNulls base ]
     where base = [ "query" .= mqQueryString
                  , "operator" .= booleanOperator
@@ -1976,7 +2001,8 @@ instance ToJSON MatchQuery where
                  , "type" .= matchQueryType
                  , "analyzer" .= analyzer
                  , "max_expansions" .= maxExpansions
-                 , "lenient" .= lenient ]
+                 , "lenient" .= lenient
+                 , "boost" .= boost ]
 
 
 instance ToJSON MultiMatchQuery where
@@ -2108,7 +2134,7 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
   parseJSON _          = empty
 
 instance ToJSON Search where
-  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields) =
+  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource) =
     omitNulls [ "query"        .= query
               , "filter"       .= sFilter
               , "sort"         .= sort
@@ -2117,7 +2143,27 @@ instance ToJSON Search where
               , "from"         .= sFrom
               , "size"         .= sSize
               , "track_scores" .= sTrackSortScores
-              , "fields"       .= sFields]
+              , "fields"       .= sFields
+              , "_source"      .= sSource]
+
+
+instance ToJSON Source where
+    toJSON NoSource                         = toJSON False
+    toJSON (SourcePatterns patterns)        = toJSON patterns
+    toJSON (SourceIncludeExclude incl excl) = object [ "include" .= incl, "exclude" .= excl ]
+
+instance ToJSON PatternOrPatterns where
+  toJSON (PopPattern pattern)   = toJSON pattern
+  toJSON (PopPatterns patterns) = toJSON patterns
+
+instance ToJSON Include where
+  toJSON (Include patterns) = toJSON patterns
+
+instance ToJSON Exclude where
+  toJSON (Exclude patterns) = toJSON patterns
+
+instance ToJSON Pattern where
+  toJSON (Pattern pattern) = toJSON pattern
 
 
 instance ToJSON FieldHighlight where
