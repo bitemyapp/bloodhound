@@ -1,8 +1,11 @@
+{-# LANGUAGE CPP #-}
 module Database.Bloodhound.Types.Class
        ( Seminearring(..) )
        where
 
+#if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
+#endif
 
 class Monoid a => Seminearring a where
   -- 0, +, *
