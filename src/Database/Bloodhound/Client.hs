@@ -202,7 +202,8 @@ bindM2 f ma mb = join (f <$> ma <*> mb)
 -- settings in IO. If you've got your own monad transformer stack, you
 -- should use 'runBH' directly.
 withBH :: ManagerSettings -> Server -> BH IO a -> IO a
-withBH ms s f = withManager ms $ \mgr -> do
+withBH ms s f = do
+  mgr <- newManager ms
   let env = BHEnv { bhServer  = s
                   , bhManager = mgr }
   runBH env f
