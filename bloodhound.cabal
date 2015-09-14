@@ -39,7 +39,8 @@ library
                        exceptions,
                        data-default-class,
                        blaze-builder,
-                       unordered-containers
+                       unordered-containers,
+                       mtl-compat
   default-language:    Haskell2010
 
 test-suite tests
