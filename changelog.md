@@ -1,3 +1,33 @@
+0.8.0.0
+===================
+
+Thanks to the following people, Bloodhound 0.8.0.0 is being released!
+
+* @MichaelXavier
+  - #67: Deriving Monad(Throw|Catch|Mask)
+  - #64: Export BH constructor
+  - #61: Filter aggregation support
+  - #60: Add value_count aggregation support
+  - #58: Eliminate partiality in EsResult
+  
+* @centromere
+  - #59: Fixed bug with IndexSettings serialization
+  - #56: Added fields support to Search
+  - #55: Added ability to specify a parent document
+  - #54: Fixed IndexTemplate serialization bug
+  - #52: Added ability to manipulate templates
+  - #51: Fixed mapping API
+  - #50: Fixed problem with put sending POST
+  
+* @bermanjosh
+  - #63: Url query encoding bug
+  - #53: Scan type
+
+* @sjakobi
+  - #69: Replace Control.Monad.Error with CM.Except via mtl-compat
+  - #70: Silence redundant import warning with base-4.8.*
+  - #71: Use "newManager" instead of deprecated "withManager"
+
 0.7.0.0
 ===================
 
