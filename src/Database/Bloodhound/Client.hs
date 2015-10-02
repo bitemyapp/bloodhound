@@ -69,7 +69,7 @@ import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Default.Class
 import           Data.Ix
 import qualified Data.List                    as LS (filter)
-import           Data.Maybe                   (fromMaybe)
+import           Data.Maybe                   (fromMaybe, isJust)
 import           Data.Monoid
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
@@ -500,7 +500,7 @@ getDocument (IndexName indexName)
 -- | 'documentExists' enables you to check if a document exists. Returns 'Bool'
 --   in IO
 --
--- >>> exists <- runBH' $ documentExists testIndex testMapping (DocId "1")
+-- >>> exists <- runBH' $ documentExists testIndex testMapping Nothing (DocId "1")
 documentExists :: MonadBH m => IndexName -> MappingName
                -> Maybe DocumentParent -> DocId -> m Bool
 documentExists (IndexName indexName) (MappingName mappingName)
@@ -509,7 +509,7 @@ documentExists (IndexName indexName) (MappingName mappingName)
   return exists
   where url = addQuery params <$> joinPath [indexName, mappingName, docId]
         parentParam = fmap (\(DocumentParent (DocId p)) -> p) parent
-        params = LS.filter (\(_, v) -> v /= Nothing) [("parent", parentParam)]
+        params = LS.filter (\(_, v) -> isJust v) [("parent", parentParam)]
 
 dispatchSearch :: MonadBH m => Text -> Search -> m Reply
 dispatchSearch url search = post url' (Just (encode search))
