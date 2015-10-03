@@ -116,6 +116,20 @@ instance FromJSON Tweet
 instance ToJSON   Location
 instance FromJSON Location
 
+data ParentMapping = ParentMapping deriving (Eq, Show)
+
+instance ToJSON ParentMapping where
+  toJSON ParentMapping =
+    object ["parent" .= Null ]
+
+data ChildMapping = ChildMapping deriving (Eq, Show)
+
+instance ToJSON ChildMapping where
+  toJSON ChildMapping =
+    object ["child" .=
+      object ["_parent" .= object ["type" .= ("parent" :: Text)]]
+    ]
+
 data TweetMapping = TweetMapping deriving (Eq, Show)
 
 instance ToJSON TweetMapping where
@@ -329,6 +343,18 @@ main = hspec $ do
       liftIO $ isCreated res `shouldBe` True
       res' <- insertData' cfg
       liftIO $ isVersionConflict res' `shouldBe` True
+
+    it "indexes two documents in a parent/child relationship and checks that the child exists" $ withTestEnv $ do
+      resetIndex
+      _ <- putMapping testIndex (MappingName "parent") ParentMapping
+      _ <- putMapping testIndex (MappingName "child") ChildMapping
+      _ <- indexDocument testIndex (MappingName "parent") defaultIndexDocumentSettings exampleTweet (DocId "1")
+      let parent = (Just . DocumentParent . DocId) "1"
+          ids = IndexDocumentSettings NoVersionControl parent
+      _ <- indexDocument testIndex (MappingName "child") ids otherTweet (DocId "2")
+      _ <- refreshIndex testIndex
+      exists <- documentExists testIndex (MappingName "child") parent (DocId "2")
+      liftIO $ exists `shouldBe` True
 
   describe "template API" $ do
     it "can create a template" $ withTestEnv $ do
