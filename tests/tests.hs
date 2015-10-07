@@ -187,6 +187,12 @@ insertOther = do
   _ <- refreshIndex testIndex
   return ()
 
+insertOtherWithSpaceInId :: BH IO ()
+insertOtherWithSpaceInId = do
+  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings otherTweet (DocId "Hello World")
+  _ <- refreshIndex testIndex
+  return ()
+
 searchTweet :: Search -> BH IO (Either String Tweet)
 searchTweet search = do
   result <- searchTweets search
@@ -325,6 +331,13 @@ main = hspec $ do
     it "indexes, gets, and then deletes the generated document" $ withTestEnv $ do
       _ <- insertData
       docInserted <- getDocument testIndex testMapping (DocId "1")
+      let newTweet = eitherDecode
+                     (responseBody docInserted) :: Either String (EsResult Tweet)
+      liftIO $ (fmap getSource newTweet `shouldBe` Right (Just exampleTweet))
+
+    it "indexes, gets, and then deletes the generated document with a DocId containing a space" $ withTestEnv $ do
+      _ <- insertOtherWithSpaceInId
+      docInserted <- getDocument testIndex testMapping (DocId "Hello World")
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
       liftIO $ (fmap getSource newTweet `shouldBe` Right (Just exampleTweet))
@@ -834,6 +847,6 @@ main = hspec $ do
       scan_search' <- scanSearch testIndex testMapping search :: BH IO [Hit Tweet]
       let scan_search = map hitSource scan_search'
       liftIO $
-        regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored 
+        regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored
       liftIO $
         scan_search `shouldMatchList` [exampleTweet, otherTweet]
