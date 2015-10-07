@@ -66,7 +66,6 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
-import           Data.Default.Class
 import           Data.Ix
 import qualified Data.List                    as LS (filter)
 import           Data.Maybe                   (fromMaybe, isJust)
@@ -79,8 +78,8 @@ import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method    as NHTM
 import qualified Network.HTTP.Types.Status    as NHTS
 import qualified Network.HTTP.Types.URI       as NHTU
+import qualified Network.URI                  as URI
 import           Prelude                      hiding (filter, head)
-import           URI.ByteString               hiding (Query)
 
 import           Database.Bloodhound.Types
 
@@ -631,32 +630,7 @@ pageSearch :: From     -- ^ The result offset
 pageSearch resultOffset pageSize search = search { from = resultOffset, size = pageSize }
 
 parseUrl' :: MonadThrow m => Text -> m Request
-parseUrl' t =
-  case parseURI laxURIParserOptions (T.encodeUtf8 t) of
-    Right uri -> setURI def uri
-    Left e -> throwM $ InvalidUrlException (T.unpack t) ("Invalid URL: " ++ show e)
-
-setURI :: MonadThrow m => Request -> URI -> m Request
-setURI req URI{..} = do
-  Authority {..} <- maybe missingUA return uriAuthority
-  let req' = req { secure = isSecure
-                 , host   = hostBS authorityHost
-                 , port   = thePort
-                 , path   = uriPath
-                 }
-      thePort = maybe defPort portNumber authorityPort
-      addAuth = maybe id addAuth' authorityUserInfo
-  return $ setQueryString theQueryString $ addAuth req'
-  where
-    missingUA = throwM $ InvalidUrlException "N/A" "Missing URI host/port"
-    addAuth' UserInfo {..} = applyBasicProxyAuth uiUsername uiPassword
-    defPort
-      | isSecure  = 443
-      | otherwise = 80
-    isSecure = case uriScheme of
-      Scheme "https" -> True
-      _              -> False
-    theQueryString = [(k , Just v) | (k, v) <- queryPairs uriQuery]
+parseUrl' t = parseUrl (URI.escapeURIString URI.isAllowedInURI (T.unpack t))
 
 -- | Was there an optimistic concurrency control conflict when
 -- indexing a document?

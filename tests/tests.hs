@@ -187,9 +187,9 @@ insertOther = do
   _ <- refreshIndex testIndex
   return ()
 
-insertOtherWithSpaceInId :: BH IO ()
-insertOtherWithSpaceInId = do
-  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings otherTweet (DocId "Hello World")
+insertWithSpaceInId :: BH IO ()
+insertWithSpaceInId = do
+  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "Hello World")
   _ <- refreshIndex testIndex
   return ()
 
@@ -336,7 +336,7 @@ main = hspec $ do
       liftIO $ (fmap getSource newTweet `shouldBe` Right (Just exampleTweet))
 
     it "indexes, gets, and then deletes the generated document with a DocId containing a space" $ withTestEnv $ do
-      _ <- insertOtherWithSpaceInId
+      _ <- insertWithSpaceInId
       docInserted <- getDocument testIndex testMapping (DocId "Hello World")
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
