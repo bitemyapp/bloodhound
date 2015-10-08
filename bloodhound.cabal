@@ -12,6 +12,11 @@ category:            Database, Search
 build-type:          Custom
 cabal-version:       >=1.10
 
+extra-source-files:
+  README.md
+  changelog.md
+
+
 source-repository head
   type:     git
   location: https://github.com/bitemyapp/bloodhound.git
