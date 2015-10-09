@@ -15,6 +15,7 @@ env:
  - GHCVER=7.8  ESVER=1.4.1
  - GHCVER=7.10 ESVER=1.5.2
  - GHCVER=7.10 ESVER=1.6.0
+ - GHCVER=7.10 ESVER=1.7.2
 
 # services:
 #   - elasticsearch

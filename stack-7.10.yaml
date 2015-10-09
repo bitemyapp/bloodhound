@@ -5,5 +5,4 @@ extra-deps:
 - doctest-0.10.1
 - doctest-prop-0.2.0.1
 - quickcheck-properties-0.1
-- uri-bytestring-0.1.2
 resolver: lts-3.1
