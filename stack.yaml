@@ -1,8 +1,1 @@
-flags: {}
-packages:
-- '.'
-extra-deps:
-- doctest-0.10.1
-- doctest-prop-0.2.0.1
-- quickcheck-properties-0.1
-resolver: lts-2.18
+stack-7.10.yaml
