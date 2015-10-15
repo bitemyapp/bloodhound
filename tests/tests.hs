@@ -116,6 +116,20 @@ instance FromJSON Tweet
 instance ToJSON   Location
 instance FromJSON Location
 
+data ParentMapping = ParentMapping deriving (Eq, Show)
+
+instance ToJSON ParentMapping where
+  toJSON ParentMapping =
+    object ["parent" .= Null ]
+
+data ChildMapping = ChildMapping deriving (Eq, Show)
+
+instance ToJSON ChildMapping where
+  toJSON ChildMapping =
+    object ["child" .=
+      object ["_parent" .= object ["type" .= ("parent" :: Text)]]
+    ]
+
 data TweetMapping = TweetMapping deriving (Eq, Show)
 
 instance ToJSON TweetMapping where
@@ -173,11 +187,17 @@ insertOther = do
   _ <- refreshIndex testIndex
   return ()
 
+insertWithSpaceInId :: BH IO ()
+insertWithSpaceInId = do
+  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "Hello World")
+  _ <- refreshIndex testIndex
+  return ()
+
 searchTweet :: Search -> BH IO (Either String Tweet)
 searchTweet search = do
   result <- searchTweets search
   let myTweet = fmap (hitSource . head . hits . searchHits) result
-  return myTweet
+  return (either (Left "myTweet was Nothing") id myTweet)
 
 searchTweets :: Search -> BH IO (Either String (SearchResult Tweet))
 searchTweets search = eitherDecode . responseBody <$> searchByIndex testIndex search
@@ -228,6 +248,7 @@ searchExpectSource src expected = do
   reply <- searchAll search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Value)
   let value = fmap (hitSource . head . hits . searchHits) result
+  liftIO (print value)
   liftIO $
     value `shouldBe` expected
 
@@ -315,6 +336,13 @@ main = hspec $ do
                      (responseBody docInserted) :: Either String (EsResult Tweet)
       liftIO $ (fmap getSource newTweet `shouldBe` Right (Just exampleTweet))
 
+    it "indexes, gets, and then deletes the generated document with a DocId containing a space" $ withTestEnv $ do
+      _ <- insertWithSpaceInId
+      docInserted <- getDocument testIndex testMapping (DocId "Hello World")
+      let newTweet = eitherDecode
+                     (responseBody docInserted) :: Either String (EsResult Tweet)
+      liftIO $ (fmap getSource newTweet `shouldBe` Right (Just exampleTweet))
+
     it "produces a parseable result when looking up a bogus document" $ withTestEnv $ do
       doc <- getDocument testIndex testMapping  (DocId "bogus")
       let noTweet = eitherDecode
@@ -329,6 +357,18 @@ main = hspec $ do
       liftIO $ isCreated res `shouldBe` True
       res' <- insertData' cfg
       liftIO $ isVersionConflict res' `shouldBe` True
+
+    it "indexes two documents in a parent/child relationship and checks that the child exists" $ withTestEnv $ do
+      resetIndex
+      _ <- putMapping testIndex (MappingName "parent") ParentMapping
+      _ <- putMapping testIndex (MappingName "child") ChildMapping
+      _ <- indexDocument testIndex (MappingName "parent") defaultIndexDocumentSettings exampleTweet (DocId "1")
+      let parent = (Just . DocumentParent . DocId) "1"
+          ids = IndexDocumentSettings NoVersionControl parent
+      _ <- indexDocument testIndex (MappingName "child") ids otherTweet (DocId "2")
+      _ <- refreshIndex testIndex
+      exists <- documentExists testIndex (MappingName "child") parent (DocId "2")
+      liftIO $ exists `shouldBe` True
 
   describe "template API" $ do
     it "can create a template" $ withTestEnv $ do
@@ -808,6 +848,6 @@ main = hspec $ do
       scan_search' <- scanSearch testIndex testMapping search :: BH IO [Hit Tweet]
       let scan_search = map hitSource scan_search'
       liftIO $
-        regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored 
+        regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored
       liftIO $
         scan_search `shouldMatchList` [exampleTweet, otherTweet]

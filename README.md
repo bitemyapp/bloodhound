@@ -886,6 +886,7 @@ Contributors
 * [Maximilian Tagher](https://github.com/MaxGabriel)
 * [Anna Kopp](https://github.com/annakopp)
 * [Matvey B. Aksenov](https://github.com/supki)
+* [Jan-Philip Loos](https://github.com/MaxDaten)
 
 Possible future functionality
 =============================

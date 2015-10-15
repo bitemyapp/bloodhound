@@ -61,6 +61,7 @@ module Database.Bloodhound.Types
        , Reply
        , EsResult(..)
        , EsResultFound(..)
+       , EsError(..)
        , DocVersion
        , ExternalDocVersion(..)
        , VersionControl(..)
@@ -235,7 +236,8 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer
-import           Data.Aeson
+import           Data.Aeson                      hiding ((.:?))
+import           Data.Aeson.Compat               ((.:?))
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import qualified Data.HashMap.Strict             as HM (union)
@@ -416,13 +418,18 @@ data EsResult a = EsResult { _index      :: Text
                            , _id         :: Text
                            , foundResult :: Maybe (EsResultFound a)} deriving (Eq, Show)
 
-
 {-| 'EsResultFound' contains the document and its metadata inside of an
     'EsResult' when the document was successfully found.
 -}
 data EsResultFound a = EsResultFound {  _version :: DocVersion
                                      , _source   :: a } deriving (Eq, Show)
 
+{-| 'EsError' is the generic type that will be returned when there was a
+    problem. If you can't parse the expected response, its a good idea to
+    try parsing this.
+-}
+data EsError = EsError { errorStatus  :: Int
+                       , errorMessage :: Text } deriving (Eq, Show)
 
 
 {-| 'DocVersion' is an integer version number for a document between 1
@@ -756,7 +763,7 @@ data SearchType = SearchTypeQueryThenFetch
   deriving (Eq, Show)
 
 data Source =
-  NoSource
+    NoSource
   | SourcePatterns PatternOrPatterns
   | SourceIncludeExclude Include Exclude
     deriving (Show, Eq)
@@ -1305,7 +1312,7 @@ data Hit a =
       , hitType      :: MappingName
       , hitDocId     :: DocId
       , hitScore     :: Score
-      , hitSource    :: a
+      , hitSource    :: Maybe a
       , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
 
 data ShardResult =
@@ -2133,6 +2140,12 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
                          v .: "_source"
   parseJSON _          = empty
 
+instance FromJSON EsError where
+  parseJSON (Object v) = EsError <$>
+                         v .: "status" <*>
+                         v .: "error"
+  parseJSON _ = empty
+
 instance ToJSON Search where
   toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource) =
     omitNulls [ "query"        .= query
@@ -2400,7 +2413,7 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:  "_type"   <*>
                          v .:  "_id"     <*>
                          v .:  "_score"  <*>
-                         v .:  "_source" <*>
+                         v .:? "_source" <*>
                          v .:? "highlight"
   parseJSON _          = empty
 
