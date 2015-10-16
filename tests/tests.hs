@@ -714,25 +714,24 @@ main = hspec $ do
                                                                  , docCountPair "notmyapps" 1
                                                                  ]))
 
-    -- Interaction of date serialization and date histogram aggregation is broken.
-    -- it "returns date histogram aggregation results" $ withTestEnv $ do
-    --   _ <- insertData
-    --   let histogram = DateHistogramAgg $ mkDateHistogram (FieldName "postDate") Minute
-    --   let search = mkAggregateSearch Nothing (mkAggregations "byDate" histogram)
-    --   searchExpectAggs search
-    --   searchValidBucketAgg search "byDate" toDateHistogram
+    it "returns date histogram aggregation results" $ withTestEnv $ do
+      _ <- insertData
+      let histogram = DateHistogramAgg $ mkDateHistogram (FieldName "postDate") Minute
+      let search = mkAggregateSearch Nothing (mkAggregations "byDate" histogram)
+      searchExpectAggs search
+      searchValidBucketAgg search "byDate" toDateHistogram
 
-    -- it "returns date histogram using fractional date" $ withTestEnv $ do
-    --   _ <- insertData
-    --   let periods            = [Year, Quarter, Month, Week, Day, Hour, Minute, Second]
-    --   let fractionals        = map (FractionalInterval 1.5) [Weeks, Days, Hours, Minutes, Seconds]
-    --   let intervals          = periods ++ fractionals
-    --   let histogram          = mkDateHistogram (FieldName "postDate")
-    --   let search interval    = mkAggregateSearch Nothing $ mkAggregations "byDate" $ DateHistogramAgg (histogram interval)
-    --   let expect interval    = searchExpectAggs (search interval)
-    --   let valid interval     = searchValidBucketAgg (search interval) "byDate" toDateHistogram
-    --   forM_ intervals expect
-    --   forM_ intervals valid
+    it "returns date histogram using fractional date" $ withTestEnv $ do
+      _ <- insertData
+      let periods            = [Year, Quarter, Month, Week, Day, Hour, Minute, Second]
+      let fractionals        = map (FractionalInterval 1.5) [Weeks, Days, Hours, Minutes, Seconds]
+      let intervals          = periods ++ fractionals
+      let histogram          = mkDateHistogram (FieldName "postDate")
+      let search interval    = mkAggregateSearch Nothing $ mkAggregations "byDate" $ DateHistogramAgg (histogram interval)
+      let expect interval    = searchExpectAggs (search interval)
+      let valid interval     = searchValidBucketAgg (search interval) "byDate" toDateHistogram
+      forM_ intervals expect
+      forM_ intervals valid
 
   describe "Highlights API" $ do
 
