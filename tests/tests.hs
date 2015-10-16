@@ -14,6 +14,7 @@ import           Data.List                       (nub)
 import           Data.List.NonEmpty              (NonEmpty (..))
 import qualified Data.List.NonEmpty              as NE
 import qualified Data.Map.Strict                 as M
+import qualified Data.Maybe                      as MY
 import           Data.Monoid
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
@@ -27,7 +28,7 @@ import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Status       as NHTS
 import           Prelude                         hiding (filter)
 import           Test.Hspec
-import           Test.QuickCheck.Property.Monoid (prop_Monoid, eq, T(..))
+import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 
 import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck
@@ -196,8 +197,9 @@ insertWithSpaceInId = do
 searchTweet :: Search -> BH IO (Either String Tweet)
 searchTweet search = do
   result <- searchTweets search
-  let myTweet = fmap (hitSource . head . hits . searchHits) result
-  return (either (Left "myTweet was Nothing") id myTweet)
+  let myTweet :: Either String Tweet
+      myTweet = grabFirst result
+  return myTweet
 
 searchTweets :: Search -> BH IO (Either String (SearchResult Tweet))
 searchTweets search = eitherDecode . responseBody <$> searchByIndex testIndex search
@@ -247,8 +249,7 @@ searchExpectSource src expected = do
   let search = (mkSearch (Just query) Nothing) { source = Just src }
   reply <- searchAll search
   let result = eitherDecode (responseBody reply) :: Either String (SearchResult Value)
-  let value = fmap (hitSource . head . hits . searchHits) result
-  liftIO (print value)
+  let value = grabFirst result
   liftIO $
     value `shouldBe` expected
 
@@ -313,6 +314,13 @@ instance Arbitrary a => Arbitrary (SearchHits a) where
 
 getSource :: EsResult a -> Maybe a
 getSource = fmap _source . foundResult
+
+-- grabFirst :: Either String (SearchResult a) -> Either String a
+grabFirst r =
+  case fmap (hitSource . head . hits . searchHits) r of
+    (Left e) -> Left e
+    (Right Nothing) -> Left "Source was missing"
+    (Right (Just x)) -> Right x
 
 main :: IO ()
 main = hspec $ do
@@ -488,7 +496,7 @@ main = hspec $ do
                    (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
       result <- searchTweets search
-      let myTweet = fmap (hitSource . head . hits . searchHits) result
+      let myTweet = grabFirst result
       liftIO $
         myTweet `shouldBe` Right otherTweet
 
@@ -705,6 +713,7 @@ main = hspec $ do
         fmap aggregations res `shouldBe` Right (Just (M.fromList [ docCountPair "bitemyapps" 1
                                                                  , docCountPair "notmyapps" 1
                                                                  ]))
+
     -- Interaction of date serialization and date histogram aggregation is broken.
     -- it "returns date histogram aggregation results" $ withTestEnv $ do
     --   _ <- insertData
@@ -754,7 +763,7 @@ main = hspec $ do
     it "doesn't include source when sources are disabled" $ withTestEnv $ do
       searchExpectSource
         NoSource
-        (Left "key \"_source\" not present")
+        (Left "Source was missing")
 
     it "includes a source" $ withTestEnv $ do
       searchExpectSource
@@ -850,4 +859,4 @@ main = hspec $ do
       liftIO $
         regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored
       liftIO $
-        scan_search `shouldMatchList` [exampleTweet, otherTweet]
+        scan_search `shouldMatchList` [Just exampleTweet, Just otherTweet]

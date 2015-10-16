@@ -236,8 +236,7 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer
-import           Data.Aeson                      hiding ((.:?))
-import           Data.Aeson.Compat               ((.:?))
+import           Data.Aeson
 import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import qualified Data.HashMap.Strict             as HM (union)
@@ -2409,11 +2408,11 @@ instance (FromJSON a) => FromJSON (SearchHits a) where
 
 instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
-                         v .:  "_index"  <*>
-                         v .:  "_type"   <*>
-                         v .:  "_id"     <*>
-                         v .:  "_score"  <*>
-                         v .:? "_source" <*>
+                         v .:  "_index"   <*>
+                         v .:  "_type"    <*>
+                         v .:  "_id"      <*>
+                         v .:  "_score"   <*>
+                         v .:?  "_source" <*>
                          v .:? "highlight"
   parseJSON _          = empty
 
