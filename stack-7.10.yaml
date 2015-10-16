@@ -3,7 +3,6 @@ packages:
 - '.'
 extra-deps:
 - aeson-0.10.0.0
-# - aeson-0.9.0.1
 - http-types-0.9
 - attoparsec-0.13.0.1
 - doctest-0.10.1
