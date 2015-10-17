@@ -56,6 +56,7 @@ module Database.Bloodhound.Types
        , Existence(..)
        , NullValue(..)
        , IndexSettings(..)
+       , IndexSettingUpdate(..)
        , IndexTemplate(..)
        , Server(..)
        , Reply
@@ -245,7 +246,7 @@ import qualified Data.Map.Strict                 as M
 import           Data.Maybe
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
-import           Data.Time.Clock                 (UTCTime)
+import           Data.Time.Clock                 (UTCTime, NominalDiffTime)
 import qualified Data.Vector                     as V
 import           GHC.Enum
 import           GHC.Generics                    (Generic)
@@ -346,6 +347,45 @@ data IndexSettings =
 {-| 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and 2 replicas. -}
 defaultIndexSettings :: IndexSettings
 defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2)
+
+data IndexSettingUpdate = NumberOfReplicas Int
+                        | AutoExpandReplicas ReplicaBounds
+                        | BlocksReadOnly Bool
+                        | BlocksRead Bool
+                        | BlocksWrite Bool
+                        | BlocksMetaData Bool
+                        | RefreshInterval NominalDiffTime
+                        | IndexConcurrency Int
+                        | FailOnMergeFailure Bool
+                        | TranslogFlushThresholdOps Int
+                        | TranslogFlushThresholdSize Bytes
+                        | TranslogFlushThresholdPeriod NominalDiffTime
+                        | TranslogDisableFlush Bool
+                        | CacheFilterMaxSize (Maybe Bytes)
+                        | CacheFilterExpire (Maybe NominalDiffTime)
+                        | GatewaySnapshotInterval NominalDiffTime
+                        | RoutingAllocationDisable Bool
+                        | RoutingAllocationDisableNew Bool
+                        | RoutingAllocationDisableReplica Bool
+                        | RoutingAllocationEnable AllocationPolicy
+                        | RoutingAllocationShardsPerNode ShardCount
+                        | RecoveryInitialShards --TODO: shard count or quorum specifications
+                        | GCDeletes
+                        | TTLDisablePurge Bool
+                        | TranslogFSType FSType
+                        | TranslogCompoundFormat
+                        | TranslogCompoundOnFlush
+                        | WarmerEnabled Bool
+                        --TODO: figure out allocation options
+
+data AllocationPolicy = AllocAll
+                      | AllocPrimaries
+                      | AllocNewPrimaries
+                      | AllocNone
+
+data ReplicaBounds = ReplicasBounded Int Int
+                   | ReplicasLowerBounded Int
+                   | ReplicasUnbounded
 
 {-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method.Method' -}
 type Reply = Network.HTTP.Client.Response L.ByteString
