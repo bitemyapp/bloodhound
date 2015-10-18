@@ -335,6 +335,11 @@ main = hspec $ do
         validateStatus resp 200
         validateStatus deleteResp 200
 
+  describe "error parsing" $ do
+    it "can parse EsErrors" $ withTestEnv $ do
+      res <- getDocument (IndexName "bogus") (MappingName "also_bogus") (DocId "bogus_as_well")
+      let errorResp = eitherDecode (responseBody res)
+      liftIO (errorResp `shouldBe` Right (EsError 404 "IndexMissingException[[bogus] missing]"))
 
   describe "document API" $ do
     it "indexes, gets, and then deletes the generated document" $ withTestEnv $ do
