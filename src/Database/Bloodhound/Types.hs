@@ -2049,48 +2049,91 @@ instance ToJSON MatchQueryType where
 instance ToJSON FieldName where
   toJSON (FieldName fieldName) = String fieldName
 
-instance ToJSON ReplicaCount
-instance ToJSON ShardCount
-instance ToJSON CutoffFrequency
-instance ToJSON Analyzer
-instance ToJSON MaxExpansions
-instance ToJSON Lenient
-instance ToJSON Boost
-instance ToJSON Version
-instance ToJSON Tiebreaker
-instance ToJSON MinimumMatch
-instance ToJSON DisableCoord
-instance ToJSON PrefixLength
-instance ToJSON Fuzziness
-instance ToJSON IgnoreTermFrequency
-instance ToJSON MaxQueryTerms
-instance ToJSON TypeName
-instance ToJSON IndexName
-instance ToJSON TemplateName
-instance ToJSON TemplatePattern
-instance ToJSON BoostTerms
-instance ToJSON MaxWordLength
-instance ToJSON MinWordLength
-instance ToJSON MaxDocFrequency
-instance ToJSON MinDocFrequency
-instance ToJSON PhraseSlop
-instance ToJSON StopWord
-instance ToJSON QueryPath
-instance ToJSON MinimumTermFrequency
-instance ToJSON PercentMatch
-instance ToJSON MappingName
-instance ToJSON DocId
-instance ToJSON QueryString
-instance ToJSON AllowLeadingWildcard
-instance ToJSON LowercaseExpanded
-instance ToJSON AnalyzeWildcard
-instance ToJSON GeneratePhraseQueries
-instance ToJSON Locale
-instance ToJSON EnablePositionIncrements
-instance FromJSON Version
-instance FromJSON IndexName
-instance FromJSON MappingName
-instance FromJSON DocId
+instance ToJSON ReplicaCount where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON ShardCount where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON CutoffFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Analyzer where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MaxExpansions where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Lenient where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Boost where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Version where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Tiebreaker where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MinimumMatch where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON DisableCoord where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON PrefixLength where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Fuzziness where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON IgnoreTermFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MaxQueryTerms where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON TypeName where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON IndexName where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON TemplateName where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON TemplatePattern where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON BoostTerms where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MaxWordLength where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MinWordLength where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MaxDocFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MinDocFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON PhraseSlop where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON StopWord where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON QueryPath where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MinimumTermFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON PercentMatch where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MappingName where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON DocId where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON QueryString where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON AllowLeadingWildcard where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON LowercaseExpanded where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON AnalyzeWildcard where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON GeneratePhraseQueries where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Locale where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON EnablePositionIncrements where
+  toJSON = genericToJSON defaultOptions
+
+instance FromJSON Version where
+  parseJSON = genericParseJSON defaultOptions
+instance FromJSON IndexName where
+  parseJSON = genericParseJSON defaultOptions
+instance FromJSON MappingName where
+  parseJSON = genericParseJSON defaultOptions
+instance FromJSON DocId where
+  parseJSON = genericParseJSON defaultOptions
 
 
 instance FromJSON Status where

@@ -2,6 +2,9 @@ flags: {}
 packages:
 - '.'
 extra-deps:
+- aeson-0.10.0.0
+- http-types-0.9
+- http-client-0.4.24
 - doctest-0.10.1
 - doctest-prop-0.2.0.1
 - quickcheck-properties-0.1
