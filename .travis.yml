@@ -29,6 +29,7 @@ before_install:
  - sudo apt-get update
  - sudo apt-get install stack -y
  - stack setup
+ - stack update
  - wget --no-check-certificate https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ESVER.deb
  - sudo dpkg --force-all -i elasticsearch-$ESVER.deb
  - sudo service elasticsearch start
