@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -24,6 +24,7 @@ module Database.Bloodhound.Client
          withBH
        , createIndex
        , deleteIndex
+       , updateIndexSettings
        , indexExists
        , openIndex
        , closeIndex
@@ -58,7 +59,7 @@ module Database.Bloodhound.Client
        )
        where
 
-import qualified Blaze.ByteString.Builder as BB
+import qualified Blaze.ByteString.Builder     as BB
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Catch
@@ -66,8 +67,11 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
+import           Data.Foldable                (toList)
+import qualified Data.HashMap.Strict          as HM
 import           Data.Ix
-import qualified Data.List                    as LS (filter)
+import qualified Data.List                    as LS (filter, foldl')
+import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.Maybe                   (fromMaybe, isJust)
 import           Data.Monoid
 import           Data.Text                    (Text)
@@ -261,6 +265,26 @@ createIndex indexSettings (IndexName indexName) =
 deleteIndex :: MonadBH m => IndexName -> m Reply
 deleteIndex (IndexName indexName) =
   delete =<< joinPath [indexName]
+
+-- | 'updateIndexSettings' will apply a non-empty list of setting updates to an index
+--
+-- >>> response <- runBH' $ updateIndexSettings (BlocksWrite False :| []) testIndex
+-- >>> respIsTwoHunna response
+-- True
+updateIndexSettings :: MonadBH m => NonEmpty IndexSettingUpdate -> IndexName -> m Reply
+updateIndexSettings updates (IndexName indexName) =
+  bindM2 put url (return body)
+  where url = joinPath [indexName, "_settings"]
+        body = Just (encode jsonBody)
+        jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
+
+deepMerge :: [Object] -> Object
+deepMerge = LS.foldl' go mempty
+  where go acc = LS.foldl' go' acc . HM.toList
+        go' acc (k, v) = HM.insertWith merge k v acc
+        merge (Object a) (Object b) = Object (deepMerge [a, b])
+        merge _ b = b
+
 
 statusCodeIs :: Int -> Reply -> Bool
 statusCodeIs n resp = NHTS.statusCode (responseStatus resp) == n

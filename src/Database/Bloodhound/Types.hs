@@ -57,6 +57,14 @@ module Database.Bloodhound.Types
        , NullValue(..)
        , IndexSettings(..)
        , IndexSettingUpdate(..)
+       , AllocationPolicy(..)
+       , ReplicaBounds(..)
+       , Bytes(..)
+       , FSType(..)
+       , InitialShardCount(..)
+       , NodeAttrFilter(..)
+       , NodeAttrName(..)
+       , CompoundFormat(..)
        , IndexTemplate(..)
        , Server(..)
        , Reply
@@ -348,6 +356,10 @@ data IndexSettings =
 defaultIndexSettings :: IndexSettings
 defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2)
 
+{-| 'IndexSettingUpdate' is used to update an index' settings piecemeal.
+
+   <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-update-settings.html>
+-}
 data IndexSettingUpdate = NumberOfReplicas Int
                         | AutoExpandReplicas ReplicaBounds
                         | BlocksReadOnly Bool
@@ -364,17 +376,20 @@ data IndexSettingUpdate = NumberOfReplicas Int
                         | CacheFilterMaxSize (Maybe Bytes)
                         | CacheFilterExpire (Maybe NominalDiffTime)
                         | GatewaySnapshotInterval NominalDiffTime
+                        | RoutingAllocationInclude (NonEmpty NodeAttrFilter)
+                        | RoutingAllocationExclude (NonEmpty NodeAttrFilter)
+                        | RoutingAllocationRequire (NonEmpty NodeAttrFilter)
                         | RoutingAllocationDisable Bool
                         | RoutingAllocationDisableNew Bool
                         | RoutingAllocationDisableReplica Bool
                         | RoutingAllocationEnable AllocationPolicy
                         | RoutingAllocationShardsPerNode ShardCount
-                        | RecoveryInitialShards --TODO: shard count or quorum specifications
-                        | GCDeletes
+                        | RecoveryInitialShards InitialShardCount
+                        | GCDeletes NominalDiffTime
                         | TTLDisablePurge Bool
                         | TranslogFSType FSType
-                        | TranslogCompoundFormat
-                        | TranslogCompoundOnFlush
+                        | IndexCompoundFormat CompoundFormat
+                        | IndexCompoundOnFlush Bool
                         | WarmerEnabled Bool
                         --TODO: figure out allocation options
 
@@ -386,6 +401,28 @@ data AllocationPolicy = AllocAll
 data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasLowerBounded Int
                    | ReplicasUnbounded
+
+newtype Bytes = Bytes Int deriving (Eq, Show, Ord, ToJSON)
+
+data FSType = FSSimple
+            | FSBuffered deriving (Eq, Show, Ord)
+
+data InitialShardCount = QuorumShards
+                       | QuorumMinus1Shards
+                       | FullShards
+                       | FullMinus1Shards
+                       | ExplicitShards Int
+
+data NodeAttrFilter = NodeAttrFilter { nodeAttrFilterName :: NodeAttrName
+                                     , nodeAttrFilterValues :: NonEmpty Text}
+
+newtype NodeAttrName = NodeAttrName Text
+
+data CompoundFormat = CompoundFileFormat Bool
+                    | MergeSegmentVsTotalIndex Double
+                    -- ^ percentage between 0 and 1 where 0 is false, 1 is true
+
+newtype NominalDiffTimeJSON = NominalDiffTimeJSON NominalDiffTime
 
 {-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method.Method' -}
 type Reply = Network.HTTP.Client.Response L.ByteString
@@ -2143,6 +2180,76 @@ instance ToJSON IndexSettings where
                                    object ["number_of_shards" .= s, "number_of_replicas" .= r]
                                  ]
                                ]
+
+instance ToJSON IndexSettingUpdate where
+  toJSON (NumberOfReplicas x) = oPath ("index" :| ["number_of_replicas"]) x
+  toJSON (AutoExpandReplicas x) = oPath ("index" :| ["auto_expand_replicas"]) x
+  toJSON (BlocksReadOnly x) = oPath ("blocks" :| ["read_only"]) x
+  toJSON (BlocksRead x) = oPath ("blocks" :| ["read"]) x
+  toJSON (BlocksWrite x) = oPath ("blocks" :| ["write"]) x
+  toJSON (BlocksMetaData x) = oPath ("blocks" :| ["metadata"]) x
+  toJSON (RefreshInterval x) = oPath ("index" :| ["refresh_interval"]) (NominalDiffTimeJSON x)
+  toJSON (IndexConcurrency x) = oPath ("index" :| ["concurrency"]) x
+  toJSON (FailOnMergeFailure x) = oPath ("index" :| ["fail_on_merge_failure"]) x
+  toJSON (TranslogFlushThresholdOps x) = oPath ("index" :| ["translog", "flush_threshold_ops"]) x
+  toJSON (TranslogFlushThresholdSize x) = oPath ("index" :| ["translog", "flush_threshold_size"]) x
+  toJSON (TranslogFlushThresholdPeriod x) = oPath ("index" :| ["translog", "flush_threshold_period"]) (NominalDiffTimeJSON x)
+  toJSON (TranslogDisableFlush x) = oPath ("index" :| ["translog", "disable_flush"]) x
+  toJSON (CacheFilterMaxSize x) = oPath ("index" :| ["cache", "filter", "max_size"]) x
+  toJSON (CacheFilterExpire x) = oPath ("index" :| ["cache", "filter", "expire"]) (NominalDiffTimeJSON <$> x)
+  toJSON (GatewaySnapshotInterval x) = oPath ("index" :| ["gateway", "snapshot_interval"]) (NominalDiffTimeJSON x)
+  toJSON (RoutingAllocationInclude fs) = oPath ("index" :| ["routing", "allocation", "include"]) (attrFilterJSON fs)
+  toJSON (RoutingAllocationExclude fs) = oPath ("index" :| ["routing", "allocation", "exclude"]) (attrFilterJSON fs)
+  toJSON (RoutingAllocationRequire fs) = oPath ("index" :| ["routing", "allocation", "require"]) (attrFilterJSON fs)
+  toJSON (RoutingAllocationDisable x) = oPath ("index" :| ["routing", "allocation", "disable_allocation"]) x
+  toJSON (RoutingAllocationDisableNew x) = oPath ("index" :| ["routing", "allocation", "disable_new_allocation"]) x
+  toJSON (RoutingAllocationDisableReplica x) = oPath ("index" :| ["routing", "allocation", "disable_replica_allocation"]) x
+  toJSON (RoutingAllocationEnable x) = oPath ("index" :| ["routing", "allocation", "enable"]) x
+  toJSON (RoutingAllocationShardsPerNode x) = oPath ("index" :| ["routing", "allocation", "total_shards_per_node"]) x
+  toJSON (RecoveryInitialShards x) = oPath ("index" :| ["recovery", "initial_shards"]) x
+  toJSON (GCDeletes x) = oPath ("index" :| ["gc_deletes"]) (NominalDiffTimeJSON x)
+  toJSON (TTLDisablePurge x) = oPath ("index" :| ["ttl", "disable_purge"]) x
+  toJSON (TranslogFSType x) = oPath ("index" :| ["translog", "fs", "type"]) x
+  toJSON (IndexCompoundFormat x) = oPath ("index" :| ["compound_format"]) x
+  toJSON (IndexCompoundOnFlush x) = oPath ("index" :| ["compound_on_flush"]) x
+  toJSON (WarmerEnabled x) = oPath ("index" :| ["warmer", "enabled"]) x
+
+oPath :: ToJSON a => NonEmpty Text -> a -> Value
+oPath (k :| []) v = object [k .= v]
+oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
+
+attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
+attrFilterJSON fs = object [ n .= T.intercalate "," (toList vs)
+                           | NodeAttrFilter (NodeAttrName n) vs <- toList fs]
+
+instance ToJSON ReplicaBounds where
+  toJSON (ReplicasBounded a b)    = String (showText a <> "-" <> showText b)
+  toJSON (ReplicasLowerBounded a) = String (showText a <> "-all")
+  toJSON ReplicasUnbounded        = Bool False
+
+instance ToJSON AllocationPolicy where
+  toJSON AllocAll          = String "all"
+  toJSON AllocPrimaries    = String "primaries"
+  toJSON AllocNewPrimaries = String "new_primaries"
+  toJSON AllocNone         = String "none"
+
+instance ToJSON InitialShardCount where
+  toJSON QuorumShards       = String "quorum"
+  toJSON QuorumMinus1Shards = String "quorum-1"
+  toJSON FullShards         = String "full"
+  toJSON FullMinus1Shards   = String "full-1"
+  toJSON (ExplicitShards x) = toJSON x
+
+instance ToJSON FSType where
+  toJSON FSSimple   = "simple"
+  toJSON FSBuffered = "buffered"
+
+instance ToJSON CompoundFormat where
+  toJSON (CompoundFileFormat x) = Bool x
+  toJSON (MergeSegmentVsTotalIndex x) = toJSON x
+
+instance ToJSON NominalDiffTimeJSON where
+  toJSON (NominalDiffTimeJSON t) = String (showText (round t :: Integer) <> "s")
 
 instance ToJSON IndexTemplate where
   toJSON (IndexTemplate p s m) = merge
