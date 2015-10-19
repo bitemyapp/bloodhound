@@ -123,13 +123,19 @@ import           Database.Bloodhound.Types
 --                      , message  = "Use haskell!"
 --                      , age      = 10000
 --                      , location = Location 40.12 (-71.34) }
---instance ToJSON   Tweet
---instance FromJSON Tweet
---instance ToJSON   Location
---instance FromJSON Location
+--instance ToJSON   Tweet where
+--  toJSON = genericToJSON defaultOptions
+--instance FromJSON Tweet where
+--  parseJSON = genericParseJSON defaultOptions
+--instance ToJSON   Location where
+--  toJSON = genericToJSON defaultOptions
+--instance FromJSON Location where
+--  parseJSON = genericParseJSON defaultOptions
 --data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
---instance FromJSON BulkTest
---instance ToJSON BulkTest
+--instance FromJSON BulkTest where
+--  parseJSON = genericParseJSON defaultOptions
+--instance ToJSON BulkTest where
+--  toJSON = genericToJSON defaultOptions
 -- :}
 
 -- | 'mkShardCount' is a straight-forward smart constructor for 'ShardCount'

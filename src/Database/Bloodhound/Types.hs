@@ -70,6 +70,7 @@ module Database.Bloodhound.Types
        , Reply
        , EsResult(..)
        , EsResultFound(..)
+       , EsError(..)
        , DocVersion
        , ExternalDocVersion(..)
        , VersionControl(..)
@@ -493,13 +494,18 @@ data EsResult a = EsResult { _index      :: Text
                            , _id         :: Text
                            , foundResult :: Maybe (EsResultFound a)} deriving (Eq, Show)
 
-
 {-| 'EsResultFound' contains the document and its metadata inside of an
     'EsResult' when the document was successfully found.
 -}
 data EsResultFound a = EsResultFound {  _version :: DocVersion
                                      , _source   :: a } deriving (Eq, Show)
 
+{-| 'EsError' is the generic type that will be returned when there was a
+    problem. If you can't parse the expected response, its a good idea to
+    try parsing this.
+-}
+data EsError = EsError { errorStatus  :: Int
+                       , errorMessage :: Text } deriving (Eq, Show)
 
 
 {-| 'DocVersion' is an integer version number for a document between 1
@@ -833,7 +839,7 @@ data SearchType = SearchTypeQueryThenFetch
   deriving (Eq, Show)
 
 data Source =
-  NoSource
+    NoSource
   | SourcePatterns PatternOrPatterns
   | SourceIncludeExclude Include Exclude
     deriving (Show, Eq)
@@ -1382,7 +1388,7 @@ data Hit a =
       , hitType      :: MappingName
       , hitDocId     :: DocId
       , hitScore     :: Score
-      , hitSource    :: a
+      , hitSource    :: Maybe a
       , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
 
 data ShardResult =
@@ -2120,48 +2126,91 @@ instance ToJSON MatchQueryType where
 instance ToJSON FieldName where
   toJSON (FieldName fieldName) = String fieldName
 
-instance ToJSON ReplicaCount
-instance ToJSON ShardCount
-instance ToJSON CutoffFrequency
-instance ToJSON Analyzer
-instance ToJSON MaxExpansions
-instance ToJSON Lenient
-instance ToJSON Boost
-instance ToJSON Version
-instance ToJSON Tiebreaker
-instance ToJSON MinimumMatch
-instance ToJSON DisableCoord
-instance ToJSON PrefixLength
-instance ToJSON Fuzziness
-instance ToJSON IgnoreTermFrequency
-instance ToJSON MaxQueryTerms
-instance ToJSON TypeName
-instance ToJSON IndexName
-instance ToJSON TemplateName
-instance ToJSON TemplatePattern
-instance ToJSON BoostTerms
-instance ToJSON MaxWordLength
-instance ToJSON MinWordLength
-instance ToJSON MaxDocFrequency
-instance ToJSON MinDocFrequency
-instance ToJSON PhraseSlop
-instance ToJSON StopWord
-instance ToJSON QueryPath
-instance ToJSON MinimumTermFrequency
-instance ToJSON PercentMatch
-instance ToJSON MappingName
-instance ToJSON DocId
-instance ToJSON QueryString
-instance ToJSON AllowLeadingWildcard
-instance ToJSON LowercaseExpanded
-instance ToJSON AnalyzeWildcard
-instance ToJSON GeneratePhraseQueries
-instance ToJSON Locale
-instance ToJSON EnablePositionIncrements
-instance FromJSON Version
-instance FromJSON IndexName
-instance FromJSON MappingName
-instance FromJSON DocId
+instance ToJSON ReplicaCount where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON ShardCount where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON CutoffFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Analyzer where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MaxExpansions where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Lenient where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Boost where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Version where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Tiebreaker where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MinimumMatch where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON DisableCoord where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON PrefixLength where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Fuzziness where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON IgnoreTermFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MaxQueryTerms where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON TypeName where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON IndexName where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON TemplateName where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON TemplatePattern where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON BoostTerms where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MaxWordLength where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MinWordLength where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MaxDocFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MinDocFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON PhraseSlop where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON StopWord where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON QueryPath where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MinimumTermFrequency where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON PercentMatch where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON MappingName where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON DocId where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON QueryString where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON AllowLeadingWildcard where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON LowercaseExpanded where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON AnalyzeWildcard where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON GeneratePhraseQueries where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON Locale where
+  toJSON = genericToJSON defaultOptions
+instance ToJSON EnablePositionIncrements where
+  toJSON = genericToJSON defaultOptions
+
+instance FromJSON Version where
+  parseJSON = genericParseJSON defaultOptions
+instance FromJSON IndexName where
+  parseJSON = genericParseJSON defaultOptions
+instance FromJSON MappingName where
+  parseJSON = genericParseJSON defaultOptions
+instance FromJSON DocId where
+  parseJSON = genericParseJSON defaultOptions
 
 
 instance FromJSON Status where
@@ -2279,6 +2328,12 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
                          v .: "_version" <*>
                          v .: "_source"
   parseJSON _          = empty
+
+instance FromJSON EsError where
+  parseJSON (Object v) = EsError <$>
+                         v .: "status" <*>
+                         v .: "error"
+  parseJSON _ = empty
 
 instance ToJSON Search where
   toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource) =
@@ -2543,11 +2598,11 @@ instance (FromJSON a) => FromJSON (SearchHits a) where
 
 instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
-                         v .:  "_index"  <*>
-                         v .:  "_type"   <*>
-                         v .:  "_id"     <*>
-                         v .:  "_score"  <*>
-                         v .:  "_source" <*>
+                         v .:  "_index"   <*>
+                         v .:  "_type"    <*>
+                         v .:  "_id"      <*>
+                         v .:  "_score"   <*>
+                         v .:?  "_source" <*>
                          v .:? "highlight"
   parseJSON _          = empty
 
