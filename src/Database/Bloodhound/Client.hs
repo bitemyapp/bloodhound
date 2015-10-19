@@ -274,7 +274,8 @@ deleteIndex (IndexName indexName) =
 
 -- | 'updateIndexSettings' will apply a non-empty list of setting updates to an index
 --
--- >>> response <- runBH' $ updateIndexSettings (BlocksWrite False :| []) testIndex
+-- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "unconfiguredindex")
+-- >>> response <- runBH' $ updateIndexSettings (BlocksWrite False :| []) (IndexName "unconfiguredindex")
 -- >>> respIsTwoHunna response
 -- True
 updateIndexSettings :: MonadBH m => NonEmpty IndexSettingUpdate -> IndexName -> m Reply
