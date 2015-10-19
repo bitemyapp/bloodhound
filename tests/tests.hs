@@ -14,7 +14,6 @@ import           Data.List                       (nub)
 import           Data.List.NonEmpty              (NonEmpty (..))
 import qualified Data.List.NonEmpty              as NE
 import qualified Data.Map.Strict                 as M
-import qualified Data.Maybe                      as MY
 import           Data.Monoid
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
@@ -112,10 +111,14 @@ data Tweet = Tweet { user     :: Text
                    , location :: Location }
            deriving (Eq, Generic, Show)
 
-instance ToJSON   Tweet
-instance FromJSON Tweet
-instance ToJSON   Location
-instance FromJSON Location
+instance ToJSON   Tweet where
+  toJSON = genericToJSON defaultOptions
+instance FromJSON Tweet where
+  parseJSON = genericParseJSON defaultOptions
+instance ToJSON   Location where
+  toJSON = genericToJSON defaultOptions
+instance FromJSON Location where
+  parseJSON = genericParseJSON defaultOptions
 
 data ParentMapping = ParentMapping deriving (Eq, Show)
 
@@ -315,7 +318,7 @@ instance Arbitrary a => Arbitrary (SearchHits a) where
 getSource :: EsResult a -> Maybe a
 getSource = fmap _source . foundResult
 
--- grabFirst :: Either String (SearchResult a) -> Either String a
+grabFirst :: Either String (SearchResult a) -> Either String a
 grabFirst r =
   case fmap (hitSource . head . hits . searchHits) r of
     (Left e) -> Left e
