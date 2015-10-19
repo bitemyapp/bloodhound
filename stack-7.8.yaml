@@ -1,4 +1,6 @@
-flags: {}
+flags:
+  aeson:
+    old-locale: true
 packages:
 - '.'
 extra-deps:

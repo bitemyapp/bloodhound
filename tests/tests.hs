@@ -257,8 +257,10 @@ searchExpectSource src expected = do
     value `shouldBe` expected
 
 data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
-instance FromJSON BulkTest
-instance ToJSON BulkTest
+instance FromJSON BulkTest where
+  parseJSON = genericParseJSON defaultOptions
+instance ToJSON BulkTest where
+  toJSON = genericToJSON defaultOptions
 
 noDuplicates :: Eq a => [a] -> Bool
 noDuplicates xs = nub xs == xs
