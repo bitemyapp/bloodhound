@@ -27,6 +27,8 @@ module Database.Bloodhound.Client
        , indexExists
        , openIndex
        , closeIndex
+       , updateIndexAliases
+       , getIndexAliases
        , putTemplate
        , templateExists
        , deleteTemplate
@@ -68,6 +70,7 @@ import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Ix
 import qualified Data.List                    as LS (filter)
+import qualified Data.List.NonEmpty           as NE
 import           Data.Maybe                   (fromMaybe, isJust)
 import           Data.Monoid
 import           Data.Text                    (Text)
@@ -279,6 +282,22 @@ existentialQuery url = do
   reply <- head url
   return (reply, respIsTwoHunna reply)
 
+parseEsResponse :: (MonadBH m, MonadThrow m, FromJSON a) => Reply
+                -> m (Either EsError a)
+parseEsResponse reply
+  | respIsTwoHunna reply = case eitherDecode body of
+                             Right a -> return (Right a)
+                             Left e -> case eitherDecode body of
+                                         Right e -> return (Left e)
+                                         -- this case should not be possible
+                                         Left _ -> explode
+  | otherwise = explode
+  where body = responseBody reply
+        stat = responseStatus reply
+        hdrs = responseHeaders reply
+        cookies = responseCookieJar reply
+        explode = throwM (StatusCodeException stat hdrs cookies)
+
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
 --
@@ -322,6 +341,16 @@ openIndex = openOrCloseIndexes OpenIndex
 -- >>> reply <- runBH' $ closeIndex testIndex
 closeIndex :: MonadBH m => IndexName -> m Reply
 closeIndex = openOrCloseIndexes CloseIndex
+
+updateIndexAliases :: MonadBH m => NE.NonEmpty IndexAliasAction -> m Reply
+updateIndexAliases actions = bindM2 post url (return body)
+  where url = joinPath ["_aliases"]
+        body = Just (encode bodyJSON)
+        bodyJSON = object [ "actions" .= NE.toList actions]
+
+getIndexAliases :: (MonadBH m) => m (Either EsError IndexAliasesSummary)
+getIndexAliases = liftIO . parseEsResponse =<< get =<< url
+  where url = joinPath ["_aliases"]
 
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
 --   Explained in further detail at

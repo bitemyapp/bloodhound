@@ -62,6 +62,16 @@ module Database.Bloodhound.Types
        , EsResult(..)
        , EsResultFound(..)
        , EsError(..)
+       , IndexAlias(..)
+       , IndexAliasName(..)
+       , IndexAliasAction(..)
+       , IndexAliasCreate(..)
+       , IndexAliasSummary(..)
+       , IndexAliasesSummary(..)
+       , AliasRouting(..)
+       , SearchAliasRouting(..)
+       , IndexAliasRouting(..)
+       , RoutingValue(..)
        , DocVersion
        , ExternalDocVersion(..)
        , VersionControl(..)
@@ -237,9 +247,11 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer
 import           Data.Aeson
-import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
+import           Data.Aeson.Types                (Pair, Parser, emptyObject,
+                                                  parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
-import qualified Data.HashMap.Strict             as HM (union)
+import           Data.Char
+import qualified Data.HashMap.Strict             as HM
 import           Data.List                       (foldl', nub)
 import           Data.List.NonEmpty              (NonEmpty (..), toList)
 import qualified Data.Map.Strict                 as M
@@ -247,6 +259,7 @@ import           Data.Maybe
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime)
+import qualified Data.Traversable                as DT
 import qualified Data.Vector                     as V
 import           GHC.Enum
 import           GHC.Generics                    (Generic)
@@ -430,6 +443,32 @@ data EsResultFound a = EsResultFound {  _version :: DocVersion
 data EsError = EsError { errorStatus  :: Int
                        , errorMessage :: Text } deriving (Eq, Show)
 
+data IndexAlias = IndexAlias { srcIndex   :: IndexName
+                             , indexAlias :: IndexAliasName } deriving (Eq, Show)
+
+newtype IndexAliasName = IndexAliasName { indexAliasName :: IndexName } deriving (Eq, Show, ToJSON)
+
+data IndexAliasAction = AddAlias IndexAlias IndexAliasCreate
+                      | RemoveAlias IndexAlias deriving (Show, Eq)
+
+data IndexAliasCreate = IndexAliasCreate { aliasCreateRouting :: Maybe AliasRouting
+                                         , aliasCreateFilter  :: Maybe Filter}
+                                         deriving (Show, Eq)
+
+data AliasRouting = AllAliasRouting RoutingValue
+                  | GranularAliasRouting (Maybe SearchAliasRouting) (Maybe IndexAliasRouting)
+                  deriving (Show, Eq)
+
+newtype SearchAliasRouting = SearchAliasRouting (NonEmpty RoutingValue) deriving (Show, Eq)
+
+newtype IndexAliasRouting = IndexAliasRouting RoutingValue deriving (Show, Eq, ToJSON, FromJSON)
+
+newtype RoutingValue = RoutingValue { routingValue :: Text } deriving (Show, Eq, ToJSON, FromJSON)
+
+newtype IndexAliasesSummary = IndexAliasesSummary [IndexAliasSummary]
+
+data IndexAliasSummary = IndexAliasSummary { indexAliasSummaryAlias  :: IndexAlias
+                                           , indexAliasSummaryCreate :: IndexAliasCreate}
 
 {-| 'DocVersion' is an integer version number for a document between 1
 and 9.2e+18 used for <<https://www.elastic.co/guide/en/elasticsearch/guide/current/optimistic-concurrency-control.html optimistic concurrency control>>.
@@ -625,7 +664,7 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Show)
 {-| 'FieldName' is used all over the place wherever a specific field within
      a document needs to be specified, usually in 'Query's or 'Filter's.
 -}
-newtype FieldName = FieldName Text deriving (Eq, Show)
+newtype FieldName = FieldName Text deriving (Eq, Show, FromJSON)
 
 
 {-| 'Script' is often used in place of 'FieldName' to specify more
@@ -636,16 +675,16 @@ newtype Script = Script { scriptText :: Text } deriving (Eq, Show)
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
 -}
-newtype CacheName = CacheName Text deriving (Eq, Show)
+newtype CacheName = CacheName Text deriving (Eq, Show, FromJSON)
 
 {-| 'CacheKey' is used in 'RegexpFilter' to key regex caching.
 -}
 newtype CacheKey =
-  CacheKey Text deriving (Eq, Show)
+  CacheKey Text deriving (Eq, Show, FromJSON)
 newtype Existence =
-  Existence Bool deriving (Eq, Show)
+  Existence Bool deriving (Eq, Show, FromJSON)
 newtype NullValue =
-  NullValue Bool deriving (Eq, Show)
+  NullValue Bool deriving (Eq, Show, FromJSON)
 newtype CutoffFrequency =
   CutoffFrequency Double deriving (Eq, Show, Generic)
 newtype Analyzer =
@@ -1168,7 +1207,7 @@ data ZeroTermsQuery = ZeroTermsNone
 data RangeExecution = RangeExecutionIndex
                     | RangeExecutionFielddata deriving (Eq, Show)
 
-newtype Regexp = Regexp Text deriving (Eq, Show)
+newtype Regexp = Regexp Text deriving (Eq, Show, FromJSON)
 
 data RegexpFlags = AllRegexpFlags
                  | NoRegexpFlags
@@ -1641,6 +1680,75 @@ instance ToJSON Filter where
                    , "_cache"     .= cache
                    , "_cache_key" .= cacheKey]]
 
+instance FromJSON Filter where
+  parseJSON = withObject "Filter" parse
+    where parse o = andFilter `taggedWith` "and"
+                <|> orFilter `taggedWith` "or"
+                <|> notFilter `taggedWith` "not"
+                <|> identityFilter `taggedWith` "match_all"
+                <|> boolFilter `taggedWith` "bool"
+                <|> existsFilter `taggedWith` "exists"
+                <|> geoBoundingBoxFilter `taggedWith` "geo_bounding_box"
+                <|> geoDistanceFilter `taggedWith` "geo_distance"
+                <|> geoDistanceRangeFilter `taggedWith` "geo_distance_range"
+                <|> geoPolygonFilter `taggedWith` "geo_polygon"
+                <|> idsFilter `taggedWith` "ids"
+                <|> limitFilter `taggedWith` "limit"
+                <|> missingFilter `taggedWith` "missing"
+                <|> prefixFilter `taggedWith` "prefix"
+                <|> queryFilter `taggedWith` "query"
+                <|> fqueryFilter `taggedWith` "fquery"
+                <|> rangeFilter `taggedWith` "range"
+                <|> regexpFilter `taggedWith` "regexp"
+                <|> termFilter `taggedWith` "term"
+            where taggedWith parser k = parser =<< o .: k
+          andFilter o = AndFilter <$> o .: "filters"
+                                  <*> o .:? "_cache" .!= defaultCache
+          orFilter o = OrFilter <$> o .: "filters"
+                                <*> o .:? "_cache" .!= defaultCache
+          notFilter o = NotFilter <$> o .: "filters"
+                                  <*> o .: "_cache" .!= defaultCache
+          identityFilter () = pure IdentityFilter
+          boolFilter = pure . BoolFilter
+          existsFilter o = ExistsFilter <$> o .: "field"
+          geoBoundingBoxFilter = pure . GeoBoundingBoxFilter
+          geoDistanceFilter o = flip fieldTagged o $ \fn o' -> do
+            gp <- GeoPoint fn <$> parseJSON (Object o')
+            GeoDistanceFilter gp <$> o .: "distance"
+                                 <*> o .: "distance_type"
+                                 <*> o .: "optimize_bbox"
+                                 <*> o .:? "_cache" .!= defaultCache
+          geoDistanceRangeFilter o = flip fieldTagged o $ \fn o' -> do
+            gp <- GeoPoint fn <$> parseJSON (Object o')
+            rng <- DistanceRange <$> o .: "from" <*> o .: "to"
+            return (GeoDistanceRangeFilter gp rng)
+          geoPolygonFilter = fieldTagged $ \fn o -> GeoPolygonFilter fn <$> o .: "points"
+          idsFilter o = IdsFilter <$> o .: "type"
+                                  <*> o .: "values"
+          limitFilter o = LimitFilter <$> o .: "value"
+          missingFilter o = MissingFilter <$> o .: "field"
+                                          <*> o .: "existence"
+                                          <*> o .: "null_value"
+          prefixFilter o = fieldTagged $ \fn o' -> PrefixFilter fn <$> parseJSON (Object o')
+                                                                   <*> o .:? "_cache" .!= defaultCache
+          queryFilter q = pure (QueryFilter q False)
+          fqueryFilter o = QueryFilter <$> o .: "query" <*> pure True
+          rangeFilter o = fieldTagged $ \fn o' -> RangeFilter fn <$> parseJSON (Object o')
+                                                                 <*> o .: "execution"
+                                                                 <*> o .:? "_cache" .!= defaultCache
+          regexpFilter = fieldTagged $ \fn o -> RegexpFilter fn <$> o .: "value"
+                                                                <*> o .: "flags"
+                                                                <*> o .: "_name"
+                                                                <*> o .:? "_cache" .!= defaultCache
+                                                                <*> o .: "_cache_key"
+          termFilter o = flip fieldTagged o $ \(FieldName fn) o' -> do
+            trm <- Term fn <$> parseJSON (Object o')
+            TermFilter trm <$> o .: "_cache" .!= defaultCache
+          --TODO: should this enforce there only being 1 key?
+          fieldTagged f o = case HM.toList o of
+                              [(k, Object o')] -> f (FieldName k) o'
+                              _ -> fail "Expected object with 1 field named key"
+
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
     object [ geoPointField  .= geoPointLatLon ]
@@ -1827,6 +1935,9 @@ instance ToJSON RangeQuery where
     object [ fieldName .= conjoined ]
     where conjoined = [ "boost" .= boost ] ++ (rangeValueToPair range)
 
+instance FromJSON RangeValue where
+  parseJSON = withObject "RangeValue" parse
+    where parse o = undefined
 
 instance ToJSON PrefixQuery where
   toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =
@@ -2135,7 +2246,6 @@ instance FromJSON MappingName where
 instance FromJSON DocId where
   parseJSON = genericParseJSON defaultOptions
 
-
 instance FromJSON Status where
   parseJSON (Object v) = Status <$>
                          v .:? "ok" <*>
@@ -2187,6 +2297,58 @@ instance FromJSON EsError where
                          v .: "status" <*>
                          v .: "error"
   parseJSON _ = empty
+
+instance FromJSON IndexAliasesSummary where
+  parseJSON = withObject "IndexAliasesSummary" parse
+    where parse o = IndexAliasesSummary . mconcat <$> mapM (uncurry go) (HM.toList o)
+          go ixn = withObject "index aliases" $ \ia -> do
+                     aliases <- ia .: "aliases"
+                     forM (HM.toList aliases) $ \(aName, v) -> do
+                       let indexAlias = IndexAlias (IndexName ixn) (IndexAliasName (IndexName aName))
+                       IndexAliasSummary indexAlias <$> parseJSON v
+
+
+instance ToJSON IndexAliasAction where
+  toJSON (AddAlias ia opts) = object ["add" .= (iaObj <> optsObj)]
+    where Object iaObj = toJSON ia
+          Object optsObj = toJSON opts
+  toJSON (RemoveAlias ia) = object ["remove" .= iaObj]
+    where Object iaObj = toJSON ia
+
+instance ToJSON IndexAlias where
+  toJSON IndexAlias {..} = object ["index" .= srcIndex
+                                  , "alias" .= indexAlias
+                                  ]
+
+instance ToJSON IndexAliasCreate where
+  toJSON IndexAliasCreate {..} = Object (filterObj <> routingObj)
+    where filterObj = maybe mempty (HM.singleton "filter" . toJSON) aliasCreateFilter
+          Object routingObj = maybe (Object mempty) toJSON aliasCreateRouting
+
+instance ToJSON AliasRouting where
+  toJSON (AllAliasRouting v) = object ["routing" .= v]
+  toJSON (GranularAliasRouting srch idx) = object (catMaybes prs)
+    where prs = [("search_routing" .=) <$> srch
+                ,("index_routing" .=) <$> idx]
+
+instance FromJSON AliasRouting where
+  parseJSON = withObject "AliasRouting" parse
+    where parse o = parseAll o <|> parseGranular o
+          parseAll o = AllAliasRouting <$> o .: "routing"
+          parseGranular o = GranularAliasRouting <$> o .:? "search_routing"
+                                                 <*> o .:? "index_routing"
+
+instance FromJSON IndexAliasCreate where
+  parseJSON v = withObject "IndexAliasCreate" parse v
+    where parse o = IndexAliasCreate <$> parseJSON v
+                                     <*> o .:? "filter"
+
+instance ToJSON SearchAliasRouting where
+  toJSON (SearchAliasRouting rvs) = toJSON (T.intercalate "," (routingValue <$> toList rvs))
+
+instance FromJSON SearchAliasRouting where
+  parseJSON = withText "SearchAliasRouting" parse
+    where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
   toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource) =
@@ -2290,6 +2452,9 @@ nonPostingsToPairs (Just (NonPostings npFragSize npNumOfFrags)) =
     [ "fragment_size" .= npFragSize
     , "number_of_fragments" .= npNumOfFrags]
 
+parseNEJSON :: (FromJSON a) => [Value] -> Parser (NonEmpty a)
+parseNEJSON []     = fail "Expected non-empty list"
+parseNEJSON (x:xs) = DT.mapM parseJSON (x :| xs)
 
 
 instance ToJSON HighlightEncoder where
@@ -2351,6 +2516,13 @@ instance ToJSON Distance where
       (String unitText) = toJSON dUnit
       boltedTogether = mappend coefText unitText
 
+instance FromJSON Distance where
+  parseJSON = withText "Distance" parse
+    where parse t = Distance <$> parseCoeff nT
+                             <*> parseJSON (String unitT)
+            where (nT, unitT) = T.span isNumber t
+                  parseCoeff "" = fail "Empty string cannot be parsed as number"
+                  parseCoeff s = return (read (T.unpack s))
 
 instance ToJSON DistanceUnit where
   toJSON Miles         = String "mi"
@@ -2364,16 +2536,42 @@ instance ToJSON DistanceUnit where
   toJSON NauticalMiles = String "nmi"
 
 
+instance FromJSON DistanceUnit where
+  parseJSON = withText "DistanceUnit" parse
+    where parse "mi"  = pure Miles
+          parse "yd"  = pure Yards
+          parse "ft"  = pure Feet
+          parse "in"  = pure Inches
+          parse "km"  = pure Kilometers
+          parse "m"   = pure Meters
+          parse "cm"  = pure Centimeters
+          parse "mm"  = pure Millimeters
+          parse "nmi" = pure NauticalMiles
+          parse u = fail ("Unrecognized DistanceUnit: " <> show u)
+
 instance ToJSON DistanceType where
   toJSON Arc       = String "arc"
   toJSON SloppyArc = String "sloppy_arc"
   toJSON Plane     = String "plane"
+
+instance FromJSON DistanceType where
+  parseJSON = withText "DistanceType" parse
+    where parse "arc" = pure Arc
+          parse "sloppy_arc" = pure SloppyArc
+          parse "plane" = pure Plane
+          parse t = fail ("Unrecognized DistanceType: " <> show t)
 
 
 instance ToJSON OptimizeBbox where
   toJSON NoOptimizeBbox = String "none"
   toJSON (OptimizeGeoFilterType gft) = toJSON gft
 
+instance FromJSON OptimizeBbox where
+  parseJSON v = withText "NoOptimizeBbox" parseNoOptimize v
+            <|> parseOptimize v
+    where parseNoOptimize "none" = pure NoOptimizeBbox
+          parseNoOptimize _ = mzero
+          parseOptimize = fmap OptimizeGeoFilterType . parseJSON
 
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON (GeoBoundingBoxConstraint
@@ -2387,6 +2585,11 @@ instance ToJSON GeoFilterType where
   toJSON GeoFilterMemory  = String "memory"
   toJSON GeoFilterIndexed = String "indexed"
 
+instance FromJSON GeoFilterType where
+  parseJSON = withText "GeoFilterType" parse
+    where parse "memory"  = pure GeoFilterMemory
+          parse "indexed" = pure GeoFilterIndexed
+          parse t         = fail ("Unrecognized GeoFilterType: " <> show t)
 
 instance ToJSON GeoBoundingBox where
   toJSON (GeoBoundingBox gbbTopLeft gbbBottomRight) =
@@ -2399,12 +2602,22 @@ instance ToJSON LatLon where
     object ["lat"  .= lLat
            , "lon" .= lLon]
 
+instance FromJSON LatLon where
+  parseJSON = withObject "LatLon" parse
+    where parse o = LatLon <$> o .: "lat"
+                           <*> o .: "lon"
 
 -- index for smaller ranges, fielddata for longer ranges
 instance ToJSON RangeExecution where
   toJSON RangeExecutionIndex     = "index"
   toJSON RangeExecutionFielddata = "fielddata"
 
+
+instance FromJSON RangeExecution where
+  parseJSON = withText "RangeExecution" parse
+    where parse "index"     = pure RangeExecutionIndex
+          parse "fielddata" = pure RangeExecutionFielddata
+          parse t           = error ("Unrecognized RangeExecution " <> show t)
 
 instance ToJSON RegexpFlags where
   toJSON AllRegexpFlags              = String "ALL"
@@ -2417,6 +2630,23 @@ instance ToJSON RegexpFlags where
           flagStr Empty        = "EMPTY"
           flagStr Intersection = "INTERSECTION"
           flagStr Interval     = "INTERVAL"
+
+instance FromJSON RegexpFlags where
+  parseJSON = withText "RegexpFlags" parse
+    where parse "ALL" = pure AllRegexpFlags
+          parse "NONE" = pure NoRegexpFlags
+          parse t = SomeRegexpFlags <$> parseNEJSON (String <$> T.splitOn "|" t)
+
+instance FromJSON RegexpFlag where
+  parseJSON = withText "RegexpFlag" parse
+    where parse "ANYSTRING"    = pure AnyString
+          parse "ANYSTRING"    = pure AnyString
+          parse "AUTOMATON"    = pure Automaton
+          parse "COMPLEMENT"   = pure Complement
+          parse "EMPTY"        = pure Empty
+          parse "INTERSECTION" = pure Intersection
+          parse "INTERVAL"     = pure Interval
+          parse f              = fail ("Unknown RegexpFlag: " <> show f)
 
 instance ToJSON Term where
   toJSON (Term field value) = object ["term" .= object
