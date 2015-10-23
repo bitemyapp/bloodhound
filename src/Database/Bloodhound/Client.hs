@@ -287,7 +287,7 @@ parseEsResponse :: (MonadBH m, MonadThrow m, FromJSON a) => Reply
 parseEsResponse reply
   | respIsTwoHunna reply = case eitherDecode body of
                              Right a -> return (Right a)
-                             Left e -> case eitherDecode body of
+                             Left _ -> case eitherDecode body of
                                          Right e -> return (Left e)
                                          -- this case should not be possible
                                          Left _ -> explode
@@ -348,8 +348,9 @@ updateIndexAliases actions = bindM2 post url (return body)
         body = Just (encode bodyJSON)
         bodyJSON = object [ "actions" .= NE.toList actions]
 
-getIndexAliases :: (MonadBH m) => m (Either EsError IndexAliasesSummary)
-getIndexAliases = liftIO . parseEsResponse =<< get =<< url
+getIndexAliases :: (MonadBH m, MonadThrow m)
+                => m (Either EsError IndexAliasesSummary)
+getIndexAliases = parseEsResponse =<< get =<< url
   where url = joinPath ["_aliases"]
 
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
