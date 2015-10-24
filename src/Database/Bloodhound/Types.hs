@@ -251,6 +251,7 @@ import           Data.Aeson.Types                (Pair, Parser, emptyObject,
                                                   parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
 import           Data.Char
+import           Data.Hashable                   (Hashable)
 import qualified Data.HashMap.Strict             as HM
 import           Data.List                       (foldl', nub)
 import           Data.List.NonEmpty              (NonEmpty (..), toList)
@@ -265,6 +266,8 @@ import           GHC.Enum
 import           GHC.Generics                    (Generic)
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method       as NHTM
+
+import           Debug.Trace
 
 import           Database.Bloodhound.Types.Class
 
@@ -711,8 +714,6 @@ newtype BoostTerms =
 -}
 newtype MinimumMatch =
   MinimumMatch Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
-newtype MinimumMatchText =
-  MinimumMatchText Text deriving (Eq, Show, ToJSON, FromJSON)
 newtype DisableCoord =
   DisableCoord Bool deriving (Eq, Show, Generic, ToJSON, FromJSON)
 newtype IgnoreTermFrequency =
@@ -1722,18 +1723,24 @@ instance FromJSON Filter where
                                   <*> o .:? "_cache" .!= defaultCache
           orFilter o = OrFilter <$> o .: "filters"
                                 <*> o .:? "_cache" .!= defaultCache
-          notFilter o = NotFilter <$> o .: "filters"
+          notFilter o = NotFilter <$> o .: "filter"
                                   <*> o .: "_cache" .!= defaultCache
-          identityFilter () = pure IdentityFilter
+          identityFilter :: Object -> Parser Filter
+          identityFilter m
+            | HM.null m = pure IdentityFilter
+            | otherwise = fail ("Identityfilter expected empty object but got " <> show m)
           boolFilter = pure . BoolFilter
           existsFilter o = ExistsFilter <$> o .: "field"
           geoBoundingBoxFilter = pure . GeoBoundingBoxFilter
-          geoDistanceFilter o = flip fieldTagged o $ \fn o' -> do
-            gp <- GeoPoint fn <$> parseJSON (Object o')
-            GeoDistanceFilter gp <$> o .: "distance"
-                                 <*> o .: "distance_type"
-                                 <*> o .: "optimize_bbox"
-                                 <*> o .:? "_cache" .!= defaultCache
+          geoDistanceFilter o = do
+            case HM.toList (deleteSeveral ["distance", "distance_type", "optimize_bbox", "_cache"] o) of
+              [(fn, v)] -> do
+                gp <- GeoPoint (FieldName fn) <$> parseJSON v
+                GeoDistanceFilter gp <$> o .: "distance"
+                                     <*> o .: "distance_type"
+                                     <*> o .: "optimize_bbox"
+                                     <*> o .:? "_cache" .!= defaultCache
+              _ -> fail "Could not find GeoDistanceFilter field name"
           geoDistanceRangeFilter o = flip fieldTagged o $ \fn o' -> do
             gp <- GeoPoint fn <$> parseJSON (Object o')
             rng <- DistanceRange <$> o .: "from" <*> o .: "to"
@@ -1745,21 +1752,27 @@ instance FromJSON Filter where
           missingFilter o = MissingFilter <$> o .: "field"
                                           <*> o .: "existence"
                                           <*> o .: "null_value"
-          prefixFilter o = flip fieldTagged o $ \fn o' -> PrefixFilter fn <$> parseJSON (Object o')
-                                                                          <*> o .:? "_cache" .!= defaultCache
+          prefixFilter o = case HM.toList (HM.delete "_cache" o) of
+                             [(fn, String v)] -> PrefixFilter (FieldName fn) v <$> o .:? "_cache" .!= defaultCache
+                             _ -> fail "Could not parse PrefixFilter"
+
           queryFilter q = pure (QueryFilter q False)
           fqueryFilter o = QueryFilter <$> o .: "query" <*> pure True
-          rangeFilter o = flip fieldTagged o $ \fn o' -> RangeFilter fn <$> parseJSON (Object o')
-                                                                        <*> o .: "execution"
-                                                                        <*> o .:? "_cache" .!= defaultCache
+          rangeFilter o = case HM.toList (deleteSeveral ["execution", "_cache"] o) of
+                            [(fn, v)] -> RangeFilter (FieldName fn)
+                                         <$> parseJSON v
+                                         <*> o .: "execution"
+                                         <*> o .:? "_cache" .!= defaultCache
+                            _ -> fail "Could not find field name for RangeFilter"
           regexpFilter = fieldTagged $ \fn o -> RegexpFilter fn <$> o .: "value"
                                                                 <*> o .: "flags"
                                                                 <*> o .: "_name"
                                                                 <*> o .:? "_cache" .!= defaultCache
                                                                 <*> o .: "_cache_key"
-          termFilter o = flip fieldTagged o $ \(FieldName fn) o' -> do
-            trm <- Term fn <$> parseJSON (Object o')
-            TermFilter trm <$> o .: "_cache" .!= defaultCache
+          termFilter o = case HM.toList (HM.delete "_cache" o) of
+                         [(termField, String termVal)] -> TermFilter (Term termField termVal)
+                                                          <$> o .:? "_cache" .!= defaultCache
+                         _ -> fail "Could not find term field for TermFilter"
 
 fieldTagged :: Monad m => (FieldName -> Object -> m a) -> Object -> m a
 fieldTagged f o = case HM.toList o of
@@ -1866,13 +1879,13 @@ instance ToJSON Query where
     object [ "simple_query_string" .= query ]
 
 instance FromJSON Query where
-  parseJSON = withObject "Query" parse
+  parseJSON v = withObject "Query" parse v
     where parse o = termQuery `taggedWith` "term"
                 <|> termsQuery `taggedWith` "terms"
                 <|> idsQuery `taggedWith` "ids"
                 <|> queryQueryStringQuery `taggedWith` "query_string"
                 <|> queryMatchQuery `taggedWith` "match"
-                <|> queryMultiMatchQuery o --TODO: is this a precedence issue?
+                <|> queryMultiMatchQuery --TODO: is this a precedence issue?
                 <|> queryBoolQuery `taggedWith` "bool"
                 <|> queryBoostingQuery `taggedWith` "boosting"
                 <|> queryCommonTermsQuery `taggedWith` "common"
@@ -1895,8 +1908,8 @@ instance FromJSON Query where
                 <|> queryRegexpQuery `taggedWith` "regexp"
                 <|> querySimpleQueryStringQuery `taggedWith` "simple_query_string"
             where taggedWith parser k = parser =<< o .: k
-          termQuery o = TermQuery <$> parseJSON (Object o)
-                                  <*> o .:? "boost"
+          termQuery = fieldTagged $ \(FieldName fn) o ->
+                        TermQuery <$> (Term fn <$> o .: "value") <*> o .:? "boost"
           termsQuery o = case HM.toList o of
                            [(fn, vs)] -> do vals <- parseJSON vs
                                             case vals of
@@ -1907,7 +1920,7 @@ instance FromJSON Query where
                                 <*> o .: "values"
           queryQueryStringQuery = pure . QueryQueryStringQuery
           queryMatchQuery = pure . QueryMatchQuery
-          queryMultiMatchQuery = undefined
+          queryMultiMatchQuery = QueryMultiMatchQuery <$> parseJSON v
           queryBoolQuery = pure . QueryBoolQuery
           queryBoostingQuery = pure . QueryBoostingQuery
           queryCommonTermsQuery = pure . QueryCommonTermsQuery
@@ -2071,7 +2084,7 @@ instance FromJSON QueryStringQuery where
 
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) range boost) =
-    object [ fieldName .= conjoined ]
+    object [ fieldName .= object conjoined ]
     where conjoined = [ "boost" .= boost ] ++ (rangeValueToPair range)
 
 instance FromJSON RangeQuery where
@@ -2312,7 +2325,7 @@ instance ToJSON FuzzyLikeThisQuery where
 instance FromJSON FuzzyLikeThisQuery where
   parseJSON = withObject "FuzzyLikeThisQuery" parse
     where parse o = FuzzyLikeThisQuery
-                    <$> o .: "fields"
+                    <$> o .:? "fields" .!= []
                     <*> o .: "like_text"
                     <*> o .: "max_query_terms"
                     <*> o .: "ignore_tf"
@@ -2342,7 +2355,7 @@ instance ToJSON DisMaxQuery where
 instance FromJSON DisMaxQuery where
   parseJSON = withObject "DisMaxQuery" parse
     where parse o = DisMaxQuery
-                    <$> o .: "queries"
+                    <$> o .:? "queries" .!= []
                     <*> o .: "tie_breaker"
                     <*> o .:? "boost"
 
@@ -2467,6 +2480,20 @@ instance ToJSON MultiMatchQuery where
                  , "max_expansions" .= maxEx
                  , "lenient" .= lenient ]
 
+instance FromJSON MultiMatchQuery where
+  parseJSON = withObject "MultiMatchQuery" parse
+    where parse raw = do o <- raw .: "multi_match"
+                         MultiMatchQuery
+                           <$> o .:? "fields" .!= []
+                           <*> o .: "query"
+                           <*> o .: "operator"
+                           <*> o .: "zero_terms_query"
+                           <*> o .:? "tiebreaker"
+                           <*> o .:? "type"
+                           <*> o .:? "cutoff_frequency"
+                           <*> o .:? "analyzer"
+                           <*> o .:? "max_expansions"
+                           <*> o .:? "lenient"
 
 instance ToJSON MultiMatchQueryType where
   toJSON MultiMatchBestFields = "best_fields"
@@ -2603,12 +2630,16 @@ instance FromJSON AliasRouting where
   parseJSON = withObject "AliasRouting" parse
     where parse o = parseAll o <|> parseGranular o
           parseAll o = AllAliasRouting <$> o .: "routing"
-          parseGranular o = GranularAliasRouting <$> o .:? "search_routing"
-                                                 <*> o .:? "index_routing"
+          parseGranular o = do
+            sr <- o .:? "search_routing"
+            ir <- o .:? "index_routing"
+            if isNothing sr && isNothing ir
+               then fail "Both search_routing and index_routing can't be blank"
+               else return (GranularAliasRouting sr ir)
 
 instance FromJSON IndexAliasCreate where
   parseJSON v = withObject "IndexAliasCreate" parse v
-    where parse o = IndexAliasCreate <$> parseJSON v
+    where parse o = IndexAliasCreate <$> optional (parseJSON v)
                                      <*> o .:? "filter"
 
 instance ToJSON SearchAliasRouting where
@@ -2700,6 +2731,9 @@ fastVectorHighPairs (Just
                         ++ commonHighlightPairs fvCom
                         ++ nonPostingsToPairs fvNonPostSettings
 
+deleteSeveral :: (Eq k, Hashable k) => [k] -> HM.HashMap k v -> HM.HashMap k v
+deleteSeveral ks hm = foldr HM.delete hm ks
+
 commonHighlightPairs :: Maybe CommonHighlight -> [Pair]
 commonHighlightPairs Nothing = []
 commonHighlightPairs (Just (CommonHighlight chScore chForceSource chTag chEncoder
@@ -2778,10 +2812,10 @@ instance ToJSON ScoreType where
 
 instance FromJSON ScoreType where
   parseJSON = withText "ScoreType" parse
-    where parse "max" = pure ScoreTypeMax
-          parse "avg" = pure ScoreTypeAvg
-          parse "sum" = pure ScoreTypeSum
-          parse "non" = pure ScoreTypeNone
+    where parse "max"  = pure ScoreTypeMax
+          parse "avg"  = pure ScoreTypeAvg
+          parse "sum"  = pure ScoreTypeSum
+          parse "none" = pure ScoreTypeNone
           parse t = fail ("Unexpected ScoreType: " <> show t)
 
 instance ToJSON Distance where
@@ -2795,7 +2829,12 @@ instance FromJSON Distance where
   parseJSON = withText "Distance" parse
     where parse t = Distance <$> parseCoeff nT
                              <*> parseJSON (String unitT)
-            where (nT, unitT) = T.span isNumber t
+            where (nT, unitT) = T.span validForNumber t
+                  -- may be a better way to do this
+                  validForNumber '-' = True
+                  validForNumber '.' = True
+                  validForNumber 'e' = True
+                  validForNumber c = isNumber c
                   parseCoeff "" = fail "Empty string cannot be parsed as number"
                   parseCoeff s = return (read (T.unpack s))
 
@@ -2857,11 +2896,12 @@ instance ToJSON GeoBoundingBoxConstraint where
 
 instance FromJSON GeoBoundingBoxConstraint where
   parseJSON = withObject "GeoBoundingBoxConstraint" parse
-    where parse o = flip fieldTagged o $ \fn o' -> 
-                      GeoBoundingBoxConstraint fn
-                      <$> parseJSON (Object o')
-                      <*> o .:? "cache" .!= defaultCache
-                      <*> o .: "type"
+    where parse o = case HM.toList (deleteSeveral ["type", "_cache"] o) of
+                      [(fn, v)] -> GeoBoundingBoxConstraint (FieldName fn)
+                                   <$> parseJSON v
+                                   <*> o .:? "_cache" .!= defaultCache
+                                   <*> o .: "type"
+                      _ -> fail "Could not find field name for GeoBoundingBoxConstraint"
 
 instance ToJSON GeoFilterType where
   toJSON GeoFilterMemory  = String "memory"

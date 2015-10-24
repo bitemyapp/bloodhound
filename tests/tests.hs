@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main where
 
@@ -9,21 +10,25 @@ import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Reader
 import           Data.Aeson
+import           Data.Aeson.Types                (parseEither)
+import           Data.DeriveTH
 import qualified Data.HashMap.Strict             as HM
 import           Data.List                       (nub)
 import           Data.List.NonEmpty              (NonEmpty (..))
 import qualified Data.List.NonEmpty              as NE
 import qualified Data.Map.Strict                 as M
 import           Data.Monoid
+import           Data.Proxy
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Calendar              (Day (..))
 import           Data.Time.Clock                 (UTCTime (..),
                                                   secondsToDiffTime)
+import           Data.Typeable
 import qualified Data.Vector                     as V
 import           Database.Bloodhound
 import           GHC.Generics                    (Generic)
-import           Network.HTTP.Client
+import           Network.HTTP.Client             hiding (Proxy)
 import qualified Network.HTTP.Types.Status       as NHTS
 import           Prelude                         hiding (filter)
 import           Test.Hspec
@@ -31,6 +36,7 @@ import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 
 import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck
+import           Test.QuickCheck.Instances       ()
 
 testServer  :: Server
 testServer  = Server "http://localhost:9200"
@@ -100,6 +106,12 @@ is v = testServerBranch >>= \x -> return $ x == Just (serverBranch v)
 
 when' :: Monad m => m Bool -> m () -> m ()
 when' b f = b >>= \x -> when x f
+
+propJSON :: forall a. (Arbitrary a, ToJSON a, FromJSON a, Show a, Eq a, Typeable a) => Proxy a -> Spec
+propJSON _ = prop testName $ \(a :: a) ->
+  parseEither parseJSON (toJSON a) === Right a
+  where testName = show ty <> " FromJSON/ToJSON roundtrips"
+        ty = typeOf (undefined :: a)
 
 data Location = Location { lat :: Double
                          , lon :: Double } deriving (Eq, Generic, Show)
@@ -265,41 +277,11 @@ instance ToJSON BulkTest where
 noDuplicates :: Eq a => [a] -> Bool
 noDuplicates xs = nub xs == xs
 
-instance Arbitrary RegexpFlags where
-  arbitrary = oneof [ pure AllRegexpFlags
-                    , pure NoRegexpFlags
-                    , SomeRegexpFlags <$> arbitrary
-                    ]
-
 instance Arbitrary a => Arbitrary (NonEmpty a) where
   arbitrary = liftA2 (:|) arbitrary arbitrary
 
-instance Arbitrary RegexpFlag where
-  arbitrary = oneof [ pure AnyString
-                    , pure Automaton
-                    , pure Complement
-                    , pure Empty
-                    , pure Intersection
-                    , pure Interval
-                    ]
-
 arbitraryScore :: Gen Score
 arbitraryScore = fmap getPositive <$> arbitrary
-
-instance Arbitrary Text where
-  arbitrary = T.pack <$> arbitrary
-
-instance (Arbitrary k, Arbitrary v, Ord k) => Arbitrary (M.Map k v) where
-  arbitrary = M.fromList <$> arbitrary
-
-instance Arbitrary IndexName where
-  arbitrary = IndexName <$> arbitrary
-
-instance Arbitrary MappingName where
-  arbitrary = MappingName <$> arbitrary
-
-instance Arbitrary DocId where
-  arbitrary = DocId <$> arbitrary
 
 instance Arbitrary a => Arbitrary (Hit a) where
   arbitrary = Hit <$> arbitrary
@@ -326,6 +308,135 @@ grabFirst r =
     (Left e) -> Left e
     (Right Nothing) -> Left "Source was missing"
     (Right (Just x)) -> Right x
+
+-------------------------------------------------------------------------------
+arbitraryAlphaNum :: Gen Char
+arbitraryAlphaNum = oneof [choose ('a', 'z')
+                          ,choose ('A','Z')
+                          , choose ('0', '9')]
+
+instance Arbitrary RoutingValue where
+  arbitrary = RoutingValue . T.pack <$> listOf1 arbitraryAlphaNum
+
+instance Arbitrary AliasRouting where
+  arbitrary = oneof [allAlias
+                    ,one
+                    ,theOther
+                    ,both]
+    where one = GranularAliasRouting
+                <$> (Just <$> arbitrary)
+                <*> pure Nothing
+          theOther = GranularAliasRouting Nothing
+                     <$> (Just <$> arbitrary)
+          both = GranularAliasRouting
+                 <$> (Just <$> arbitrary)
+                 <*> (Just <$> arbitrary)
+          allAlias = AllAliasRouting <$> arbitrary
+
+$(derive makeArbitrary ''IndexName)
+$(derive makeArbitrary ''FieldName)
+$(derive makeArbitrary ''MappingName)
+$(derive makeArbitrary ''DocId)
+$(derive makeArbitrary ''Version)
+$(derive makeArbitrary ''IndexAliasRouting)
+$(derive makeArbitrary ''ShardCount)
+$(derive makeArbitrary ''ReplicaCount)
+$(derive makeArbitrary ''TemplateName)
+$(derive makeArbitrary ''TemplatePattern)
+$(derive makeArbitrary ''QueryString)
+$(derive makeArbitrary ''CacheName)
+$(derive makeArbitrary ''CacheKey)
+$(derive makeArbitrary ''Existence)
+$(derive makeArbitrary ''CutoffFrequency)
+$(derive makeArbitrary ''Analyzer)
+$(derive makeArbitrary ''MaxExpansions)
+$(derive makeArbitrary ''Lenient)
+$(derive makeArbitrary ''Tiebreaker)
+$(derive makeArbitrary ''Boost)
+$(derive makeArbitrary ''BoostTerms)
+$(derive makeArbitrary ''MinimumMatch)
+$(derive makeArbitrary ''DisableCoord)
+$(derive makeArbitrary ''IgnoreTermFrequency)
+$(derive makeArbitrary ''MinimumTermFrequency)
+$(derive makeArbitrary ''MaxQueryTerms)
+$(derive makeArbitrary ''Fuzziness)
+$(derive makeArbitrary ''PrefixLength)
+$(derive makeArbitrary ''TypeName)
+$(derive makeArbitrary ''PercentMatch)
+$(derive makeArbitrary ''StopWord)
+$(derive makeArbitrary ''QueryPath)
+$(derive makeArbitrary ''AllowLeadingWildcard)
+$(derive makeArbitrary ''LowercaseExpanded)
+$(derive makeArbitrary ''EnablePositionIncrements)
+$(derive makeArbitrary ''AnalyzeWildcard)
+$(derive makeArbitrary ''GeneratePhraseQueries)
+$(derive makeArbitrary ''Locale)
+$(derive makeArbitrary ''MaxWordLength)
+$(derive makeArbitrary ''MinWordLength)
+$(derive makeArbitrary ''PhraseSlop)
+$(derive makeArbitrary ''MinDocFrequency)
+$(derive makeArbitrary ''MaxDocFrequency)
+$(derive makeArbitrary ''Regexp)
+$(derive makeArbitrary ''Filter)
+$(derive makeArbitrary ''Query)
+$(derive makeArbitrary ''SimpleQueryStringQuery)
+$(derive makeArbitrary ''FieldOrFields)
+$(derive makeArbitrary ''SimpleQueryFlag)
+$(derive makeArbitrary ''RegexpQuery)
+$(derive makeArbitrary ''QueryStringQuery)
+$(derive makeArbitrary ''RangeQuery)
+$(derive makeArbitrary ''RangeValue)
+$(derive makeArbitrary ''PrefixQuery)
+$(derive makeArbitrary ''NestedQuery)
+$(derive makeArbitrary ''MoreLikeThisFieldQuery)
+$(derive makeArbitrary ''MoreLikeThisQuery)
+$(derive makeArbitrary ''IndicesQuery)
+$(derive makeArbitrary ''HasParentQuery)
+$(derive makeArbitrary ''HasChildQuery)
+$(derive makeArbitrary ''FuzzyQuery)
+$(derive makeArbitrary ''FuzzyLikeFieldQuery)
+$(derive makeArbitrary ''FuzzyLikeThisQuery)
+$(derive makeArbitrary ''FilteredQuery)
+$(derive makeArbitrary ''DisMaxQuery)
+$(derive makeArbitrary ''CommonTermsQuery)
+$(derive makeArbitrary ''DistanceRange)
+$(derive makeArbitrary ''MultiMatchQuery)
+$(derive makeArbitrary ''LessThanD)
+$(derive makeArbitrary ''LessThanEqD)
+$(derive makeArbitrary ''GreaterThanD)
+$(derive makeArbitrary ''GreaterThanEqD)
+$(derive makeArbitrary ''LessThan)
+$(derive makeArbitrary ''LessThanEq)
+$(derive makeArbitrary ''GreaterThan)
+$(derive makeArbitrary ''GreaterThanEq)
+$(derive makeArbitrary ''GeoPoint)
+$(derive makeArbitrary ''NullValue)
+$(derive makeArbitrary ''MinimumMatchHighLow)
+$(derive makeArbitrary ''CommonMinimumMatch)
+$(derive makeArbitrary ''BoostingQuery)
+$(derive makeArbitrary ''BoolQuery)
+$(derive makeArbitrary ''MatchQuery)
+$(derive makeArbitrary ''MultiMatchQueryType)
+$(derive makeArbitrary ''BooleanOperator)
+$(derive makeArbitrary ''ZeroTermsQuery)
+$(derive makeArbitrary ''MatchQueryType)
+$(derive makeArbitrary ''IndexAliasCreate)
+$(derive makeArbitrary ''SearchAliasRouting)
+$(derive makeArbitrary ''ScoreType)
+$(derive makeArbitrary ''Distance)
+$(derive makeArbitrary ''DistanceUnit)
+$(derive makeArbitrary ''DistanceType)
+$(derive makeArbitrary ''OptimizeBbox)
+$(derive makeArbitrary ''GeoBoundingBoxConstraint)
+$(derive makeArbitrary ''GeoFilterType)
+$(derive makeArbitrary ''GeoBoundingBox)
+$(derive makeArbitrary ''LatLon)
+$(derive makeArbitrary ''RangeExecution)
+$(derive makeArbitrary ''RegexpFlags)
+$(derive makeArbitrary ''RegexpFlag)
+$(derive makeArbitrary ''BoolMatch)
+$(derive makeArbitrary ''Term)
+
 
 main :: IO ()
 main = hspec $ do
@@ -869,3 +980,100 @@ main = hspec $ do
         regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored
       liftIO $
         scan_search `shouldMatchList` [Just exampleTweet, Just otherTweet]
+
+  describe "JSON instances" $ do
+    propJSON (Proxy :: Proxy Version)
+    propJSON (Proxy :: Proxy IndexName)
+    propJSON (Proxy :: Proxy MappingName)
+    propJSON (Proxy :: Proxy DocId)
+    propJSON (Proxy :: Proxy IndexAliasRouting)
+    propJSON (Proxy :: Proxy RoutingValue)
+    propJSON (Proxy :: Proxy ShardCount)
+    propJSON (Proxy :: Proxy ReplicaCount)
+    propJSON (Proxy :: Proxy TemplateName)
+    propJSON (Proxy :: Proxy TemplatePattern)
+    propJSON (Proxy :: Proxy QueryString)
+    propJSON (Proxy :: Proxy FieldName)
+    propJSON (Proxy :: Proxy CacheName)
+    propJSON (Proxy :: Proxy CacheKey)
+    propJSON (Proxy :: Proxy Existence)
+    propJSON (Proxy :: Proxy CutoffFrequency)
+    propJSON (Proxy :: Proxy Analyzer)
+    propJSON (Proxy :: Proxy MaxExpansions)
+    propJSON (Proxy :: Proxy Lenient)
+    propJSON (Proxy :: Proxy Tiebreaker)
+    propJSON (Proxy :: Proxy Boost)
+    propJSON (Proxy :: Proxy BoostTerms)
+    propJSON (Proxy :: Proxy MaxExpansions)
+    propJSON (Proxy :: Proxy MinimumMatch)
+    propJSON (Proxy :: Proxy DisableCoord)
+    propJSON (Proxy :: Proxy IgnoreTermFrequency)
+    propJSON (Proxy :: Proxy MinimumTermFrequency)
+    propJSON (Proxy :: Proxy MaxQueryTerms)
+    propJSON (Proxy :: Proxy Fuzziness)
+    propJSON (Proxy :: Proxy PrefixLength)
+    propJSON (Proxy :: Proxy TypeName)
+    propJSON (Proxy :: Proxy PercentMatch)
+    propJSON (Proxy :: Proxy StopWord)
+    propJSON (Proxy :: Proxy QueryPath)
+    propJSON (Proxy :: Proxy AllowLeadingWildcard)
+    propJSON (Proxy :: Proxy LowercaseExpanded)
+    propJSON (Proxy :: Proxy EnablePositionIncrements)
+    propJSON (Proxy :: Proxy AnalyzeWildcard)
+    propJSON (Proxy :: Proxy GeneratePhraseQueries)
+    propJSON (Proxy :: Proxy Locale)
+    propJSON (Proxy :: Proxy MaxWordLength)
+    propJSON (Proxy :: Proxy MinWordLength)
+    propJSON (Proxy :: Proxy PhraseSlop)
+    propJSON (Proxy :: Proxy MinDocFrequency)
+    propJSON (Proxy :: Proxy MaxDocFrequency)
+    propJSON (Proxy :: Proxy Filter)
+    propJSON (Proxy :: Proxy Query)
+    propJSON (Proxy :: Proxy SimpleQueryStringQuery)
+    propJSON (Proxy :: Proxy FieldOrFields)
+    propJSON (Proxy :: Proxy SimpleQueryFlag)
+    propJSON (Proxy :: Proxy RegexpQuery)
+    propJSON (Proxy :: Proxy QueryStringQuery)
+    propJSON (Proxy :: Proxy RangeQuery)
+    propJSON (Proxy :: Proxy PrefixQuery)
+    propJSON (Proxy :: Proxy NestedQuery)
+    propJSON (Proxy :: Proxy MoreLikeThisFieldQuery)
+    propJSON (Proxy :: Proxy MoreLikeThisQuery)
+    propJSON (Proxy :: Proxy IndicesQuery)
+    propJSON (Proxy :: Proxy HasParentQuery)
+    propJSON (Proxy :: Proxy HasChildQuery)
+    propJSON (Proxy :: Proxy FuzzyQuery)
+    propJSON (Proxy :: Proxy FuzzyLikeFieldQuery)
+    propJSON (Proxy :: Proxy FuzzyLikeThisQuery)
+    propJSON (Proxy :: Proxy FilteredQuery)
+    propJSON (Proxy :: Proxy DisMaxQuery)
+    propJSON (Proxy :: Proxy CommonTermsQuery)
+    propJSON (Proxy :: Proxy CommonMinimumMatch)
+    propJSON (Proxy :: Proxy BoostingQuery)
+    propJSON (Proxy :: Proxy BoolQuery)
+    propJSON (Proxy :: Proxy MatchQuery)
+    propJSON (Proxy :: Proxy MultiMatchQueryType)
+    propJSON (Proxy :: Proxy BooleanOperator)
+    propJSON (Proxy :: Proxy ZeroTermsQuery)
+    propJSON (Proxy :: Proxy MatchQueryType)
+    propJSON (Proxy :: Proxy AliasRouting)
+    propJSON (Proxy :: Proxy IndexAliasCreate)
+    propJSON (Proxy :: Proxy SearchAliasRouting)
+    propJSON (Proxy :: Proxy ScoreType)
+    propJSON (Proxy :: Proxy Distance)
+    propJSON (Proxy :: Proxy DistanceUnit)
+    propJSON (Proxy :: Proxy DistanceType)
+    propJSON (Proxy :: Proxy OptimizeBbox)
+    propJSON (Proxy :: Proxy GeoBoundingBoxConstraint)
+    propJSON (Proxy :: Proxy GeoFilterType)
+    propJSON (Proxy :: Proxy GeoBoundingBox)
+    propJSON (Proxy :: Proxy LatLon)
+    propJSON (Proxy :: Proxy RangeExecution)
+    prop "RegexpFlags FromJSON/ToJSON roundtrips, removing dups " $ \rfs ->
+      let expected = case rfs of
+                       SomeRegexpFlags fs -> SomeRegexpFlags (NE.fromList (nub (NE.toList fs)))
+                       x -> x
+      in parseEither parseJSON (toJSON rfs) === Right expected
+    propJSON (Proxy :: Proxy BoolMatch)
+    propJSON (Proxy :: Proxy Term)
+    propJSON (Proxy :: Proxy MultiMatchQuery)
