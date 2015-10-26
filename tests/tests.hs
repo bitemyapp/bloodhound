@@ -14,6 +14,7 @@ import           Data.Aeson.Types                (parseEither)
 import           Data.DeriveTH
 import qualified Data.HashMap.Strict             as HM
 import           Data.List                       (nub)
+import qualified Data.List                       as L
 import           Data.List.NonEmpty              (NonEmpty (..))
 import qualified Data.List.NonEmpty              as NE
 import qualified Data.Map.Strict                 as M
@@ -980,6 +981,24 @@ main = hspec $ do
         regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored
       liftIO $
         scan_search `shouldMatchList` [Just exampleTweet, Just otherTweet]
+
+  describe "index aliases" $ do
+    it "handles the simple case of aliasing an existing index" $ do
+      let alias = IndexAlias (testIndex) (IndexAliasName (IndexName "bloodhound-tests-twitter-1-alias"))
+      let create = IndexAliasCreate Nothing Nothing
+      let action = AddAlias alias create
+
+      withTestEnv $ do
+        resetIndex
+        resp <- updateIndexAliases (action :| [])
+        liftIO $ NHTS.statusCode (responseStatus resp) `shouldBe` 200
+      let cleanup = withTestEnv (updateIndexAliases (RemoveAlias alias :| []))
+      (do aliases <- withTestEnv getIndexAliases
+          let expected = IndexAliasSummary alias create
+          case aliases of
+            Right (IndexAliasesSummary summs) ->
+              L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
+            Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)) `finally` cleanup
 
   describe "JSON instances" $ do
     propJSON (Proxy :: Proxy Version)

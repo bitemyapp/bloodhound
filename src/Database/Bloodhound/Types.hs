@@ -468,10 +468,10 @@ newtype IndexAliasRouting = IndexAliasRouting RoutingValue deriving (Show, Eq, T
 
 newtype RoutingValue = RoutingValue { routingValue :: Text } deriving (Show, Eq, ToJSON, FromJSON)
 
-newtype IndexAliasesSummary = IndexAliasesSummary [IndexAliasSummary]
+newtype IndexAliasesSummary = IndexAliasesSummary { indexAliasesSummary :: [IndexAliasSummary] } deriving (Show, Eq)
 
 data IndexAliasSummary = IndexAliasSummary { indexAliasSummaryAlias  :: IndexAlias
-                                           , indexAliasSummaryCreate :: IndexAliasCreate}
+                                           , indexAliasSummaryCreate :: IndexAliasCreate} deriving (Show, Eq)
 
 {-| 'DocVersion' is an integer version number for a document between 1
 and 9.2e+18 used for <<https://www.elastic.co/guide/en/elasticsearch/guide/current/optimistic-concurrency-control.html optimistic concurrency control>>.
