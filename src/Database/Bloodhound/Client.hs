@@ -260,6 +260,7 @@ createIndex indexSettings (IndexName indexName) =
   where url = joinPath [indexName]
         body = Just $ encode indexSettings
 
+
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
 --
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
@@ -278,12 +279,20 @@ deleteIndex (IndexName indexName) =
 -- >>> response <- runBH' $ updateIndexSettings (BlocksWrite False :| []) (IndexName "unconfiguredindex")
 -- >>> respIsTwoHunna response
 -- True
-updateIndexSettings :: MonadBH m => NonEmpty IndexSettingUpdate -> IndexName -> m Reply
+updateIndexSettings :: MonadBH m => NonEmpty UpdatableIndexSetting -> IndexName -> m Reply
 updateIndexSettings updates (IndexName indexName) =
   bindM2 put url (return body)
   where url = joinPath [indexName, "_settings"]
         body = Just (encode jsonBody)
         jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
+
+
+--TODO: This feels a little nicer than returning a reply and coyly
+--implying that it *should* be an IndexSettingsSummary
+getIndexSettings :: MonadBH m => IndexName -> m (Either EsError IndexSettingsSummary)
+getIndexSettings (IndexName indexName) = undefined
+
+
 
 deepMerge :: [Object] -> Object
 deepMerge = LS.foldl' go mempty

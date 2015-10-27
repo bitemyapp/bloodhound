@@ -56,7 +56,8 @@ module Database.Bloodhound.Types
        , Existence(..)
        , NullValue(..)
        , IndexSettings(..)
-       , IndexSettingUpdate(..)
+       , UpdatableIndexSetting(..)
+       , IndexSettingsSummary(..)
        , AllocationPolicy(..)
        , ReplicaBounds(..)
        , Bytes(..)
@@ -357,58 +358,59 @@ data IndexSettings =
 defaultIndexSettings :: IndexSettings
 defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2)
 
-{-| 'IndexSettingUpdate' is used to update an index' settings piecemeal.
+{-| 'UpdatableIndexSetting' are settings which may be updated after an index is created.
 
    <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-update-settings.html>
 -}
-data IndexSettingUpdate = NumberOfReplicas Int
-                        -- ^ The number of replicas each shard has.
-                        | AutoExpandReplicas ReplicaBounds
-                        | BlocksReadOnly Bool
-                        -- ^ Set to True to have the index read only. False to allow writes and metadata changes.
-                        | BlocksRead Bool
-                        -- ^ Set to True to disable read operations against the index.
-                        | BlocksWrite Bool
-                        -- ^ Set to True to disable write operations against the index.
-                        | BlocksMetaData Bool
-                        -- ^ Set to True to disable metadata operations against the index.
-                        | RefreshInterval NominalDiffTime
-                        -- ^ The async refresh interval of a shard
-                        | IndexConcurrency Int
-                        | FailOnMergeFailure Bool
-                        | TranslogFlushThresholdOps Int
-                        -- ^ When to flush on operations.
-                        | TranslogFlushThresholdSize Bytes
-                        -- ^ When to flush based on translog (bytes) size.
-                        | TranslogFlushThresholdPeriod NominalDiffTime
-                        -- ^ When to flush based on a period of not flushing.
-                        | TranslogDisableFlush Bool
-                        -- ^ Disables flushing. Note, should be set for a short interval and then enabled.
-                        | CacheFilterMaxSize (Maybe Bytes)
-                        -- ^ The maximum size of filter cache (per segment in shard).
-                        | CacheFilterExpire (Maybe NominalDiffTime)
-                        -- ^ The expire after access time for filter cache.
-                        | GatewaySnapshotInterval NominalDiffTime
-                        -- ^ The gateway snapshot interval (only applies to shared gateways).
-                        | RoutingAllocationInclude (NonEmpty NodeAttrFilter)
-                        -- ^ A node matching any rule will be allowed to host shards from the index.
-                        | RoutingAllocationExclude (NonEmpty NodeAttrFilter)
-                        -- ^ A node matching any rule will NOT be allowed to host shards from the index.
-                        | RoutingAllocationRequire (NonEmpty NodeAttrFilter)
-                        -- ^ Only nodes matching all rules will be allowed to host shards from the index.
-                        | RoutingAllocationEnable AllocationPolicy
-                        -- ^ Enables shard allocation for a specific index.
-                        | RoutingAllocationShardsPerNode ShardCount
-                        -- ^ Controls the total number of shards (replicas and primaries) allowed to be allocated on a single node.
-                        | RecoveryInitialShards InitialShardCount
-                        -- ^ When using local gateway a particular shard is recovered only if there can be allocated quorum shards in the cluster.
-                        | GCDeletes NominalDiffTime
-                        | TTLDisablePurge Bool
-                        -- ^ Disables temporarily the purge of expired docs.
-                        | TranslogFSType FSType
-                        | IndexCompoundFormat CompoundFormat
-                        | IndexCompoundOnFlush Bool
-                        | WarmerEnabled Bool
+data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
+                           -- ^ The number of replicas each shard has.
+                           | AutoExpandReplicas ReplicaBounds
+                           | BlocksReadOnly Bool
+                           -- ^ Set to True to have the index read only. False to allow writes and metadata changes.
+                           | BlocksRead Bool
+                           -- ^ Set to True to disable read operations against the index.
+                           | BlocksWrite Bool
+                           -- ^ Set to True to disable write operations against the index.
+                           | BlocksMetaData Bool
+                           -- ^ Set to True to disable metadata operations against the index.
+                           | RefreshInterval NominalDiffTime
+                           -- ^ The async refresh interval of a shard
+                           | IndexConcurrency Int
+                           | FailOnMergeFailure Bool
+                           | TranslogFlushThresholdOps Int
+                           -- ^ When to flush on operations.
+                           | TranslogFlushThresholdSize Bytes
+                           -- ^ When to flush based on translog (bytes) size.
+                           | TranslogFlushThresholdPeriod NominalDiffTime
+                           -- ^ When to flush based on a period of not flushing.
+                           | TranslogDisableFlush Bool
+                           -- ^ Disables flushing. Note, should be set for a short interval and then enabled.
+                           | CacheFilterMaxSize (Maybe Bytes)
+                           -- ^ The maximum size of filter cache (per segment in shard).
+                           | CacheFilterExpire (Maybe NominalDiffTime)
+                           -- ^ The expire after access time for filter cache.
+                           | GatewaySnapshotInterval NominalDiffTime
+                           -- ^ The gateway snapshot interval (only applies to shared gateways).
+                           | RoutingAllocationInclude (NonEmpty NodeAttrFilter)
+                           -- ^ A node matching any rule will be allowed to host shards from the index.
+                           | RoutingAllocationExclude (NonEmpty NodeAttrFilter)
+                           -- ^ A node matching any rule will NOT be allowed to host shards from the index.
+                           | RoutingAllocationRequire (NonEmpty NodeAttrFilter)
+                           -- ^ Only nodes matching all rules will be allowed to host shards from the index.
+                           | RoutingAllocationEnable AllocationPolicy
+                           -- ^ Enables shard allocation for a specific index.
+                           | RoutingAllocationShardsPerNode ShardCount
+                           -- ^ Controls the total number of shards (replicas and primaries) allowed to be allocated on a single node.
+                           | RecoveryInitialShards InitialShardCount
+                           -- ^ When using local gateway a particular shard is recovered only if there can be allocated quorum shards in the cluster.
+                           | GCDeletes NominalDiffTime
+                           | TTLDisablePurge Bool
+                           -- ^ Disables temporarily the purge of expired docs.
+                           | TranslogFSType FSType
+                           | IndexCompoundFormat CompoundFormat
+                           | IndexCompoundOnFlush Bool
+                           | WarmerEnabled Bool
+                           deriving (Eq, Show)
 
 data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation for all shards.
@@ -418,10 +420,12 @@ data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation only for primary shards for new indices.
                       | AllocNone
                       -- ^ No shard allocation is allowed
+                      deriving (Eq, Show)
 
 data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasLowerBounded Int
                    | ReplicasUnbounded
+                   deriving (Eq, Show)
 
 newtype Bytes = Bytes Int deriving (Eq, Show, Ord, ToJSON)
 
@@ -433,17 +437,24 @@ data InitialShardCount = QuorumShards
                        | FullShards
                        | FullMinus1Shards
                        | ExplicitShards Int
+                       deriving (Eq, Show)
 
 data NodeAttrFilter = NodeAttrFilter { nodeAttrFilterName :: NodeAttrName
                                      , nodeAttrFilterValues :: NonEmpty Text}
+                                     deriving (Eq, Show)
 
-newtype NodeAttrName = NodeAttrName Text
+newtype NodeAttrName = NodeAttrName Text deriving (Eq, Show)
 
 data CompoundFormat = CompoundFileFormat Bool
                     | MergeSegmentVsTotalIndex Double
                     -- ^ percentage between 0 and 1 where 0 is false, 1 is true
+                    deriving (Eq, Show)
 
 newtype NominalDiffTimeJSON = NominalDiffTimeJSON NominalDiffTime
+
+data IndexSettingsSummary = IndexSettingsSummary { sSummaryShardCount :: ShardCount
+                                                 , sSummaryUpdateable :: [UpdatableIndexSetting]}
+                                                 deriving (Eq, Show)
 
 {-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method.Method' -}
 type Reply = Network.HTTP.Client.Response L.ByteString
@@ -2250,7 +2261,7 @@ instance ToJSON IndexSettings where
                                  ]
                                ]
 
-instance ToJSON IndexSettingUpdate where
+instance ToJSON UpdatableIndexSetting where
   toJSON (NumberOfReplicas x) = oPath ("index" :| ["number_of_replicas"]) x
   toJSON (AutoExpandReplicas x) = oPath ("index" :| ["auto_expand_replicas"]) x
   toJSON (BlocksReadOnly x) = oPath ("blocks" :| ["read_only"]) x
@@ -2270,9 +2281,6 @@ instance ToJSON IndexSettingUpdate where
   toJSON (RoutingAllocationInclude fs) = oPath ("index" :| ["routing", "allocation", "include"]) (attrFilterJSON fs)
   toJSON (RoutingAllocationExclude fs) = oPath ("index" :| ["routing", "allocation", "exclude"]) (attrFilterJSON fs)
   toJSON (RoutingAllocationRequire fs) = oPath ("index" :| ["routing", "allocation", "require"]) (attrFilterJSON fs)
-  toJSON (RoutingAllocationDisable x) = oPath ("index" :| ["routing", "allocation", "disable_allocation"]) x
-  toJSON (RoutingAllocationDisableNew x) = oPath ("index" :| ["routing", "allocation", "disable_new_allocation"]) x
-  toJSON (RoutingAllocationDisableReplica x) = oPath ("index" :| ["routing", "allocation", "disable_replica_allocation"]) x
   toJSON (RoutingAllocationEnable x) = oPath ("index" :| ["routing", "allocation", "enable"]) x
   toJSON (RoutingAllocationShardsPerNode x) = oPath ("index" :| ["routing", "allocation", "total_shards_per_node"]) x
   toJSON (RecoveryInitialShards x) = oPath ("index" :| ["recovery", "initial_shards"]) x
