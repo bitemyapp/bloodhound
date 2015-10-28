@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE UndecidableInstances       #-}
@@ -266,8 +267,6 @@ import           GHC.Enum
 import           GHC.Generics                    (Generic)
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method       as NHTM
-
-import           Debug.Trace
 
 import           Database.Bloodhound.Types.Class
 
@@ -872,7 +871,7 @@ data HighlightTag = TagSchema Text
 
 data Query =
   TermQuery                     Term (Maybe Boost)
-  | TermsQuery                  (NonEmpty Term)
+  | TermsQuery                  Text (NonEmpty Text)
   | QueryMatchQuery             MatchQuery
   | QueryMultiMatchQuery        MultiMatchQuery
   | QueryBoolQuery              BoolQuery
@@ -921,7 +920,7 @@ data SimpleQueryStringQuery =
     , simpleQueryStringField             :: Maybe FieldOrFields
     , simpleQueryStringOperator          :: Maybe BooleanOperator
     , simpleQueryStringAnalyzer          :: Maybe Analyzer
-    , simpleQueryStringFlags             :: Maybe [SimpleQueryFlag]
+    , simpleQueryStringFlags             :: Maybe (NonEmpty SimpleQueryFlag)
     , simpleQueryStringLowercaseExpanded :: Maybe LowercaseExpanded
     , simpleQueryStringLocale            :: Maybe Locale
     } deriving (Eq, Show)
@@ -971,7 +970,7 @@ mkQueryStringQuery qs =
   Nothing Nothing
 
 data FieldOrFields = FofField   FieldName
-                   | FofFields [FieldName] deriving (Eq, Show)
+                   | FofFields (NonEmpty FieldName) deriving (Eq, Show)
 
 data PrefixQuery =
   PrefixQuery
@@ -993,7 +992,7 @@ data MoreLikeThisFieldQuery =
   , moreLikeThisFieldPercentMatch    :: Maybe PercentMatch
   , moreLikeThisFieldMinimumTermFreq :: Maybe MinimumTermFrequency
   , moreLikeThisFieldMaxQueryTerms   :: Maybe MaxQueryTerms
-  , moreLikeThisFieldStopWords       :: Maybe [StopWord]
+  , moreLikeThisFieldStopWords       :: Maybe (NonEmpty StopWord)
   , moreLikeThisFieldMinDocFrequency :: Maybe MinDocFrequency
   , moreLikeThisFieldMaxDocFrequency :: Maybe MaxDocFrequency
   , moreLikeThisFieldMinWordLength   :: Maybe MinWordLength
@@ -1006,12 +1005,12 @@ data MoreLikeThisFieldQuery =
 data MoreLikeThisQuery =
   MoreLikeThisQuery
   { moreLikeThisText            :: Text
-  , moreLikeThisFields          :: Maybe [FieldName]
+  , moreLikeThisFields          :: Maybe (NonEmpty FieldName)
     -- default 0.3 (30%)
   , moreLikeThisPercentMatch    :: Maybe PercentMatch
   , moreLikeThisMinimumTermFreq :: Maybe MinimumTermFrequency
   , moreLikeThisMaxQueryTerms   :: Maybe MaxQueryTerms
-  , moreLikeThisStopWords       :: Maybe [StopWord]
+  , moreLikeThisStopWords       :: Maybe (NonEmpty StopWord)
   , moreLikeThisMinDocFrequency :: Maybe MinDocFrequency
   , moreLikeThisMaxDocFrequency :: Maybe MaxDocFrequency
   , moreLikeThisMinWordLength   :: Maybe MinWordLength
@@ -1741,10 +1740,13 @@ instance FromJSON Filter where
                                      <*> o .: "optimize_bbox"
                                      <*> o .:? "_cache" .!= defaultCache
               _ -> fail "Could not find GeoDistanceFilter field name"
-          geoDistanceRangeFilter o = flip fieldTagged o $ \fn o' -> do
-            gp <- GeoPoint fn <$> parseJSON (Object o')
-            rng <- DistanceRange <$> o .: "from" <*> o .: "to"
-            return (GeoDistanceRangeFilter gp rng)
+          geoDistanceRangeFilter o = do
+            case HM.toList (deleteSeveral ["from", "to"] o) of
+              [(fn, v)] -> do
+                gp <- GeoPoint (FieldName fn) <$> parseJSON v
+                rng <- DistanceRange <$> o .: "from" <*> o .: "to"
+                return (GeoDistanceRangeFilter gp rng)
+              _ -> fail "Could not find GeoDistanceRangeFilter field name"
           geoPolygonFilter = fieldTagged $ \fn o -> GeoPolygonFilter fn <$> o .: "points"
           idsFilter o = IdsFilter <$> o .: "type"
                                   <*> o .: "values"
@@ -1764,11 +1766,14 @@ instance FromJSON Filter where
                                          <*> o .: "execution"
                                          <*> o .:? "_cache" .!= defaultCache
                             _ -> fail "Could not find field name for RangeFilter"
-          regexpFilter = fieldTagged $ \fn o -> RegexpFilter fn <$> o .: "value"
-                                                                <*> o .: "flags"
-                                                                <*> o .: "_name"
-                                                                <*> o .:? "_cache" .!= defaultCache
-                                                                <*> o .: "_cache_key"
+          regexpFilter o = case HM.toList (deleteSeveral ["_name", "_cache", "_cache_key"] o) of
+                              [(fn, Object o')] -> RegexpFilter (FieldName fn)
+                                                   <$> o' .: "value"
+                                                   <*> o' .: "flags"
+                                                   <*> o .: "_name"
+                                                   <*> o .:? "_cache" .!= defaultCache
+                                                   <*> o .: "_cache_key"
+                              _ -> fail "Could not find field name for RegexpFilter"
           termFilter o = case HM.toList (HM.delete "_cache" o) of
                          [(termField, String termVal)] -> TermFilter (Term termField termVal)
                                                           <$> o .:? "_cache" .!= defaultCache
@@ -1793,12 +1798,9 @@ instance ToJSON Query where
       boosted = maybe [] (return . ("boost" .=)) boost
       merged = mappend base boosted
 
-  toJSON (TermsQuery terms) =
+  toJSON (TermsQuery fieldName terms) =
     object [ "terms" .= object conjoined ]
-    where conjoined = [ getTermsField terms .=
-                        fmap (toJSON . getTermValue) (toList terms)]
-          getTermsField ((Term f _ ) :| _) = f
-          getTermValue (Term _ v) = v
+    where conjoined = [fieldName .= terms]
   toJSON (IdsQuery idsQueryMappingName docIds) =
     object [ "ids" .= object conjoined ]
     where conjoined = [ "type"   .= idsQueryMappingName
@@ -1913,7 +1915,7 @@ instance FromJSON Query where
           termsQuery o = case HM.toList o of
                            [(fn, vs)] -> do vals <- parseJSON vs
                                             case vals of
-                                              x:xs -> return (TermsQuery (Term fn <$> x :| xs))
+                                              x:xs -> return (TermsQuery fn (x :| xs))
                                               _ -> fail "Expected non empty list of values"
                            _ -> fail "Expected object with 1 field-named key"
           idsQuery o = IdsQuery <$> o .: "type"
@@ -1970,9 +1972,11 @@ instance FromJSON SimpleQueryStringQuery where
                                            <*> o .:? "fields"
                                            <*> o .:? "default_operator"
                                            <*> o .:? "analyzer"
-                                           <*> o .:? "flags"
+                                           <*> (parseFlags <$> o .:? "flags")
                                            <*> o .:? "lowercase_expanded_terms"
                                            <*> o .:? "locale"
+          parseFlags (Just (x:xs)) = Just (x :| xs)
+          parseFlags _             = Nothing
 
 instance ToJSON FieldOrFields where
   toJSON (FofField fieldName) =
@@ -1982,7 +1986,7 @@ instance ToJSON FieldOrFields where
 
 instance FromJSON FieldOrFields where
   parseJSON v = FofField  <$> parseJSON v
-            <|> FofFields <$> parseJSON v
+            <|> FofFields <$> (parseNEJSON =<< parseJSON v)
 
 instance ToJSON SimpleQueryFlag where
   toJSON SimpleQueryAll        = "ALL"
@@ -2103,10 +2107,10 @@ instance FromJSON RangeValue where
                            gt <- o .:? "gt"
                            gte <- o .:? "gte"
                            case (lt, lte, gt, gte) of
-                             (Just a, _, Just b, _) -> return (RangeDateGtLt (GreaterThanD a) (LessThanD b))
-                             (Just a, _, _, Just b)-> return (RangeDateGteLt (GreaterThanEqD a) (LessThanD b))
-                             (_, Just a, Just b, _)-> return (RangeDateGtLte (GreaterThanD a) (LessThanEqD b))
-                             (_, Just a, _, Just b)-> return (RangeDateGteLte (GreaterThanEqD a) (LessThanEqD b))
+                             (Just a, _, Just b, _) -> return (RangeDateGtLt (GreaterThanD b) (LessThanD a))
+                             (Just a, _, _, Just b)-> return (RangeDateGteLt (GreaterThanEqD b) (LessThanD a))
+                             (_, Just a, Just b, _)-> return (RangeDateGtLte (GreaterThanD b) (LessThanEqD a))
+                             (_, Just a, _, Just b)-> return (RangeDateGteLte (GreaterThanEqD b) (LessThanEqD a))
                              (_, _, Just a, _)-> return (RangeDateGt (GreaterThanD a))
                              (Just a, _, _, _)-> return (RangeDateLt (LessThanD a))
                              (_, _, _, Just a)-> return (RangeDateGte (GreaterThanEqD a))
@@ -2117,10 +2121,10 @@ instance FromJSON RangeValue where
                              gt <- o .:? "gt"
                              gte <- o .:? "gte"
                              case (lt, lte, gt, gte) of
-                               (Just a, _, Just b, _) -> return (RangeDoubleGtLt (GreaterThan a) (LessThan b))
-                               (Just a, _, _, Just b)-> return (RangeDoubleGteLt (GreaterThanEq a) (LessThan b))
-                               (_, Just a, Just b, _)-> return (RangeDoubleGtLte (GreaterThan a) (LessThanEq b))
-                               (_, Just a, _, Just b)-> return (RangeDoubleGteLte (GreaterThanEq a) (LessThanEq b))
+                               (Just a, _, Just b, _) -> return (RangeDoubleGtLt (GreaterThan b) (LessThan a))
+                               (Just a, _, _, Just b)-> return (RangeDoubleGteLt (GreaterThanEq b) (LessThan a))
+                               (_, Just a, Just b, _)-> return (RangeDoubleGtLte (GreaterThan b) (LessThanEq a))
+                               (_, Just a, _, Just b)-> return (RangeDoubleGteLte (GreaterThanEq b) (LessThanEq a))
                                (_, _, Just a, _)-> return (RangeDoubleGt (GreaterThan a))
                                (Just a, _, _, _)-> return (RangeDoubleLt (LessThan a))
                                (_, _, _, Just a)-> return (RangeDoubleGte (GreaterThanEq a))
@@ -2180,7 +2184,7 @@ instance FromJSON MoreLikeThisFieldQuery where
                     <*> o .:? "percent_terms_to_match"
                     <*> o .:? "min_term_freq"
                     <*> o .:? "max_query_terms"
-                    <*> o .:? "stop_words"
+                    <*> (optionalNE =<< o .:? "stop_words")
                     <*> o .:? "min_doc_freq"
                     <*> o .:? "max_doc_freq"
                     <*> o .:? "min_word_length"
@@ -2188,6 +2192,7 @@ instance FromJSON MoreLikeThisFieldQuery where
                     <*> o .:? "boost_terms"
                     <*> o .:? "boost"
                     <*> o .:? "analyzer"
+          optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
 
 instance ToJSON MoreLikeThisQuery where
   toJSON (MoreLikeThisQuery text fields percent
@@ -2212,11 +2217,11 @@ instance FromJSON MoreLikeThisQuery where
   parseJSON = withObject "MoreLikeThisQuery" parse
     where parse o = MoreLikeThisQuery
                     <$> o .: "like_text"
-                    <*> o .:? "fields"
+                    <*> (optionalNE =<< o .:? "fields")
                     <*> o .:? "percent_terms_to_match"
                     <*> o .:? "min_term_freq"
                     <*> o .:? "max_query_terms"
-                    <*> o .:? "stop_words"
+                    <*> (optionalNE =<< o .:? "stop_words")
                     <*> o .:? "min_doc_freq"
                     <*> o .:? "max_doc_freq"
                     <*> o .:? "min_word_length"
@@ -2224,6 +2229,7 @@ instance FromJSON MoreLikeThisQuery where
                     <*> o .:? "boost_terms"
                     <*> o .:? "boost"
                     <*> o .:? "analyzer"
+          optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
 
 instance ToJSON IndicesQuery where
   toJSON (IndicesQuery indices query noMatch) =
@@ -2234,7 +2240,7 @@ instance ToJSON IndicesQuery where
 instance FromJSON IndicesQuery where
   parseJSON = withObject "IndicesQuery" parse
     where parse o = IndicesQuery
-                    <$> o .: "indices"
+                    <$> o .:? "indices" .!= []
                     <*> o .: "query"
                     <*> o .:? "no_match_query"
 

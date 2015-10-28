@@ -1,7 +1,8 @@
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main where
 
@@ -294,11 +295,14 @@ instance Arbitrary a => Arbitrary (Hit a) where
 
 
 instance Arbitrary a => Arbitrary (SearchHits a) where
-  arbitrary = sized $ \n -> resize (n `div` 2) $ do
+  arbitrary = reduceSize $ do
     tot <- getPositive <$> arbitrary
     score <- arbitraryScore
     hs <- arbitrary
     return $ SearchHits tot score hs
+
+reduceSize :: Gen a -> Gen a
+reduceSize f = sized $ \n -> resize (n `div` 2) f
 
 getSource :: EsResult a -> Maybe a
 getSource = fmap _source . foundResult
@@ -334,8 +338,20 @@ instance Arbitrary AliasRouting where
                  <*> (Just <$> arbitrary)
           allAlias = AllAliasRouting <$> arbitrary
 
+instance Arbitrary FieldName where
+  arbitrary = FieldName . T.pack <$> listOf1 arbitraryAlphaNum
+
+instance Arbitrary RegexpFlags where
+  arbitrary = oneof [ pure AllRegexpFlags
+                    , pure NoRegexpFlags
+                    , SomeRegexpFlags <$> genUniqueFlags
+                    ]
+    where genUniqueFlags = NE.fromList . nub <$> listOf1 arbitrary
+
+instance Arbitrary IndexAliasCreate where
+  arbitrary = IndexAliasCreate <$> arbitrary <*> reduceSize arbitrary
+
 $(derive makeArbitrary ''IndexName)
-$(derive makeArbitrary ''FieldName)
 $(derive makeArbitrary ''MappingName)
 $(derive makeArbitrary ''DocId)
 $(derive makeArbitrary ''Version)
@@ -421,7 +437,6 @@ $(derive makeArbitrary ''MultiMatchQueryType)
 $(derive makeArbitrary ''BooleanOperator)
 $(derive makeArbitrary ''ZeroTermsQuery)
 $(derive makeArbitrary ''MatchQueryType)
-$(derive makeArbitrary ''IndexAliasCreate)
 $(derive makeArbitrary ''SearchAliasRouting)
 $(derive makeArbitrary ''ScoreType)
 $(derive makeArbitrary ''Distance)
@@ -433,7 +448,6 @@ $(derive makeArbitrary ''GeoFilterType)
 $(derive makeArbitrary ''GeoBoundingBox)
 $(derive makeArbitrary ''LatLon)
 $(derive makeArbitrary ''RangeExecution)
-$(derive makeArbitrary ''RegexpFlags)
 $(derive makeArbitrary ''RegexpFlag)
 $(derive makeArbitrary ''BoolMatch)
 $(derive makeArbitrary ''Term)
@@ -551,7 +565,7 @@ main = hspec $ do
 
     it "returns document for terms query and identity filter" $ withTestEnv $ do
       _ <- insertData
-      let query = TermsQuery (NE.fromList [(Term "user" "bitemyapp")])
+      let query = TermsQuery "user" ("bitemyapp" :| [])
       let filter = IdentityFilter <&&> IdentityFilter
       let search = mkSearch (Just query) (Just filter)
       myTweet <- searchTweet search
