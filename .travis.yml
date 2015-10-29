@@ -27,7 +27,7 @@ install:
   - stack --version
 
   # elasticsearch
-  - wget --no-check-certificate https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.0.0/elasticsearch-$ESVER.tar.gz
+  - wget --no-check-certificate https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-$ESVER.tar.gz
   - ./elasticsearch-$ESVER/bin/elasticsearch
 
 script:
