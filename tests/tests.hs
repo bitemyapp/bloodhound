@@ -351,6 +351,56 @@ instance Arbitrary RegexpFlags where
 instance Arbitrary IndexAliasCreate where
   arbitrary = IndexAliasCreate <$> arbitrary <*> reduceSize arbitrary
 
+instance Arbitrary Query where
+  arbitrary = reduceSize $ oneof [ TermQuery <$> arbitrary <*> arbitrary
+                                 , TermsQuery <$> arbitrary <*> arbitrary
+                                 , QueryMatchQuery <$> arbitrary
+                                 , QueryMultiMatchQuery <$> arbitrary
+                                 , QueryBoolQuery <$> arbitrary
+                                 , QueryBoostingQuery <$> arbitrary
+                                 , QueryCommonTermsQuery <$> arbitrary
+                                 , ConstantScoreFilter <$> arbitrary <*> arbitrary
+                                 , ConstantScoreQuery <$> arbitrary <*> arbitrary
+                                 , QueryDisMaxQuery <$> arbitrary
+                                 , QueryFilteredQuery <$> arbitrary
+                                 , QueryFuzzyLikeThisQuery <$> arbitrary
+                                 , QueryFuzzyLikeFieldQuery <$> arbitrary
+                                 , QueryFuzzyQuery <$> arbitrary
+                                 , QueryHasChildQuery <$> arbitrary
+                                 , QueryHasParentQuery <$> arbitrary
+                                 , IdsQuery <$> arbitrary <*> arbitrary
+                                 , QueryIndicesQuery <$> arbitrary
+                                 , MatchAllQuery <$> arbitrary
+                                 , QueryMoreLikeThisQuery <$> arbitrary
+                                 , QueryMoreLikeThisFieldQuery <$> arbitrary
+                                 , QueryNestedQuery <$> arbitrary
+                                 , QueryPrefixQuery <$> arbitrary
+                                 , QueryQueryStringQuery <$> arbitrary
+                                 , QuerySimpleQueryStringQuery <$> arbitrary
+                                 , QueryRangeQuery <$> arbitrary
+                                 , QueryRegexpQuery <$> arbitrary
+                                 ]
+
+instance Arbitrary Filter where
+  arbitrary = reduceSize $ oneof [ AndFilter <$> arbitrary <*> arbitrary
+                                 , OrFilter <$> arbitrary <*> arbitrary
+                                 , NotFilter <$> arbitrary <*> arbitrary
+                                 , pure IdentityFilter
+                                 , BoolFilter <$> arbitrary
+                                 , ExistsFilter <$> arbitrary
+                                 , GeoBoundingBoxFilter <$> arbitrary
+                                 , GeoDistanceFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+                                 , GeoDistanceRangeFilter <$> arbitrary <*> arbitrary
+                                 , GeoPolygonFilter <$> arbitrary <*> arbitrary
+                                 , IdsFilter <$> arbitrary <*> arbitrary
+                                 , LimitFilter <$> arbitrary
+                                 , MissingFilter <$> arbitrary <*> arbitrary <*> arbitrary
+                                 , PrefixFilter <$> arbitrary <*> arbitrary <*> arbitrary
+                                 , QueryFilter <$> arbitrary <*> arbitrary
+                                 , RangeFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+                                 , RegexpFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+                                 , TermFilter <$> arbitrary <*> arbitrary]
+
 $(derive makeArbitrary ''IndexName)
 $(derive makeArbitrary ''MappingName)
 $(derive makeArbitrary ''DocId)
@@ -394,8 +444,6 @@ $(derive makeArbitrary ''PhraseSlop)
 $(derive makeArbitrary ''MinDocFrequency)
 $(derive makeArbitrary ''MaxDocFrequency)
 $(derive makeArbitrary ''Regexp)
-$(derive makeArbitrary ''Filter)
-$(derive makeArbitrary ''Query)
 $(derive makeArbitrary ''SimpleQueryStringQuery)
 $(derive makeArbitrary ''FieldOrFields)
 $(derive makeArbitrary ''SimpleQueryFlag)

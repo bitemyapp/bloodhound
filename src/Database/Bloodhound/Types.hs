@@ -1825,12 +1825,12 @@ instance ToJSON Query where
     object [ "common" .= commonTermsQuery ]
 
   toJSON (ConstantScoreFilter csFilter boost) =
-    object [ "constant_score" .= csFilter
+    object ["filter" .= object ["constant_score" .= csFilter]
            , "boost" .= boost]
 
   toJSON (ConstantScoreQuery query boost) =
-    object [ "constant_score" .= query
-           , "boost"          .= boost]
+    object ["query" .= object ["constant_score" .= query]
+           , "boost" .= boost]
 
   toJSON (QueryDisMaxQuery disMaxQuery) =
     object [ "dis_max" .= disMaxQuery ]
@@ -1926,10 +1926,15 @@ instance FromJSON Query where
           queryBoolQuery = pure . QueryBoolQuery
           queryBoostingQuery = pure . QueryBoostingQuery
           queryCommonTermsQuery = pure . QueryCommonTermsQuery
-          constantScoreFilter o = ConstantScoreFilter <$> o .: "constant_score"
-                                                      <*> o .: "boost"
-          constantScoreQuery o = ConstantScoreQuery <$> o .: "constant_score"
+          --FIXME: these are ambiguous
+          constantScoreFilter o = case HM.lookup "filter" o of
+            Just (Object o') -> ConstantScoreFilter <$> o' .: "constant_score"
                                                     <*> o .: "boost"
+            _ -> fail "Does not appear to be a ConstantScoreFilter"
+          constantScoreQuery o = case HM.lookup "query" o of
+            Just (Object o') -> ConstantScoreQuery <$> o' .: "constant_score"
+                                                   <*> o .: "boost"
+            _ -> fail "Does not appear to be a ConstantScoreFilter"
           queryDisMaxQuery = pure . QueryDisMaxQuery
           queryFilteredQuery = pure . QueryFilteredQuery
           queryFuzzyLikeThisQuery = pure . QueryFuzzyLikeThisQuery
