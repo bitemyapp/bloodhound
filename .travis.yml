@@ -16,6 +16,7 @@ env:
  - GHCVER=7.10 ESVER=1.5.2
  - GHCVER=7.10 ESVER=1.6.0
  - GHCVER=7.10 ESVER=1.7.2
+ - GHCVER=7.10 ESVER=2.0.0
 
 install:
   # stack
