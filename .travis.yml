@@ -28,7 +28,7 @@ install:
 
   # elasticsearch
   - wget --no-check-certificate https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-$ESVER.tar.gz
-  - tar -xzf elasticsearch-$ESVER.tar.gz
+  - tar xzf elasticsearch-$ESVER.tar.gz
   - ./elasticsearch-$ESVER/bin/elasticsearch
 
 script:
