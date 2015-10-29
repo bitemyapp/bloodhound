@@ -1,11 +1,11 @@
-# NB: don't set `language: haskell` here
+sudo: false
 
-# See also https://github.com/hvr/multi-ghc-travis for more information
+addons:
+  apt:
+    packages:
+      - libgmp-dev
+      - openjdk-6-jre
 
-# The following lines enable several GHC versions and/or HP versions
-# to be tested; often it's enough to test only against the last
-# release of a major GHC version. Setting HPVER implictly sets
-# GHCVER. Omit lines with versions you don't need/want testing for.
 env:
  # - GHCVER=7.6.3  ESVER=1.6.0 # Deprecated
  # - GHCVER=7.8.3  ESVER=1.0.3 # Deprecated
@@ -17,30 +17,20 @@ env:
  - GHCVER=7.10 ESVER=1.6.0
  - GHCVER=7.10 ESVER=1.7.2
 
-# services:
-#   - elasticsearch
-
-# Note: the distinction between `before_install` and `install` is not
-#       important.
-before_install:
- - export STACK_YAML=stack-$GHCVER.yaml
- - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
- - echo 'deb http://download.fpcomplete.com/ubuntu/precise stable main' | sudo tee /etc/apt/sources.list.d/fpco.list
- - sudo apt-get update
- - sudo apt-get install stack -y
- - stack setup
- - stack update
- - wget --no-check-certificate https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ESVER.deb
- - sudo dpkg --force-all -i elasticsearch-$ESVER.deb
- - sudo service elasticsearch start
-
 install:
- - stack build
+  # stack
+  - export STACK_YAML=stack-$GHCVER.yaml
+  - mkdir -p ~/.local/bin
+  - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v0.1.4.0/stack-0.1.4.0-x86_64-linux.tar.gz | tar -xvzf -
+  - mv stack ~/.local/bin
+  - export PATH=~/.local/bin:$PATH
+  - stack --version
 
-# Here starts the actual work to be performed for the package under
-# test; any command which exits with a non-zero exit code causes the
-# build to fail.
+  # elasticsearch
+  - wget --no-check-certificate https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.0.0/elasticsearch-$ESVER.tar.gz
+  - ./elasticsearch-$ESVER/bin/elasticsearch
+
 script:
- - stack test
-
-# EOF
+  - stack setup
+  - stack build
+  - stack test
