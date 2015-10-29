@@ -57,6 +57,7 @@ module Database.Bloodhound.Client
        , isVersionConflict
        , isSuccess
        , isCreated
+       , parseEsResponse
        )
        where
 
@@ -287,15 +288,16 @@ parseEsResponse :: (MonadBH m, MonadThrow m, FromJSON a) => Reply
 parseEsResponse reply
   | respIsTwoHunna reply = case eitherDecode body of
                              Right a -> return (Right a)
-                             Left _ -> case eitherDecode body of
-                                         Right e -> return (Left e)
-                                         -- this case should not be possible
-                                         Left _ -> explode
-  | otherwise = explode
+                             Left _ -> tryParseError
+  | otherwise = tryParseError
   where body = responseBody reply
         stat = responseStatus reply
         hdrs = responseHeaders reply
         cookies = responseCookieJar reply
+        tryParseError = case eitherDecode body of
+                          Right e -> return (Left e)
+                          -- this case should not be possible
+                          Left _ -> explode
         explode = throwM (StatusCodeException stat hdrs cookies)
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'

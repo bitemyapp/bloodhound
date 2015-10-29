@@ -1825,12 +1825,12 @@ instance ToJSON Query where
     object [ "common" .= commonTermsQuery ]
 
   toJSON (ConstantScoreFilter csFilter boost) =
-    object ["filter" .= object ["constant_score" .= csFilter]
-           , "boost" .= boost]
+    object ["constant_score" .= object ["filter" .= csFilter
+                                       , "boost" .= boost]]
 
   toJSON (ConstantScoreQuery query boost) =
-    object ["query" .= object ["constant_score" .= query]
-           , "boost" .= boost]
+    object ["constant_score" .= object ["query" .= query
+                                       , "boost" .= boost]]
 
   toJSON (QueryDisMaxQuery disMaxQuery) =
     object [ "dis_max" .= disMaxQuery ]
@@ -1891,8 +1891,8 @@ instance FromJSON Query where
                 <|> queryBoolQuery `taggedWith` "bool"
                 <|> queryBoostingQuery `taggedWith` "boosting"
                 <|> queryCommonTermsQuery `taggedWith` "common"
-                <|> constantScoreFilter o
-                <|> constantScoreQuery o
+                <|> constantScoreFilter `taggedWith` "constant_score"
+                <|> constantScoreQuery `taggedWith` "constant_score"
                 <|> queryDisMaxQuery `taggedWith` "dis_max"
                 <|> queryFilteredQuery `taggedWith` "filtered"
                 <|> queryFuzzyLikeThisQuery `taggedWith` "fuzzy_like_this"
@@ -1926,15 +1926,14 @@ instance FromJSON Query where
           queryBoolQuery = pure . QueryBoolQuery
           queryBoostingQuery = pure . QueryBoostingQuery
           queryCommonTermsQuery = pure . QueryCommonTermsQuery
-          --FIXME: these are ambiguous
           constantScoreFilter o = case HM.lookup "filter" o of
-            Just (Object o') -> ConstantScoreFilter <$> o' .: "constant_score"
-                                                    <*> o .: "boost"
+            Just x -> ConstantScoreFilter <$> parseJSON x
+                                          <*> o .: "boost"
             _ -> fail "Does not appear to be a ConstantScoreFilter"
           constantScoreQuery o = case HM.lookup "query" o of
-            Just (Object o') -> ConstantScoreQuery <$> o' .: "constant_score"
-                                                   <*> o .: "boost"
-            _ -> fail "Does not appear to be a ConstantScoreFilter"
+            Just x -> ConstantScoreQuery <$> parseJSON x
+                                         <*> o .: "boost"
+            _ -> fail "Does not appear to be a ConstantScoreQuery"
           queryDisMaxQuery = pure . QueryDisMaxQuery
           queryFilteredQuery = pure . QueryFilteredQuery
           queryFuzzyLikeThisQuery = pure . QueryFuzzyLikeThisQuery

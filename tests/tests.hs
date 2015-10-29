@@ -211,15 +211,15 @@ insertWithSpaceInId = do
   _ <- refreshIndex testIndex
   return ()
 
-searchTweet :: Search -> BH IO (Either String Tweet)
+searchTweet :: Search -> BH IO (Either EsError Tweet)
 searchTweet search = do
   result <- searchTweets search
-  let myTweet :: Either String Tweet
+  let myTweet :: Either EsError Tweet
       myTweet = grabFirst result
   return myTweet
 
-searchTweets :: Search -> BH IO (Either String (SearchResult Tweet))
-searchTweets search = eitherDecode . responseBody <$> searchByIndex testIndex search
+searchTweets :: Search -> BH IO (Either EsError (SearchResult Tweet))
+searchTweets search = parseEsResponse =<< searchByIndex testIndex search
 
 searchExpectNoResults :: Search -> BH IO ()
 searchExpectNoResults search = do
@@ -253,19 +253,19 @@ searchTermsAggHint hints = do
       forM_ hints $ searchExpectAggs . search
       forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
 
-searchTweetHighlight :: Search -> BH IO (Either String (Maybe HitHighlight))
+searchTweetHighlight :: Search -> BH IO (Either EsError (Maybe HitHighlight))
 searchTweetHighlight search = do
   result <- searchTweets search
   let myHighlight = fmap (hitHighlight . head . hits . searchHits) result
   return myHighlight
 
-searchExpectSource :: Source -> Either String Value -> BH IO ()
+searchExpectSource :: Source -> Either EsError Value -> BH IO ()
 searchExpectSource src expected = do
   _ <- insertData
   let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
   let search = (mkSearch (Just query) Nothing) { source = Just src }
   reply <- searchAll search
-  let result = eitherDecode (responseBody reply) :: Either String (SearchResult Value)
+  result <- parseEsResponse reply--  :: Either EsError (SearchResult Value)
   let value = grabFirst result
   liftIO $
     value `shouldBe` expected
@@ -307,11 +307,11 @@ reduceSize f = sized $ \n -> resize (n `div` 2) f
 getSource :: EsResult a -> Maybe a
 getSource = fmap _source . foundResult
 
-grabFirst :: Either String (SearchResult a) -> Either String a
+grabFirst :: Either EsError (SearchResult a) -> Either EsError a
 grabFirst r =
   case fmap (hitSource . head . hits . searchHits) r of
     (Left e) -> Left e
-    (Right Nothing) -> Left "Source was missing"
+    (Right Nothing) -> Left (EsError 500 "Source was missing")
     (Right (Just x)) -> Right x
 
 -------------------------------------------------------------------------------
@@ -610,6 +610,26 @@ main = hspec $ do
       myTweet <- searchTweet search
       liftIO $
         myTweet `shouldBe` Right exampleTweet
+
+    it "handles constant score queries" $ withTestEnv $ do
+      _ <- insertData
+      let query = TermsQuery "user" ("bitemyapp" :| [])
+      let cfQuery = ConstantScoreQuery query (Boost 1.0)
+      let filter = IdentityFilter
+      let search = mkSearch (Just cfQuery) (Just filter)
+      myTweet <- searchTweet search
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
+    it "handles constant score filters" $ withTestEnv $ do
+      _ <- insertData
+      let query = TermsQuery "user" ("bitemyapp" :| [])
+      let cfFilter = ConstantScoreFilter IdentityFilter (Boost 1.0)
+      let boolQuery = mkBoolQuery [query, cfFilter] [] []
+      let search = mkSearch (Just (QueryBoolQuery boolQuery)) Nothing
+      myTweet <- searchTweet search
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
+
 
     it "returns document for terms query and identity filter" $ withTestEnv $ do
       _ <- insertData
@@ -946,7 +966,7 @@ main = hspec $ do
     it "doesn't include source when sources are disabled" $ withTestEnv $ do
       searchExpectSource
         NoSource
-        (Left "Source was missing")
+        (Left (EsError 500 "Source was missing"))
 
     it "includes a source" $ withTestEnv $ do
       searchExpectSource
