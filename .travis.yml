@@ -43,4 +43,7 @@ install:
 script:
  - stack test
 
-# EOF
+ # Caching so the next build will be fast too.
+cache:
+  directories:
+  - $HOME/.stack
