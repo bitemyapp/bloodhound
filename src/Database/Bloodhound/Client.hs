@@ -344,6 +344,18 @@ openIndex = openOrCloseIndexes OpenIndex
 closeIndex :: MonadBH m => IndexName -> m Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
+
+-- | 'updateIndexAliases' updates the server's index alias
+-- table. Operations are atomic. Explained in further detail at
+-- <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-aliases.html>
+--
+-- >>> let aliasName = IndexName "twitter-alias"
+-- >>> let iAlias = IndexAlias testIndex (IndexAliasName aliasName)
+-- >>> let aliasCreate = IndexAliasCreate Nothing Nothing
+-- >>> respIsTwoHunna <$> runBH' (updateIndexAliases (AddAlias iAlias aliasCreate :| []))
+-- True
+-- >> respIsTwoHunna <$> runBH' (indexExists aliasName)
+-- True
 updateIndexAliases :: MonadBH m => NE.NonEmpty IndexAliasAction -> m Reply
 updateIndexAliases actions = bindM2 post url (return body)
   where url = joinPath ["_aliases"]
