@@ -7,7 +7,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Chris Allen
 maintainer:          cma@bitemyapp.com
-copyright:           2014, Chris Allen
+copyright:           2015, Chris Allen
 category:            Database, Search
 build-type:          Custom
 cabal-version:       >=1.10
