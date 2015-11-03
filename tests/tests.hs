@@ -1082,6 +1082,27 @@ main = hspec $ do
               L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
             Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)) `finally` cleanup
 
+    it "handles an alias with routing and a filter" $ do
+      let alias = IndexAlias (testIndex) (IndexAliasName (IndexName "bloodhound-tests-twitter-1-alias"))
+      let sar = SearchAliasRouting (RoutingValue "search val" :| [])
+      let iar = IndexAliasRouting (RoutingValue "index val")
+      let routing = GranularAliasRouting (Just sar) (Just iar)
+      let filter = LimitFilter 42
+      let create = IndexAliasCreate (Just routing) (Just filter)
+      let action = AddAlias alias create
+
+      withTestEnv $ do
+        resetIndex
+        resp <- updateIndexAliases (action :| [])
+        liftIO $ NHTS.statusCode (responseStatus resp) `shouldBe` 200
+      let cleanup = withTestEnv (updateIndexAliases (RemoveAlias alias :| []))
+      (do aliases <- withTestEnv getIndexAliases
+          let expected = IndexAliasSummary alias create
+          case aliases of
+            Right (IndexAliasesSummary summs) ->
+              L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
+            Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)) `finally` cleanup
+
   describe "JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
     propJSON (Proxy :: Proxy IndexName)

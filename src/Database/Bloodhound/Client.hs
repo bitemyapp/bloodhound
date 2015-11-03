@@ -283,6 +283,11 @@ existentialQuery url = do
   reply <- head url
   return (reply, respIsTwoHunna reply)
 
+
+-- | Tries to parse a response body as the expected type @a@ and
+-- failing that tries to parse it as an EsError. All well-formed, JSON
+-- responses from elasticsearch should fall into these two
+-- categories. If they don't, a 'StatusCodeException' will be thrown.
 parseEsResponse :: (MonadBH m, MonadThrow m, FromJSON a) => Reply
                 -> m (Either EsError a)
 parseEsResponse reply
@@ -362,6 +367,7 @@ updateIndexAliases actions = bindM2 post url (return body)
         body = Just (encode bodyJSON)
         bodyJSON = object [ "actions" .= NE.toList actions]
 
+-- | Get all aliases configured on the server.
 getIndexAliases :: (MonadBH m, MonadThrow m)
                 => m (Either EsError IndexAliasesSummary)
 getIndexAliases = parseEsResponse =<< get =<< url

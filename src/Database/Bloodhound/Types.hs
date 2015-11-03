@@ -469,6 +469,7 @@ newtype RoutingValue = RoutingValue { routingValue :: Text } deriving (Show, Eq,
 
 newtype IndexAliasesSummary = IndexAliasesSummary { indexAliasesSummary :: [IndexAliasSummary] } deriving (Show, Eq)
 
+{-| 'IndexAliasSummary' is a summary of an index alias configured for a server. -}
 data IndexAliasSummary = IndexAliasSummary { indexAliasSummaryAlias  :: IndexAlias
                                            , indexAliasSummaryCreate :: IndexAliasCreate} deriving (Show, Eq)
 
