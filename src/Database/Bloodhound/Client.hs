@@ -27,6 +27,8 @@ module Database.Bloodhound.Client
        , indexExists
        , openIndex
        , closeIndex
+       , updateIndexAliases
+       , getIndexAliases
        , putTemplate
        , templateExists
        , deleteTemplate
@@ -55,6 +57,7 @@ module Database.Bloodhound.Client
        , isVersionConflict
        , isSuccess
        , isCreated
+       , parseEsResponse
        )
        where
 
@@ -66,8 +69,10 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
+import           Data.Foldable                (toList)
 import           Data.Ix
 import qualified Data.List                    as LS (filter)
+import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.Maybe                   (fromMaybe, isJust)
 import           Data.Monoid
 import           Data.Text                    (Text)
@@ -279,6 +284,28 @@ existentialQuery url = do
   reply <- head url
   return (reply, respIsTwoHunna reply)
 
+
+-- | Tries to parse a response body as the expected type @a@ and
+-- failing that tries to parse it as an EsError. All well-formed, JSON
+-- responses from elasticsearch should fall into these two
+-- categories. If they don't, a 'StatusCodeException' will be thrown.
+parseEsResponse :: (MonadBH m, MonadThrow m, FromJSON a) => Reply
+                -> m (Either EsError a)
+parseEsResponse reply
+  | respIsTwoHunna reply = case eitherDecode body of
+                             Right a -> return (Right a)
+                             Left _ -> tryParseError
+  | otherwise = tryParseError
+  where body = responseBody reply
+        stat = responseStatus reply
+        hdrs = responseHeaders reply
+        cookies = responseCookieJar reply
+        tryParseError = case eitherDecode body of
+                          Right e -> return (Left e)
+                          -- this case should not be possible
+                          Left _ -> explode
+        explode = throwM (StatusCodeException stat hdrs cookies)
+
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
 --
@@ -322,6 +349,35 @@ openIndex = openOrCloseIndexes OpenIndex
 -- >>> reply <- runBH' $ closeIndex testIndex
 closeIndex :: MonadBH m => IndexName -> m Reply
 closeIndex = openOrCloseIndexes CloseIndex
+
+
+-- | 'updateIndexAliases' updates the server's index alias
+-- table. Operations are atomic. Explained in further detail at
+-- <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-aliases.html>
+--
+-- >>> let src = IndexName "a-real-index"
+-- >>> let aliasName = IndexName "an-alias"
+-- >>> let iAlias = IndexAlias src (IndexAliasName aliasName)
+-- >>> let aliasCreate = IndexAliasCreate Nothing Nothing
+-- >>> respIsTwoHunna <$> runBH' (createIndex defaultIndexSettings src)
+-- True
+-- >>> runBH' $ indexExists src
+-- True
+-- >>> respIsTwoHunna <$> runBH' (updateIndexAliases (AddAlias iAlias aliasCreate :| []))
+-- True
+-- >>> runBH' $ indexExists aliasName
+-- True
+updateIndexAliases :: MonadBH m => NonEmpty IndexAliasAction -> m Reply
+updateIndexAliases actions = bindM2 post url (return body)
+  where url = joinPath ["_aliases"]
+        body = Just (encode bodyJSON)
+        bodyJSON = object [ "actions" .= toList actions]
+
+-- | Get all aliases configured on the server.
+getIndexAliases :: (MonadBH m, MonadThrow m)
+                => m (Either EsError IndexAliasesSummary)
+getIndexAliases = parseEsResponse =<< get =<< url
+  where url = joinPath ["_aliases"]
 
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
 --   Explained in further detail at
