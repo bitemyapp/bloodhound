@@ -69,9 +69,10 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
+import           Data.Foldable                (toList)
 import           Data.Ix
 import qualified Data.List                    as LS (filter)
-import qualified Data.List.NonEmpty           as NE
+import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.Maybe                   (fromMaybe, isJust)
 import           Data.Monoid
 import           Data.Text                    (Text)
@@ -361,11 +362,11 @@ closeIndex = openOrCloseIndexes CloseIndex
 -- True
 -- >> respIsTwoHunna <$> runBH' (indexExists aliasName)
 -- True
-updateIndexAliases :: MonadBH m => NE.NonEmpty IndexAliasAction -> m Reply
+updateIndexAliases :: MonadBH m => NonEmpty IndexAliasAction -> m Reply
 updateIndexAliases actions = bindM2 post url (return body)
   where url = joinPath ["_aliases"]
         body = Just (encode bodyJSON)
-        bodyJSON = object [ "actions" .= NE.toList actions]
+        bodyJSON = object [ "actions" .= toList actions]
 
 -- | Get all aliases configured on the server.
 getIndexAliases :: (MonadBH m, MonadThrow m)
