@@ -926,7 +926,7 @@ data SimpleQueryStringQuery =
     , simpleQueryStringFlags             :: Maybe (NonEmpty SimpleQueryFlag)
     , simpleQueryStringLowercaseExpanded :: Maybe LowercaseExpanded
     , simpleQueryStringLocale            :: Maybe Locale
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Typeable)
 
 data SimpleQueryFlag =
   SimpleQueryAll
@@ -1068,7 +1068,7 @@ data FuzzyLikeFieldQuery =
   , fuzzyLikeFieldPrefixLength        :: PrefixLength
   , fuzzyLikeFieldBoost               :: Boost
   , fuzzyLikeFieldAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 data FuzzyLikeThisQuery =
   FuzzyLikeThisQuery
