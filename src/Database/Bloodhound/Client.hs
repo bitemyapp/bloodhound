@@ -355,12 +355,17 @@ closeIndex = openOrCloseIndexes CloseIndex
 -- table. Operations are atomic. Explained in further detail at
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-aliases.html>
 --
--- >>> let aliasName = IndexName "twitter-alias"
--- >>> let iAlias = IndexAlias testIndex (IndexAliasName aliasName)
+-- >>> let src = IndexName "a-real-index"
+-- >>> let aliasName = IndexName "an-alias"
+-- >>> let iAlias = IndexAlias src (IndexAliasName aliasName)
 -- >>> let aliasCreate = IndexAliasCreate Nothing Nothing
+-- >>> respIsTwoHunna <$> runBH' (createIndex defaultIndexSettings src)
+-- True
+-- >>> runBH' $ indexExists src
+-- True
 -- >>> respIsTwoHunna <$> runBH' (updateIndexAliases (AddAlias iAlias aliasCreate :| []))
 -- True
--- >> respIsTwoHunna <$> runBH' (indexExists aliasName)
+-- >>> runBH' $ indexExists aliasName
 -- True
 updateIndexAliases :: MonadBH m => NonEmpty IndexAliasAction -> m Reply
 updateIndexAliases actions = bindM2 post url (return body)
