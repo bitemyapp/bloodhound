@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -262,6 +263,7 @@ import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime)
 import qualified Data.Traversable                as DT
+import           Data.Typeable                   (Typeable)
 import qualified Data.Vector                     as V
 import           GHC.Enum
 import           GHC.Generics                    (Generic)
@@ -335,7 +337,7 @@ data Version = Version { number          :: Text
                        , build_hash      :: Text
                        , build_timestamp :: UTCTime
                        , build_snapshot  :: Bool
-                       , lucene_version  :: Text } deriving (Eq, Show, Generic)
+                       , lucene_version  :: Text } deriving (Eq, Show, Generic, Typeable)
 
 {-| 'Status' is a data type for describing the JSON body returned by
     Elasticsearch when you query its status. This was deprecated in 1.2.0.
@@ -451,23 +453,23 @@ data IndexAlias = IndexAlias { srcIndex   :: IndexName
 newtype IndexAliasName = IndexAliasName { indexAliasName :: IndexName } deriving (Eq, Show, ToJSON)
 
 data IndexAliasAction = AddAlias IndexAlias IndexAliasCreate
-                      | RemoveAlias IndexAlias deriving (Show, Eq)
+                      | RemoveAlias IndexAlias deriving (Show, Eq, Typeable)
 
 data IndexAliasCreate = IndexAliasCreate { aliasCreateRouting :: Maybe AliasRouting
                                          , aliasCreateFilter  :: Maybe Filter}
-                                         deriving (Show, Eq)
+                                         deriving (Show, Eq, Typeable)
 
 data AliasRouting = AllAliasRouting RoutingValue
                   | GranularAliasRouting (Maybe SearchAliasRouting) (Maybe IndexAliasRouting)
-                  deriving (Show, Eq)
+                  deriving (Show, Eq, Typeable)
 
-newtype SearchAliasRouting = SearchAliasRouting (NonEmpty RoutingValue) deriving (Show, Eq)
+newtype SearchAliasRouting = SearchAliasRouting (NonEmpty RoutingValue) deriving (Show, Eq, Typeable)
 
-newtype IndexAliasRouting = IndexAliasRouting RoutingValue deriving (Show, Eq, ToJSON, FromJSON)
+newtype IndexAliasRouting = IndexAliasRouting RoutingValue deriving (Show, Eq, ToJSON, FromJSON, Typeable)
 
-newtype RoutingValue = RoutingValue { routingValue :: Text } deriving (Show, Eq, ToJSON, FromJSON)
+newtype RoutingValue = RoutingValue { routingValue :: Text } deriving (Show, Eq, ToJSON, FromJSON, Typeable)
 
-newtype IndexAliasesSummary = IndexAliasesSummary { indexAliasesSummary :: [IndexAliasSummary] } deriving (Show, Eq)
+newtype IndexAliasesSummary = IndexAliasesSummary { indexAliasesSummary :: [IndexAliasSummary] } deriving (Show, Eq, Typeable)
 
 {-| 'IndexAliasSummary' is a summary of an index alias configured for a server. -}
 data IndexAliasSummary = IndexAliasSummary { indexAliasSummaryAlias  :: IndexAlias
@@ -623,15 +625,15 @@ type PrefixValue = Text
 {-| 'BooleanOperator' is the usual And/Or operators with an ES compatible
     JSON encoding baked in. Used all over the place.
 -}
-data BooleanOperator = And | Or deriving (Eq, Show)
+data BooleanOperator = And | Or deriving (Eq, Show, Typeable)
 
 {-| 'ShardCount' is part of 'IndexSettings'
 -}
-newtype ShardCount = ShardCount Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype ShardCount = ShardCount Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'ReplicaCount' is part of 'IndexSettings'
 -}
-newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'Server' is used with the client functions to point at the ES instance
 -}
@@ -639,35 +641,35 @@ newtype Server = Server Text deriving (Eq, Show)
 
 {-| 'IndexName' is used to describe which index to query/create/delete
 -}
-newtype IndexName = IndexName Text deriving (Eq, Generic, Show, ToJSON, FromJSON)
+newtype IndexName = IndexName Text deriving (Eq, Generic, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'TemplateName' is used to describe which template to query/create/delete
 -}
-newtype TemplateName = TemplateName Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype TemplateName = TemplateName Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'TemplatePattern' represents a pattern which is matched against index names
 -}
-newtype TemplatePattern = TemplatePattern Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype TemplatePattern = TemplatePattern Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'MappingName' is part of mappings which are how ES describes and schematizes
     the data in the indices.
 -}
-newtype MappingName = MappingName Text deriving (Eq, Generic, Show, ToJSON, FromJSON)
+newtype MappingName = MappingName Text deriving (Eq, Generic, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'DocId' is a generic wrapper value for expressing unique Document IDs.
     Can be set by the user or created by ES itself. Often used in client
     functions for poking at specific documents.
 -}
-newtype DocId = DocId Text deriving (Eq, Generic, Show, ToJSON, FromJSON)
+newtype DocId = DocId Text deriving (Eq, Generic, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'QueryString' is used to wrap query text bodies, be they human written or not.
 -}
-newtype QueryString = QueryString Text deriving (Eq, Generic, Show, ToJSON, FromJSON)
+newtype QueryString = QueryString Text deriving (Eq, Generic, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'FieldName' is used all over the place wherever a specific field within
      a document needs to be specified, usually in 'Query's or 'Filter's.
 -}
-newtype FieldName = FieldName Text deriving (Eq, Show, ToJSON, FromJSON)
+newtype FieldName = FieldName Text deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 
 
 {-| 'Script' is often used in place of 'FieldName' to specify more
@@ -678,98 +680,98 @@ newtype Script = Script { scriptText :: Text } deriving (Eq, Show)
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
 -}
-newtype CacheName = CacheName Text deriving (Eq, Show, ToJSON, FromJSON)
+newtype CacheName = CacheName Text deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'CacheKey' is used in 'RegexpFilter' to key regex caching.
 -}
 newtype CacheKey =
-  CacheKey Text deriving (Eq, Show, ToJSON, FromJSON)
+  CacheKey Text deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 newtype Existence =
-  Existence Bool deriving (Eq, Show, ToJSON, FromJSON)
+  Existence Bool deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 newtype NullValue =
-  NullValue Bool deriving (Eq, Show, ToJSON, FromJSON)
+  NullValue Bool deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 newtype CutoffFrequency =
-  CutoffFrequency Double deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  CutoffFrequency Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Analyzer =
-  Analyzer Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  Analyzer Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MaxExpansions =
-  MaxExpansions Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  MaxExpansions Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'Lenient', if set to true, will cause format based failures to be
     ignored. I don't know what the bloody default is, Elasticsearch
     documentation didn't say what it was. Let me know if you figure it out.
 -}
 newtype Lenient =
-  Lenient Bool deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  Lenient Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Tiebreaker =
-  Tiebreaker Double deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  Tiebreaker Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Boost =
-  Boost Double deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  Boost Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype BoostTerms =
-  BoostTerms Double deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  BoostTerms Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'MinimumMatch' controls how many should clauses in the bool query should
      match. Can be an absolute value (2) or a percentage (30%) or a
      combination of both.
 -}
 newtype MinimumMatch =
-  MinimumMatch Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  MinimumMatch Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype DisableCoord =
-  DisableCoord Bool deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  DisableCoord Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype IgnoreTermFrequency =
-  IgnoreTermFrequency Bool deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  IgnoreTermFrequency Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MinimumTermFrequency =
-  MinimumTermFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  MinimumTermFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MaxQueryTerms =
-  MaxQueryTerms Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  MaxQueryTerms Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Fuzziness =
-  Fuzziness Double deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  Fuzziness Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'PrefixLength' is the prefix length used in queries, defaults to 0. -}
 newtype PrefixLength =
-  PrefixLength Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  PrefixLength Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype TypeName =
-  TypeName Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  TypeName Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype PercentMatch =
-  PercentMatch Double deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  PercentMatch Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype StopWord =
-  StopWord Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  StopWord Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype QueryPath =
-  QueryPath Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  QueryPath Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| Allowing a wildcard at the beginning of a word (eg "*ing") is particularly
     heavy, because all terms in the index need to be examined, just in case
     they match. Leading wildcards can be disabled by setting
     'AllowLeadingWildcard' to false. -}
 newtype AllowLeadingWildcard =
-  AllowLeadingWildcard     Bool deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  AllowLeadingWildcard     Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype LowercaseExpanded =
-  LowercaseExpanded        Bool deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  LowercaseExpanded        Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype EnablePositionIncrements =
-  EnablePositionIncrements Bool deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  EnablePositionIncrements Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| By default, wildcard terms in a query are not analyzed.
     Setting 'AnalyzeWildcard' to true enables best-effort analysis.
 -}
-newtype AnalyzeWildcard = AnalyzeWildcard Bool deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype AnalyzeWildcard = AnalyzeWildcard Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'GeneratePhraseQueries' defaults to false.
 -}
 newtype GeneratePhraseQueries =
-  GeneratePhraseQueries Bool deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  GeneratePhraseQueries Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'Locale' is used for string conversions - defaults to ROOT.
 -}
-newtype Locale        = Locale        Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
-newtype MaxWordLength = MaxWordLength Int  deriving (Eq, Show, Generic, ToJSON, FromJSON)
-newtype MinWordLength = MinWordLength Int  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype Locale        = Locale        Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype MaxWordLength = MaxWordLength Int  deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype MinWordLength = MinWordLength Int  deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'PhraseSlop' sets the default slop for phrases, 0 means exact
      phrase matches. Default is 0.
 -}
-newtype PhraseSlop      = PhraseSlop      Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
-newtype MinDocFrequency = MinDocFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
-newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype PhraseSlop      = PhraseSlop      Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype MinDocFrequency = MinDocFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'unpackId' is a silly convenience function that gets used once.
 -}
@@ -898,19 +900,19 @@ data Query =
   | QuerySimpleQueryStringQuery SimpleQueryStringQuery
   | QueryRangeQuery             RangeQuery
   | QueryRegexpQuery            RegexpQuery
-  deriving (Eq, Show)
+  deriving (Eq, Show, Typeable)
 
 data RegexpQuery =
   RegexpQuery { regexpQueryField :: FieldName
               , regexpQuery      :: Regexp
               , regexpQueryFlags :: RegexpFlags
               , regexpQueryBoost :: Maybe Boost
-              } deriving (Eq, Show)
+              } deriving (Eq, Show, Typeable)
 
 data RangeQuery =
   RangeQuery { rangeQueryField :: FieldName
              , rangeQueryRange :: RangeValue
-             , rangeQueryBoost :: Boost } deriving (Eq, Show)
+             , rangeQueryBoost :: Boost } deriving (Eq, Show, Typeable)
 
 mkRangeQuery :: FieldName -> RangeValue -> RangeQuery
 mkRangeQuery f r = RangeQuery f r (Boost 1.0)
@@ -938,7 +940,7 @@ data SimpleQueryFlag =
   | SimpleQueryWhitespace
   | SimpleQueryFuzzy
   | SimpleQueryNear
-  | SimpleQuerySlop deriving (Eq, Show)
+  | SimpleQuerySlop deriving (Eq, Show, Typeable)
 
 -- use_dis_max and tie_breaker when fields are plural?
 data QueryStringQuery =
@@ -960,7 +962,7 @@ data QueryStringQuery =
   , queryStringMinimumShouldMatch       :: Maybe MinimumMatch
   , queryStringLenient                  :: Maybe Lenient
   , queryStringLocale                   :: Maybe Locale
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 mkQueryStringQuery :: QueryString -> QueryStringQuery
 mkQueryStringQuery qs =
@@ -971,19 +973,19 @@ mkQueryStringQuery qs =
   Nothing Nothing
 
 data FieldOrFields = FofField   FieldName
-                   | FofFields (NonEmpty FieldName) deriving (Eq, Show)
+                   | FofFields (NonEmpty FieldName) deriving (Eq, Show, Typeable)
 
 data PrefixQuery =
   PrefixQuery
   { prefixQueryField       :: FieldName
   , prefixQueryPrefixValue :: Text
-  , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Show)
+  , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Show, Typeable)
 
 data NestedQuery =
   NestedQuery
   { nestedQueryPath      :: QueryPath
   , nestedQueryScoreType :: ScoreType
-  , nestedQuery          :: Query } deriving (Eq, Show)
+  , nestedQuery          :: Query } deriving (Eq, Show, Typeable)
 
 data MoreLikeThisFieldQuery =
   MoreLikeThisFieldQuery
@@ -1001,7 +1003,7 @@ data MoreLikeThisFieldQuery =
   , moreLikeThisFieldBoostTerms      :: Maybe BoostTerms
   , moreLikeThisFieldBoost           :: Maybe Boost
   , moreLikeThisFieldAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 data MoreLikeThisQuery =
   MoreLikeThisQuery
@@ -1019,32 +1021,32 @@ data MoreLikeThisQuery =
   , moreLikeThisBoostTerms      :: Maybe BoostTerms
   , moreLikeThisBoost           :: Maybe Boost
   , moreLikeThisAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 data IndicesQuery =
   IndicesQuery
   { indicesQueryIndices :: [IndexName]
   , indicesQuery        :: Query
     -- default "all"
-  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Show)
+  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Show, Typeable)
 
 data HasParentQuery =
   HasParentQuery
   { hasParentQueryType      :: TypeName
   , hasParentQuery          :: Query
-  , hasParentQueryScoreType :: Maybe ScoreType } deriving (Eq, Show)
+  , hasParentQueryScoreType :: Maybe ScoreType } deriving (Eq, Show, Typeable)
 
 data HasChildQuery =
   HasChildQuery
   { hasChildQueryType      :: TypeName
   , hasChildQuery          :: Query
-  , hasChildQueryScoreType :: Maybe ScoreType } deriving (Eq, Show)
+  , hasChildQueryScoreType :: Maybe ScoreType } deriving (Eq, Show, Typeable)
 
 data ScoreType =
   ScoreTypeMax
   | ScoreTypeSum
   | ScoreTypeAvg
-  | ScoreTypeNone deriving (Eq, Show)
+  | ScoreTypeNone deriving (Eq, Show, Typeable)
 
 data FuzzyQuery =
   FuzzyQuery { fuzzyQueryField         :: FieldName
@@ -1053,7 +1055,7 @@ data FuzzyQuery =
              , fuzzyQueryMaxExpansions :: MaxExpansions
              , fuzzyQueryFuzziness     :: Fuzziness
              , fuzzyQueryBoost         :: Maybe Boost
-             } deriving (Eq, Show)
+             } deriving (Eq, Show, Typeable)
 
 data FuzzyLikeFieldQuery =
   FuzzyLikeFieldQuery
@@ -1078,19 +1080,19 @@ data FuzzyLikeThisQuery =
   , fuzzyLikePrefixLength        :: PrefixLength
   , fuzzyLikeBoost               :: Boost
   , fuzzyLikeAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 data FilteredQuery =
   FilteredQuery
   { filteredQuery  :: Query
-  , filteredFilter :: Filter } deriving (Eq, Show)
+  , filteredFilter :: Filter } deriving (Eq, Show, Typeable)
 
 data DisMaxQuery =
   DisMaxQuery { disMaxQueries    :: [Query]
                 -- default 0.0
               , disMaxTiebreaker :: Tiebreaker
               , disMaxBoost      :: Maybe Boost
-              } deriving (Eq, Show)
+              } deriving (Eq, Show, Typeable)
 
 data MatchQuery =
   MatchQuery { matchQueryField           :: FieldName
@@ -1102,7 +1104,7 @@ data MatchQuery =
              , matchQueryAnalyzer        :: Maybe Analyzer
              , matchQueryMaxExpansions   :: Maybe MaxExpansions
              , matchQueryLenient         :: Maybe Lenient
-             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Show)
+             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Show, Typeable)
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
@@ -1112,7 +1114,7 @@ mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothi
 
 data MatchQueryType =
   MatchPhrase
-  | MatchPhrasePrefix deriving (Eq, Show)
+  | MatchPhrasePrefix deriving (Eq, Show, Typeable)
 
 data MultiMatchQuery =
   MultiMatchQuery { multiMatchQueryFields          :: [FieldName]
@@ -1124,7 +1126,7 @@ data MultiMatchQuery =
                   , multiMatchQueryCutoffFrequency :: Maybe CutoffFrequency
                   , multiMatchQueryAnalyzer        :: Maybe Analyzer
                   , multiMatchQueryMaxExpansions   :: Maybe MaxExpansions
-                  , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
+                  , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show, Typeable)
 
 {-| 'mkMultiMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the list of 'FieldName's and 'QueryString' to
@@ -1141,7 +1143,7 @@ data MultiMatchQueryType =
   | MultiMatchMostFields
   | MultiMatchCrossFields
   | MultiMatchPhrase
-  | MultiMatchPhrasePrefix deriving (Eq, Show)
+  | MultiMatchPhrasePrefix deriving (Eq, Show, Typeable)
 
 data BoolQuery =
   BoolQuery { boolQueryMustMatch          :: [Query]
@@ -1150,7 +1152,7 @@ data BoolQuery =
             , boolQueryMinimumShouldMatch :: Maybe MinimumMatch
             , boolQueryBoost              :: Maybe Boost
             , boolQueryDisableCoord       :: Maybe DisableCoord
-            } deriving (Eq, Show)
+            } deriving (Eq, Show, Typeable)
 
 mkBoolQuery :: [Query] -> [Query] -> [Query] -> BoolQuery
 mkBoolQuery must mustNot should =
@@ -1159,7 +1161,7 @@ mkBoolQuery must mustNot should =
 data BoostingQuery =
   BoostingQuery { positiveQuery :: Query
                 , negativeQuery :: Query
-                , negativeBoost :: Boost } deriving (Eq, Show)
+                , negativeBoost :: Boost } deriving (Eq, Show, Typeable)
 
 data CommonTermsQuery =
   CommonTermsQuery { commonField              :: FieldName
@@ -1171,16 +1173,16 @@ data CommonTermsQuery =
                    , commonBoost              :: Maybe Boost
                    , commonAnalyzer           :: Maybe Analyzer
                    , commonDisableCoord       :: Maybe DisableCoord
-                   } deriving (Eq, Show)
+                   } deriving (Eq, Show, Typeable)
 
 data CommonMinimumMatch =
     CommonMinimumMatchHighLow MinimumMatchHighLow
   | CommonMinimumMatch        MinimumMatch
-  deriving (Eq, Show)
+  deriving (Eq, Show, Typeable)
 
 data MinimumMatchHighLow =
   MinimumMatchHighLow { lowFreq  :: MinimumMatch
-                      , highFreq :: MinimumMatch } deriving (Eq, Show)
+                      , highFreq :: MinimumMatch } deriving (Eq, Show, Typeable)
 
 data Filter = AndFilter [Filter] Cache
             | OrFilter  [Filter] Cache
@@ -1200,13 +1202,13 @@ data Filter = AndFilter [Filter] Cache
             | RangeFilter   FieldName RangeValue RangeExecution Cache
             | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
             | TermFilter    Term Cache
-              deriving (Eq, Show)
+              deriving (Eq, Show, Typeable)
 
 data ZeroTermsQuery = ZeroTermsNone
-                    | ZeroTermsAll deriving (Eq, Show)
+                    | ZeroTermsAll deriving (Eq, Show, Typeable)
 
 data RangeExecution = RangeExecutionIndex
-                    | RangeExecutionFielddata deriving (Eq, Show)
+                    | RangeExecutionFielddata deriving (Eq, Show, Typeable)
 
 newtype Regexp = Regexp Text deriving (Eq, Show, FromJSON)
 
@@ -1269,33 +1271,33 @@ rangeValueToPair rv = case rv of
   RangeDoubleGtLt (GreaterThan l) (LessThan g)       -> ["gt"  .= l, "lt"  .= g]
 
 data Term = Term { termField :: Text
-                 , termValue :: Text } deriving (Eq, Show)
+                 , termValue :: Text } deriving (Eq, Show, Typeable)
 
 data BoolMatch = MustMatch    Term  Cache
                | MustNotMatch Term  Cache
-               | ShouldMatch [Term] Cache deriving (Eq, Show)
+               | ShouldMatch [Term] Cache deriving (Eq, Show, Typeable)
 
 -- "memory" or "indexed"
 data GeoFilterType = GeoFilterMemory
-                   | GeoFilterIndexed deriving (Eq, Show)
+                   | GeoFilterIndexed deriving (Eq, Show, Typeable)
 
 data LatLon = LatLon { lat :: Double
-                     , lon :: Double } deriving (Eq, Show)
+                     , lon :: Double } deriving (Eq, Show, Typeable)
 
 data GeoBoundingBox =
   GeoBoundingBox { topLeft     :: LatLon
-                 , bottomRight :: LatLon } deriving (Eq, Show)
+                 , bottomRight :: LatLon } deriving (Eq, Show, Typeable)
 
 data GeoBoundingBoxConstraint =
   GeoBoundingBoxConstraint { geoBBField        :: FieldName
                            , constraintBox     :: GeoBoundingBox
                            , bbConstraintcache :: Cache
                            , geoType           :: GeoFilterType
-                           } deriving (Eq, Show)
+                           } deriving (Eq, Show, Typeable)
 
 data GeoPoint =
   GeoPoint { geoField :: FieldName
-           , latLon   :: LatLon} deriving (Eq, Show)
+           , latLon   :: LatLon} deriving (Eq, Show, Typeable)
 
 data DistanceUnit = Miles
                   | Yards
@@ -1305,18 +1307,18 @@ data DistanceUnit = Miles
                   | Meters
                   | Centimeters
                   | Millimeters
-                  | NauticalMiles deriving (Eq, Show)
+                  | NauticalMiles deriving (Eq, Show, Typeable)
 
 data DistanceType = Arc
                   | SloppyArc -- doesn't exist <1.0
-                  | Plane deriving (Eq, Show)
+                  | Plane deriving (Eq, Show, Typeable)
 
 data OptimizeBbox = OptimizeGeoFilterType GeoFilterType
-                  | NoOptimizeBbox deriving (Eq, Show)
+                  | NoOptimizeBbox deriving (Eq, Show, Typeable)
 
 data Distance =
   Distance { coefficient :: Double
-           , unit        :: DistanceUnit } deriving (Eq, Show)
+           , unit        :: DistanceUnit } deriving (Eq, Show, Typeable)
 
 data DistanceRange =
   DistanceRange { distanceFrom :: Distance
