@@ -83,7 +83,7 @@ module Database.Bloodhound.Types
        , Search(..)
        , SearchType(..)
        , SearchResult(..)
-       , ScrollId
+       , ScrollId(..)
        , SearchHits(..)
        , TrackSortScores
        , From(..)
@@ -1332,7 +1332,7 @@ data SearchResult a =
                , aggregations :: Maybe AggregationResults
                , scrollId     :: Maybe ScrollId } deriving (Eq, Show)
 
-type ScrollId = Text  -- Fixme: Newtype
+newtype ScrollId = ScrollId Text deriving (Eq, Show, Ord, ToJSON, FromJSON)
 
 type Score = Maybe Double
 
