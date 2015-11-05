@@ -292,7 +292,7 @@ existentialQuery url = do
 -- failing that tries to parse it as an EsError. All well-formed, JSON
 -- responses from elasticsearch should fall into these two
 -- categories. If they don't, a 'StatusCodeException' will be thrown.
-parseEsResponse :: (MonadBH m, MonadThrow m, FromJSON a) => Reply
+parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
                 -> m (Either EsError a)
 parseEsResponse reply
   | respIsTwoHunna reply = case eitherDecode body of
