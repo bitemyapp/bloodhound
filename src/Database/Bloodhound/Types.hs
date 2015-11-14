@@ -225,6 +225,12 @@ module Database.Bloodhound.Types
        , ValueCountAggregation(..)
        , FilterAggregation(..)
        , DateHistogramAggregation(..)
+       , DateRangeAggregation(..)
+       , DateRangeAggRange(..)
+       , DateMathExpr(..)
+       , DateMathAnchor(..)
+       , DateMathModifier(..)
+       , DateMathUnit(..)
 
        , Highlights(..)
        , FieldHighlight(..)
@@ -240,6 +246,7 @@ module Database.Bloodhound.Types
 
        , TermsResult(..)
        , DateHistogramResult(..)
+       , DateRangeResult(..)
          ) where
 
 import           Control.Applicative
@@ -261,7 +268,9 @@ import qualified Data.Map.Strict                 as M
 import           Data.Maybe
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
+import           Data.Time.Calendar
 import           Data.Time.Clock                 (UTCTime)
+import           Data.Time.Clock.POSIX
 import qualified Data.Traversable                as DT
 import           Data.Typeable                   (Typeable)
 import qualified Data.Vector                     as V
@@ -772,6 +781,9 @@ newtype MinWordLength = MinWordLength Int  deriving (Eq, Show, Generic, ToJSON, 
 newtype PhraseSlop      = PhraseSlop      Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MinDocFrequency = MinDocFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+
+-- | Newtype wrapper to parse ES's concerning tendency to in some APIs return a floating point number of milliseconds since epoch ಠ_ಠ
+newtype POSIXMS = POSIXMS { posixMS :: UTCTime }
 
 {-| 'unpackId' is a silly convenience function that gets used once.
 -}
@@ -1408,7 +1420,8 @@ data Interval = Year
 data Aggregation = TermsAgg TermsAggregation
                  | DateHistogramAgg DateHistogramAggregation
                  | ValueCountAgg ValueCountAggregation
-                 | FilterAgg FilterAggregation deriving (Eq, Show)
+                 | FilterAgg FilterAggregation
+                 | DateRangeAgg DateRangeAggregation deriving (Eq, Show)
 
 
 data TermsAggregation = TermsAggregation { term              :: Either Text Text
@@ -1433,6 +1446,36 @@ data DateHistogramAggregation = DateHistogramAggregation { dateField      :: Fie
                                                          , datePostOffset :: Maybe Text
                                                          , dateAggs       :: Maybe Aggregations
                                                          } deriving (Eq, Show)
+
+
+data DateRangeAggregation = DateRangeAggregation { draField  :: FieldName
+                                                 , draFormat :: Maybe Text
+                                                 , draRanges :: NonEmpty DateRangeAggRange
+                                                 } deriving (Eq, Show)
+
+data DateRangeAggRange = DateRangeFrom DateMathExpr
+                       | DateRangeTo DateMathExpr
+                       | DateRangeFromAndTo DateMathExpr DateMathExpr deriving (Eq, Show)
+
+-- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math> for more information.
+data DateMathExpr = DateMathExpr DateMathAnchor [DateMathModifier] deriving (Eq, Show)
+
+
+-- | Starting point for a date range. This along with the 'DateMathModifiers' gets you the date ES will start from.
+data DateMathAnchor = DMNow
+                    | DMDate Day deriving (Eq, Show)
+
+data DateMathModifier = AddTime Int DateMathUnit
+                      | SubtractTime Int DateMathUnit
+                      | RoundDownTo DateMathUnit deriving (Eq, Show)
+
+data DateMathUnit = DMYear
+                  | DMMonth
+                  | DMWeek
+                  | DMDay
+                  | DMHour
+                  | DMMinute
+                  | DMSecond deriving (Eq, Show)
 
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-valuecount-aggregation.html> for more information.
 data ValueCountAggregation = FieldValueCount FieldName
@@ -1537,6 +1580,39 @@ instance ToJSON Aggregation where
   toJSON (FilterAgg (FilterAggregation filt ags)) =
     omitNulls [ "filter" .= filt
               , "aggs" .= ags]
+  toJSON (DateRangeAgg a) = object [ "date_range" .= a
+                                   ]
+
+instance ToJSON DateRangeAggregation where
+  toJSON DateRangeAggregation {..} =
+    omitNulls [ "field" .= draField
+              , "format" .= draFormat
+              , "ranges" .= toList draRanges
+              ]
+
+instance ToJSON DateRangeAggRange where
+  toJSON (DateRangeFrom e) = object [ "from" .= e ]
+  toJSON (DateRangeTo e) = object [ "to" .= e ]
+  toJSON (DateRangeFromAndTo f t) = object [ "from" .= f, "to" .= t ]
+
+instance ToJSON DateMathExpr where
+  toJSON (DateMathExpr a mods) = String (fmtA a <> mconcat (fmtMod <$> mods))
+    where fmtA DMNow = "now"
+          fmtA (DMDate date) = case toGregorian date of
+                                 (y,m,d) -> showText y <> "-" <>
+                                            showText m <> "-" <>
+                                            showText d <> "||"
+          fmtMod (AddTime n u) = "+" <> showText n <> fmtU u
+          fmtMod (SubtractTime n u) = "-" <> showText n <> fmtU u
+          fmtMod (RoundDownTo u) = "/" <> fmtU u
+          fmtU DMYear = "y"
+          fmtU DMMonth = "M"
+          fmtU DMWeek = "w"
+          fmtU DMDay = "d"
+          fmtU DMHour = "h"
+          fmtU DMMinute = "m"
+          fmtU DMSecond = "s"
+
 
 type AggregationResults = M.Map Text Value
 
@@ -1557,6 +1633,14 @@ data DateHistogramResult = DateHistogramResult { dateKey           :: Int
                                                , dateDocCount      :: Int
                                                , dateHistogramAggs :: Maybe AggregationResults } deriving (Show)
 
+data DateRangeResult = DateRangeResult { dateRangeKey          :: Text
+                                       , dateRangeFrom         :: Maybe UTCTime
+                                       , dateRangeFromAsString :: Maybe Text
+                                       , dateRangeTo           :: Maybe UTCTime
+                                       , dateRangeToAsString   :: Maybe Text
+                                       , dateRangeDocCount     :: Int
+                                       , dateRangeAggs         :: Maybe AggregationResults } deriving (Show, Eq)
+
 toTerms :: Text -> AggregationResults ->  Maybe (Bucket TermsResult)
 toTerms t a = M.lookup t a >>= deserialize
   where deserialize = parseMaybe parseJSON
@@ -1574,6 +1658,11 @@ instance BucketAggregation DateHistogramResult where
   key = showText . dateKey
   docCount = dateDocCount
   aggs = dateHistogramAggs
+
+instance BucketAggregation DateRangeResult where
+  key = dateRangeKey
+  docCount = dateRangeDocCount
+  aggs = dateRangeAggs
 
 instance (FromJSON a, BucketAggregation a) => FromJSON (Bucket a) where
   parseJSON (Object v) = Bucket <$>
@@ -1594,6 +1683,22 @@ instance FromJSON DateHistogramResult where
                          v .:  "doc_count"     <*>
                          v .:? "aggregations"
   parseJSON _ = mempty
+
+instance FromJSON DateRangeResult where
+  parseJSON = withObject "DateRangeResult" parse
+    where parse v = DateRangeResult                 <$>
+                    v .:  "key"                     <*>
+                    (fmap posixMS <$> v .:? "from") <*>
+                    v .:? "from_as_string"          <*>
+                    (fmap posixMS <$> v .:? "to")   <*>
+                    v .:? "to_as_string"            <*>
+                    v .:  "doc_count"               <*>
+                    v .:? "aggregations"
+
+instance FromJSON POSIXMS where
+  parseJSON = withScientific "POSIXMS" (return . parse)
+    where parse n = let n' = truncate n :: Integer
+                    in POSIXMS (posixSecondsToUTCTime (fromInteger (n' `div` 1000)))
 
 instance Monoid Filter where
   mempty = IdentityFilter
@@ -1890,7 +1995,7 @@ instance FromJSON Query where
                 <|> idsQuery `taggedWith` "ids"
                 <|> queryQueryStringQuery `taggedWith` "query_string"
                 <|> queryMatchQuery `taggedWith` "match"
-                <|> queryMultiMatchQuery --TODO: is this a precedence issue?
+                <|> queryMultiMatchQuery
                 <|> queryBoolQuery `taggedWith` "bool"
                 <|> queryBoostingQuery `taggedWith` "boosting"
                 <|> queryCommonTermsQuery `taggedWith` "common"

@@ -7,6 +7,7 @@
 module Main where
 
 import           Control.Applicative
+import           Control.Error
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Reader
@@ -23,7 +24,7 @@ import           Data.Monoid
 import           Data.Proxy
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
-import           Data.Time.Calendar              (Day (..))
+import           Data.Time.Calendar              (Day (..), fromGregorian)
 import           Data.Time.Clock                 (UTCTime (..),
                                                   secondsToDiffTime)
 import           Data.Typeable
@@ -917,6 +918,43 @@ main = hspec $ do
         fmap aggregations res `shouldBe` Right (Just (M.fromList [ docCountPair "bitemyapps" 1
                                                                  , docCountPair "notmyapps" 1
                                                                  ]))
+    it "can execute date_range aggregations" $ withTestEnv $ do
+      let now = fromGregorian 2015 3 14
+      let ltAMonthAgo = UTCTime (fromGregorian 2015 3 1) 0
+      let ltAWeekAgo = UTCTime (fromGregorian 2015 3 10) 0
+      let oldDoc = exampleTweet { postDate = ltAMonthAgo }
+      let newDoc = exampleTweet { postDate = ltAWeekAgo }
+      _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings oldDoc (DocId "1")
+      _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings newDoc (DocId "2")
+      _ <- refreshIndex testIndex
+      let thisMonth = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMMonth])
+      let thisWeek = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMWeek])
+      let agg = DateRangeAggregation (FieldName "postDate") Nothing (thisMonth :| [thisWeek])
+      let ags = mkAggregations "date_ranges" (DateRangeAgg agg)
+      let search = mkAggregateSearch Nothing ags
+      res <- searchTweets search
+      liftIO $ hitsTotal . searchHits <$> res `shouldBe` Right 2
+      let bucks = do magrs <- fmapL show (aggregations <$> res)
+                     agrs <- note "no aggregations returned" magrs
+                     rawBucks <- note "no date_ranges aggregation" $ M.lookup "date_ranges" agrs
+                     parseEither parseJSON rawBucks
+      let fromMonthT = UTCTime (fromGregorian 2015 2 14) 0
+      let fromWeekT = UTCTime (fromGregorian 2015 3 7) 0
+      liftIO $ buckets <$> bucks `shouldBe` Right [ DateRangeResult "2015-02-14T00:00:00.000Z-*"
+                                                                    (Just fromMonthT)
+                                                                    (Just "2015-02-14T00:00:00.000Z")
+                                                                    Nothing
+                                                                    Nothing
+                                                                    2
+                                                                    Nothing
+                                                  , DateRangeResult "2015-03-07T00:00:00.000Z-*"
+                                                                    (Just fromWeekT)
+                                                                    (Just "2015-03-07T00:00:00.000Z")
+                                                                    Nothing
+                                                                    Nothing
+                                                                    1
+                                                                    Nothing
+                                     ]
 
     it "returns date histogram aggregation results" $ withTestEnv $ do
       _ <- insertData

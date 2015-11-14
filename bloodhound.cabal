@@ -71,7 +71,8 @@ test-suite tests
                        mtl,
                        quickcheck-properties,
                        derive,
-                       quickcheck-instances
+                       quickcheck-instances,
+                       errors >= 2.0
   default-language:    Haskell2010
 
 test-suite doctests
