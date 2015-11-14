@@ -24,6 +24,7 @@ module Database.Bloodhound.Client
          withBH
        , createIndex
        , deleteIndex
+       , updateIndexSettings
        , indexExists
        , openIndex
        , closeIndex
@@ -72,8 +73,9 @@ import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Foldable                (toList)
+import qualified Data.HashMap.Strict          as HM
 import           Data.Ix
-import qualified Data.List                    as LS (filter)
+import qualified Data.List                    as LS (filter, foldl')
 import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.Maybe                   (fromMaybe, isJust)
 import           Data.Monoid
@@ -264,6 +266,7 @@ createIndex indexSettings (IndexName indexName) =
   where url = joinPath [indexName]
         body = Just $ encode indexSettings
 
+
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
 --
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
@@ -275,6 +278,35 @@ createIndex indexSettings (IndexName indexName) =
 deleteIndex :: MonadBH m => IndexName -> m Reply
 deleteIndex (IndexName indexName) =
   delete =<< joinPath [indexName]
+
+-- | 'updateIndexSettings' will apply a non-empty list of setting updates to an index
+--
+-- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "unconfiguredindex")
+-- >>> response <- runBH' $ updateIndexSettings (BlocksWrite False :| []) (IndexName "unconfiguredindex")
+-- >>> respIsTwoHunna response
+-- True
+updateIndexSettings :: MonadBH m => NonEmpty UpdatableIndexSetting -> IndexName -> m Reply
+updateIndexSettings updates (IndexName indexName) =
+  bindM2 put url (return body)
+  where url = joinPath [indexName, "_settings"]
+        body = Just (encode jsonBody)
+        jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
+
+
+--TODO: This feels a little nicer than returning a reply and coyly
+--implying that it *should* be an IndexSettingsSummary
+getIndexSettings :: MonadBH m => IndexName -> m (Either EsError IndexSettingsSummary)
+getIndexSettings (IndexName indexName) = undefined
+
+
+
+deepMerge :: [Object] -> Object
+deepMerge = LS.foldl' go mempty
+  where go acc = LS.foldl' go' acc . HM.toList
+        go' acc (k, v) = HM.insertWith merge k v acc
+        merge (Object a) (Object b) = Object (deepMerge [a, b])
+        merge _ b = b
+
 
 statusCodeIs :: Int -> Reply -> Bool
 statusCodeIs n resp = NHTS.statusCode (responseStatus resp) == n
