@@ -1,8 +1,10 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE UndecidableInstances       #-}
@@ -62,6 +64,16 @@ module Database.Bloodhound.Types
        , EsResult(..)
        , EsResultFound(..)
        , EsError(..)
+       , IndexAlias(..)
+       , IndexAliasName(..)
+       , IndexAliasAction(..)
+       , IndexAliasCreate(..)
+       , IndexAliasSummary(..)
+       , IndexAliasesSummary(..)
+       , AliasRouting(..)
+       , SearchAliasRouting(..)
+       , IndexAliasRouting(..)
+       , RoutingValue(..)
        , DocVersion
        , ExternalDocVersion(..)
        , VersionControl(..)
@@ -237,9 +249,12 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer
 import           Data.Aeson
-import           Data.Aeson.Types                (Pair, emptyObject, parseMaybe)
+import           Data.Aeson.Types                (Pair, Parser, emptyObject,
+                                                  parseMaybe)
 import qualified Data.ByteString.Lazy.Char8      as L
-import qualified Data.HashMap.Strict             as HM (union)
+import           Data.Char
+import           Data.Hashable                   (Hashable)
+import qualified Data.HashMap.Strict             as HM
 import           Data.List                       (foldl', nub)
 import           Data.List.NonEmpty              (NonEmpty (..), toList)
 import qualified Data.Map.Strict                 as M
@@ -247,6 +262,8 @@ import           Data.Maybe
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
 import           Data.Time.Clock                 (UTCTime)
+import qualified Data.Traversable                as DT
+import           Data.Typeable                   (Typeable)
 import qualified Data.Vector                     as V
 import           GHC.Enum
 import           GHC.Generics                    (Generic)
@@ -320,7 +337,7 @@ data Version = Version { number          :: Text
                        , build_hash      :: Text
                        , build_timestamp :: UTCTime
                        , build_snapshot  :: Bool
-                       , lucene_version  :: Text } deriving (Eq, Show, Generic)
+                       , lucene_version  :: Text } deriving (Eq, Show, Generic, Typeable)
 
 {-| 'Status' is a data type for describing the JSON body returned by
     Elasticsearch when you query its status. This was deprecated in 1.2.0.
@@ -430,6 +447,33 @@ data EsResultFound a = EsResultFound {  _version :: DocVersion
 data EsError = EsError { errorStatus  :: Int
                        , errorMessage :: Text } deriving (Eq, Show)
 
+data IndexAlias = IndexAlias { srcIndex   :: IndexName
+                             , indexAlias :: IndexAliasName } deriving (Eq, Show)
+
+newtype IndexAliasName = IndexAliasName { indexAliasName :: IndexName } deriving (Eq, Show, ToJSON)
+
+data IndexAliasAction = AddAlias IndexAlias IndexAliasCreate
+                      | RemoveAlias IndexAlias deriving (Show, Eq, Typeable)
+
+data IndexAliasCreate = IndexAliasCreate { aliasCreateRouting :: Maybe AliasRouting
+                                         , aliasCreateFilter  :: Maybe Filter}
+                                         deriving (Show, Eq, Typeable)
+
+data AliasRouting = AllAliasRouting RoutingValue
+                  | GranularAliasRouting (Maybe SearchAliasRouting) (Maybe IndexAliasRouting)
+                  deriving (Show, Eq, Typeable)
+
+newtype SearchAliasRouting = SearchAliasRouting (NonEmpty RoutingValue) deriving (Show, Eq, Typeable)
+
+newtype IndexAliasRouting = IndexAliasRouting RoutingValue deriving (Show, Eq, ToJSON, FromJSON, Typeable)
+
+newtype RoutingValue = RoutingValue { routingValue :: Text } deriving (Show, Eq, ToJSON, FromJSON, Typeable)
+
+newtype IndexAliasesSummary = IndexAliasesSummary { indexAliasesSummary :: [IndexAliasSummary] } deriving (Show, Eq, Typeable)
+
+{-| 'IndexAliasSummary' is a summary of an index alias configured for a server. -}
+data IndexAliasSummary = IndexAliasSummary { indexAliasSummaryAlias  :: IndexAlias
+                                           , indexAliasSummaryCreate :: IndexAliasCreate} deriving (Show, Eq)
 
 {-| 'DocVersion' is an integer version number for a document between 1
 and 9.2e+18 used for <<https://www.elastic.co/guide/en/elasticsearch/guide/current/optimistic-concurrency-control.html optimistic concurrency control>>.
@@ -581,15 +625,15 @@ type PrefixValue = Text
 {-| 'BooleanOperator' is the usual And/Or operators with an ES compatible
     JSON encoding baked in. Used all over the place.
 -}
-data BooleanOperator = And | Or deriving (Eq, Show)
+data BooleanOperator = And | Or deriving (Eq, Show, Typeable)
 
 {-| 'ShardCount' is part of 'IndexSettings'
 -}
-newtype ShardCount = ShardCount Int deriving (Eq, Show, Generic)
+newtype ShardCount = ShardCount Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'ReplicaCount' is part of 'IndexSettings'
 -}
-newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic)
+newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'Server' is used with the client functions to point at the ES instance
 -}
@@ -597,35 +641,35 @@ newtype Server = Server Text deriving (Eq, Show)
 
 {-| 'IndexName' is used to describe which index to query/create/delete
 -}
-newtype IndexName = IndexName Text deriving (Eq, Generic, Show)
+newtype IndexName = IndexName Text deriving (Eq, Generic, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'TemplateName' is used to describe which template to query/create/delete
 -}
-newtype TemplateName = TemplateName Text deriving (Eq, Show, Generic)
+newtype TemplateName = TemplateName Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'TemplatePattern' represents a pattern which is matched against index names
 -}
-newtype TemplatePattern = TemplatePattern Text deriving (Eq, Show, Generic)
+newtype TemplatePattern = TemplatePattern Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'MappingName' is part of mappings which are how ES describes and schematizes
     the data in the indices.
 -}
-newtype MappingName = MappingName Text deriving (Eq, Generic, Show)
+newtype MappingName = MappingName Text deriving (Eq, Generic, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'DocId' is a generic wrapper value for expressing unique Document IDs.
     Can be set by the user or created by ES itself. Often used in client
     functions for poking at specific documents.
 -}
-newtype DocId = DocId Text deriving (Eq, Generic, Show)
+newtype DocId = DocId Text deriving (Eq, Generic, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'QueryString' is used to wrap query text bodies, be they human written or not.
 -}
-newtype QueryString = QueryString Text deriving (Eq, Generic, Show)
+newtype QueryString = QueryString Text deriving (Eq, Generic, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'FieldName' is used all over the place wherever a specific field within
      a document needs to be specified, usually in 'Query's or 'Filter's.
 -}
-newtype FieldName = FieldName Text deriving (Eq, Show)
+newtype FieldName = FieldName Text deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 
 
 {-| 'Script' is often used in place of 'FieldName' to specify more
@@ -636,100 +680,98 @@ newtype Script = Script { scriptText :: Text } deriving (Eq, Show)
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
 -}
-newtype CacheName = CacheName Text deriving (Eq, Show)
+newtype CacheName = CacheName Text deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 
 {-| 'CacheKey' is used in 'RegexpFilter' to key regex caching.
 -}
 newtype CacheKey =
-  CacheKey Text deriving (Eq, Show)
+  CacheKey Text deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 newtype Existence =
-  Existence Bool deriving (Eq, Show)
+  Existence Bool deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 newtype NullValue =
-  NullValue Bool deriving (Eq, Show)
+  NullValue Bool deriving (Eq, Show, ToJSON, FromJSON, Typeable)
 newtype CutoffFrequency =
-  CutoffFrequency Double deriving (Eq, Show, Generic)
+  CutoffFrequency Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Analyzer =
-  Analyzer Text deriving (Eq, Show, Generic)
+  Analyzer Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MaxExpansions =
-  MaxExpansions Int deriving (Eq, Show, Generic)
+  MaxExpansions Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'Lenient', if set to true, will cause format based failures to be
     ignored. I don't know what the bloody default is, Elasticsearch
     documentation didn't say what it was. Let me know if you figure it out.
 -}
 newtype Lenient =
-  Lenient Bool deriving (Eq, Show, Generic)
+  Lenient Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Tiebreaker =
-  Tiebreaker Double deriving (Eq, Show, Generic)
+  Tiebreaker Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Boost =
-  Boost Double deriving (Eq, Show, Generic)
+  Boost Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype BoostTerms =
-  BoostTerms Double deriving (Eq, Show, Generic)
+  BoostTerms Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'MinimumMatch' controls how many should clauses in the bool query should
      match. Can be an absolute value (2) or a percentage (30%) or a
      combination of both.
 -}
 newtype MinimumMatch =
-  MinimumMatch Int deriving (Eq, Show, Generic)
-newtype MinimumMatchText =
-  MinimumMatchText Text deriving (Eq, Show)
+  MinimumMatch Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype DisableCoord =
-  DisableCoord Bool deriving (Eq, Show, Generic)
+  DisableCoord Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype IgnoreTermFrequency =
-  IgnoreTermFrequency Bool deriving (Eq, Show, Generic)
+  IgnoreTermFrequency Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MinimumTermFrequency =
-  MinimumTermFrequency Int deriving (Eq, Show, Generic)
+  MinimumTermFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MaxQueryTerms =
-  MaxQueryTerms Int deriving (Eq, Show, Generic)
+  MaxQueryTerms Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Fuzziness =
-  Fuzziness Double deriving (Eq, Show, Generic)
+  Fuzziness Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'PrefixLength' is the prefix length used in queries, defaults to 0. -}
 newtype PrefixLength =
-  PrefixLength Int deriving (Eq, Show, Generic)
+  PrefixLength Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype TypeName =
-  TypeName Text deriving (Eq, Show, Generic)
+  TypeName Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype PercentMatch =
-  PercentMatch Double deriving (Eq, Show, Generic)
+  PercentMatch Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype StopWord =
-  StopWord Text deriving (Eq, Show, Generic)
+  StopWord Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype QueryPath =
-  QueryPath Text deriving (Eq, Show, Generic)
+  QueryPath Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| Allowing a wildcard at the beginning of a word (eg "*ing") is particularly
     heavy, because all terms in the index need to be examined, just in case
     they match. Leading wildcards can be disabled by setting
     'AllowLeadingWildcard' to false. -}
 newtype AllowLeadingWildcard =
-  AllowLeadingWildcard     Bool deriving (Eq, Show, Generic)
+  AllowLeadingWildcard     Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype LowercaseExpanded =
-  LowercaseExpanded        Bool deriving (Eq, Show, Generic)
+  LowercaseExpanded        Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype EnablePositionIncrements =
-  EnablePositionIncrements Bool deriving (Eq, Show, Generic)
+  EnablePositionIncrements Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| By default, wildcard terms in a query are not analyzed.
     Setting 'AnalyzeWildcard' to true enables best-effort analysis.
 -}
-newtype AnalyzeWildcard = AnalyzeWildcard Bool deriving (Eq, Show, Generic)
+newtype AnalyzeWildcard = AnalyzeWildcard Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'GeneratePhraseQueries' defaults to false.
 -}
 newtype GeneratePhraseQueries =
-  GeneratePhraseQueries Bool deriving (Eq, Show, Generic)
+  GeneratePhraseQueries Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'Locale' is used for string conversions - defaults to ROOT.
 -}
-newtype Locale        = Locale        Text deriving (Eq, Show, Generic)
-newtype MaxWordLength = MaxWordLength Int  deriving (Eq, Show, Generic)
-newtype MinWordLength = MinWordLength Int  deriving (Eq, Show, Generic)
+newtype Locale        = Locale        Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype MaxWordLength = MaxWordLength Int  deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype MinWordLength = MinWordLength Int  deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'PhraseSlop' sets the default slop for phrases, 0 means exact
      phrase matches. Default is 0.
 -}
-newtype PhraseSlop      = PhraseSlop      Int deriving (Eq, Show, Generic)
-newtype MinDocFrequency = MinDocFrequency Int deriving (Eq, Show, Generic)
-newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Show, Generic)
+newtype PhraseSlop      = PhraseSlop      Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype MinDocFrequency = MinDocFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'unpackId' is a silly convenience function that gets used once.
 -}
@@ -832,7 +874,7 @@ data HighlightTag = TagSchema Text
 
 data Query =
   TermQuery                     Term (Maybe Boost)
-  | TermsQuery                  (NonEmpty Term)
+  | TermsQuery                  Text (NonEmpty Text)
   | QueryMatchQuery             MatchQuery
   | QueryMultiMatchQuery        MultiMatchQuery
   | QueryBoolQuery              BoolQuery
@@ -858,19 +900,19 @@ data Query =
   | QuerySimpleQueryStringQuery SimpleQueryStringQuery
   | QueryRangeQuery             RangeQuery
   | QueryRegexpQuery            RegexpQuery
-  deriving (Eq, Show)
+  deriving (Eq, Show, Typeable)
 
 data RegexpQuery =
   RegexpQuery { regexpQueryField :: FieldName
               , regexpQuery      :: Regexp
               , regexpQueryFlags :: RegexpFlags
               , regexpQueryBoost :: Maybe Boost
-              } deriving (Eq, Show)
+              } deriving (Eq, Show, Typeable)
 
 data RangeQuery =
   RangeQuery { rangeQueryField :: FieldName
              , rangeQueryRange :: RangeValue
-             , rangeQueryBoost :: Boost } deriving (Eq, Show)
+             , rangeQueryBoost :: Boost } deriving (Eq, Show, Typeable)
 
 mkRangeQuery :: FieldName -> RangeValue -> RangeQuery
 mkRangeQuery f r = RangeQuery f r (Boost 1.0)
@@ -881,10 +923,10 @@ data SimpleQueryStringQuery =
     , simpleQueryStringField             :: Maybe FieldOrFields
     , simpleQueryStringOperator          :: Maybe BooleanOperator
     , simpleQueryStringAnalyzer          :: Maybe Analyzer
-    , simpleQueryStringFlags             :: Maybe [SimpleQueryFlag]
+    , simpleQueryStringFlags             :: Maybe (NonEmpty SimpleQueryFlag)
     , simpleQueryStringLowercaseExpanded :: Maybe LowercaseExpanded
     , simpleQueryStringLocale            :: Maybe Locale
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Typeable)
 
 data SimpleQueryFlag =
   SimpleQueryAll
@@ -898,7 +940,7 @@ data SimpleQueryFlag =
   | SimpleQueryWhitespace
   | SimpleQueryFuzzy
   | SimpleQueryNear
-  | SimpleQuerySlop deriving (Eq, Show)
+  | SimpleQuerySlop deriving (Eq, Show, Typeable)
 
 -- use_dis_max and tie_breaker when fields are plural?
 data QueryStringQuery =
@@ -920,7 +962,7 @@ data QueryStringQuery =
   , queryStringMinimumShouldMatch       :: Maybe MinimumMatch
   , queryStringLenient                  :: Maybe Lenient
   , queryStringLocale                   :: Maybe Locale
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 mkQueryStringQuery :: QueryString -> QueryStringQuery
 mkQueryStringQuery qs =
@@ -931,19 +973,19 @@ mkQueryStringQuery qs =
   Nothing Nothing
 
 data FieldOrFields = FofField   FieldName
-                   | FofFields [FieldName] deriving (Eq, Show)
+                   | FofFields (NonEmpty FieldName) deriving (Eq, Show, Typeable)
 
 data PrefixQuery =
   PrefixQuery
   { prefixQueryField       :: FieldName
   , prefixQueryPrefixValue :: Text
-  , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Show)
+  , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Show, Typeable)
 
 data NestedQuery =
   NestedQuery
   { nestedQueryPath      :: QueryPath
   , nestedQueryScoreType :: ScoreType
-  , nestedQuery          :: Query } deriving (Eq, Show)
+  , nestedQuery          :: Query } deriving (Eq, Show, Typeable)
 
 data MoreLikeThisFieldQuery =
   MoreLikeThisFieldQuery
@@ -953,7 +995,7 @@ data MoreLikeThisFieldQuery =
   , moreLikeThisFieldPercentMatch    :: Maybe PercentMatch
   , moreLikeThisFieldMinimumTermFreq :: Maybe MinimumTermFrequency
   , moreLikeThisFieldMaxQueryTerms   :: Maybe MaxQueryTerms
-  , moreLikeThisFieldStopWords       :: Maybe [StopWord]
+  , moreLikeThisFieldStopWords       :: Maybe (NonEmpty StopWord)
   , moreLikeThisFieldMinDocFrequency :: Maybe MinDocFrequency
   , moreLikeThisFieldMaxDocFrequency :: Maybe MaxDocFrequency
   , moreLikeThisFieldMinWordLength   :: Maybe MinWordLength
@@ -961,17 +1003,17 @@ data MoreLikeThisFieldQuery =
   , moreLikeThisFieldBoostTerms      :: Maybe BoostTerms
   , moreLikeThisFieldBoost           :: Maybe Boost
   , moreLikeThisFieldAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 data MoreLikeThisQuery =
   MoreLikeThisQuery
   { moreLikeThisText            :: Text
-  , moreLikeThisFields          :: Maybe [FieldName]
+  , moreLikeThisFields          :: Maybe (NonEmpty FieldName)
     -- default 0.3 (30%)
   , moreLikeThisPercentMatch    :: Maybe PercentMatch
   , moreLikeThisMinimumTermFreq :: Maybe MinimumTermFrequency
   , moreLikeThisMaxQueryTerms   :: Maybe MaxQueryTerms
-  , moreLikeThisStopWords       :: Maybe [StopWord]
+  , moreLikeThisStopWords       :: Maybe (NonEmpty StopWord)
   , moreLikeThisMinDocFrequency :: Maybe MinDocFrequency
   , moreLikeThisMaxDocFrequency :: Maybe MaxDocFrequency
   , moreLikeThisMinWordLength   :: Maybe MinWordLength
@@ -979,32 +1021,32 @@ data MoreLikeThisQuery =
   , moreLikeThisBoostTerms      :: Maybe BoostTerms
   , moreLikeThisBoost           :: Maybe Boost
   , moreLikeThisAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 data IndicesQuery =
   IndicesQuery
   { indicesQueryIndices :: [IndexName]
   , indicesQuery        :: Query
     -- default "all"
-  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Show)
+  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Show, Typeable)
 
 data HasParentQuery =
   HasParentQuery
   { hasParentQueryType      :: TypeName
   , hasParentQuery          :: Query
-  , hasParentQueryScoreType :: Maybe ScoreType } deriving (Eq, Show)
+  , hasParentQueryScoreType :: Maybe ScoreType } deriving (Eq, Show, Typeable)
 
 data HasChildQuery =
   HasChildQuery
   { hasChildQueryType      :: TypeName
   , hasChildQuery          :: Query
-  , hasChildQueryScoreType :: Maybe ScoreType } deriving (Eq, Show)
+  , hasChildQueryScoreType :: Maybe ScoreType } deriving (Eq, Show, Typeable)
 
 data ScoreType =
   ScoreTypeMax
   | ScoreTypeSum
   | ScoreTypeAvg
-  | ScoreTypeNone deriving (Eq, Show)
+  | ScoreTypeNone deriving (Eq, Show, Typeable)
 
 data FuzzyQuery =
   FuzzyQuery { fuzzyQueryField         :: FieldName
@@ -1013,7 +1055,7 @@ data FuzzyQuery =
              , fuzzyQueryMaxExpansions :: MaxExpansions
              , fuzzyQueryFuzziness     :: Fuzziness
              , fuzzyQueryBoost         :: Maybe Boost
-             } deriving (Eq, Show)
+             } deriving (Eq, Show, Typeable)
 
 data FuzzyLikeFieldQuery =
   FuzzyLikeFieldQuery
@@ -1026,7 +1068,7 @@ data FuzzyLikeFieldQuery =
   , fuzzyLikeFieldPrefixLength        :: PrefixLength
   , fuzzyLikeFieldBoost               :: Boost
   , fuzzyLikeFieldAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 data FuzzyLikeThisQuery =
   FuzzyLikeThisQuery
@@ -1038,19 +1080,19 @@ data FuzzyLikeThisQuery =
   , fuzzyLikePrefixLength        :: PrefixLength
   , fuzzyLikeBoost               :: Boost
   , fuzzyLikeAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Typeable)
 
 data FilteredQuery =
   FilteredQuery
   { filteredQuery  :: Query
-  , filteredFilter :: Filter } deriving (Eq, Show)
+  , filteredFilter :: Filter } deriving (Eq, Show, Typeable)
 
 data DisMaxQuery =
   DisMaxQuery { disMaxQueries    :: [Query]
                 -- default 0.0
               , disMaxTiebreaker :: Tiebreaker
               , disMaxBoost      :: Maybe Boost
-              } deriving (Eq, Show)
+              } deriving (Eq, Show, Typeable)
 
 data MatchQuery =
   MatchQuery { matchQueryField           :: FieldName
@@ -1062,7 +1104,7 @@ data MatchQuery =
              , matchQueryAnalyzer        :: Maybe Analyzer
              , matchQueryMaxExpansions   :: Maybe MaxExpansions
              , matchQueryLenient         :: Maybe Lenient
-             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Show)
+             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Show, Typeable)
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
@@ -1072,7 +1114,7 @@ mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothi
 
 data MatchQueryType =
   MatchPhrase
-  | MatchPhrasePrefix deriving (Eq, Show)
+  | MatchPhrasePrefix deriving (Eq, Show, Typeable)
 
 data MultiMatchQuery =
   MultiMatchQuery { multiMatchQueryFields          :: [FieldName]
@@ -1084,7 +1126,7 @@ data MultiMatchQuery =
                   , multiMatchQueryCutoffFrequency :: Maybe CutoffFrequency
                   , multiMatchQueryAnalyzer        :: Maybe Analyzer
                   , multiMatchQueryMaxExpansions   :: Maybe MaxExpansions
-                  , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show)
+                  , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show, Typeable)
 
 {-| 'mkMultiMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the list of 'FieldName's and 'QueryString' to
@@ -1101,7 +1143,7 @@ data MultiMatchQueryType =
   | MultiMatchMostFields
   | MultiMatchCrossFields
   | MultiMatchPhrase
-  | MultiMatchPhrasePrefix deriving (Eq, Show)
+  | MultiMatchPhrasePrefix deriving (Eq, Show, Typeable)
 
 data BoolQuery =
   BoolQuery { boolQueryMustMatch          :: [Query]
@@ -1110,7 +1152,7 @@ data BoolQuery =
             , boolQueryMinimumShouldMatch :: Maybe MinimumMatch
             , boolQueryBoost              :: Maybe Boost
             , boolQueryDisableCoord       :: Maybe DisableCoord
-            } deriving (Eq, Show)
+            } deriving (Eq, Show, Typeable)
 
 mkBoolQuery :: [Query] -> [Query] -> [Query] -> BoolQuery
 mkBoolQuery must mustNot should =
@@ -1119,7 +1161,7 @@ mkBoolQuery must mustNot should =
 data BoostingQuery =
   BoostingQuery { positiveQuery :: Query
                 , negativeQuery :: Query
-                , negativeBoost :: Boost } deriving (Eq, Show)
+                , negativeBoost :: Boost } deriving (Eq, Show, Typeable)
 
 data CommonTermsQuery =
   CommonTermsQuery { commonField              :: FieldName
@@ -1131,16 +1173,16 @@ data CommonTermsQuery =
                    , commonBoost              :: Maybe Boost
                    , commonAnalyzer           :: Maybe Analyzer
                    , commonDisableCoord       :: Maybe DisableCoord
-                   } deriving (Eq, Show)
+                   } deriving (Eq, Show, Typeable)
 
 data CommonMinimumMatch =
     CommonMinimumMatchHighLow MinimumMatchHighLow
   | CommonMinimumMatch        MinimumMatch
-  deriving (Eq, Show)
+  deriving (Eq, Show, Typeable)
 
 data MinimumMatchHighLow =
   MinimumMatchHighLow { lowFreq  :: MinimumMatch
-                      , highFreq :: MinimumMatch } deriving (Eq, Show)
+                      , highFreq :: MinimumMatch } deriving (Eq, Show, Typeable)
 
 data Filter = AndFilter [Filter] Cache
             | OrFilter  [Filter] Cache
@@ -1160,15 +1202,15 @@ data Filter = AndFilter [Filter] Cache
             | RangeFilter   FieldName RangeValue RangeExecution Cache
             | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
             | TermFilter    Term Cache
-              deriving (Eq, Show)
+              deriving (Eq, Show, Typeable)
 
 data ZeroTermsQuery = ZeroTermsNone
-                    | ZeroTermsAll deriving (Eq, Show)
+                    | ZeroTermsAll deriving (Eq, Show, Typeable)
 
 data RangeExecution = RangeExecutionIndex
-                    | RangeExecutionFielddata deriving (Eq, Show)
+                    | RangeExecutionFielddata deriving (Eq, Show, Typeable)
 
-newtype Regexp = Regexp Text deriving (Eq, Show)
+newtype Regexp = Regexp Text deriving (Eq, Show, FromJSON)
 
 data RegexpFlags = AllRegexpFlags
                  | NoRegexpFlags
@@ -1229,33 +1271,33 @@ rangeValueToPair rv = case rv of
   RangeDoubleGtLt (GreaterThan l) (LessThan g)       -> ["gt"  .= l, "lt"  .= g]
 
 data Term = Term { termField :: Text
-                 , termValue :: Text } deriving (Eq, Show)
+                 , termValue :: Text } deriving (Eq, Show, Typeable)
 
 data BoolMatch = MustMatch    Term  Cache
                | MustNotMatch Term  Cache
-               | ShouldMatch [Term] Cache deriving (Eq, Show)
+               | ShouldMatch [Term] Cache deriving (Eq, Show, Typeable)
 
 -- "memory" or "indexed"
 data GeoFilterType = GeoFilterMemory
-                   | GeoFilterIndexed deriving (Eq, Show)
+                   | GeoFilterIndexed deriving (Eq, Show, Typeable)
 
 data LatLon = LatLon { lat :: Double
-                     , lon :: Double } deriving (Eq, Show)
+                     , lon :: Double } deriving (Eq, Show, Typeable)
 
 data GeoBoundingBox =
   GeoBoundingBox { topLeft     :: LatLon
-                 , bottomRight :: LatLon } deriving (Eq, Show)
+                 , bottomRight :: LatLon } deriving (Eq, Show, Typeable)
 
 data GeoBoundingBoxConstraint =
   GeoBoundingBoxConstraint { geoBBField        :: FieldName
                            , constraintBox     :: GeoBoundingBox
                            , bbConstraintcache :: Cache
                            , geoType           :: GeoFilterType
-                           } deriving (Eq, Show)
+                           } deriving (Eq, Show, Typeable)
 
 data GeoPoint =
   GeoPoint { geoField :: FieldName
-           , latLon   :: LatLon} deriving (Eq, Show)
+           , latLon   :: LatLon} deriving (Eq, Show, Typeable)
 
 data DistanceUnit = Miles
                   | Yards
@@ -1265,18 +1307,18 @@ data DistanceUnit = Miles
                   | Meters
                   | Centimeters
                   | Millimeters
-                  | NauticalMiles deriving (Eq, Show)
+                  | NauticalMiles deriving (Eq, Show, Typeable)
 
 data DistanceType = Arc
                   | SloppyArc -- doesn't exist <1.0
-                  | Plane deriving (Eq, Show)
+                  | Plane deriving (Eq, Show, Typeable)
 
 data OptimizeBbox = OptimizeGeoFilterType GeoFilterType
-                  | NoOptimizeBbox deriving (Eq, Show)
+                  | NoOptimizeBbox deriving (Eq, Show, Typeable)
 
 data Distance =
   Distance { coefficient :: Double
-           , unit        :: DistanceUnit } deriving (Eq, Show)
+           , unit        :: DistanceUnit } deriving (Eq, Show, Typeable)
 
 data DistanceRange =
   DistanceRange { distanceFrom :: Distance
@@ -1408,6 +1450,22 @@ mkTermsScriptAggregation t = TermsAggregation (Right t) Nothing Nothing Nothing 
 
 mkDateHistogram :: FieldName -> Interval -> DateHistogramAggregation
 mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
+
+instance ToJSON Version where
+  toJSON Version {..} = object ["number" .= number
+                               ,"build_hash" .= build_hash
+                               ,"build_timestamp" .= build_timestamp
+                               ,"build_snapshot" .= build_snapshot
+                               ,"lucene_version" .= lucene_version]
+
+instance FromJSON Version where
+  parseJSON = withObject "Version" parse
+    where parse o = Version
+                    <$> o .: "number"
+                    <*> o .: "build_hash"
+                    <*> o .: "build_timestamp"
+                    <*> o .: "build_snapshot"
+                    <*> o .: "lucene_version"
 
 instance ToJSON TermOrder where
   toJSON (TermOrder termSortField termSortOrder) = object [termSortField .= termSortOrder]
@@ -1641,6 +1699,94 @@ instance ToJSON Filter where
                    , "_cache"     .= cache
                    , "_cache_key" .= cacheKey]]
 
+instance FromJSON Filter where
+  parseJSON = withObject "Filter" parse
+    where parse o = andFilter `taggedWith` "and"
+                <|> orFilter `taggedWith` "or"
+                <|> notFilter `taggedWith` "not"
+                <|> identityFilter `taggedWith` "match_all"
+                <|> boolFilter `taggedWith` "bool"
+                <|> existsFilter `taggedWith` "exists"
+                <|> geoBoundingBoxFilter `taggedWith` "geo_bounding_box"
+                <|> geoDistanceFilter `taggedWith` "geo_distance"
+                <|> geoDistanceRangeFilter `taggedWith` "geo_distance_range"
+                <|> geoPolygonFilter `taggedWith` "geo_polygon"
+                <|> idsFilter `taggedWith` "ids"
+                <|> limitFilter `taggedWith` "limit"
+                <|> missingFilter `taggedWith` "missing"
+                <|> prefixFilter `taggedWith` "prefix"
+                <|> queryFilter `taggedWith` "query"
+                <|> fqueryFilter `taggedWith` "fquery"
+                <|> rangeFilter `taggedWith` "range"
+                <|> regexpFilter `taggedWith` "regexp"
+                <|> termFilter `taggedWith` "term"
+            where taggedWith parser k = parser =<< o .: k
+          andFilter o = AndFilter <$> o .: "filters"
+                                  <*> o .:? "_cache" .!= defaultCache
+          orFilter o = OrFilter <$> o .: "filters"
+                                <*> o .:? "_cache" .!= defaultCache
+          notFilter o = NotFilter <$> o .: "filter"
+                                  <*> o .: "_cache" .!= defaultCache
+          identityFilter :: Object -> Parser Filter
+          identityFilter m
+            | HM.null m = pure IdentityFilter
+            | otherwise = fail ("Identityfilter expected empty object but got " <> show m)
+          boolFilter = pure . BoolFilter
+          existsFilter o = ExistsFilter <$> o .: "field"
+          geoBoundingBoxFilter = pure . GeoBoundingBoxFilter
+          geoDistanceFilter o = do
+            case HM.toList (deleteSeveral ["distance", "distance_type", "optimize_bbox", "_cache"] o) of
+              [(fn, v)] -> do
+                gp <- GeoPoint (FieldName fn) <$> parseJSON v
+                GeoDistanceFilter gp <$> o .: "distance"
+                                     <*> o .: "distance_type"
+                                     <*> o .: "optimize_bbox"
+                                     <*> o .:? "_cache" .!= defaultCache
+              _ -> fail "Could not find GeoDistanceFilter field name"
+          geoDistanceRangeFilter o = do
+            case HM.toList (deleteSeveral ["from", "to"] o) of
+              [(fn, v)] -> do
+                gp <- GeoPoint (FieldName fn) <$> parseJSON v
+                rng <- DistanceRange <$> o .: "from" <*> o .: "to"
+                return (GeoDistanceRangeFilter gp rng)
+              _ -> fail "Could not find GeoDistanceRangeFilter field name"
+          geoPolygonFilter = fieldTagged $ \fn o -> GeoPolygonFilter fn <$> o .: "points"
+          idsFilter o = IdsFilter <$> o .: "type"
+                                  <*> o .: "values"
+          limitFilter o = LimitFilter <$> o .: "value"
+          missingFilter o = MissingFilter <$> o .: "field"
+                                          <*> o .: "existence"
+                                          <*> o .: "null_value"
+          prefixFilter o = case HM.toList (HM.delete "_cache" o) of
+                             [(fn, String v)] -> PrefixFilter (FieldName fn) v <$> o .:? "_cache" .!= defaultCache
+                             _ -> fail "Could not parse PrefixFilter"
+
+          queryFilter q = pure (QueryFilter q False)
+          fqueryFilter o = QueryFilter <$> o .: "query" <*> pure True
+          rangeFilter o = case HM.toList (deleteSeveral ["execution", "_cache"] o) of
+                            [(fn, v)] -> RangeFilter (FieldName fn)
+                                         <$> parseJSON v
+                                         <*> o .: "execution"
+                                         <*> o .:? "_cache" .!= defaultCache
+                            _ -> fail "Could not find field name for RangeFilter"
+          regexpFilter o = case HM.toList (deleteSeveral ["_name", "_cache", "_cache_key"] o) of
+                              [(fn, Object o')] -> RegexpFilter (FieldName fn)
+                                                   <$> o' .: "value"
+                                                   <*> o' .: "flags"
+                                                   <*> o .: "_name"
+                                                   <*> o .:? "_cache" .!= defaultCache
+                                                   <*> o .: "_cache_key"
+                              _ -> fail "Could not find field name for RegexpFilter"
+          termFilter o = case HM.toList (HM.delete "_cache" o) of
+                         [(termField, String termVal)] -> TermFilter (Term termField termVal)
+                                                          <$> o .:? "_cache" .!= defaultCache
+                         _ -> fail "Could not find term field for TermFilter"
+
+fieldTagged :: Monad m => (FieldName -> Object -> m a) -> Object -> m a
+fieldTagged f o = case HM.toList o of
+                    [(k, Object o')] -> f (FieldName k) o'
+                    _ -> fail "Expected object with 1 field-named key"
+
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
     object [ geoPointField  .= geoPointLatLon ]
@@ -1655,12 +1801,9 @@ instance ToJSON Query where
       boosted = maybe [] (return . ("boost" .=)) boost
       merged = mappend base boosted
 
-  toJSON (TermsQuery terms) =
+  toJSON (TermsQuery fieldName terms) =
     object [ "terms" .= object conjoined ]
-    where conjoined = [ getTermsField terms .=
-                        fmap (toJSON . getTermValue) (toList terms)]
-          getTermsField ((Term f _ ) :| _) = f
-          getTermValue (Term _ v) = v
+    where conjoined = [fieldName .= terms]
   toJSON (IdsQuery idsQueryMappingName docIds) =
     object [ "ids" .= object conjoined ]
     where conjoined = [ "type"   .= idsQueryMappingName
@@ -1685,12 +1828,12 @@ instance ToJSON Query where
     object [ "common" .= commonTermsQuery ]
 
   toJSON (ConstantScoreFilter csFilter boost) =
-    object [ "constant_score" .= csFilter
-           , "boost" .= boost]
+    object ["constant_score" .= object ["filter" .= csFilter
+                                       , "boost" .= boost]]
 
   toJSON (ConstantScoreQuery query boost) =
-    object [ "constant_score" .= query
-           , "boost"          .= boost]
+    object ["constant_score" .= object ["query" .= query
+                                       , "boost" .= boost]]
 
   toJSON (QueryDisMaxQuery disMaxQuery) =
     object [ "dis_max" .= disMaxQuery ]
@@ -1740,6 +1883,77 @@ instance ToJSON Query where
   toJSON (QuerySimpleQueryStringQuery query) =
     object [ "simple_query_string" .= query ]
 
+instance FromJSON Query where
+  parseJSON v = withObject "Query" parse v
+    where parse o = termQuery `taggedWith` "term"
+                <|> termsQuery `taggedWith` "terms"
+                <|> idsQuery `taggedWith` "ids"
+                <|> queryQueryStringQuery `taggedWith` "query_string"
+                <|> queryMatchQuery `taggedWith` "match"
+                <|> queryMultiMatchQuery --TODO: is this a precedence issue?
+                <|> queryBoolQuery `taggedWith` "bool"
+                <|> queryBoostingQuery `taggedWith` "boosting"
+                <|> queryCommonTermsQuery `taggedWith` "common"
+                <|> constantScoreFilter `taggedWith` "constant_score"
+                <|> constantScoreQuery `taggedWith` "constant_score"
+                <|> queryDisMaxQuery `taggedWith` "dis_max"
+                <|> queryFilteredQuery `taggedWith` "filtered"
+                <|> queryFuzzyLikeThisQuery `taggedWith` "fuzzy_like_this"
+                <|> queryFuzzyLikeFieldQuery `taggedWith` "fuzzy_like_this_field"
+                <|> queryFuzzyQuery `taggedWith` "fuzzy"
+                <|> queryHasChildQuery `taggedWith` "has_child"
+                <|> queryHasParentQuery `taggedWith` "has_parent"
+                <|> queryIndicesQuery `taggedWith` "indices"
+                <|> matchAllQuery `taggedWith` "match_all"
+                <|> queryMoreLikeThisQuery `taggedWith` "more_like_this"
+                <|> queryMoreLikeThisFieldQuery `taggedWith` "more_like_this_field"
+                <|> queryNestedQuery `taggedWith` "nested"
+                <|> queryPrefixQuery `taggedWith` "prefix"
+                <|> queryRangeQuery `taggedWith` "range"
+                <|> queryRegexpQuery `taggedWith` "regexp"
+                <|> querySimpleQueryStringQuery `taggedWith` "simple_query_string"
+            where taggedWith parser k = parser =<< o .: k
+          termQuery = fieldTagged $ \(FieldName fn) o ->
+                        TermQuery <$> (Term fn <$> o .: "value") <*> o .:? "boost"
+          termsQuery o = case HM.toList o of
+                           [(fn, vs)] -> do vals <- parseJSON vs
+                                            case vals of
+                                              x:xs -> return (TermsQuery fn (x :| xs))
+                                              _ -> fail "Expected non empty list of values"
+                           _ -> fail "Expected object with 1 field-named key"
+          idsQuery o = IdsQuery <$> o .: "type"
+                                <*> o .: "values"
+          queryQueryStringQuery = pure . QueryQueryStringQuery
+          queryMatchQuery = pure . QueryMatchQuery
+          queryMultiMatchQuery = QueryMultiMatchQuery <$> parseJSON v
+          queryBoolQuery = pure . QueryBoolQuery
+          queryBoostingQuery = pure . QueryBoostingQuery
+          queryCommonTermsQuery = pure . QueryCommonTermsQuery
+          constantScoreFilter o = case HM.lookup "filter" o of
+            Just x -> ConstantScoreFilter <$> parseJSON x
+                                          <*> o .: "boost"
+            _ -> fail "Does not appear to be a ConstantScoreFilter"
+          constantScoreQuery o = case HM.lookup "query" o of
+            Just x -> ConstantScoreQuery <$> parseJSON x
+                                         <*> o .: "boost"
+            _ -> fail "Does not appear to be a ConstantScoreQuery"
+          queryDisMaxQuery = pure . QueryDisMaxQuery
+          queryFilteredQuery = pure . QueryFilteredQuery
+          queryFuzzyLikeThisQuery = pure . QueryFuzzyLikeThisQuery
+          queryFuzzyLikeFieldQuery = pure . QueryFuzzyLikeFieldQuery
+          queryFuzzyQuery = pure . QueryFuzzyQuery
+          queryHasChildQuery = pure . QueryHasChildQuery
+          queryHasParentQuery = pure . QueryHasParentQuery
+          queryIndicesQuery = pure . QueryIndicesQuery
+          matchAllQuery o = MatchAllQuery <$> o .:? "boost"
+          queryMoreLikeThisQuery = pure . QueryMoreLikeThisQuery
+          queryMoreLikeThisFieldQuery = pure . QueryMoreLikeThisFieldQuery
+          queryNestedQuery = pure . QueryNestedQuery
+          queryPrefixQuery = pure . QueryPrefixQuery
+          queryRangeQuery = pure . QueryRangeQuery
+          queryRegexpQuery = pure . QueryRegexpQuery
+          querySimpleQueryStringQuery = pure . QuerySimpleQueryStringQuery
+
 
 omitNulls :: [(Text, Value)] -> Value
 omitNulls = object . filter notNull where
@@ -1759,12 +1973,27 @@ instance ToJSON SimpleQueryStringQuery where
                      , "lowercase_expanded_terms" .= simpleQueryStringLowercaseExpanded
                      , "locale" .= simpleQueryStringLocale ]
 
+instance FromJSON SimpleQueryStringQuery where
+  parseJSON = withObject "SimpleQueryStringQuery" parse
+    where parse o = SimpleQueryStringQuery <$> o .: "query"
+                                           <*> o .:? "fields"
+                                           <*> o .:? "default_operator"
+                                           <*> o .:? "analyzer"
+                                           <*> (parseFlags <$> o .:? "flags")
+                                           <*> o .:? "lowercase_expanded_terms"
+                                           <*> o .:? "locale"
+          parseFlags (Just (x:xs)) = Just (x :| xs)
+          parseFlags _             = Nothing
 
 instance ToJSON FieldOrFields where
   toJSON (FofField fieldName) =
     toJSON fieldName
   toJSON (FofFields fieldNames) =
     toJSON fieldNames
+
+instance FromJSON FieldOrFields where
+  parseJSON v = FofField  <$> parseJSON v
+            <|> FofFields <$> (parseNEJSON =<< parseJSON v)
 
 instance ToJSON SimpleQueryFlag where
   toJSON SimpleQueryAll        = "ALL"
@@ -1780,6 +2009,21 @@ instance ToJSON SimpleQueryFlag where
   toJSON SimpleQueryNear       = "NEAR"
   toJSON SimpleQuerySlop       = "SLOP"
 
+instance FromJSON SimpleQueryFlag where
+  parseJSON = withText "SimpleQueryFlag" parse
+    where parse "ALL"        = pure SimpleQueryAll
+          parse "NONE"       = pure SimpleQueryNone
+          parse "AND"        = pure SimpleQueryAnd
+          parse "OR"         = pure SimpleQueryOr
+          parse "PREFIX"     = pure SimpleQueryPrefix
+          parse "PHRASE"     = pure SimpleQueryPhrase
+          parse "PRECEDENCE" = pure SimpleQueryPrecedence
+          parse "ESCAPE"     = pure SimpleQueryEscape
+          parse "WHITESPACE" = pure SimpleQueryWhitespace
+          parse "FUZZY"      = pure SimpleQueryFuzzy
+          parse "NEAR"       = pure SimpleQueryNear
+          parse "SLOP"       = pure SimpleQuerySlop
+          parse f            = fail ("Unexpected SimpleQueryFlag: " <> show f)
 
 instance ToJSON RegexpQuery where
   toJSON (RegexpQuery (FieldName rqQueryField)
@@ -1790,6 +2034,13 @@ instance ToJSON RegexpQuery where
                 , "flags" .= rqQueryFlags
                 , "boost" .= rqQueryBoost ]
 
+instance FromJSON RegexpQuery where
+  parseJSON = withObject "RegexpQuery" parse
+    where parse = fieldTagged $ \fn o ->
+                    RegexpQuery fn
+                    <$> o .: "value"
+                    <*> o .: "flags"
+                    <*> o .:? "boost"
 
 instance ToJSON QueryStringQuery where
   toJSON (QueryStringQuery qsQueryString
@@ -1821,12 +2072,71 @@ instance ToJSON QueryStringQuery where
              , "lenient" .= qsLenient
              , "locale" .= qsLocale ]
 
+instance FromJSON QueryStringQuery where
+  parseJSON = withObject "QueryStringQuery" parse
+    where parse o = QueryStringQuery
+                    <$> o .: "query"
+                    <*> o .:? "default_field"
+                    <*> o .:? "default_operator"
+                    <*> o .:? "analyzer"
+                    <*> o .:? "allow_leading_wildcard"
+                    <*> o .:? "lowercase_expanded_terms"
+                    <*> o .:? "enable_position_increments"
+                    <*> o .:? "fuzzy_max_expansions"
+                    <*> o .:? "fuzziness"
+                    <*> o .:? "fuzzy_prefix_length"
+                    <*> o .:? "phrase_slop"
+                    <*> o .:? "boost"
+                    <*> o .:? "analyze_wildcard"
+                    <*> o .:? "auto_generate_phrase_queries"
+                    <*> o .:? "minimum_should_match"
+                    <*> o .:? "lenient"
+                    <*> o .:? "locale"
 
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) range boost) =
-    object [ fieldName .= conjoined ]
+    object [ fieldName .= object conjoined ]
     where conjoined = [ "boost" .= boost ] ++ (rangeValueToPair range)
 
+instance FromJSON RangeQuery where
+  parseJSON = withObject "RangeQuery" parse
+    where parse = fieldTagged $ \fn o ->
+                    RangeQuery fn
+                    <$> parseJSON (Object o)
+                    <*> o .: "boost"
+
+instance FromJSON RangeValue where
+  parseJSON = withObject "RangeValue" parse
+    where parse o = parseDate o
+                <|> parseDouble o
+          parseDate o = do lt <- o .:? "lt"
+                           lte <- o .:? "lte"
+                           gt <- o .:? "gt"
+                           gte <- o .:? "gte"
+                           case (lt, lte, gt, gte) of
+                             (Just a, _, Just b, _) -> return (RangeDateGtLt (GreaterThanD b) (LessThanD a))
+                             (Just a, _, _, Just b)-> return (RangeDateGteLt (GreaterThanEqD b) (LessThanD a))
+                             (_, Just a, Just b, _)-> return (RangeDateGtLte (GreaterThanD b) (LessThanEqD a))
+                             (_, Just a, _, Just b)-> return (RangeDateGteLte (GreaterThanEqD b) (LessThanEqD a))
+                             (_, _, Just a, _)-> return (RangeDateGt (GreaterThanD a))
+                             (Just a, _, _, _)-> return (RangeDateLt (LessThanD a))
+                             (_, _, _, Just a)-> return (RangeDateGte (GreaterThanEqD a))
+                             (_, Just a, _, _)-> return (RangeDateLte (LessThanEqD a))
+                             (Nothing, Nothing, Nothing, Nothing) -> mzero
+          parseDouble o = do lt <- o .:? "lt"
+                             lte <- o .:? "lte"
+                             gt <- o .:? "gt"
+                             gte <- o .:? "gte"
+                             case (lt, lte, gt, gte) of
+                               (Just a, _, Just b, _) -> return (RangeDoubleGtLt (GreaterThan b) (LessThan a))
+                               (Just a, _, _, Just b)-> return (RangeDoubleGteLt (GreaterThanEq b) (LessThan a))
+                               (_, Just a, Just b, _)-> return (RangeDoubleGtLte (GreaterThan b) (LessThanEq a))
+                               (_, Just a, _, Just b)-> return (RangeDoubleGteLte (GreaterThanEq b) (LessThanEq a))
+                               (_, _, Just a, _)-> return (RangeDoubleGt (GreaterThan a))
+                               (Just a, _, _, _)-> return (RangeDoubleLt (LessThan a))
+                               (_, _, _, Just a)-> return (RangeDoubleGte (GreaterThanEq a))
+                               (_, Just a, _, _)-> return (RangeDoubleLte (LessThanEq a))
+                               (Nothing, Nothing, Nothing, Nothing) -> mzero
 
 instance ToJSON PrefixQuery where
   toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =
@@ -1834,6 +2144,12 @@ instance ToJSON PrefixQuery where
     where base = [ "value" .= queryValue
                  , "boost" .= boost ]
 
+instance FromJSON PrefixQuery where
+  parseJSON = withObject "PrefixQuery" parse
+    where parse = fieldTagged $ \fn o ->
+                    PrefixQuery fn
+                    <$> o .: "value"
+                    <*> o .:? "boost"
 
 instance ToJSON NestedQuery where
   toJSON (NestedQuery nqPath nqScoreType nqQuery) =
@@ -1841,6 +2157,12 @@ instance ToJSON NestedQuery where
            , "score_mode" .= nqScoreType
            , "query"      .= nqQuery ]
 
+instance FromJSON NestedQuery where
+  parseJSON = withObject "NestedQuery" parse
+    where parse o = NestedQuery
+                    <$> o .: "path"
+                    <*> o .: "score_mode"
+                    <*> o .: "query"
 
 instance ToJSON MoreLikeThisFieldQuery where
   toJSON (MoreLikeThisFieldQuery text (FieldName fieldName)
@@ -1860,6 +2182,24 @@ instance ToJSON MoreLikeThisFieldQuery where
                  , "boost" .= boost
                  , "analyzer" .= analyzer ]
 
+instance FromJSON MoreLikeThisFieldQuery where
+  parseJSON = withObject "MoreLikeThisFieldQuery" parse
+    where parse = fieldTagged $ \fn o ->
+                    MoreLikeThisFieldQuery
+                    <$> o .: "like_text"
+                    <*> pure fn
+                    <*> o .:? "percent_terms_to_match"
+                    <*> o .:? "min_term_freq"
+                    <*> o .:? "max_query_terms"
+                    <*> (optionalNE =<< o .:? "stop_words")
+                    <*> o .:? "min_doc_freq"
+                    <*> o .:? "max_doc_freq"
+                    <*> o .:? "min_word_length"
+                    <*> o .:? "max_word_length"
+                    <*> o .:? "boost_terms"
+                    <*> o .:? "boost"
+                    <*> o .:? "analyzer"
+          optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
 
 instance ToJSON MoreLikeThisQuery where
   toJSON (MoreLikeThisQuery text fields percent
@@ -1880,6 +2220,23 @@ instance ToJSON MoreLikeThisQuery where
                  , "boost" .= boost
                  , "analyzer" .= analyzer ]
 
+instance FromJSON MoreLikeThisQuery where
+  parseJSON = withObject "MoreLikeThisQuery" parse
+    where parse o = MoreLikeThisQuery
+                    <$> o .: "like_text"
+                    <*> (optionalNE =<< o .:? "fields")
+                    <*> o .:? "percent_terms_to_match"
+                    <*> o .:? "min_term_freq"
+                    <*> o .:? "max_query_terms"
+                    <*> (optionalNE =<< o .:? "stop_words")
+                    <*> o .:? "min_doc_freq"
+                    <*> o .:? "max_doc_freq"
+                    <*> o .:? "min_word_length"
+                    <*> o .:? "max_word_length"
+                    <*> o .:? "boost_terms"
+                    <*> o .:? "boost"
+                    <*> o .:? "analyzer"
+          optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
 
 instance ToJSON IndicesQuery where
   toJSON (IndicesQuery indices query noMatch) =
@@ -1887,6 +2244,12 @@ instance ToJSON IndicesQuery where
               , "no_match_query" .= noMatch
               , "query" .= query ]
 
+instance FromJSON IndicesQuery where
+  parseJSON = withObject "IndicesQuery" parse
+    where parse o = IndicesQuery
+                    <$> o .:? "indices" .!= []
+                    <*> o .: "query"
+                    <*> o .:? "no_match_query"
 
 instance ToJSON HasParentQuery where
   toJSON (HasParentQuery queryType query scoreType) =
@@ -1894,6 +2257,12 @@ instance ToJSON HasParentQuery where
               , "score_type" .= scoreType
               , "query" .= query ]
 
+instance FromJSON HasParentQuery where
+  parseJSON = withObject "HasParentQuery" parse
+    where parse o = HasParentQuery
+                    <$> o .: "parent_type"
+                    <*> o .: "query"
+                    <*> o .:? "score_type"
 
 instance ToJSON HasChildQuery where
   toJSON (HasChildQuery queryType query scoreType) =
@@ -1901,6 +2270,12 @@ instance ToJSON HasChildQuery where
               , "score_type" .= scoreType
               , "type"  .= queryType ]
 
+instance FromJSON HasChildQuery where
+  parseJSON = withObject "HasChildQuery" parse
+    where parse o = HasChildQuery
+                    <$> o .: "type"
+                    <*> o .: "query"
+                    <*> o .:? "score_type"
 
 instance ToJSON FuzzyQuery where
   toJSON (FuzzyQuery (FieldName fieldName) queryText
@@ -1912,6 +2287,15 @@ instance ToJSON FuzzyQuery where
                  , "boost" .= boost
                  , "max_expansions" .= maxEx ]
 
+instance FromJSON FuzzyQuery where
+  parseJSON = withObject "FuzzyQuery" parse
+    where parse = fieldTagged $ \fn o ->
+                    FuzzyQuery fn
+                    <$> o .: "value"
+                    <*> o .: "prefix_length"
+                    <*> o .: "max_expansions"
+                    <*> o .: "fuzziness"
+                    <*> o .:? "boost"
 
 instance ToJSON FuzzyLikeFieldQuery where
   toJSON (FuzzyLikeFieldQuery (FieldName fieldName)
@@ -1926,6 +2310,17 @@ instance ToJSON FuzzyLikeFieldQuery where
                        , "analyzer" .= analyzer
                        , "boost"           .= boost ]]
 
+instance FromJSON FuzzyLikeFieldQuery where
+  parseJSON = withObject "FuzzyLikeFieldQuery" parse
+    where parse = fieldTagged $ \fn o ->
+                    FuzzyLikeFieldQuery fn
+                    <$> o .: "like_text"
+                    <*> o .: "max_query_terms"
+                    <*> o .: "ignore_tf"
+                    <*> o .: "fuzziness"
+                    <*> o .: "prefix_length"
+                    <*> o .: "boost"
+                    <*> o .:? "analyzer"
 
 instance ToJSON FuzzyLikeThisQuery where
   toJSON (FuzzyLikeThisQuery fields text maxTerms
@@ -1940,12 +2335,28 @@ instance ToJSON FuzzyLikeThisQuery where
                  , "analyzer"        .= analyzer
                  , "boost"           .= boost ]
 
+instance FromJSON FuzzyLikeThisQuery where
+  parseJSON = withObject "FuzzyLikeThisQuery" parse
+    where parse o = FuzzyLikeThisQuery
+                    <$> o .:? "fields" .!= []
+                    <*> o .: "like_text"
+                    <*> o .: "max_query_terms"
+                    <*> o .: "ignore_tf"
+                    <*> o .: "fuzziness"
+                    <*> o .: "prefix_length"
+                    <*> o .: "boost"
+                    <*> o .:? "analyzer"
 
 instance ToJSON FilteredQuery where
   toJSON (FilteredQuery query fFilter) =
     object [ "query"  .= query
            , "filter" .= fFilter ]
 
+instance FromJSON FilteredQuery where
+  parseJSON = withObject "FilteredQuery" parse
+    where parse o = FilteredQuery
+                    <$> o .: "query"
+                    <*> o .: "filter"
 
 instance ToJSON DisMaxQuery where
   toJSON (DisMaxQuery queries tiebreaker boost) =
@@ -1954,6 +2365,12 @@ instance ToJSON DisMaxQuery where
                  , "boost"       .= boost
                  , "tie_breaker" .= tiebreaker ]
 
+instance FromJSON DisMaxQuery where
+  parseJSON = withObject "DisMaxQuery" parse
+    where parse o = DisMaxQuery
+                    <$> o .:? "queries" .!= []
+                    <*> o .: "tie_breaker"
+                    <*> o .:? "boost"
 
 instance ToJSON CommonTermsQuery where
   toJSON (CommonTermsQuery (FieldName fieldName)
@@ -1969,6 +2386,18 @@ instance ToJSON CommonTermsQuery where
                  , "disable_coord" .= disableCoord
                  , "high_freq_operator" .= hfo ]
 
+instance FromJSON CommonTermsQuery where
+  parseJSON = withObject "CommonTermsQuery" parse
+    where parse = fieldTagged $ \fn o ->
+                    CommonTermsQuery fn
+                    <$> o .: "query"
+                    <*> o .: "cutoff_frequency"
+                    <*> o .: "low_freq_operator"
+                    <*> o .: "high_freq_operator"
+                    <*> o .:? "minimum_should_match"
+                    <*> o .:? "boost"
+                    <*> o .:? "analyzer"
+                    <*> o .:? "disable_coord"
 
 instance ToJSON CommonMinimumMatch where
   toJSON (CommonMinimumMatch mm) = toJSON mm
@@ -1976,12 +2405,28 @@ instance ToJSON CommonMinimumMatch where
     object [ "low_freq"  .= lowF
            , "high_freq" .= highF ]
 
+instance FromJSON CommonMinimumMatch where
+  parseJSON v = parseMinimum v
+            <|> parseMinimumHighLow v
+    where parseMinimum = fmap CommonMinimumMatch . parseJSON
+          parseMinimumHighLow = fmap CommonMinimumMatchHighLow . withObject "CommonMinimumMatchHighLow" (\o ->
+                                  MinimumMatchHighLow
+                                  <$> o .: "low_freq"
+                                  <*> o .: "high_freq")
+
+
 instance ToJSON BoostingQuery where
   toJSON (BoostingQuery bqPositiveQuery bqNegativeQuery bqNegativeBoost) =
     object [ "positive"       .= bqPositiveQuery
            , "negative"       .= bqNegativeQuery
            , "negative_boost" .= bqNegativeBoost ]
 
+instance FromJSON BoostingQuery where
+  parseJSON = withObject "BoostingQuery" parse
+    where parse o = BoostingQuery
+                    <$> o .: "positive"
+                    <*> o .: "negative"
+                    <*> o .: "negative_boost"
 
 instance ToJSON BoolQuery where
   toJSON (BoolQuery mustM notM shouldM bqMin boost disableCoord) =
@@ -1993,6 +2438,15 @@ instance ToJSON BoolQuery where
                  , "boost" .= boost
                  , "disable_coord" .= disableCoord ]
 
+instance FromJSON BoolQuery where
+  parseJSON = withObject "BoolQuery" parse
+    where parse o = BoolQuery
+                    <$> o .:? "must" .!= []
+                    <*> o .:? "must_not" .!= []
+                    <*> o .:? "should" .!= []
+                    <*> o .:? "minimum_should_match"
+                    <*> o .:? "boost"
+                    <*> o .:? "disable_coord"
 
 instance ToJSON MatchQuery where
   toJSON (MatchQuery (FieldName fieldName)
@@ -2010,6 +2464,19 @@ instance ToJSON MatchQuery where
                  , "lenient" .= lenient
                  , "boost" .= boost ]
 
+instance FromJSON MatchQuery where
+  parseJSON = withObject "MatchQuery" parse
+    where parse = fieldTagged $ \fn o ->
+                    MatchQuery fn
+                    <$> o .:  "query"
+                    <*> o .:  "operator"
+                    <*> o .:  "zero_terms_query"
+                    <*> o .:? "cutoff_frequency"
+                    <*> o .:? "type"
+                    <*> o .:? "analyzer"
+                    <*> o .:? "max_expansions"
+                    <*> o .:? "lenient"
+                    <*> o .:? "boost"
 
 instance ToJSON MultiMatchQuery where
   toJSON (MultiMatchQuery fields (QueryString query) boolOp
@@ -2026,6 +2493,20 @@ instance ToJSON MultiMatchQuery where
                  , "max_expansions" .= maxEx
                  , "lenient" .= lenient ]
 
+instance FromJSON MultiMatchQuery where
+  parseJSON = withObject "MultiMatchQuery" parse
+    where parse raw = do o <- raw .: "multi_match"
+                         MultiMatchQuery
+                           <$> o .:? "fields" .!= []
+                           <*> o .: "query"
+                           <*> o .: "operator"
+                           <*> o .: "zero_terms_query"
+                           <*> o .:? "tiebreaker"
+                           <*> o .:? "type"
+                           <*> o .:? "cutoff_frequency"
+                           <*> o .:? "analyzer"
+                           <*> o .:? "max_expansions"
+                           <*> o .:? "lenient"
 
 instance ToJSON MultiMatchQueryType where
   toJSON MultiMatchBestFields = "best_fields"
@@ -2034,107 +2515,44 @@ instance ToJSON MultiMatchQueryType where
   toJSON MultiMatchPhrase = "phrase"
   toJSON MultiMatchPhrasePrefix = "phrase_prefix"
 
+instance FromJSON MultiMatchQueryType where
+  parseJSON = withText "MultiMatchPhrasePrefix" parse
+    where parse "best_fields"   = pure MultiMatchBestFields
+          parse "most_fields"   = pure MultiMatchMostFields
+          parse "cross_fields"  = pure MultiMatchCrossFields
+          parse "phrase"        = pure MultiMatchPhrase
+          parse "phrase_prefix" = pure MultiMatchPhrasePrefix
+          parse t = fail ("Unexpected MultiMatchPhrasePrefix: " <> show t)
+
 instance ToJSON BooleanOperator where
   toJSON And = String "and"
   toJSON Or = String "or"
+
+instance FromJSON BooleanOperator where
+  parseJSON = withText "BooleanOperator" parse
+    where parse "and" = pure And
+          parse "or"  = pure Or
+          parse o     = fail ("Unexpected BooleanOperator: " <> show o)
 
 instance ToJSON ZeroTermsQuery where
   toJSON ZeroTermsNone = String "none"
   toJSON ZeroTermsAll  = String "all"
 
+instance FromJSON ZeroTermsQuery where
+  parseJSON = withText "ZeroTermsQuery" parse
+    where parse "none" = pure ZeroTermsNone
+          parse "all"  = pure ZeroTermsAll
+          parse q      = fail ("Unexpected ZeroTermsQuery: " <> show q)
+
 instance ToJSON MatchQueryType where
   toJSON MatchPhrase = "phrase"
   toJSON MatchPhrasePrefix = "phrase_prefix"
 
-instance ToJSON FieldName where
-  toJSON (FieldName fieldName) = String fieldName
-
-instance ToJSON ReplicaCount where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON ShardCount where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON CutoffFrequency where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON Analyzer where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON MaxExpansions where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON Lenient where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON Boost where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON Version where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON Tiebreaker where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON MinimumMatch where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON DisableCoord where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON PrefixLength where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON Fuzziness where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON IgnoreTermFrequency where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON MaxQueryTerms where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON TypeName where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON IndexName where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON TemplateName where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON TemplatePattern where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON BoostTerms where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON MaxWordLength where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON MinWordLength where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON MaxDocFrequency where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON MinDocFrequency where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON PhraseSlop where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON StopWord where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON QueryPath where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON MinimumTermFrequency where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON PercentMatch where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON MappingName where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON DocId where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON QueryString where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON AllowLeadingWildcard where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON LowercaseExpanded where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON AnalyzeWildcard where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON GeneratePhraseQueries where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON Locale where
-  toJSON = genericToJSON defaultOptions
-instance ToJSON EnablePositionIncrements where
-  toJSON = genericToJSON defaultOptions
-
-instance FromJSON Version where
-  parseJSON = genericParseJSON defaultOptions
-instance FromJSON IndexName where
-  parseJSON = genericParseJSON defaultOptions
-instance FromJSON MappingName where
-  parseJSON = genericParseJSON defaultOptions
-instance FromJSON DocId where
-  parseJSON = genericParseJSON defaultOptions
-
+instance FromJSON MatchQueryType where
+  parseJSON = withText "MatchQueryType" parse
+    where parse "phrase"        = pure MatchPhrase
+          parse "phrase_prefix" = pure MatchPhrasePrefix
+          parse t               = fail ("Unexpected MatchQueryType: " <> show t)
 
 instance FromJSON Status where
   parseJSON (Object v) = Status <$>
@@ -2187,6 +2605,62 @@ instance FromJSON EsError where
                          v .: "status" <*>
                          v .: "error"
   parseJSON _ = empty
+
+instance FromJSON IndexAliasesSummary where
+  parseJSON = withObject "IndexAliasesSummary" parse
+    where parse o = IndexAliasesSummary . mconcat <$> mapM (uncurry go) (HM.toList o)
+          go ixn = withObject "index aliases" $ \ia -> do
+                     aliases <- ia .: "aliases"
+                     forM (HM.toList aliases) $ \(aName, v) -> do
+                       let indexAlias = IndexAlias (IndexName ixn) (IndexAliasName (IndexName aName))
+                       IndexAliasSummary indexAlias <$> parseJSON v
+
+
+instance ToJSON IndexAliasAction where
+  toJSON (AddAlias ia opts) = object ["add" .= (iaObj <> optsObj)]
+    where Object iaObj = toJSON ia
+          Object optsObj = toJSON opts
+  toJSON (RemoveAlias ia) = object ["remove" .= iaObj]
+    where Object iaObj = toJSON ia
+
+instance ToJSON IndexAlias where
+  toJSON IndexAlias {..} = object ["index" .= srcIndex
+                                  , "alias" .= indexAlias
+                                  ]
+
+instance ToJSON IndexAliasCreate where
+  toJSON IndexAliasCreate {..} = Object (filterObj <> routingObj)
+    where filterObj = maybe mempty (HM.singleton "filter" . toJSON) aliasCreateFilter
+          Object routingObj = maybe (Object mempty) toJSON aliasCreateRouting
+
+instance ToJSON AliasRouting where
+  toJSON (AllAliasRouting v) = object ["routing" .= v]
+  toJSON (GranularAliasRouting srch idx) = object (catMaybes prs)
+    where prs = [("search_routing" .=) <$> srch
+                ,("index_routing" .=) <$> idx]
+
+instance FromJSON AliasRouting where
+  parseJSON = withObject "AliasRouting" parse
+    where parse o = parseAll o <|> parseGranular o
+          parseAll o = AllAliasRouting <$> o .: "routing"
+          parseGranular o = do
+            sr <- o .:? "search_routing"
+            ir <- o .:? "index_routing"
+            if isNothing sr && isNothing ir
+               then fail "Both search_routing and index_routing can't be blank"
+               else return (GranularAliasRouting sr ir)
+
+instance FromJSON IndexAliasCreate where
+  parseJSON v = withObject "IndexAliasCreate" parse v
+    where parse o = IndexAliasCreate <$> optional (parseJSON v)
+                                     <*> o .:? "filter"
+
+instance ToJSON SearchAliasRouting where
+  toJSON (SearchAliasRouting rvs) = toJSON (T.intercalate "," (routingValue <$> toList rvs))
+
+instance FromJSON SearchAliasRouting where
+  parseJSON = withText "SearchAliasRouting" parse
+    where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
   toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource) =
@@ -2270,6 +2744,9 @@ fastVectorHighPairs (Just
                         ++ commonHighlightPairs fvCom
                         ++ nonPostingsToPairs fvNonPostSettings
 
+deleteSeveral :: (Eq k, Hashable k) => [k] -> HM.HashMap k v -> HM.HashMap k v
+deleteSeveral ks hm = foldr HM.delete hm ks
+
 commonHighlightPairs :: Maybe CommonHighlight -> [Pair]
 commonHighlightPairs Nothing = []
 commonHighlightPairs (Just (CommonHighlight chScore chForceSource chTag chEncoder
@@ -2290,6 +2767,9 @@ nonPostingsToPairs (Just (NonPostings npFragSize npNumOfFrags)) =
     [ "fragment_size" .= npFragSize
     , "number_of_fragments" .= npNumOfFrags]
 
+parseNEJSON :: (FromJSON a) => [Value] -> Parser (NonEmpty a)
+parseNEJSON []     = fail "Expected non-empty list"
+parseNEJSON (x:xs) = DT.mapM parseJSON (x :| xs)
 
 
 instance ToJSON HighlightEncoder where
@@ -2343,6 +2823,13 @@ instance ToJSON ScoreType where
   toJSON ScoreTypeSum  = "sum"
   toJSON ScoreTypeNone = "none"
 
+instance FromJSON ScoreType where
+  parseJSON = withText "ScoreType" parse
+    where parse "max"  = pure ScoreTypeMax
+          parse "avg"  = pure ScoreTypeAvg
+          parse "sum"  = pure ScoreTypeSum
+          parse "none" = pure ScoreTypeNone
+          parse t = fail ("Unexpected ScoreType: " <> show t)
 
 instance ToJSON Distance where
   toJSON (Distance dCoefficient dUnit) =
@@ -2351,6 +2838,18 @@ instance ToJSON Distance where
       (String unitText) = toJSON dUnit
       boltedTogether = mappend coefText unitText
 
+instance FromJSON Distance where
+  parseJSON = withText "Distance" parse
+    where parse t = Distance <$> parseCoeff nT
+                             <*> parseJSON (String unitT)
+            where (nT, unitT) = T.span validForNumber t
+                  -- may be a better way to do this
+                  validForNumber '-' = True
+                  validForNumber '.' = True
+                  validForNumber 'e' = True
+                  validForNumber c = isNumber c
+                  parseCoeff "" = fail "Empty string cannot be parsed as number"
+                  parseCoeff s = return (read (T.unpack s))
 
 instance ToJSON DistanceUnit where
   toJSON Miles         = String "mi"
@@ -2364,16 +2863,42 @@ instance ToJSON DistanceUnit where
   toJSON NauticalMiles = String "nmi"
 
 
+instance FromJSON DistanceUnit where
+  parseJSON = withText "DistanceUnit" parse
+    where parse "mi"  = pure Miles
+          parse "yd"  = pure Yards
+          parse "ft"  = pure Feet
+          parse "in"  = pure Inches
+          parse "km"  = pure Kilometers
+          parse "m"   = pure Meters
+          parse "cm"  = pure Centimeters
+          parse "mm"  = pure Millimeters
+          parse "nmi" = pure NauticalMiles
+          parse u = fail ("Unrecognized DistanceUnit: " <> show u)
+
 instance ToJSON DistanceType where
   toJSON Arc       = String "arc"
   toJSON SloppyArc = String "sloppy_arc"
   toJSON Plane     = String "plane"
+
+instance FromJSON DistanceType where
+  parseJSON = withText "DistanceType" parse
+    where parse "arc" = pure Arc
+          parse "sloppy_arc" = pure SloppyArc
+          parse "plane" = pure Plane
+          parse t = fail ("Unrecognized DistanceType: " <> show t)
 
 
 instance ToJSON OptimizeBbox where
   toJSON NoOptimizeBbox = String "none"
   toJSON (OptimizeGeoFilterType gft) = toJSON gft
 
+instance FromJSON OptimizeBbox where
+  parseJSON v = withText "NoOptimizeBbox" parseNoOptimize v
+            <|> parseOptimize v
+    where parseNoOptimize "none" = pure NoOptimizeBbox
+          parseNoOptimize _ = mzero
+          parseOptimize = fmap OptimizeGeoFilterType . parseJSON
 
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON (GeoBoundingBoxConstraint
@@ -2382,29 +2907,57 @@ instance ToJSON GeoBoundingBoxConstraint where
            , "_cache"  .= cache
            , "type" .= type']
 
+instance FromJSON GeoBoundingBoxConstraint where
+  parseJSON = withObject "GeoBoundingBoxConstraint" parse
+    where parse o = case HM.toList (deleteSeveral ["type", "_cache"] o) of
+                      [(fn, v)] -> GeoBoundingBoxConstraint (FieldName fn)
+                                   <$> parseJSON v
+                                   <*> o .:? "_cache" .!= defaultCache
+                                   <*> o .: "type"
+                      _ -> fail "Could not find field name for GeoBoundingBoxConstraint"
 
 instance ToJSON GeoFilterType where
   toJSON GeoFilterMemory  = String "memory"
   toJSON GeoFilterIndexed = String "indexed"
 
+instance FromJSON GeoFilterType where
+  parseJSON = withText "GeoFilterType" parse
+    where parse "memory"  = pure GeoFilterMemory
+          parse "indexed" = pure GeoFilterIndexed
+          parse t         = fail ("Unrecognized GeoFilterType: " <> show t)
 
 instance ToJSON GeoBoundingBox where
   toJSON (GeoBoundingBox gbbTopLeft gbbBottomRight) =
     object ["top_left"      .= gbbTopLeft
            , "bottom_right" .= gbbBottomRight]
 
+instance FromJSON GeoBoundingBox where
+  parseJSON = withObject "GeoBoundingBox" parse
+    where parse o = GeoBoundingBox
+                    <$> o .: "top_left"
+                    <*> o .: "bottom_right"
 
 instance ToJSON LatLon where
   toJSON (LatLon lLat lLon) =
     object ["lat"  .= lLat
            , "lon" .= lLon]
 
+instance FromJSON LatLon where
+  parseJSON = withObject "LatLon" parse
+    where parse o = LatLon <$> o .: "lat"
+                           <*> o .: "lon"
 
 -- index for smaller ranges, fielddata for longer ranges
 instance ToJSON RangeExecution where
   toJSON RangeExecutionIndex     = "index"
   toJSON RangeExecutionFielddata = "fielddata"
 
+
+instance FromJSON RangeExecution where
+  parseJSON = withText "RangeExecution" parse
+    where parse "index"     = pure RangeExecutionIndex
+          parse "fielddata" = pure RangeExecutionFielddata
+          parse t           = error ("Unrecognized RangeExecution " <> show t)
 
 instance ToJSON RegexpFlags where
   toJSON AllRegexpFlags              = String "ALL"
@@ -2418,10 +2971,32 @@ instance ToJSON RegexpFlags where
           flagStr Intersection = "INTERSECTION"
           flagStr Interval     = "INTERVAL"
 
+instance FromJSON RegexpFlags where
+  parseJSON = withText "RegexpFlags" parse
+    where parse "ALL" = pure AllRegexpFlags
+          parse "NONE" = pure NoRegexpFlags
+          parse t = SomeRegexpFlags <$> parseNEJSON (String <$> T.splitOn "|" t)
+
+instance FromJSON RegexpFlag where
+  parseJSON = withText "RegexpFlag" parse
+    where parse "ANYSTRING"    = pure AnyString
+          parse "AUTOMATON"    = pure Automaton
+          parse "COMPLEMENT"   = pure Complement
+          parse "EMPTY"        = pure Empty
+          parse "INTERSECTION" = pure Intersection
+          parse "INTERVAL"     = pure Interval
+          parse f              = fail ("Unknown RegexpFlag: " <> show f)
+
 instance ToJSON Term where
   toJSON (Term field value) = object ["term" .= object
                                       [field .= value]]
 
+instance FromJSON Term where
+  parseJSON = withObject "Term" parse
+    where parse o = do termObj <- o .: "term"
+                       case HM.toList termObj of
+                         [(fn, v)] -> Term fn <$> parseJSON v
+                         _ -> fail "Expected object with 1 field-named key"
 
 instance ToJSON BoolMatch where
   toJSON (MustMatch    term  cache) = object ["must"     .= term,
@@ -2431,6 +3006,15 @@ instance ToJSON BoolMatch where
   toJSON (ShouldMatch  terms cache) = object ["should"   .= fmap toJSON terms,
                                               "_cache" .= cache]
 
+instance FromJSON BoolMatch where
+  parseJSON = withObject "BoolMatch" parse
+    where parse o = mustMatch `taggedWith` "must"
+                <|> mustNotMatch `taggedWith` "must_not"
+                <|> shouldMatch `taggedWith` "should"
+            where taggedWith parser k = parser =<< o .: k
+                  mustMatch t = MustMatch t <$> o .:? "_cache" .!= defaultCache
+                  mustNotMatch t = MustNotMatch t <$> o .:? "_cache" .!= defaultCache
+                  shouldMatch t = ShouldMatch t <$> o .:? "_cache" .!= defaultCache
 
 instance (FromJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) = SearchResult <$>
