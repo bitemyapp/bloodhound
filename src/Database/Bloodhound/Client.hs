@@ -295,9 +295,11 @@ updateIndexSettings updates (IndexName indexName) =
 
 --TODO: This feels a little nicer than returning a reply and coyly
 --implying that it *should* be an IndexSettingsSummary
-getIndexSettings :: MonadBH m => IndexName -> m (Either EsError IndexSettingsSummary)
-getIndexSettings (IndexName indexName) = undefined
-
+getIndexSettings :: (MonadBH m, MonadThrow m) => IndexName
+                 -> m (Either EsError IndexSettingsSummary)
+getIndexSettings (IndexName indexName) =
+  parseEsResponse =<< get =<< url
+  where url = joinPath [indexName, "_settings"]
 
 
 deepMerge :: [Object] -> Object

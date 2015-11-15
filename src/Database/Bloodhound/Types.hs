@@ -453,7 +453,7 @@ data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasUnbounded
                    deriving (Eq, Show)
 
-newtype Bytes = Bytes Int deriving (Eq, Show, Ord, ToJSON)
+newtype Bytes = Bytes Int deriving (Eq, Show, Ord, ToJSON, FromJSON)
 
 data FSType = FSSimple
             | FSBuffered deriving (Eq, Show, Ord)
@@ -476,9 +476,10 @@ data CompoundFormat = CompoundFileFormat Bool
                     -- ^ percentage between 0 and 1 where 0 is false, 1 is true
                     deriving (Eq, Show)
 
-newtype NominalDiffTimeJSON = NominalDiffTimeJSON NominalDiffTime
+newtype NominalDiffTimeJSON = NominalDiffTimeJSON { ndtJSON ::  NominalDiffTime }
 
-data IndexSettingsSummary = IndexSettingsSummary { sSummaryShardCount :: ShardCount
+data IndexSettingsSummary = IndexSettingsSummary { sSummaryIndexName :: IndexName
+                                                 , sSummaryFixedSettings :: IndexSettings
                                                  , sSummaryUpdateable :: [UpdatableIndexSetting]}
                                                  deriving (Eq, Show)
 
@@ -1485,6 +1486,14 @@ type HitHighlight = M.Map Text [Text]
 
 showText :: Show a => a -> Text
 showText = T.pack . show
+
+readMay :: Read a => String -> Maybe a
+readMay s = case reads s of
+              (a, ""):_ -> Just a
+              _ -> Nothing
+
+parseReadText :: Read a => Text -> Parser a
+parseReadText = maybe mzero return . readMay . T.unpack
 
 type Aggregations = M.Map Text Aggregation
 
@@ -2784,13 +2793,16 @@ instance ToJSON IndexSettings where
                                  ]
                                ]
 
+instance FromJSON IndexSettings where
+  parseJSON = withObject "IndexSettings" parse
+    where parse o = do s <- o .: "settings"
+                       i <- s .: "index"
+                       IndexSettings <$> i .: "number_of_shards"
+                                     <*> i .: "number_of_replicas"
+
 instance ToJSON UpdatableIndexSetting where
   toJSON (NumberOfReplicas x) = oPath ("index" :| ["number_of_replicas"]) x
   toJSON (AutoExpandReplicas x) = oPath ("index" :| ["auto_expand_replicas"]) x
-  toJSON (BlocksReadOnly x) = oPath ("blocks" :| ["read_only"]) x
-  toJSON (BlocksRead x) = oPath ("blocks" :| ["read"]) x
-  toJSON (BlocksWrite x) = oPath ("blocks" :| ["write"]) x
-  toJSON (BlocksMetaData x) = oPath ("blocks" :| ["metadata"]) x
   toJSON (RefreshInterval x) = oPath ("index" :| ["refresh_interval"]) (NominalDiffTimeJSON x)
   toJSON (IndexConcurrency x) = oPath ("index" :| ["concurrency"]) x
   toJSON (FailOnMergeFailure x) = oPath ("index" :| ["fail_on_merge_failure"]) x
@@ -2813,6 +2825,81 @@ instance ToJSON UpdatableIndexSetting where
   toJSON (IndexCompoundFormat x) = oPath ("index" :| ["compound_format"]) x
   toJSON (IndexCompoundOnFlush x) = oPath ("index" :| ["compound_on_flush"]) x
   toJSON (WarmerEnabled x) = oPath ("index" :| ["warmer", "enabled"]) x
+  toJSON (BlocksReadOnly x) = oPath ("blocks" :| ["read_only"]) x
+  toJSON (BlocksRead x) = oPath ("blocks" :| ["read"]) x
+  toJSON (BlocksWrite x) = oPath ("blocks" :| ["write"]) x
+  toJSON (BlocksMetaData x) = oPath ("blocks" :| ["metadata"]) x
+
+instance FromJSON UpdatableIndexSetting where
+  parseJSON = withObject "UpdatableIndexSetting" parse
+    where parse o = numberOfReplicas `taggedAt` ["index", "number_of_replicas"]
+                <|> autoExpandReplicas `taggedAt` ["index", "auto_expand_replicas"]
+                <|> refreshInterval `taggedAt` ["index", "refresh_interval"]
+                <|> indexConcurrency `taggedAt` ["index", "concurrency"]
+                <|> failOnMergeFailure `taggedAt` ["index", "fail_on_merge_failure"]
+                <|> translogFlushThresholdOps `taggedAt` ["index", "translog", "flush_threshold_ops"]
+                <|> translogFlushThresholdSize `taggedAt` ["index", "translog", "flush_threshold_size"]
+                <|> translogFlushThresholdPeriod `taggedAt` ["index", "translog", "flush_threshold_period"]
+                <|> translogDisableFlush `taggedAt` ["index", "translog", "disable_flush"]
+                <|> cacheFilterMaxSize `taggedAt` ["index", "cache", "filter", "max_size"]
+                <|> cacheFilterExpire `taggedAt` ["index", "cache", "filter", "expire"]
+                <|> gatewaySnapshotInterval `taggedAt` ["index", "gateway", "snapshot_interval"]
+                <|> routingAllocationInclude `taggedAt` ["index", "routing", "allocation", "include"]
+                <|> routingAllocationExclude `taggedAt` ["index", "routing", "allocation", "exclude"]
+                <|> routingAllocationRequire `taggedAt` ["index", "routing", "allocation", "require"]
+                <|> routingAllocationEnable `taggedAt` ["index", "routing", "allocation", "enable"]
+                <|> routingAllocationShardsPerNode `taggedAt` ["index", "routing", "allocation", "total_shards_per_node"]
+                <|> recoveryInitialShards `taggedAt` ["index", "recovery", "initial_shards"]
+                <|> gcDeletes `taggedAt` ["index", "gc_deletes"]
+                <|> ttlDisablePurge `taggedAt` ["index", "ttl", "disable_purge"]
+                <|> translogFSType `taggedAt` ["index", "translog", "fs", "type"]
+                <|> compoundFormat `taggedAt` ["index", "compound_format"]
+                <|> compoundOnFlush `taggedAt` ["index", "compound_on_flush"]
+                <|> warmerEnabled `taggedAt` ["index", "warmer", "enabled"]
+                <|> blocksReadOnly `taggedAt` ["blocks", "read_only"]
+                <|> blocksRead `taggedAt` ["blocks", "read"]
+                <|> blocksWrite `taggedAt` ["blocks", "write"]
+                <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
+            where taggedAt f ks = taggedAt' f (Object o) ks
+          taggedAt' f v [] = f =<< parseJSON v
+          taggedAt' f v (k:ks) = withObject "Object" (\o -> do v' <- o .: k
+                                                               taggedAt' f v' ks) v
+          numberOfReplicas               = pure . NumberOfReplicas
+          autoExpandReplicas             = pure . AutoExpandReplicas
+          refreshInterval                = pure . RefreshInterval . ndtJSON
+          indexConcurrency               = pure . IndexConcurrency
+          failOnMergeFailure             = pure . FailOnMergeFailure
+          translogFlushThresholdOps      = pure . TranslogFlushThresholdOps
+          translogFlushThresholdSize     = pure . TranslogFlushThresholdSize
+          translogFlushThresholdPeriod   = pure . TranslogFlushThresholdPeriod . ndtJSON
+          translogDisableFlush           = pure . TranslogDisableFlush
+          cacheFilterMaxSize             = pure . CacheFilterMaxSize
+          cacheFilterExpire              = pure . CacheFilterExpire . fmap ndtJSON
+          gatewaySnapshotInterval        = pure . GatewaySnapshotInterval . ndtJSON
+          routingAllocationInclude       = fmap RoutingAllocationInclude . parseAttrFilter
+          routingAllocationExclude       = fmap RoutingAllocationExclude . parseAttrFilter
+          routingAllocationRequire       = fmap RoutingAllocationRequire . parseAttrFilter
+          routingAllocationEnable        = pure . RoutingAllocationEnable
+          routingAllocationShardsPerNode = pure . RoutingAllocationShardsPerNode
+          recoveryInitialShards          = pure . RecoveryInitialShards
+          gcDeletes                      = pure . GCDeletes . ndtJSON
+          ttlDisablePurge                = pure . TTLDisablePurge
+          translogFSType                 = pure . TranslogFSType
+          compoundFormat                 = pure . IndexCompoundFormat
+          compoundOnFlush                = pure . IndexCompoundOnFlush
+          warmerEnabled                  = pure . WarmerEnabled
+          blocksReadOnly                 = pure . BlocksReadOnly
+          blocksRead                     = pure . BlocksRead
+          blocksWrite                    = pure . BlocksWrite
+          blocksMetaData                 = pure . BlocksMetaData
+
+instance FromJSON IndexSettingsSummary where
+  parseJSON = withObject "IndexSettingsSummary" parse
+    where parse o = case HM.toList o of
+                      [(ixn, v)] -> IndexSettingsSummary (IndexName ixn)
+                                    <$> parseJSON v
+                                    <*> parseJSON v
+                      _ -> fail "Expected single-key object with index name"
 
 oPath :: ToJSON a => NonEmpty Text -> a -> Value
 oPath (k :| []) v = object [k .= v]
@@ -2822,16 +2909,45 @@ attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
 attrFilterJSON fs = object [ n .= T.intercalate "," (toList vs)
                            | NodeAttrFilter (NodeAttrName n) vs <- toList fs]
 
+parseAttrFilter :: Value -> Parser (NonEmpty NodeAttrFilter)
+parseAttrFilter = withObject "NonEmpty NodeAttrFilter" parse
+  where parse o = case HM.toList o of
+                    [] -> fail "Expected non-empty list of NodeAttrFilters"
+                    x:xs -> DT.mapM (uncurry parse') (x :| xs)
+        parse' n = withText "Text" $ \t ->
+          case T.splitOn "," t of
+            fv:fvs -> return (NodeAttrFilter (NodeAttrName n) (fv :| fvs))
+            [] -> fail "Expected non-empty list of filter values"
+
 instance ToJSON ReplicaBounds where
   toJSON (ReplicasBounded a b)    = String (showText a <> "-" <> showText b)
   toJSON (ReplicasLowerBounded a) = String (showText a <> "-all")
   toJSON ReplicasUnbounded        = Bool False
+
+instance FromJSON ReplicaBounds where
+  parseJSON v = withText "ReplicaBounds" parseText v
+            <|> withBool "ReplicaBounds" parseBool v
+    where parseText t = case T.splitOn "-" t of
+                          [a, "all"] -> ReplicasLowerBounded <$> parseReadText a
+                          [a, b] -> ReplicasBounded <$> parseReadText a
+                                                    <*> parseReadText b
+                          _ -> fail ("Could not parse ReplicaBounds: " <> show t)
+          parseBool False = pure ReplicasUnbounded
+          parseBool _ = fail "ReplicasUnbounded cannot be represented with True"
 
 instance ToJSON AllocationPolicy where
   toJSON AllocAll          = String "all"
   toJSON AllocPrimaries    = String "primaries"
   toJSON AllocNewPrimaries = String "new_primaries"
   toJSON AllocNone         = String "none"
+
+instance FromJSON AllocationPolicy where
+  parseJSON = withText "AllocationPolicy" parse
+    where parse "all" = pure AllocAll
+          parse "primaries" = pure AllocPrimaries
+          parse "new_primaries" = pure AllocNewPrimaries
+          parse "none" = pure AllocNone
+          parse t = fail ("Invlaid AllocationPolicy: " <> show t)
 
 instance ToJSON InitialShardCount where
   toJSON QuorumShards       = String "quorum"
@@ -2840,16 +2956,41 @@ instance ToJSON InitialShardCount where
   toJSON FullMinus1Shards   = String "full-1"
   toJSON (ExplicitShards x) = toJSON x
 
+instance FromJSON InitialShardCount where
+  parseJSON v = withText "InitialShardCount" parseText v
+            <|> ExplicitShards <$> parseJSON v
+    where parseText "quorum"   = pure QuorumShards
+          parseText "quorum-1" = pure QuorumMinus1Shards
+          parseText "full"     = pure FullShards
+          parseText "full-1"   = pure FullMinus1Shards
+          parseText _          = mzero
+
 instance ToJSON FSType where
   toJSON FSSimple   = "simple"
   toJSON FSBuffered = "buffered"
+
+instance FromJSON FSType where
+  parseJSON = withText "FSType" parse
+    where parse "simple" = pure FSSimple
+          parse "buffered" = pure FSBuffered
+          parse t = fail ("Invalid FSType: " <> show t)
 
 instance ToJSON CompoundFormat where
   toJSON (CompoundFileFormat x) = Bool x
   toJSON (MergeSegmentVsTotalIndex x) = toJSON x
 
+instance FromJSON CompoundFormat where
+  parseJSON v = CompoundFileFormat <$> parseJSON v
+            <|> MergeSegmentVsTotalIndex <$> parseJSON v
+
 instance ToJSON NominalDiffTimeJSON where
   toJSON (NominalDiffTimeJSON t) = String (showText (round t :: Integer) <> "s")
+
+instance FromJSON NominalDiffTimeJSON where
+  parseJSON = withText "NominalDiffTime" parse
+    where parse t = case T.takeEnd 1 t of
+                      "s" -> NominalDiffTimeJSON . fromInteger <$> parseReadText t
+                      _ -> fail "Invalid or missing NominalDiffTime unit (expected s)"
 
 instance ToJSON IndexTemplate where
   toJSON (IndexTemplate p s m) = merge

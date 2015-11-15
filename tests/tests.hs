@@ -13,6 +13,7 @@ import           Control.Monad
 import           Control.Monad.Reader
 import           Data.Aeson
 import           Data.Aeson.Types                (parseEither)
+import qualified Data.ByteString.Lazy.Char8      as BL8
 import           Data.DeriveTH
 import qualified Data.HashMap.Strict             as HM
 import           Data.List                       (nub)
@@ -112,7 +113,8 @@ when' b f = b >>= \x -> when x f
 
 propJSON :: forall a. (Arbitrary a, ToJSON a, FromJSON a, Show a, Eq a, Typeable a) => Proxy a -> Spec
 propJSON _ = prop testName $ \(a :: a) ->
-  parseEither parseJSON (toJSON a) === Right a
+  let jsonStr = "via " <> BL8.unpack (encode a)
+  in counterexample jsonStr (parseEither parseJSON (toJSON a) === Right a)
   where testName = show ty <> " FromJSON/ToJSON roundtrips"
         ty = typeOf (undefined :: a)
 
@@ -402,6 +404,28 @@ instance Arbitrary Filter where
                                  , RegexpFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
                                  , TermFilter <$> arbitrary <*> arbitrary]
 
+instance Arbitrary ReplicaBounds where
+  arbitrary = oneof [ replicasBounded
+                    , replicasLowerBounded
+                    , pure ReplicasUnbounded
+                    ]
+    where replicasBounded = do Positive a <- arbitrary
+                               Positive b <- arbitrary
+                               return (ReplicasBounded a b)
+          replicasLowerBounded = do Positive a <- arbitrary
+                                    return (ReplicasLowerBounded a)
+
+instance Arbitrary NodeAttrName where
+  arbitrary = NodeAttrName . T.pack . getNonEmpty <$> arbitrary
+
+
+instance Arbitrary NodeAttrFilter where
+  arbitrary = do
+    n <- arbitrary
+    s:ss <- listOf1 (listOf1 arbitraryAlphaNum)
+    let ts = T.pack <$> s :| ss
+    return (NodeAttrFilter n ts)
+
 $(derive makeArbitrary ''IndexName)
 $(derive makeArbitrary ''MappingName)
 $(derive makeArbitrary ''DocId)
@@ -500,6 +524,13 @@ $(derive makeArbitrary ''RangeExecution)
 $(derive makeArbitrary ''RegexpFlag)
 $(derive makeArbitrary ''BoolMatch)
 $(derive makeArbitrary ''Term)
+$(derive makeArbitrary ''IndexSettings)
+$(derive makeArbitrary ''UpdatableIndexSetting)
+$(derive makeArbitrary ''Bytes)
+$(derive makeArbitrary ''AllocationPolicy)
+$(derive makeArbitrary ''InitialShardCount)
+$(derive makeArbitrary ''FSType)
+$(derive makeArbitrary ''CompoundFormat)
 
 
 main :: IO ()
@@ -1237,3 +1268,11 @@ main = hspec $ do
     propJSON (Proxy :: Proxy BoolMatch)
     propJSON (Proxy :: Proxy Term)
     propJSON (Proxy :: Proxy MultiMatchQuery)
+    propJSON (Proxy :: Proxy IndexSettings)
+    propJSON (Proxy :: Proxy UpdatableIndexSetting)
+    propJSON (Proxy :: Proxy ReplicaBounds)
+    propJSON (Proxy :: Proxy Bytes)
+    propJSON (Proxy :: Proxy AllocationPolicy)
+    propJSON (Proxy :: Proxy InitialShardCount)
+    propJSON (Proxy :: Proxy FSType)
+    propJSON (Proxy :: Proxy CompoundFormat)
