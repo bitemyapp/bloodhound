@@ -25,6 +25,7 @@ module Database.Bloodhound.Client
        , createIndex
        , deleteIndex
        , updateIndexSettings
+       , getIndexSettings
        , indexExists
        , openIndex
        , closeIndex
@@ -293,11 +294,9 @@ updateIndexSettings updates (IndexName indexName) =
         jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
 
 
---TODO: This feels a little nicer than returning a reply and coyly
---implying that it *should* be an IndexSettingsSummary
 getIndexSettings :: (MonadBH m, MonadThrow m) => IndexName
                  -> m (Either EsError IndexSettingsSummary)
-getIndexSettings (IndexName indexName) =
+getIndexSettings (IndexName indexName) = do
   parseEsResponse =<< get =<< url
   where url = joinPath [indexName, "_settings"]
 

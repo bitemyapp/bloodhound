@@ -368,7 +368,7 @@ data Status = Status { ok      :: Maybe Bool
                      , status  :: Int
                      , name    :: Text
                      , version :: Version
-                     , tagline :: Text } deriving (Eq, Show)
+                     , tagline :: Text } deriving (Eq, Show, Generic)
 
 {-| 'IndexSettings' is used to configure the shards and replicas when you create
    an Elasticsearch Index.
@@ -378,7 +378,7 @@ data Status = Status { ok      :: Maybe Bool
 
 data IndexSettings =
   IndexSettings { indexShards   :: ShardCount
-                , indexReplicas :: ReplicaCount } deriving (Eq, Show)
+                , indexReplicas :: ReplicaCount } deriving (Eq, Show, Generic)
 
 {-| 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and 2 replicas. -}
 defaultIndexSettings :: IndexSettings
@@ -436,7 +436,7 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            | IndexCompoundFormat CompoundFormat
                            | IndexCompoundOnFlush Bool
                            | WarmerEnabled Bool
-                           deriving (Eq, Show)
+                           deriving (Eq, Show, Generic)
 
 data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation for all shards.
@@ -446,42 +446,42 @@ data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation only for primary shards for new indices.
                       | AllocNone
                       -- ^ No shard allocation is allowed
-                      deriving (Eq, Show)
+                      deriving (Eq, Show, Generic)
 
 data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasLowerBounded Int
                    | ReplicasUnbounded
-                   deriving (Eq, Show)
+                   deriving (Eq, Show, Generic)
 
-newtype Bytes = Bytes Int deriving (Eq, Show, Ord, ToJSON, FromJSON)
+newtype Bytes = Bytes Int deriving (Eq, Show, Generic, Ord, ToJSON, FromJSON)
 
 data FSType = FSSimple
-            | FSBuffered deriving (Eq, Show, Ord)
+            | FSBuffered deriving (Eq, Show, Generic, Ord)
 
 data InitialShardCount = QuorumShards
                        | QuorumMinus1Shards
                        | FullShards
                        | FullMinus1Shards
                        | ExplicitShards Int
-                       deriving (Eq, Show)
+                       deriving (Eq, Show, Generic)
 
 data NodeAttrFilter = NodeAttrFilter { nodeAttrFilterName   :: NodeAttrName
                                      , nodeAttrFilterValues :: NonEmpty Text}
-                                     deriving (Eq, Show)
+                                     deriving (Eq, Show, Generic, Ord)
 
-newtype NodeAttrName = NodeAttrName Text deriving (Eq, Show)
+newtype NodeAttrName = NodeAttrName Text deriving (Eq, Show, Ord, Generic)
 
 data CompoundFormat = CompoundFileFormat Bool
                     | MergeSegmentVsTotalIndex Double
                     -- ^ percentage between 0 and 1 where 0 is false, 1 is true
-                    deriving (Eq, Show)
+                    deriving (Eq, Show, Generic)
 
 newtype NominalDiffTimeJSON = NominalDiffTimeJSON { ndtJSON ::  NominalDiffTime }
 
 data IndexSettingsSummary = IndexSettingsSummary { sSummaryIndexName :: IndexName
                                                  , sSummaryFixedSettings :: IndexSettings
                                                  , sSummaryUpdateable :: [UpdatableIndexSetting]}
-                                                 deriving (Eq, Show)
+                                                 deriving (Eq, Show, Generic)
 
 {-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method.Method' -}
 type Reply = Network.HTTP.Client.Response L.ByteString
@@ -491,7 +491,7 @@ type Method = NHTM.Method
 
    <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
 -}
-data OpenCloseIndex = OpenIndex | CloseIndex deriving (Eq, Show)
+data OpenCloseIndex = OpenIndex | CloseIndex deriving (Eq, Show, Generic)
 
 data FieldType = GeoPointType
                | GeoShapeType
@@ -499,10 +499,10 @@ data FieldType = GeoPointType
                | IntegerType
                | LongType
                | ShortType
-               | ByteType deriving (Eq, Show)
+               | ByteType deriving (Eq, Show, Generic)
 
 data FieldDefinition =
-  FieldDefinition { fieldType :: FieldType } deriving (Eq, Show)
+  FieldDefinition { fieldType :: FieldType } deriving (Eq, Show, Generic)
 
 {-| An 'IndexTemplate' defines a template that will automatically be
     applied to new indices created. The templates include both
@@ -520,7 +520,7 @@ data IndexTemplate =
 
 data MappingField =
   MappingField   { mappingFieldName :: FieldName
-                 , fieldDefinition  :: FieldDefinition } deriving (Eq, Show)
+                 , fieldDefinition  :: FieldDefinition } deriving (Eq, Show, Generic)
 
 {-| Support for type reification of 'Mapping's is currently incomplete, for
     now the mapping API verbiage expects a 'ToJSON'able blob.
@@ -530,7 +530,7 @@ data MappingField =
     and keeping different kinds of documents separated if possible.
 -}
 data Mapping = Mapping { typeName      :: TypeName
-                       , mappingFields :: [MappingField] } deriving (Eq, Show)
+                       , mappingFields :: [MappingField] } deriving (Eq, Show, Generic)
 
 {-| 'BulkOperation' is a sum type for expressing the four kinds of bulk
     operation index, create, delete, and update. 'BulkIndex' behaves like an
@@ -542,7 +542,7 @@ data BulkOperation =
     BulkIndex  IndexName MappingName DocId Value
   | BulkCreate IndexName MappingName DocId Value
   | BulkDelete IndexName MappingName DocId
-  | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Show)
+  | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Show, Generic)
 
 {-| 'EsResult' describes the standard wrapper JSON document that you see in
     successful Elasticsearch lookups or lookups that couldn't find the document.
@@ -550,55 +550,55 @@ data BulkOperation =
 data EsResult a = EsResult { _index      :: Text
                            , _type       :: Text
                            , _id         :: Text
-                           , foundResult :: Maybe (EsResultFound a)} deriving (Eq, Show)
+                           , foundResult :: Maybe (EsResultFound a)} deriving (Eq, Show, Generic)
 
 {-| 'EsResultFound' contains the document and its metadata inside of an
     'EsResult' when the document was successfully found.
 -}
 data EsResultFound a = EsResultFound {  _version :: DocVersion
-                                     , _source   :: a } deriving (Eq, Show)
+                                     , _source   :: a } deriving (Eq, Show, Generic)
 
 {-| 'EsError' is the generic type that will be returned when there was a
     problem. If you can't parse the expected response, its a good idea to
     try parsing this.
 -}
 data EsError = EsError { errorStatus  :: Int
-                       , errorMessage :: Text } deriving (Eq, Show)
+                       , errorMessage :: Text } deriving (Eq, Show, Generic)
 
 data IndexAlias = IndexAlias { srcIndex   :: IndexName
-                             , indexAlias :: IndexAliasName } deriving (Eq, Show)
+                             , indexAlias :: IndexAliasName } deriving (Eq, Show, Generic)
 
-newtype IndexAliasName = IndexAliasName { indexAliasName :: IndexName } deriving (Eq, Show, ToJSON)
+newtype IndexAliasName = IndexAliasName { indexAliasName :: IndexName } deriving (Eq, Show, Generic, ToJSON)
 
 data IndexAliasAction = AddAlias IndexAlias IndexAliasCreate
-                      | RemoveAlias IndexAlias deriving (Show, Eq, Typeable)
+                      | RemoveAlias IndexAlias deriving (Show, Eq, Generic, Typeable)
 
 data IndexAliasCreate = IndexAliasCreate { aliasCreateRouting :: Maybe AliasRouting
                                          , aliasCreateFilter  :: Maybe Filter}
-                                         deriving (Show, Eq, Typeable)
+                                         deriving (Show, Eq, Generic, Typeable)
 
 data AliasRouting = AllAliasRouting RoutingValue
                   | GranularAliasRouting (Maybe SearchAliasRouting) (Maybe IndexAliasRouting)
-                  deriving (Show, Eq, Typeable)
+                  deriving (Show, Eq, Generic, Typeable)
 
-newtype SearchAliasRouting = SearchAliasRouting (NonEmpty RoutingValue) deriving (Show, Eq, Typeable)
+newtype SearchAliasRouting = SearchAliasRouting (NonEmpty RoutingValue) deriving (Show, Eq, Generic, Typeable)
 
-newtype IndexAliasRouting = IndexAliasRouting RoutingValue deriving (Show, Eq, ToJSON, FromJSON, Typeable)
+newtype IndexAliasRouting = IndexAliasRouting RoutingValue deriving (Show, Eq, Generic, ToJSON, FromJSON, Typeable)
 
-newtype RoutingValue = RoutingValue { routingValue :: Text } deriving (Show, Eq, ToJSON, FromJSON, Typeable)
+newtype RoutingValue = RoutingValue { routingValue :: Text } deriving (Show, Eq, Generic, ToJSON, FromJSON, Typeable)
 
-newtype IndexAliasesSummary = IndexAliasesSummary { indexAliasesSummary :: [IndexAliasSummary] } deriving (Show, Eq, Typeable)
+newtype IndexAliasesSummary = IndexAliasesSummary { indexAliasesSummary :: [IndexAliasSummary] } deriving (Show, Eq, Generic, Typeable)
 
 {-| 'IndexAliasSummary' is a summary of an index alias configured for a server. -}
 data IndexAliasSummary = IndexAliasSummary { indexAliasSummaryAlias  :: IndexAlias
-                                           , indexAliasSummaryCreate :: IndexAliasCreate} deriving (Show, Eq)
+                                           , indexAliasSummaryCreate :: IndexAliasCreate} deriving (Show, Eq, Generic)
 
 {-| 'DocVersion' is an integer version number for a document between 1
 and 9.2e+18 used for <<https://www.elastic.co/guide/en/elasticsearch/guide/current/optimistic-concurrency-control.html optimistic concurrency control>>.
 -}
 newtype DocVersion = DocVersion {
       docVersionNumber :: Int
-    } deriving (Eq, Show, Ord, ToJSON)
+    } deriving (Eq, Show, Generic, Ord, ToJSON)
 
 -- | Smart constructor for in-range doc version
 mkDocVersion :: Int -> Maybe DocVersion
@@ -612,7 +612,7 @@ mkDocVersion i
 own version numbers instead of ones from ES.
 -}
 newtype ExternalDocVersion = ExternalDocVersion DocVersion
-    deriving (Eq, Show, Ord, Bounded, Enum, ToJSON)
+    deriving (Eq, Show, Generic, Ord, Bounded, Enum, ToJSON)
 
 {-| 'VersionControl' is specified when indexing documents as a
 optimistic concurrency control.
@@ -646,12 +646,12 @@ data VersionControl = NoVersionControl
                     -- given version will be the new version. This is
                     -- typically used for correcting errors. Use with
                     -- care, as this could result in data loss.
-                    deriving (Show, Eq, Ord)
+                    deriving (Show, Eq, Generic, Ord)
 
 {-| 'DocumentParent' is used to specify a parent document.
 -}
 newtype DocumentParent = DocumentParent DocId
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 {-| 'IndexDocumentSettings' are special settings supplied when indexing
 a document. For the best backwards compatiblity when new fields are
@@ -660,7 +660,7 @@ added, you should probably prefer to start with 'defaultIndexDocumentSettings'
 data IndexDocumentSettings =
   IndexDocumentSettings { idsVersionControl :: VersionControl
                         , idsParent         :: Maybe DocumentParent
-                        } deriving (Eq, Show)
+                        } deriving (Eq, Show, Generic)
 
 {-| Reasonable default settings. Chooses no version control and no parent.
 -}
@@ -680,7 +680,7 @@ type Sort = [SortSpec]
 <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 -}
 data SortSpec = DefaultSortSpec DefaultSort
-              | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Show)
+              | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Show, Generic)
 
 {-| 'DefaultSort' is usually the kind of 'SortSpec' you'll want. There's a
     'mkSort' convenience function for when you want to specify only the most
@@ -695,7 +695,7 @@ data DefaultSort =
               , ignoreUnmapped :: Bool
               , sortMode       :: Maybe SortMode
               , missingSort    :: Maybe Missing
-              , nestedFilter   :: Maybe Filter } deriving (Eq, Show)
+              , nestedFilter   :: Maybe Filter } deriving (Eq, Show, Generic)
 
 {-| 'SortOrder' is 'Ascending' or 'Descending', as you might expect. These get
     encoded into "asc" or "desc" when turned into JSON.
@@ -703,7 +703,7 @@ data DefaultSort =
 <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 -}
 data SortOrder = Ascending
-               | Descending deriving (Eq, Show)
+               | Descending deriving (Eq, Show, Generic)
 
 {-| 'Missing' prescribes how to handle missing fields. A missing field can be
     sorted last, first, or using a custom value as a substitute.
@@ -712,7 +712,7 @@ data SortOrder = Ascending
 -}
 data Missing = LastMissing
              | FirstMissing
-             | CustomMissing Text deriving (Eq, Show)
+             | CustomMissing Text deriving (Eq, Show, Generic)
 
 {-| 'SortMode' prescribes how to handle sorting array/multi-valued fields.
 
@@ -721,7 +721,7 @@ http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-req
 data SortMode = SortMin
               | SortMax
               | SortSum
-              | SortAvg deriving (Eq, Show)
+              | SortAvg deriving (Eq, Show, Generic)
 
 {-| 'mkSort' defaults everything but the 'FieldName' and the 'SortOrder' so
     that you can concisely describe the usual kind of 'SortSpec's you want.
@@ -743,19 +743,19 @@ type PrefixValue = Text
 {-| 'BooleanOperator' is the usual And/Or operators with an ES compatible
     JSON encoding baked in. Used all over the place.
 -}
-data BooleanOperator = And | Or deriving (Eq, Show, Typeable)
+data BooleanOperator = And | Or deriving (Eq, Show, Generic, Typeable)
 
 {-| 'ShardCount' is part of 'IndexSettings'
 -}
-newtype ShardCount = ShardCount Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype ShardCount = ShardCount Int deriving (Eq, Show, Generic, ToJSON, Typeable)
 
 {-| 'ReplicaCount' is part of 'IndexSettings'
 -}
-newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic, ToJSON, Typeable)
 
 {-| 'Server' is used with the client functions to point at the ES instance
 -}
-newtype Server = Server Text deriving (Eq, Show)
+newtype Server = Server Text deriving (Eq, Show, Generic)
 
 {-| 'IndexName' is used to describe which index to query/create/delete
 -}
@@ -787,27 +787,27 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Show, ToJSON, From
 {-| 'FieldName' is used all over the place wherever a specific field within
      a document needs to be specified, usually in 'Query's or 'Filter's.
 -}
-newtype FieldName = FieldName Text deriving (Eq, Show, ToJSON, FromJSON, Typeable)
+newtype FieldName = FieldName Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 
 {-| 'Script' is often used in place of 'FieldName' to specify more
 complex ways of extracting a value from a document.
 -}
-newtype Script = Script { scriptText :: Text } deriving (Eq, Show)
+newtype Script = Script { scriptText :: Text } deriving (Eq, Show, Generic)
 
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
 -}
-newtype CacheName = CacheName Text deriving (Eq, Show, ToJSON, FromJSON, Typeable)
+newtype CacheName = CacheName Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'CacheKey' is used in 'RegexpFilter' to key regex caching.
 -}
 newtype CacheKey =
-  CacheKey Text deriving (Eq, Show, ToJSON, FromJSON, Typeable)
+  CacheKey Text deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Existence =
-  Existence Bool deriving (Eq, Show, ToJSON, FromJSON, Typeable)
+  Existence Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype NullValue =
-  NullValue Bool deriving (Eq, Show, ToJSON, FromJSON, Typeable)
+  NullValue Bool deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype CutoffFrequency =
   CutoffFrequency Double deriving (Eq, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Analyzer =
@@ -900,8 +900,8 @@ unpackId :: DocId -> Text
 unpackId (DocId docId) = docId
 
 type TrackSortScores = Bool
-newtype From = From Int deriving (Eq, Show, ToJSON)
-newtype Size = Size Int deriving (Eq, Show, ToJSON)
+newtype From = From Int deriving (Eq, Show, Generic, ToJSON)
+newtype Size = Size Int deriving (Eq, Show, Generic, ToJSON)
 
 data Search = Search { queryBody       :: Maybe Query
                      , filterBody      :: Maybe Filter
@@ -914,7 +914,7 @@ data Search = Search { queryBody       :: Maybe Query
                      , size            :: Size
                      , searchType      :: SearchType
                      , fields          :: Maybe [FieldName]
-                     , source          :: Maybe Source } deriving (Eq, Show)
+                     , source          :: Maybe Source } deriving (Eq, Show, Generic)
 
 data SearchType = SearchTypeQueryThenFetch
                 | SearchTypeDfsQueryThenFetch
@@ -922,40 +922,40 @@ data SearchType = SearchTypeQueryThenFetch
                 | SearchTypeScan
                 | SearchTypeQueryAndFetch
                 | SearchTypeDfsQueryAndFetch
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 data Source =
     NoSource
   | SourcePatterns PatternOrPatterns
   | SourceIncludeExclude Include Exclude
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
 
 data PatternOrPatterns = PopPattern   Pattern
-                       | PopPatterns [Pattern] deriving (Eq, Show)
+                       | PopPatterns [Pattern] deriving (Eq, Show, Generic)
 
-data Include = Include [Pattern] deriving (Eq, Show)
-data Exclude = Exclude [Pattern] deriving (Eq, Show)
+data Include = Include [Pattern] deriving (Eq, Show, Generic)
+data Exclude = Exclude [Pattern] deriving (Eq, Show, Generic)
 
-newtype Pattern = Pattern Text deriving (Eq, Show)
+newtype Pattern = Pattern Text deriving (Eq, Show, Generic)
 
 data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
                              , highlightFields :: [FieldHighlight]
-                             } deriving (Show, Eq)
+                             } deriving (Show, Eq, Generic)
 
 data FieldHighlight = FieldHighlight FieldName (Maybe HighlightSettings)
-                      deriving (Show, Eq)
+                      deriving (Show, Eq, Generic)
 
 
 data HighlightSettings = Plain PlainHighlight
                        | Postings PostingsHighlight
                        | FastVector FastVectorHighlight
-                         deriving (Show, Eq)
+                         deriving (Show, Eq, Generic)
 data PlainHighlight =
     PlainHighlight { plainCommon  :: Maybe CommonHighlight
-                   , plainNonPost :: Maybe NonPostings } deriving (Show, Eq)
+                   , plainNonPost :: Maybe NonPostings } deriving (Show, Eq, Generic)
 
  -- This requires that index_options are set to 'offset' in the mapping.
-data PostingsHighlight = PostingsHighlight (Maybe CommonHighlight) deriving (Show, Eq)
+data PostingsHighlight = PostingsHighlight (Maybe CommonHighlight) deriving (Show, Eq, Generic)
 
 -- This requires that term_vector is set to 'with_positions_offsets' in the mapping.
 data FastVectorHighlight =
@@ -966,7 +966,7 @@ data FastVectorHighlight =
                         , fragmentOffset    :: Maybe Int
                         , matchedFields     :: [Text]
                         , phraseLimit       :: Maybe Int
-                        } deriving (Show, Eq)
+                        } deriving (Show, Eq, Generic)
 
 data CommonHighlight =
     CommonHighlight { order             :: Maybe Text
@@ -976,21 +976,21 @@ data CommonHighlight =
                     , noMatchSize       :: Maybe Int
                     , highlightQuery    :: Maybe Query
                     , requireFieldMatch :: Maybe Bool
-                    } deriving (Show, Eq)
+                    } deriving (Show, Eq, Generic)
 
 -- Settings that are only applicable to FastVector and Plain highlighters.
 data NonPostings =
     NonPostings { fragmentSize      :: Maybe Int
-                , numberOfFragments :: Maybe Int} deriving (Show, Eq)
+                , numberOfFragments :: Maybe Int} deriving (Show, Eq, Generic)
 
 data HighlightEncoder = DefaultEncoder
                       | HTMLEncoder
-                      deriving (Show, Eq)
+                      deriving (Show, Eq, Generic)
 
 -- NOTE: Should the tags use some kind of HTML type, rather than Text?
 data HighlightTag = TagSchema Text
                   | CustomTags ([Text], [Text]) -- Only uses more than the first value in the lists if fvh
-                  deriving (Show, Eq)
+                  deriving (Show, Eq, Generic)
 
 
 data Query =
@@ -1021,19 +1021,19 @@ data Query =
   | QuerySimpleQueryStringQuery SimpleQueryStringQuery
   | QueryRangeQuery             RangeQuery
   | QueryRegexpQuery            RegexpQuery
-  deriving (Eq, Show, Typeable)
+  deriving (Eq, Show, Generic, Typeable)
 
 data RegexpQuery =
   RegexpQuery { regexpQueryField :: FieldName
               , regexpQuery      :: Regexp
               , regexpQueryFlags :: RegexpFlags
               , regexpQueryBoost :: Maybe Boost
-              } deriving (Eq, Show, Typeable)
+              } deriving (Eq, Show, Generic, Typeable)
 
 data RangeQuery =
   RangeQuery { rangeQueryField :: FieldName
              , rangeQueryRange :: RangeValue
-             , rangeQueryBoost :: Boost } deriving (Eq, Show, Typeable)
+             , rangeQueryBoost :: Boost } deriving (Eq, Show, Generic, Typeable)
 
 mkRangeQuery :: FieldName -> RangeValue -> RangeQuery
 mkRangeQuery f r = RangeQuery f r (Boost 1.0)
@@ -1047,7 +1047,7 @@ data SimpleQueryStringQuery =
     , simpleQueryStringFlags             :: Maybe (NonEmpty SimpleQueryFlag)
     , simpleQueryStringLowercaseExpanded :: Maybe LowercaseExpanded
     , simpleQueryStringLocale            :: Maybe Locale
-    } deriving (Eq, Show, Typeable)
+    } deriving (Eq, Show, Generic, Typeable)
 
 data SimpleQueryFlag =
   SimpleQueryAll
@@ -1061,7 +1061,7 @@ data SimpleQueryFlag =
   | SimpleQueryWhitespace
   | SimpleQueryFuzzy
   | SimpleQueryNear
-  | SimpleQuerySlop deriving (Eq, Show, Typeable)
+  | SimpleQuerySlop deriving (Eq, Show, Generic, Typeable)
 
 -- use_dis_max and tie_breaker when fields are plural?
 data QueryStringQuery =
@@ -1083,7 +1083,7 @@ data QueryStringQuery =
   , queryStringMinimumShouldMatch       :: Maybe MinimumMatch
   , queryStringLenient                  :: Maybe Lenient
   , queryStringLocale                   :: Maybe Locale
-  } deriving (Eq, Show, Typeable)
+  } deriving (Eq, Show, Generic, Typeable)
 
 mkQueryStringQuery :: QueryString -> QueryStringQuery
 mkQueryStringQuery qs =
@@ -1094,19 +1094,19 @@ mkQueryStringQuery qs =
   Nothing Nothing
 
 data FieldOrFields = FofField   FieldName
-                   | FofFields (NonEmpty FieldName) deriving (Eq, Show, Typeable)
+                   | FofFields (NonEmpty FieldName) deriving (Eq, Show, Generic, Typeable)
 
 data PrefixQuery =
   PrefixQuery
   { prefixQueryField       :: FieldName
   , prefixQueryPrefixValue :: Text
-  , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Show, Typeable)
+  , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Show, Generic, Typeable)
 
 data NestedQuery =
   NestedQuery
   { nestedQueryPath      :: QueryPath
   , nestedQueryScoreType :: ScoreType
-  , nestedQuery          :: Query } deriving (Eq, Show, Typeable)
+  , nestedQuery          :: Query } deriving (Eq, Show, Generic, Typeable)
 
 data MoreLikeThisFieldQuery =
   MoreLikeThisFieldQuery
@@ -1124,7 +1124,7 @@ data MoreLikeThisFieldQuery =
   , moreLikeThisFieldBoostTerms      :: Maybe BoostTerms
   , moreLikeThisFieldBoost           :: Maybe Boost
   , moreLikeThisFieldAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Show, Typeable)
+  } deriving (Eq, Show, Generic, Typeable)
 
 data MoreLikeThisQuery =
   MoreLikeThisQuery
@@ -1142,32 +1142,32 @@ data MoreLikeThisQuery =
   , moreLikeThisBoostTerms      :: Maybe BoostTerms
   , moreLikeThisBoost           :: Maybe Boost
   , moreLikeThisAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Show, Typeable)
+  } deriving (Eq, Show, Generic, Typeable)
 
 data IndicesQuery =
   IndicesQuery
   { indicesQueryIndices :: [IndexName]
   , indicesQuery        :: Query
     -- default "all"
-  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Show, Typeable)
+  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Show, Generic, Typeable)
 
 data HasParentQuery =
   HasParentQuery
   { hasParentQueryType      :: TypeName
   , hasParentQuery          :: Query
-  , hasParentQueryScoreType :: Maybe ScoreType } deriving (Eq, Show, Typeable)
+  , hasParentQueryScoreType :: Maybe ScoreType } deriving (Eq, Show, Generic, Typeable)
 
 data HasChildQuery =
   HasChildQuery
   { hasChildQueryType      :: TypeName
   , hasChildQuery          :: Query
-  , hasChildQueryScoreType :: Maybe ScoreType } deriving (Eq, Show, Typeable)
+  , hasChildQueryScoreType :: Maybe ScoreType } deriving (Eq, Show, Generic, Typeable)
 
 data ScoreType =
   ScoreTypeMax
   | ScoreTypeSum
   | ScoreTypeAvg
-  | ScoreTypeNone deriving (Eq, Show, Typeable)
+  | ScoreTypeNone deriving (Eq, Show, Generic, Typeable)
 
 data FuzzyQuery =
   FuzzyQuery { fuzzyQueryField         :: FieldName
@@ -1176,7 +1176,7 @@ data FuzzyQuery =
              , fuzzyQueryMaxExpansions :: MaxExpansions
              , fuzzyQueryFuzziness     :: Fuzziness
              , fuzzyQueryBoost         :: Maybe Boost
-             } deriving (Eq, Show, Typeable)
+             } deriving (Eq, Show, Generic, Typeable)
 
 data FuzzyLikeFieldQuery =
   FuzzyLikeFieldQuery
@@ -1189,7 +1189,7 @@ data FuzzyLikeFieldQuery =
   , fuzzyLikeFieldPrefixLength        :: PrefixLength
   , fuzzyLikeFieldBoost               :: Boost
   , fuzzyLikeFieldAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Show, Typeable)
+  } deriving (Eq, Show, Generic, Typeable)
 
 data FuzzyLikeThisQuery =
   FuzzyLikeThisQuery
@@ -1201,19 +1201,19 @@ data FuzzyLikeThisQuery =
   , fuzzyLikePrefixLength        :: PrefixLength
   , fuzzyLikeBoost               :: Boost
   , fuzzyLikeAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Show, Typeable)
+  } deriving (Eq, Show, Generic, Typeable)
 
 data FilteredQuery =
   FilteredQuery
   { filteredQuery  :: Query
-  , filteredFilter :: Filter } deriving (Eq, Show, Typeable)
+  , filteredFilter :: Filter } deriving (Eq, Show, Generic, Typeable)
 
 data DisMaxQuery =
   DisMaxQuery { disMaxQueries    :: [Query]
                 -- default 0.0
               , disMaxTiebreaker :: Tiebreaker
               , disMaxBoost      :: Maybe Boost
-              } deriving (Eq, Show, Typeable)
+              } deriving (Eq, Show, Generic, Typeable)
 
 data MatchQuery =
   MatchQuery { matchQueryField           :: FieldName
@@ -1225,7 +1225,7 @@ data MatchQuery =
              , matchQueryAnalyzer        :: Maybe Analyzer
              , matchQueryMaxExpansions   :: Maybe MaxExpansions
              , matchQueryLenient         :: Maybe Lenient
-             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Show, Typeable)
+             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Show, Generic, Typeable)
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
@@ -1235,7 +1235,7 @@ mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothi
 
 data MatchQueryType =
   MatchPhrase
-  | MatchPhrasePrefix deriving (Eq, Show, Typeable)
+  | MatchPhrasePrefix deriving (Eq, Show, Generic, Typeable)
 
 data MultiMatchQuery =
   MultiMatchQuery { multiMatchQueryFields          :: [FieldName]
@@ -1247,7 +1247,7 @@ data MultiMatchQuery =
                   , multiMatchQueryCutoffFrequency :: Maybe CutoffFrequency
                   , multiMatchQueryAnalyzer        :: Maybe Analyzer
                   , multiMatchQueryMaxExpansions   :: Maybe MaxExpansions
-                  , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show, Typeable)
+                  , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Show, Generic, Typeable)
 
 {-| 'mkMultiMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the list of 'FieldName's and 'QueryString' to
@@ -1264,7 +1264,7 @@ data MultiMatchQueryType =
   | MultiMatchMostFields
   | MultiMatchCrossFields
   | MultiMatchPhrase
-  | MultiMatchPhrasePrefix deriving (Eq, Show, Typeable)
+  | MultiMatchPhrasePrefix deriving (Eq, Show, Generic, Typeable)
 
 data BoolQuery =
   BoolQuery { boolQueryMustMatch          :: [Query]
@@ -1273,7 +1273,7 @@ data BoolQuery =
             , boolQueryMinimumShouldMatch :: Maybe MinimumMatch
             , boolQueryBoost              :: Maybe Boost
             , boolQueryDisableCoord       :: Maybe DisableCoord
-            } deriving (Eq, Show, Typeable)
+            } deriving (Eq, Show, Generic, Typeable)
 
 mkBoolQuery :: [Query] -> [Query] -> [Query] -> BoolQuery
 mkBoolQuery must mustNot should =
@@ -1282,7 +1282,7 @@ mkBoolQuery must mustNot should =
 data BoostingQuery =
   BoostingQuery { positiveQuery :: Query
                 , negativeQuery :: Query
-                , negativeBoost :: Boost } deriving (Eq, Show, Typeable)
+                , negativeBoost :: Boost } deriving (Eq, Show, Generic, Typeable)
 
 data CommonTermsQuery =
   CommonTermsQuery { commonField              :: FieldName
@@ -1294,16 +1294,16 @@ data CommonTermsQuery =
                    , commonBoost              :: Maybe Boost
                    , commonAnalyzer           :: Maybe Analyzer
                    , commonDisableCoord       :: Maybe DisableCoord
-                   } deriving (Eq, Show, Typeable)
+                   } deriving (Eq, Show, Generic, Typeable)
 
 data CommonMinimumMatch =
     CommonMinimumMatchHighLow MinimumMatchHighLow
   | CommonMinimumMatch        MinimumMatch
-  deriving (Eq, Show, Typeable)
+  deriving (Eq, Show, Generic, Typeable)
 
 data MinimumMatchHighLow =
   MinimumMatchHighLow { lowFreq  :: MinimumMatch
-                      , highFreq :: MinimumMatch } deriving (Eq, Show, Typeable)
+                      , highFreq :: MinimumMatch } deriving (Eq, Show, Generic, Typeable)
 
 data Filter = AndFilter [Filter] Cache
             | OrFilter  [Filter] Cache
@@ -1323,36 +1323,36 @@ data Filter = AndFilter [Filter] Cache
             | RangeFilter   FieldName RangeValue RangeExecution Cache
             | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
             | TermFilter    Term Cache
-              deriving (Eq, Show, Typeable)
+              deriving (Eq, Show, Generic, Typeable)
 
 data ZeroTermsQuery = ZeroTermsNone
-                    | ZeroTermsAll deriving (Eq, Show, Typeable)
+                    | ZeroTermsAll deriving (Eq, Show, Generic, Typeable)
 
 data RangeExecution = RangeExecutionIndex
-                    | RangeExecutionFielddata deriving (Eq, Show, Typeable)
+                    | RangeExecutionFielddata deriving (Eq, Show, Generic, Typeable)
 
-newtype Regexp = Regexp Text deriving (Eq, Show, FromJSON)
+newtype Regexp = Regexp Text deriving (Eq, Show, Generic, FromJSON)
 
 data RegexpFlags = AllRegexpFlags
                  | NoRegexpFlags
-                 | SomeRegexpFlags (NonEmpty RegexpFlag) deriving (Eq, Show)
+                 | SomeRegexpFlags (NonEmpty RegexpFlag) deriving (Eq, Show, Generic)
 
 data RegexpFlag = AnyString
                 | Automaton
                 | Complement
                 | Empty
                 | Intersection
-                | Interval deriving (Eq, Show)
+                | Interval deriving (Eq, Show, Generic)
 
-newtype LessThan = LessThan Double deriving (Eq, Show)
-newtype LessThanEq = LessThanEq Double deriving (Eq, Show)
-newtype GreaterThan = GreaterThan Double deriving (Eq, Show)
-newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Show)
+newtype LessThan = LessThan Double deriving (Eq, Show, Generic)
+newtype LessThanEq = LessThanEq Double deriving (Eq, Show, Generic)
+newtype GreaterThan = GreaterThan Double deriving (Eq, Show, Generic)
+newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Show, Generic)
 
-newtype LessThanD = LessThanD UTCTime deriving (Eq, Show)
-newtype LessThanEqD = LessThanEqD UTCTime deriving (Eq, Show)
-newtype GreaterThanD = GreaterThanD UTCTime deriving (Eq, Show)
-newtype GreaterThanEqD = GreaterThanEqD UTCTime deriving (Eq, Show)
+newtype LessThanD = LessThanD UTCTime deriving (Eq, Show, Generic)
+newtype LessThanEqD = LessThanEqD UTCTime deriving (Eq, Show, Generic)
+newtype GreaterThanD = GreaterThanD UTCTime deriving (Eq, Show, Generic)
+newtype GreaterThanEqD = GreaterThanEqD UTCTime deriving (Eq, Show, Generic)
 
 data RangeValue = RangeDateLte LessThanEqD
                 | RangeDateLt LessThanD
@@ -1370,7 +1370,7 @@ data RangeValue = RangeDateLte LessThanEqD
                 | RangeDoubleGteLte GreaterThanEq LessThanEq
                 | RangeDoubleGteLt GreaterThanEq LessThan
                 | RangeDoubleGtLte GreaterThan LessThanEq
-                deriving (Eq, Show)
+                deriving (Eq, Show, Generic)
 
 rangeValueToPair :: RangeValue -> [Pair]
 rangeValueToPair rv = case rv of
@@ -1392,33 +1392,33 @@ rangeValueToPair rv = case rv of
   RangeDoubleGtLt (GreaterThan l) (LessThan g)       -> ["gt"  .= l, "lt"  .= g]
 
 data Term = Term { termField :: Text
-                 , termValue :: Text } deriving (Eq, Show, Typeable)
+                 , termValue :: Text } deriving (Eq, Show, Generic, Typeable)
 
 data BoolMatch = MustMatch    Term  Cache
                | MustNotMatch Term  Cache
-               | ShouldMatch [Term] Cache deriving (Eq, Show, Typeable)
+               | ShouldMatch [Term] Cache deriving (Eq, Show, Generic, Typeable)
 
 -- "memory" or "indexed"
 data GeoFilterType = GeoFilterMemory
-                   | GeoFilterIndexed deriving (Eq, Show, Typeable)
+                   | GeoFilterIndexed deriving (Eq, Show, Generic, Typeable)
 
 data LatLon = LatLon { lat :: Double
-                     , lon :: Double } deriving (Eq, Show, Typeable)
+                     , lon :: Double } deriving (Eq, Show, Generic, Typeable)
 
 data GeoBoundingBox =
   GeoBoundingBox { topLeft     :: LatLon
-                 , bottomRight :: LatLon } deriving (Eq, Show, Typeable)
+                 , bottomRight :: LatLon } deriving (Eq, Show, Generic, Typeable)
 
 data GeoBoundingBoxConstraint =
   GeoBoundingBoxConstraint { geoBBField        :: FieldName
                            , constraintBox     :: GeoBoundingBox
                            , bbConstraintcache :: Cache
                            , geoType           :: GeoFilterType
-                           } deriving (Eq, Show, Typeable)
+                           } deriving (Eq, Show, Generic, Typeable)
 
 data GeoPoint =
   GeoPoint { geoField :: FieldName
-           , latLon   :: LatLon} deriving (Eq, Show, Typeable)
+           , latLon   :: LatLon} deriving (Eq, Show, Generic, Typeable)
 
 data DistanceUnit = Miles
                   | Yards
@@ -1428,22 +1428,22 @@ data DistanceUnit = Miles
                   | Meters
                   | Centimeters
                   | Millimeters
-                  | NauticalMiles deriving (Eq, Show, Typeable)
+                  | NauticalMiles deriving (Eq, Show, Generic, Typeable)
 
 data DistanceType = Arc
                   | SloppyArc -- doesn't exist <1.0
-                  | Plane deriving (Eq, Show, Typeable)
+                  | Plane deriving (Eq, Show, Generic, Typeable)
 
 data OptimizeBbox = OptimizeGeoFilterType GeoFilterType
-                  | NoOptimizeBbox deriving (Eq, Show, Typeable)
+                  | NoOptimizeBbox deriving (Eq, Show, Generic, Typeable)
 
 data Distance =
   Distance { coefficient :: Double
-           , unit        :: DistanceUnit } deriving (Eq, Show, Typeable)
+           , unit        :: DistanceUnit } deriving (Eq, Show, Generic, Typeable)
 
 data DistanceRange =
   DistanceRange { distanceFrom :: Distance
-                , distanceTo   :: Distance } deriving (Eq, Show)
+                , distanceTo   :: Distance } deriving (Eq, Show, Generic)
 
 data SearchResult a =
   SearchResult { took         :: Int
@@ -1451,16 +1451,16 @@ data SearchResult a =
                , shards       :: ShardResult
                , searchHits   :: SearchHits a
                , aggregations :: Maybe AggregationResults
-               , scrollId     :: Maybe ScrollId } deriving (Eq, Show)
+               , scrollId     :: Maybe ScrollId } deriving (Eq, Show, Generic)
 
-newtype ScrollId = ScrollId Text deriving (Eq, Show, Ord, ToJSON, FromJSON)
+newtype ScrollId = ScrollId Text deriving (Eq, Show, Generic, Ord, ToJSON, FromJSON)
 
 type Score = Maybe Double
 
 data SearchHits a =
   SearchHits { hitsTotal :: Int
              , maxScore  :: Score
-             , hits      :: [Hit a] } deriving (Eq, Show)
+             , hits      :: [Hit a] } deriving (Eq, Show, Generic)
 
 
 instance Monoid (SearchHits a) where
@@ -1475,7 +1475,7 @@ data Hit a =
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
-      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
+      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show, Generic)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
@@ -1504,19 +1504,19 @@ mkAggregations :: Text -> Aggregation -> Aggregations
 mkAggregations name aggregation = M.insert name aggregation emptyAggregations
 
 data TermOrder = TermOrder{ termSortField :: Text
-                          , termSortOrder :: SortOrder } deriving (Eq, Show)
+                          , termSortOrder :: SortOrder } deriving (Eq, Show, Generic)
 
 data TermInclusion = TermInclusion Text
-                   | TermPattern Text Text deriving (Eq, Show)
+                   | TermPattern Text Text deriving (Eq, Show, Generic)
 
 data CollectionMode = BreadthFirst
-                    | DepthFirst deriving (Eq, Show)
+                    | DepthFirst deriving (Eq, Show, Generic)
 
 data ExecutionHint = Ordinals
                    | GlobalOrdinals
                    | GlobalOrdinalsHash
                    | GlobalOrdinalsLowCardinality
-                   | Map deriving (Eq, Show)
+                   | Map deriving (Eq, Show, Generic)
 
 data TimeInterval = Weeks
                   | Days
@@ -1532,13 +1532,13 @@ data Interval = Year
               | Hour
               | Minute
               | Second
-              | FractionalInterval Float TimeInterval deriving (Eq, Show)
+              | FractionalInterval Float TimeInterval deriving (Eq, Show, Generic)
 
 data Aggregation = TermsAgg TermsAggregation
                  | DateHistogramAgg DateHistogramAggregation
                  | ValueCountAgg ValueCountAggregation
                  | FilterAgg FilterAggregation
-                 | DateRangeAgg DateRangeAggregation deriving (Eq, Show)
+                 | DateRangeAgg DateRangeAggregation deriving (Eq, Show, Generic)
 
 
 data TermsAggregation = TermsAggregation { term              :: Either Text Text
@@ -1551,7 +1551,7 @@ data TermsAggregation = TermsAggregation { term              :: Either Text Text
                                          , termCollectMode   :: Maybe CollectionMode
                                          , termExecutionHint :: Maybe ExecutionHint
                                          , termAggs          :: Maybe Aggregations
-                                    } deriving (Eq, Show)
+                                    } deriving (Eq, Show, Generic)
 
 data DateHistogramAggregation = DateHistogramAggregation { dateField      :: FieldName
                                                          , dateInterval   :: Interval
@@ -1562,29 +1562,29 @@ data DateHistogramAggregation = DateHistogramAggregation { dateField      :: Fie
                                                          , datePreOffset  :: Maybe Text
                                                          , datePostOffset :: Maybe Text
                                                          , dateAggs       :: Maybe Aggregations
-                                                         } deriving (Eq, Show)
+                                                         } deriving (Eq, Show, Generic)
 
 
 data DateRangeAggregation = DateRangeAggregation { draField  :: FieldName
                                                  , draFormat :: Maybe Text
                                                  , draRanges :: NonEmpty DateRangeAggRange
-                                                 } deriving (Eq, Show)
+                                                 } deriving (Eq, Show, Generic)
 
 data DateRangeAggRange = DateRangeFrom DateMathExpr
                        | DateRangeTo DateMathExpr
-                       | DateRangeFromAndTo DateMathExpr DateMathExpr deriving (Eq, Show)
+                       | DateRangeFromAndTo DateMathExpr DateMathExpr deriving (Eq, Show, Generic)
 
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math> for more information.
-data DateMathExpr = DateMathExpr DateMathAnchor [DateMathModifier] deriving (Eq, Show)
+data DateMathExpr = DateMathExpr DateMathAnchor [DateMathModifier] deriving (Eq, Show, Generic)
 
 
 -- | Starting point for a date range. This along with the 'DateMathModifiers' gets you the date ES will start from.
 data DateMathAnchor = DMNow
-                    | DMDate Day deriving (Eq, Show)
+                    | DMDate Day deriving (Eq, Show, Generic)
 
 data DateMathModifier = AddTime Int DateMathUnit
                       | SubtractTime Int DateMathUnit
-                      | RoundDownTo DateMathUnit deriving (Eq, Show)
+                      | RoundDownTo DateMathUnit deriving (Eq, Show, Generic)
 
 data DateMathUnit = DMYear
                   | DMMonth
@@ -1592,15 +1592,15 @@ data DateMathUnit = DMYear
                   | DMDay
                   | DMHour
                   | DMMinute
-                  | DMSecond deriving (Eq, Show)
+                  | DMSecond deriving (Eq, Show, Generic)
 
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-valuecount-aggregation.html> for more information.
 data ValueCountAggregation = FieldValueCount FieldName
-                           | ScriptValueCount Script deriving (Eq, Show)
+                           | ScriptValueCount Script deriving (Eq, Show, Generic)
 
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
 data FilterAggregation = FilterAggregation { faFilter :: Filter
-                                           , faAggs   :: Maybe Aggregations} deriving (Eq, Show)
+                                           , faAggs   :: Maybe Aggregations} deriving (Eq, Show, Generic)
 
 mkTermsAggregation :: Text -> TermsAggregation
 mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
@@ -1756,7 +1756,7 @@ data DateRangeResult = DateRangeResult { dateRangeKey          :: Text
                                        , dateRangeTo           :: Maybe UTCTime
                                        , dateRangeToAsString   :: Maybe Text
                                        , dateRangeDocCount     :: Int
-                                       , dateRangeAggs         :: Maybe AggregationResults } deriving (Show, Eq)
+                                       , dateRangeAggs         :: Maybe AggregationResults } deriving (Show, Eq, Generic)
 
 toTerms :: Text -> AggregationResults ->  Maybe (Bucket TermsResult)
 toTerms t a = M.lookup t a >>= deserialize
@@ -2861,7 +2861,7 @@ instance FromJSON UpdatableIndexSetting where
                 <|> blocksWrite `taggedAt` ["blocks", "write"]
                 <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
             where taggedAt f ks = taggedAt' f (Object o) ks
-          taggedAt' f v [] = f =<< parseJSON v
+          taggedAt' f v [] = f =<< (parseJSON v <|> (parseJSON =<< unStringlyTypeJSON v))
           taggedAt' f v (k:ks) = withObject "Object" (\o -> do v' <- o .: k
                                                                taggedAt' f v' ks) v
           numberOfReplicas               = pure . NumberOfReplicas
@@ -2896,10 +2896,37 @@ instance FromJSON UpdatableIndexSetting where
 instance FromJSON IndexSettingsSummary where
   parseJSON = withObject "IndexSettingsSummary" parse
     where parse o = case HM.toList o of
-                      [(ixn, v)] -> IndexSettingsSummary (IndexName ixn)
-                                    <$> parseJSON v
-                                    <*> parseJSON v
+                      [(ixn, v@(Object o'))] -> IndexSettingsSummary (IndexName ixn)
+                                                <$> parseJSON v
+                                                <*> (fmap (filter (not . redundant)) . parseSettings =<< o' .: "settings")
                       _ -> fail "Expected single-key object with index name"
+          redundant (NumberOfReplicas _) = True
+          redundant _ = False
+
+-- | For some reason in the settings API, all leaf values get returned
+-- as strings. This function attepmts to recover from this for all
+-- non-recursive JSON types. If nothing can be done or the same value
+-- would be return, it returns 'mzero'
+unStringlyTypeJSON :: MonadPlus m => Value -> m Value
+unStringlyTypeJSON (String "true") = return (Bool True)
+unStringlyTypeJSON (String "false") = return (Bool False)
+unStringlyTypeJSON (String "null") = return Null
+unStringlyTypeJSON (String t) = case readMay (T.unpack t) of
+                                  Just n -> return (Number n)
+                                  Nothing -> mzero
+unStringlyTypeJSON _ = mzero
+
+
+parseSettings :: Object -> Parser [UpdatableIndexSetting]
+parseSettings o = do
+  o' <- o .: "index"
+  -- slice the index object into singleton hashmaps and try to parse each
+  parses <- forM (HM.toList o') $ \(k, v) -> do
+    -- blocks are now nested into the "index" key, which is not how they're serialized
+    let atRoot = Object (HM.singleton k v)
+    let atIndex = Object (HM.singleton "index" atRoot)
+    optional (parseJSON atRoot <|> parseJSON atIndex)
+  return (catMaybes parses)
 
 oPath :: ToJSON a => NonEmpty Text -> a -> Value
 oPath (k :| []) v = object [k .= v]
@@ -2989,7 +3016,7 @@ instance ToJSON NominalDiffTimeJSON where
 instance FromJSON NominalDiffTimeJSON where
   parseJSON = withText "NominalDiffTime" parse
     where parse t = case T.takeEnd 1 t of
-                      "s" -> NominalDiffTimeJSON . fromInteger <$> parseReadText t
+                      "s" -> NominalDiffTimeJSON . fromInteger <$> parseReadText (T.dropEnd 1 t)
                       _ -> fail "Invalid or missing NominalDiffTime unit (expected s)"
 
 instance ToJSON IndexTemplate where
@@ -3476,6 +3503,19 @@ instance FromJSON DocVersion where
   parseJSON v = do
     i <- parseJSON v
     maybe (fail "DocVersion out of range") return $ mkDocVersion i
+
+-- This insanity is because ES *sometimes* returns Replica/Shard counts as strings
+instance FromJSON ReplicaCount where
+  parseJSON v = parseAsInt v
+            <|> parseAsString v
+    where parseAsInt = fmap ReplicaCount . parseJSON
+          parseAsString = withText "ReplicaCount" (fmap ReplicaCount . parseReadText)
+
+instance FromJSON ShardCount where
+  parseJSON v = parseAsInt v
+            <|> parseAsString v
+    where parseAsInt = fmap ShardCount . parseJSON
+          parseAsString = withText "ShardCount" (fmap ShardCount . parseReadText)
 
 instance Bounded DocVersion where
   minBound = DocVersion 1
