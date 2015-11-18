@@ -74,6 +74,7 @@ module Database.Bloodhound.Types
        , EsResult(..)
        , EsResultFound(..)
        , EsError(..)
+       , EsProtocolException(..)
        , IndexAlias(..)
        , IndexAliasName(..)
        , IndexAliasAction(..)
@@ -564,6 +565,16 @@ data EsResultFound a = EsResultFound {  _version :: DocVersion
 -}
 data EsError = EsError { errorStatus  :: Int
                        , errorMessage :: Text } deriving (Eq, Show, Generic, Typeable)
+
+{-| 'EsProtocolException' ideally should never be thrown. It will only
+be thrown when Bloodhound can't parse a response returned by the
+ElasticSearch server. This should be reported as a bug to the bug
+tracker. Be sure to include the body.
+-}
+data EsProtocolException = EsProtocolException { esProtoExBody :: L.ByteString }
+                                               deriving (Eq, Show, Generic, Typeable)
+
+instance Exception EsProtocolException
 
 data IndexAlias = IndexAlias { srcIndex   :: IndexName
                              , indexAlias :: IndexAliasName } deriving (Eq, Show, Generic, Typeable)

@@ -458,7 +458,6 @@ instance ApproxEq UpdatableIndexSetting where
   a =~ b = a == b
 
 
-
 noDuplicates :: Eq a => [a] -> Bool
 noDuplicates xs = nub xs == xs
 
@@ -493,6 +492,7 @@ instance Arbitrary a => Arbitrary (Hit a) where
                   <*> arbitraryScore
                   <*> arbitrary
                   <*> arbitrary
+  shrink = genericShrink
 
 
 instance Arbitrary a => Arbitrary (SearchHits a) where
@@ -501,6 +501,7 @@ instance Arbitrary a => Arbitrary (SearchHits a) where
     score <- arbitraryScore
     hs <- arbitrary
     return $ SearchHits tot score hs
+  shrink = genericShrink
 
 reduceSize :: Gen a -> Gen a
 reduceSize f = sized $ \n -> resize (n `div` 2) f
@@ -538,9 +539,13 @@ instance Arbitrary AliasRouting where
                  <$> (Just <$> arbitrary)
                  <*> (Just <$> arbitrary)
           allAlias = AllAliasRouting <$> arbitrary
+  shrink = genericShrink
+
 
 instance Arbitrary FieldName where
   arbitrary = FieldName . T.pack <$> listOf1 arbitraryAlphaNum
+  shrink = genericShrink
+
 
 instance Arbitrary RegexpFlags where
   arbitrary = oneof [ pure AllRegexpFlags
@@ -548,9 +553,12 @@ instance Arbitrary RegexpFlags where
                     , SomeRegexpFlags <$> genUniqueFlags
                     ]
     where genUniqueFlags = NE.fromList . nub <$> listOf1 arbitrary
+  shrink = genericShrink
+
 
 instance Arbitrary IndexAliasCreate where
   arbitrary = IndexAliasCreate <$> arbitrary <*> reduceSize arbitrary
+  shrink = genericShrink
 
 instance Arbitrary Query where
   arbitrary = reduceSize $ oneof [ TermQuery <$> arbitrary <*> arbitrary
@@ -581,6 +589,7 @@ instance Arbitrary Query where
                                  , QueryRangeQuery <$> arbitrary
                                  , QueryRegexpQuery <$> arbitrary
                                  ]
+  shrink = genericShrink
 
 instance Arbitrary Filter where
   arbitrary = reduceSize $ oneof [ AndFilter <$> arbitrary <*> arbitrary
@@ -601,6 +610,7 @@ instance Arbitrary Filter where
                                  , RangeFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
                                  , RegexpFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
                                  , TermFilter <$> arbitrary <*> arbitrary]
+  shrink = genericShrink
 
 instance Arbitrary ReplicaBounds where
   arbitrary = oneof [ replicasBounded

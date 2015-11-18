@@ -324,7 +324,9 @@ existentialQuery url = do
 -- | Tries to parse a response body as the expected type @a@ and
 -- failing that tries to parse it as an EsError. All well-formed, JSON
 -- responses from elasticsearch should fall into these two
--- categories. If they don't, a 'StatusCodeException' will be thrown.
+-- categories. If they don't, a 'EsProtocolException' will be
+-- thrown. If you encounter this, please report the full body it
+-- reports along with your ElasticSearch verison.
 parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
                 -> m (Either EsError a)
 parseEsResponse reply
@@ -333,14 +335,11 @@ parseEsResponse reply
                              Left _ -> tryParseError
   | otherwise = tryParseError
   where body = responseBody reply
-        stat = responseStatus reply
-        hdrs = responseHeaders reply
-        cookies = responseCookieJar reply
         tryParseError = case eitherDecode body of
                           Right e -> return (Left e)
                           -- this case should not be possible
                           Left _ -> explode
-        explode = throwM (StatusCodeException stat hdrs cookies)
+        explode = throwM (EsProtocolException body)
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
