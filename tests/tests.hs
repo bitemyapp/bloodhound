@@ -485,7 +485,7 @@ instance Arbitrary a => Arbitrary (NonEmpty a) where
 arbitraryScore :: Gen Score
 arbitraryScore = fmap getPositive <$> arbitrary
 
-instance Arbitrary a => Arbitrary (Hit a) where
+instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
   arbitrary = Hit <$> arbitrary
                   <*> arbitrary
                   <*> arbitrary
@@ -495,7 +495,7 @@ instance Arbitrary a => Arbitrary (Hit a) where
   shrink = genericShrink
 
 
-instance Arbitrary a => Arbitrary (SearchHits a) where
+instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
     tot <- getPositive <$> arbitrary
     score <- arbitraryScore

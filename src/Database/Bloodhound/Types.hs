@@ -1342,7 +1342,7 @@ data ZeroTermsQuery = ZeroTermsNone
 data RangeExecution = RangeExecutionIndex
                     | RangeExecutionFielddata deriving (Eq, Show, Generic, Typeable)
 
-newtype Regexp = Regexp Text deriving (Eq, Show, Generic, FromJSON)
+newtype Regexp = Regexp Text deriving (Eq, Show, Generic, Typeable, FromJSON)
 
 data RegexpFlags = AllRegexpFlags
                  | NoRegexpFlags
