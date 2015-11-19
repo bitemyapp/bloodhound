@@ -1,17 +1,22 @@
+{-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main where
 
 import           Control.Applicative
+import           Control.Error
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Reader
 import           Data.Aeson
 import           Data.Aeson.Types                (parseEither)
+import qualified Data.ByteString.Lazy.Char8      as BL8
 import           Data.DeriveTH
 import qualified Data.HashMap.Strict             as HM
 import           Data.List                       (nub)
@@ -23,13 +28,13 @@ import           Data.Monoid
 import           Data.Proxy
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
-import           Data.Time.Calendar              (Day (..))
-import           Data.Time.Clock                 (UTCTime (..),
+import           Data.Time.Calendar              (Day (..), fromGregorian)
+import           Data.Time.Clock                 (NominalDiffTime, UTCTime (..),
                                                   secondsToDiffTime)
 import           Data.Typeable
 import qualified Data.Vector                     as V
 import           Database.Bloodhound
-import           GHC.Generics                    (Generic)
+import           GHC.Generics                    as G
 import           Network.HTTP.Client             hiding (Proxy)
 import qualified Network.HTTP.Types.Status       as NHTS
 import           Prelude                         hiding (filter)
@@ -38,7 +43,6 @@ import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 
 import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck
-import           Test.QuickCheck.Instances       ()
 
 testServer  :: Server
 testServer  = Server "http://localhost:9200"
@@ -109,9 +113,13 @@ is v = testServerBranch >>= \x -> return $ x == Just (serverBranch v)
 when' :: Monad m => m Bool -> m () -> m ()
 when' b f = b >>= \x -> when x f
 
-propJSON :: forall a. (Arbitrary a, ToJSON a, FromJSON a, Show a, Eq a, Typeable a) => Proxy a -> Spec
+(==~) :: (ApproxEq a, Show a) => a -> a -> Property
+a ==~ b = counterexample (show a ++ " !=~ " ++ show b) (a =~ b)
+
+propJSON :: forall a. (Arbitrary a, ToJSON a, FromJSON a, Show a, ApproxEq a, Typeable a) => Proxy a -> Spec
 propJSON _ = prop testName $ \(a :: a) ->
-  parseEither parseJSON (toJSON a) === Right a
+  let jsonStr = "via " <> BL8.unpack (encode a)
+  in counterexample jsonStr (parseEither parseJSON (toJSON a) ==~ Right a)
   where testName = show ty <> " FromJSON/ToJSON roundtrips"
         ty = typeOf (undefined :: a)
 
@@ -276,8 +284,200 @@ instance FromJSON BulkTest where
 instance ToJSON BulkTest where
   toJSON = genericToJSON defaultOptions
 
+class GApproxEq f where
+  gApproxEq :: f a -> f a -> Bool
+
+-- | Unit type
+instance GApproxEq U1 where
+  gApproxEq U1 U1 = True
+
+-- | Sum type, ensure same constructors, recurse
+instance (GApproxEq a, GApproxEq b) => GApproxEq (a :+: b) where
+  gApproxEq (L1 a) (L1 b) = gApproxEq a b
+  gApproxEq (R1 a) (R1 b) = gApproxEq a b
+  gApproxEq _ _           = False
+
+-- | Product type, ensure each field is approx eq
+instance (GApproxEq a, GApproxEq b) => GApproxEq (a :*: b) where
+  gApproxEq (a1 :*: b1) (a2 :*: b2) = gApproxEq a1 a2 && gApproxEq b1 b2
+
+-- | Value type, actually check the values for approx equality
+instance (ApproxEq a) => GApproxEq (K1 i a) where
+  gApproxEq (K1 a) (K1 b) = a =~ b
+
+instance (GApproxEq f) => GApproxEq (M1 i t f) where
+  gApproxEq (M1 a) (M1 b) = gApproxEq a b
+
+-- | Typeclass for "equal where it matters". Use this to specify
+-- less-strict equivalence for things such as lists that can wind up
+-- in an unpredictable order
+class ApproxEq a where
+  (=~) :: a -> a -> Bool
+  default (=~) :: (Generic a, GApproxEq (Rep a)) => a -> a -> Bool
+  a =~ b = gApproxEq (G.from a) (G.from b)
+
+instance ApproxEq NominalDiffTime where (=~) = (==)
+instance ApproxEq UTCTime where (=~) = (==)
+instance ApproxEq Text where (=~) = (==)
+instance ApproxEq Bool where (=~) = (==)
+instance ApproxEq Int where (=~) = (==)
+instance ApproxEq Double where (=~) = (==)
+instance ApproxEq a => ApproxEq (NonEmpty a)
+instance ApproxEq a => ApproxEq (Maybe a)
+instance ApproxEq GeoPoint
+instance ApproxEq Regexp
+instance ApproxEq RangeValue
+instance ApproxEq LessThan
+instance ApproxEq LessThanEq
+instance ApproxEq LessThanD
+instance ApproxEq LessThanEqD
+instance ApproxEq GreaterThan
+instance ApproxEq GreaterThanEq
+instance ApproxEq GreaterThanD
+instance ApproxEq GreaterThanEqD
+instance ApproxEq MinimumMatchHighLow
+instance ApproxEq RegexpFlag
+instance ApproxEq RegexpFlags
+instance ApproxEq NullValue
+instance ApproxEq Version
+instance ApproxEq DistanceRange
+instance ApproxEq IndexName
+instance ApproxEq MappingName
+instance ApproxEq DocId
+instance ApproxEq IndexAliasRouting
+instance ApproxEq RoutingValue
+instance ApproxEq ShardCount
+instance ApproxEq ReplicaCount
+instance ApproxEq TemplateName
+instance ApproxEq TemplatePattern
+instance ApproxEq QueryString
+instance ApproxEq FieldName
+instance ApproxEq CacheName
+instance ApproxEq CacheKey
+instance ApproxEq Existence
+instance ApproxEq CutoffFrequency
+instance ApproxEq Analyzer
+instance ApproxEq Lenient
+instance ApproxEq Tiebreaker
+instance ApproxEq Boost
+instance ApproxEq BoostTerms
+instance ApproxEq MaxExpansions
+instance ApproxEq MinimumMatch
+instance ApproxEq DisableCoord
+instance ApproxEq IgnoreTermFrequency
+instance ApproxEq MinimumTermFrequency
+instance ApproxEq MaxQueryTerms
+instance ApproxEq Fuzziness
+instance ApproxEq PrefixLength
+instance ApproxEq TypeName
+instance ApproxEq PercentMatch
+instance ApproxEq StopWord
+instance ApproxEq QueryPath
+instance ApproxEq AllowLeadingWildcard
+instance ApproxEq LowercaseExpanded
+instance ApproxEq EnablePositionIncrements
+instance ApproxEq AnalyzeWildcard
+instance ApproxEq GeneratePhraseQueries
+instance ApproxEq Locale
+instance ApproxEq MaxWordLength
+instance ApproxEq MinWordLength
+instance ApproxEq PhraseSlop
+instance ApproxEq MinDocFrequency
+instance ApproxEq MaxDocFrequency
+instance ApproxEq Filter
+instance ApproxEq Query
+instance ApproxEq SimpleQueryStringQuery
+instance ApproxEq FieldOrFields
+instance ApproxEq SimpleQueryFlag
+instance ApproxEq RegexpQuery
+instance ApproxEq QueryStringQuery
+instance ApproxEq RangeQuery
+instance ApproxEq PrefixQuery
+instance ApproxEq NestedQuery
+instance ApproxEq MoreLikeThisFieldQuery
+instance ApproxEq MoreLikeThisQuery
+instance ApproxEq IndicesQuery
+instance ApproxEq HasParentQuery
+instance ApproxEq HasChildQuery
+instance ApproxEq FuzzyQuery
+instance ApproxEq FuzzyLikeFieldQuery
+instance ApproxEq FuzzyLikeThisQuery
+instance ApproxEq FilteredQuery
+instance ApproxEq DisMaxQuery
+instance ApproxEq CommonTermsQuery
+instance ApproxEq CommonMinimumMatch
+instance ApproxEq BoostingQuery
+instance ApproxEq BoolQuery
+instance ApproxEq MatchQuery
+instance ApproxEq MultiMatchQueryType
+instance ApproxEq BooleanOperator
+instance ApproxEq ZeroTermsQuery
+instance ApproxEq MatchQueryType
+instance ApproxEq AliasRouting
+instance ApproxEq IndexAliasCreate
+instance ApproxEq SearchAliasRouting
+instance ApproxEq ScoreType
+instance ApproxEq Distance
+instance ApproxEq DistanceUnit
+instance ApproxEq DistanceType
+instance ApproxEq OptimizeBbox
+instance ApproxEq GeoBoundingBoxConstraint
+instance ApproxEq GeoFilterType
+instance ApproxEq GeoBoundingBox
+instance ApproxEq LatLon
+instance ApproxEq RangeExecution
+instance ApproxEq FSType
+instance ApproxEq CompoundFormat
+instance ApproxEq InitialShardCount
+instance ApproxEq Bytes
+instance ApproxEq ReplicaBounds
+instance ApproxEq Term
+instance ApproxEq BoolMatch
+instance ApproxEq MultiMatchQuery
+instance ApproxEq IndexSettings
+instance ApproxEq AllocationPolicy
+instance ApproxEq Char
+instance ApproxEq a => ApproxEq [a] where
+  as =~ bs = and (zipWith (=~) as bs)
+instance (ApproxEq l, ApproxEq r) => ApproxEq (Either l r) where
+  Left a =~ Left b = a =~ b
+  Right a =~ Right b = a =~ b
+  _ =~ _ = False
+instance ApproxEq NodeAttrFilter
+instance ApproxEq NodeAttrName
+
+-- | Due to the way nodeattrfilters get serialized here, they may come
+-- out in a different order, but they are morally equivalent
+instance ApproxEq UpdatableIndexSetting where
+  RoutingAllocationInclude a =~ RoutingAllocationInclude b =
+    NE.sort a =~ NE.sort b
+  RoutingAllocationExclude a =~ RoutingAllocationExclude b =
+    NE.sort a =~ NE.sort b
+  RoutingAllocationRequire a =~ RoutingAllocationRequire b =
+    NE.sort a =~ NE.sort b
+  a =~ b = a == b
+
+
 noDuplicates :: Eq a => [a] -> Bool
 noDuplicates xs = nub xs == xs
+
+instance Arbitrary NominalDiffTime where
+  arbitrary = fromInteger <$> arbitrary
+
+instance (Arbitrary k, Ord k, Arbitrary v) => Arbitrary (M.Map k v) where
+  arbitrary = M.fromList <$> arbitrary
+
+instance Arbitrary Text where
+  arbitrary = T.pack <$> arbitrary
+
+instance Arbitrary UTCTime where
+  arbitrary = UTCTime
+          <$> arbitrary
+          <*> (fromRational . toRational <$> choose (0::Double, 86400))
+
+instance Arbitrary Day where
+    arbitrary = ModifiedJulianDay <$> (2000 +) <$> arbitrary
+    shrink    = (ModifiedJulianDay <$>) . shrink . toModifiedJulianDay
 
 instance Arbitrary a => Arbitrary (NonEmpty a) where
   arbitrary = liftA2 (:|) arbitrary arbitrary
@@ -285,21 +485,23 @@ instance Arbitrary a => Arbitrary (NonEmpty a) where
 arbitraryScore :: Gen Score
 arbitraryScore = fmap getPositive <$> arbitrary
 
-instance Arbitrary a => Arbitrary (Hit a) where
+instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
   arbitrary = Hit <$> arbitrary
                   <*> arbitrary
                   <*> arbitrary
                   <*> arbitraryScore
                   <*> arbitrary
                   <*> arbitrary
+  shrink = genericShrink
 
 
-instance Arbitrary a => Arbitrary (SearchHits a) where
+instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
     tot <- getPositive <$> arbitrary
     score <- arbitraryScore
     hs <- arbitrary
     return $ SearchHits tot score hs
+  shrink = genericShrink
 
 reduceSize :: Gen a -> Gen a
 reduceSize f = sized $ \n -> resize (n `div` 2) f
@@ -337,9 +539,13 @@ instance Arbitrary AliasRouting where
                  <$> (Just <$> arbitrary)
                  <*> (Just <$> arbitrary)
           allAlias = AllAliasRouting <$> arbitrary
+  shrink = genericShrink
+
 
 instance Arbitrary FieldName where
   arbitrary = FieldName . T.pack <$> listOf1 arbitraryAlphaNum
+  shrink = genericShrink
+
 
 instance Arbitrary RegexpFlags where
   arbitrary = oneof [ pure AllRegexpFlags
@@ -347,9 +553,12 @@ instance Arbitrary RegexpFlags where
                     , SomeRegexpFlags <$> genUniqueFlags
                     ]
     where genUniqueFlags = NE.fromList . nub <$> listOf1 arbitrary
+  shrink = genericShrink
+
 
 instance Arbitrary IndexAliasCreate where
   arbitrary = IndexAliasCreate <$> arbitrary <*> reduceSize arbitrary
+  shrink = genericShrink
 
 instance Arbitrary Query where
   arbitrary = reduceSize $ oneof [ TermQuery <$> arbitrary <*> arbitrary
@@ -380,6 +589,7 @@ instance Arbitrary Query where
                                  , QueryRangeQuery <$> arbitrary
                                  , QueryRegexpQuery <$> arbitrary
                                  ]
+  shrink = genericShrink
 
 instance Arbitrary Filter where
   arbitrary = reduceSize $ oneof [ AndFilter <$> arbitrary <*> arbitrary
@@ -400,6 +610,29 @@ instance Arbitrary Filter where
                                  , RangeFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
                                  , RegexpFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
                                  , TermFilter <$> arbitrary <*> arbitrary]
+  shrink = genericShrink
+
+instance Arbitrary ReplicaBounds where
+  arbitrary = oneof [ replicasBounded
+                    , replicasLowerBounded
+                    , pure ReplicasUnbounded
+                    ]
+    where replicasBounded = do Positive a <- arbitrary
+                               Positive b <- arbitrary
+                               return (ReplicasBounded a b)
+          replicasLowerBounded = do Positive a <- arbitrary
+                                    return (ReplicasLowerBounded a)
+
+instance Arbitrary NodeAttrName where
+  arbitrary = NodeAttrName . T.pack . getNonEmpty <$> arbitrary
+
+
+instance Arbitrary NodeAttrFilter where
+  arbitrary = do
+    n <- arbitrary
+    s:ss <- listOf1 (listOf1 arbitraryAlphaNum)
+    let ts = T.pack <$> s :| ss
+    return (NodeAttrFilter n ts)
 
 $(derive makeArbitrary ''IndexName)
 $(derive makeArbitrary ''MappingName)
@@ -499,6 +732,13 @@ $(derive makeArbitrary ''RangeExecution)
 $(derive makeArbitrary ''RegexpFlag)
 $(derive makeArbitrary ''BoolMatch)
 $(derive makeArbitrary ''Term)
+$(derive makeArbitrary ''IndexSettings)
+$(derive makeArbitrary ''UpdatableIndexSetting)
+$(derive makeArbitrary ''Bytes)
+$(derive makeArbitrary ''AllocationPolicy)
+$(derive makeArbitrary ''InitialShardCount)
+$(derive makeArbitrary ''FSType)
+$(derive makeArbitrary ''CompoundFormat)
 
 
 main :: IO ()
@@ -917,6 +1157,43 @@ main = hspec $ do
         fmap aggregations res `shouldBe` Right (Just (M.fromList [ docCountPair "bitemyapps" 1
                                                                  , docCountPair "notmyapps" 1
                                                                  ]))
+    it "can execute date_range aggregations" $ withTestEnv $ do
+      let now = fromGregorian 2015 3 14
+      let ltAMonthAgo = UTCTime (fromGregorian 2015 3 1) 0
+      let ltAWeekAgo = UTCTime (fromGregorian 2015 3 10) 0
+      let oldDoc = exampleTweet { postDate = ltAMonthAgo }
+      let newDoc = exampleTweet { postDate = ltAWeekAgo }
+      _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings oldDoc (DocId "1")
+      _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings newDoc (DocId "2")
+      _ <- refreshIndex testIndex
+      let thisMonth = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMMonth])
+      let thisWeek = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMWeek])
+      let agg = DateRangeAggregation (FieldName "postDate") Nothing (thisMonth :| [thisWeek])
+      let ags = mkAggregations "date_ranges" (DateRangeAgg agg)
+      let search = mkAggregateSearch Nothing ags
+      res <- searchTweets search
+      liftIO $ hitsTotal . searchHits <$> res `shouldBe` Right 2
+      let bucks = do magrs <- fmapL show (aggregations <$> res)
+                     agrs <- note "no aggregations returned" magrs
+                     rawBucks <- note "no date_ranges aggregation" $ M.lookup "date_ranges" agrs
+                     parseEither parseJSON rawBucks
+      let fromMonthT = UTCTime (fromGregorian 2015 2 14) 0
+      let fromWeekT = UTCTime (fromGregorian 2015 3 7) 0
+      liftIO $ buckets <$> bucks `shouldBe` Right [ DateRangeResult "2015-02-14T00:00:00.000Z-*"
+                                                                    (Just fromMonthT)
+                                                                    (Just "2015-02-14T00:00:00.000Z")
+                                                                    Nothing
+                                                                    Nothing
+                                                                    2
+                                                                    Nothing
+                                                  , DateRangeResult "2015-03-07T00:00:00.000Z-*"
+                                                                    (Just fromWeekT)
+                                                                    (Just "2015-03-07T00:00:00.000Z")
+                                                                    Nothing
+                                                                    Nothing
+                                                                    1
+                                                                    Nothing
+                                     ]
 
     it "returns date histogram aggregation results" $ withTestEnv $ do
       _ <- insertData
@@ -1073,7 +1350,7 @@ main = hspec $ do
       withTestEnv $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
-        liftIO $ NHTS.statusCode (responseStatus resp) `shouldBe` 200
+        liftIO $ validateStatus resp 200
       let cleanup = withTestEnv (updateIndexAliases (RemoveAlias alias :| []))
       (do aliases <- withTestEnv getIndexAliases
           let expected = IndexAliasSummary alias create
@@ -1094,7 +1371,7 @@ main = hspec $ do
       withTestEnv $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
-        liftIO $ NHTS.statusCode (responseStatus resp) `shouldBe` 200
+        liftIO $ validateStatus resp 200
       let cleanup = withTestEnv (updateIndexAliases (RemoveAlias alias :| []))
       (do aliases <- withTestEnv getIndexAliases
           let expected = IndexAliasSummary alias create
@@ -1102,6 +1379,20 @@ main = hspec $ do
             Right (IndexAliasesSummary summs) ->
               L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
             Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)) `finally` cleanup
+
+  describe "Index Settings" $ do
+    it "persists settings" $ withTestEnv $ do
+      _ <- deleteExampleIndex
+      _ <- createExampleIndex
+      let updates = BlocksWrite False :| []
+      updateResp <- updateIndexSettings updates testIndex
+      liftIO $ validateStatus updateResp 200
+      getResp <- getIndexSettings testIndex
+      liftIO $
+        getResp `shouldBe` Right (IndexSettingsSummary
+                                    testIndex
+                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
+                                    (NE.toList updates))
 
   describe "JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
@@ -1126,7 +1417,6 @@ main = hspec $ do
     propJSON (Proxy :: Proxy Tiebreaker)
     propJSON (Proxy :: Proxy Boost)
     propJSON (Proxy :: Proxy BoostTerms)
-    propJSON (Proxy :: Proxy MaxExpansions)
     propJSON (Proxy :: Proxy MinimumMatch)
     propJSON (Proxy :: Proxy DisableCoord)
     propJSON (Proxy :: Proxy IgnoreTermFrequency)
@@ -1199,3 +1489,11 @@ main = hspec $ do
     propJSON (Proxy :: Proxy BoolMatch)
     propJSON (Proxy :: Proxy Term)
     propJSON (Proxy :: Proxy MultiMatchQuery)
+    propJSON (Proxy :: Proxy IndexSettings)
+    propJSON (Proxy :: Proxy UpdatableIndexSetting)
+    propJSON (Proxy :: Proxy ReplicaBounds)
+    propJSON (Proxy :: Proxy Bytes)
+    propJSON (Proxy :: Proxy AllocationPolicy)
+    propJSON (Proxy :: Proxy InitialShardCount)
+    propJSON (Proxy :: Proxy FSType)
+    propJSON (Proxy :: Proxy CompoundFormat)

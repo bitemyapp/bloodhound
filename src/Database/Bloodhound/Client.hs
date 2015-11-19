@@ -24,6 +24,8 @@ module Database.Bloodhound.Client
          withBH
        , createIndex
        , deleteIndex
+       , updateIndexSettings
+       , getIndexSettings
        , indexExists
        , openIndex
        , closeIndex
@@ -42,6 +44,8 @@ module Database.Bloodhound.Client
        , searchByIndex
        , searchByType
        , scanSearch
+       , getInitialScroll
+       , advanceScroll
        , refreshIndex
        , mkSearch
        , mkAggregateSearch
@@ -70,14 +74,16 @@ import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Foldable                (toList)
+import qualified Data.HashMap.Strict          as HM
 import           Data.Ix
-import qualified Data.List                    as LS (filter)
+import qualified Data.List                    as LS (filter, foldl')
 import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.Maybe                   (fromMaybe, isJust)
 import           Data.Monoid
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as T
+import           Data.Time.Clock
 import qualified Data.Vector                  as V
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method    as NHTM
@@ -261,6 +267,7 @@ createIndex indexSettings (IndexName indexName) =
   where url = joinPath [indexName]
         body = Just $ encode indexSettings
 
+
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
 --
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
@@ -272,6 +279,35 @@ createIndex indexSettings (IndexName indexName) =
 deleteIndex :: MonadBH m => IndexName -> m Reply
 deleteIndex (IndexName indexName) =
   delete =<< joinPath [indexName]
+
+-- | 'updateIndexSettings' will apply a non-empty list of setting updates to an index
+--
+-- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "unconfiguredindex")
+-- >>> response <- runBH' $ updateIndexSettings (BlocksWrite False :| []) (IndexName "unconfiguredindex")
+-- >>> respIsTwoHunna response
+-- True
+updateIndexSettings :: MonadBH m => NonEmpty UpdatableIndexSetting -> IndexName -> m Reply
+updateIndexSettings updates (IndexName indexName) =
+  bindM2 put url (return body)
+  where url = joinPath [indexName, "_settings"]
+        body = Just (encode jsonBody)
+        jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
+
+
+getIndexSettings :: (MonadBH m, MonadThrow m) => IndexName
+                 -> m (Either EsError IndexSettingsSummary)
+getIndexSettings (IndexName indexName) = do
+  parseEsResponse =<< get =<< url
+  where url = joinPath [indexName, "_settings"]
+
+
+deepMerge :: [Object] -> Object
+deepMerge = LS.foldl' go mempty
+  where go acc = LS.foldl' go' acc . HM.toList
+        go' acc (k, v) = HM.insertWith merge k v acc
+        merge (Object a) (Object b) = Object (deepMerge [a, b])
+        merge _ b = b
+
 
 statusCodeIs :: Int -> Reply -> Bool
 statusCodeIs n resp = NHTS.statusCode (responseStatus resp) == n
@@ -288,8 +324,10 @@ existentialQuery url = do
 -- | Tries to parse a response body as the expected type @a@ and
 -- failing that tries to parse it as an EsError. All well-formed, JSON
 -- responses from elasticsearch should fall into these two
--- categories. If they don't, a 'StatusCodeException' will be thrown.
-parseEsResponse :: (MonadBH m, MonadThrow m, FromJSON a) => Reply
+-- categories. If they don't, a 'EsProtocolException' will be
+-- thrown. If you encounter this, please report the full body it
+-- reports along with your ElasticSearch verison.
+parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
                 -> m (Either EsError a)
 parseEsResponse reply
   | respIsTwoHunna reply = case eitherDecode body of
@@ -297,14 +335,11 @@ parseEsResponse reply
                              Left _ -> tryParseError
   | otherwise = tryParseError
   where body = responseBody reply
-        stat = responseStatus reply
-        hdrs = responseHeaders reply
-        cookies = responseCookieJar reply
         tryParseError = case eitherDecode body of
                           Right e -> return (Left e)
                           -- this case should not be possible
                           Left _ -> explode
-        explode = throwM (StatusCodeException stat hdrs cookies)
+        explode = throwM (EsProtocolException body)
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
@@ -608,8 +643,12 @@ searchByType (IndexName indexName)
   (MappingName mappingName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, mappingName, "_search"]
 
-scanSearch' :: MonadBH m => IndexName -> MappingName -> Search -> m (Maybe ScrollId)
-scanSearch' (IndexName indexName) (MappingName mappingName) search = do
+-- | For a given scearch, request a scroll for efficient streaming of
+-- search results. Note that the search is put into 'SearchTypeScan'
+-- mode and thus results will not be sorted. Combine this with
+-- 'advanceScroll' to efficiently stream through the full result set
+getInitialScroll :: MonadBH m => IndexName -> MappingName -> Search -> m (Maybe ScrollId)
+getInitialScroll (IndexName indexName) (MappingName mappingName) search = do
     let url = joinPath [indexName, mappingName, "_search"]
         search' = search { searchType = SearchTypeScan }
     resp' <- bindM2 dispatchSearch url (return search')
@@ -617,31 +656,54 @@ scanSearch' (IndexName indexName) (MappingName mappingName) search = do
         msid = maybe Nothing scrollId msr
     return msid
 
-scroll' :: (FromJSON a, MonadBH m) => Maybe ScrollId -> m ([Hit a], Maybe ScrollId)
+scroll' :: (FromJSON a, MonadBH m, MonadThrow m) => Maybe ScrollId -> m ([Hit a], Maybe ScrollId)
 scroll' Nothing = return ([], Nothing)
 scroll' (Just sid) = do
-    url <- joinPath ["_search/scroll?scroll=1m"]
-    resp' <- post url (Just . L.fromStrict $ T.encodeUtf8 sid)
-    let msr = decode' $ responseBody resp' :: FromJSON a => Maybe (SearchResult a)
-        resp = case msr of
-            Just sr -> (hits $ searchHits sr, scrollId sr)
-            _       -> ([], Nothing)
-    return resp
+    res <- advanceScroll sid 60
+    case res of
+      Right SearchResult {..} -> return (hits searchHits, scrollId)
+      Left _ -> return ([], Nothing)
 
-simpleAccumilator :: (FromJSON a, MonadBH m) => [Hit a] -> ([Hit a], Maybe ScrollId) -> m ([Hit a], Maybe ScrollId)
-simpleAccumilator oldHits (newHits, Nothing) = return (oldHits ++ newHits, Nothing)
-simpleAccumilator oldHits ([], _) = return (oldHits, Nothing)
-simpleAccumilator oldHits (newHits, msid) = do
+-- | Use the given scroll to fetch the next page of documents. If
+-- there are still further pages, there will be a value in the
+-- 'scrollId' field of the 'SearchResult'
+advanceScroll
+  :: ( FromJSON a
+     , MonadBH m
+     , MonadThrow m
+     )
+  => ScrollId
+  -> NominalDiffTime
+  -- ^ How long should the snapshot of data be kept around? This timeout is updated every time 'advanceScroll' is used, so don't feel the need to set it to the entire duration of your search processing. Note that durations < 1s will be rounded up. Also note that 'NominalDiffTime' is an instance of Num so literals like 60 will be interpreted as seconds. 60s is a reasonable default.
+  -> m (Either EsError (SearchResult a))
+advanceScroll (ScrollId sid) scroll = do
+  url <- joinPath ["_search/scroll?scroll=" <> scrollTime]
+  parseEsResponse =<< post url (Just . L.fromStrict $ T.encodeUtf8 sid)
+  where scrollTime = showText secs <> "s"
+        secs :: Integer
+        secs = round scroll
+
+simpleAccumulator :: (FromJSON a, MonadBH m, MonadThrow m) => [Hit a] -> ([Hit a], Maybe ScrollId) -> m ([Hit a], Maybe ScrollId)
+simpleAccumulator oldHits (newHits, Nothing) = return (oldHits ++ newHits, Nothing)
+simpleAccumulator oldHits ([], _) = return (oldHits, Nothing)
+simpleAccumulator oldHits (newHits, msid) = do
     (newHits', msid') <- scroll' msid
-    simpleAccumilator (oldHits ++ newHits) (newHits', msid')
+    simpleAccumulator (oldHits ++ newHits) (newHits', msid')
 
 -- | 'scanSearch' uses the 'scan&scroll' API of elastic,
--- for a given 'IndexName' and 'MappingName',
-scanSearch :: (FromJSON a, MonadBH m) => IndexName -> MappingName -> Search -> m [Hit a]
+-- for a given 'IndexName' and 'MappingName'. Note that this will
+-- consume the entire search result set and will be doing O(n) list
+-- appends so this may not be suitable for large result sets. In that
+-- case, 'getInitialScroll' and 'advanceScroll' are good low level
+-- tools. You should be able to hook them up trivially to conduit,
+-- pipes, or your favorite streaming IO abstraction of choice. Note
+-- that ordering on the search would destroy performance and thus is
+-- ignored.
+scanSearch :: (FromJSON a, MonadBH m, MonadThrow m) => IndexName -> MappingName -> Search -> m [Hit a]
 scanSearch indexName mappingName search = do
-    msid <- scanSearch' indexName mappingName search
+    msid <- getInitialScroll indexName mappingName search
     (hits, msid') <- scroll' msid
-    (totalHits, _) <- simpleAccumilator [] (hits, msid')
+    (totalHits, _) <- simpleAccumulator [] (hits, msid')
     return totalHits
 
 -- | 'mkSearch' is a helper function for defaulting additional fields of a 'Search'
