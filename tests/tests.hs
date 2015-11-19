@@ -1350,7 +1350,7 @@ main = hspec $ do
       withTestEnv $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
-        liftIO $ NHTS.statusCode (responseStatus resp) `shouldBe` 200
+        liftIO $ validateStatus resp 200
       let cleanup = withTestEnv (updateIndexAliases (RemoveAlias alias :| []))
       (do aliases <- withTestEnv getIndexAliases
           let expected = IndexAliasSummary alias create
@@ -1371,7 +1371,7 @@ main = hspec $ do
       withTestEnv $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
-        liftIO $ NHTS.statusCode (responseStatus resp) `shouldBe` 200
+        liftIO $ validateStatus resp 200
       let cleanup = withTestEnv (updateIndexAliases (RemoveAlias alias :| []))
       (do aliases <- withTestEnv getIndexAliases
           let expected = IndexAliasSummary alias create

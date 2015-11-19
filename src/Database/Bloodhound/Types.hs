@@ -3069,7 +3069,7 @@ instance FromJSON IndexAliasesSummary where
   parseJSON = withObject "IndexAliasesSummary" parse
     where parse o = IndexAliasesSummary . mconcat <$> mapM (uncurry go) (HM.toList o)
           go ixn = withObject "index aliases" $ \ia -> do
-                     aliases <- ia .: "aliases"
+                     aliases <- ia .:? "aliases" .!= mempty
                      forM (HM.toList aliases) $ \(aName, v) -> do
                        let indexAlias = IndexAlias (IndexName ixn) (IndexAliasName (IndexName aName))
                        IndexAliasSummary indexAlias <$> parseJSON v
