@@ -1,3 +1,35 @@
+0.10.0.0
+===================
+
+Thanks to the following people, Bloodhound 0.10.0.0 is being released! This one gets a bit messy due to the Aeson 0.10 upgrade, so you may want to wait for the dust to settle. YMMV.
+
+* @MichaelXavier
+  - #77: Add test for error parsing
+  - #76/#78: Support for updating (modifying) index settings
+  - #79/#80: Index aliases
+  - #81: Low-level scroll API support
+  - #82: Date range aggregation
+
+* @bitemyapp
+  - Fucked around with dependencies and broke things in order to upgrade to Aeson 0.10
+  - Please forgive me.
+
+0.9.0.0
+===================
+
+Thanks to the following people, Bloodhound 0.9.0.0 is being released!
+
+* @MichaelXavier
+  - #75: A more explicit type for errors
+  - #74: Add readme and changelog to extra source files
+
+* @MaxDaten
+  - #38/#73 Provide safety by using URL-encoding
+
+* @centromere
+  - #72 Added parent support to documentExists
+
+
 0.8.0.0
 ===================
 
