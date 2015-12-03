@@ -176,9 +176,9 @@ dispatch dMethod url body = do
   initReq <- liftIO $ parseUrl' url
   reqHook <- bhRequestHook <$> getBHEnv
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
-  req <- reqHook $ initReq { method = dMethod
-                           , requestBody = reqBody
-                           , checkStatus = \_ _ _ -> Nothing}
+  req <- liftIO $ reqHook $ initReq { method = dMethod
+                                    , requestBody = reqBody
+                                    , checkStatus = \_ _ _ -> Nothing}
   mgr <- bhManager <$> getBHEnv
   liftIO $ httpLbs req mgr
 

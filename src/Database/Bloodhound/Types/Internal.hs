@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RankNTypes                 #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -34,7 +33,7 @@ import           Network.HTTP.Client
 -}
 data BHEnv = BHEnv { bhServer      :: Server
                    , bhManager     :: Manager
-                   , bhRequestHook :: forall m. (MonadBH m) => Request -> m Request
+                   , bhRequestHook :: Request -> IO Request
                    -- ^ Low-level hook that is run before every request is sent. Used to implement custom authentication strategies. Defaults to 'return' with 'mkBHEnv'.
                    }
 
