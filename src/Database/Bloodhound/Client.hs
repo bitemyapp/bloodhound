@@ -174,10 +174,11 @@ dispatch :: MonadBH m => Method -> Text -> Maybe L.ByteString
             -> m Reply
 dispatch dMethod url body = do
   initReq <- liftIO $ parseUrl' url
+  reqHook <- bhRequestHook <$> getBHEnv
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
-  let req = initReq { method = dMethod
-                    , requestBody = reqBody
-                    , checkStatus = \_ _ _ -> Nothing}
+  req <- reqHook $ initReq { method = dMethod
+                           , requestBody = reqBody
+                           , checkStatus = \_ _ _ -> Nothing}
   mgr <- bhManager <$> getBHEnv
   liftIO $ httpLbs req mgr
 
@@ -221,8 +222,7 @@ bindM2 f ma mb = join (f <$> ma <*> mb)
 withBH :: ManagerSettings -> Server -> BH IO a -> IO a
 withBH ms s f = do
   mgr <- newManager ms
-  let env = BHEnv { bhServer  = s
-                  , bhManager = mgr }
+  let env = mkBHEnv s mgr
   runBH env f
 
 -- Shortcut functions for HTTP methods
@@ -248,11 +248,9 @@ post   = dispatch NHTM.methodPost
 -- Just 200
 getStatus :: MonadBH m => m (Maybe Status)
 getStatus = do
-  url <- joinPath []
-  request <- liftIO $ parseUrl' url
-  mgr <- bhManager <$> getBHEnv
-  response <- liftIO $ httpLbs request mgr
+  response <- get =<< url
   return $ decode (responseBody response)
+  where url = joinPath []
 
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
 --

@@ -51,7 +51,11 @@ module Database.Bloodhound.Types
        , omitNulls
        , BH(..)
        , runBH
-       , BHEnv(..)
+       , BHEnv
+       , bhServer
+       , bhManager
+       , bhRequestHook
+       , mkBHEnv
        , MonadBH(..)
        , Version(..)
        , Status(..)
@@ -267,30 +271,31 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer
 import           Data.Aeson
-import           Data.Aeson.Types                (Pair, Parser, emptyObject,
-                                                  parseMaybe)
-import qualified Data.ByteString.Lazy.Char8      as L
+import           Data.Aeson.Types                   (Pair, Parser, emptyObject,
+                                                     parseMaybe)
+import qualified Data.ByteString.Lazy.Char8         as L
 import           Data.Char
-import           Data.Hashable                   (Hashable)
-import qualified Data.HashMap.Strict             as HM
-import           Data.List                       (foldl', nub)
-import           Data.List.NonEmpty              (NonEmpty (..), toList)
-import qualified Data.Map.Strict                 as M
+import           Data.Hashable                      (Hashable)
+import qualified Data.HashMap.Strict                as HM
+import           Data.List                          (foldl', nub)
+import           Data.List.NonEmpty                 (NonEmpty (..), toList)
+import qualified Data.Map.Strict                    as M
 import           Data.Maybe
-import           Data.Text                       (Text)
-import qualified Data.Text                       as T
+import           Data.Text                          (Text)
+import qualified Data.Text                          as T
 import           Data.Time.Calendar
-import           Data.Time.Clock                 (NominalDiffTime, UTCTime)
+import           Data.Time.Clock                    (NominalDiffTime, UTCTime)
 import           Data.Time.Clock.POSIX
-import qualified Data.Traversable                as DT
-import           Data.Typeable                   (Typeable)
-import qualified Data.Vector                     as V
+import qualified Data.Traversable                   as DT
+import           Data.Typeable                      (Typeable)
+import qualified Data.Vector                        as V
 import           GHC.Enum
-import           GHC.Generics                    (Generic)
+import           GHC.Generics                       (Generic)
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method       as NHTM
+import qualified Network.HTTP.Types.Method          as NHTM
 
 import           Database.Bloodhound.Types.Class
+import           Database.Bloodhound.Types.Internal
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -303,20 +308,12 @@ import           Database.Bloodhound.Types.Class
 -- defaultIndexSettings is exported by Database.Bloodhound as well
 -- no trailing slashes in servers, library handles building the path.
 
-{-| Common environment for Elasticsearch calls. Connections will be
-    pipelined according to the provided HTTP connection manager.
--}
-data BHEnv = BHEnv { bhServer  :: Server
-                   , bhManager :: Manager
-                   }
-
-{-| All API calls to Elasticsearch operate within
-    MonadBH. The idea is that it can be easily embedded in your
-    own monad transformer stack. A default instance for a ReaderT and
-    alias 'BH' is provided for the simple case.
--}
-class (Functor m, Applicative m, MonadIO m) => MonadBH m where
-  getBHEnv :: m BHEnv
+-- | Create a 'BHEnv' with all optional fields defaulted. HTTP hook
+-- will be a noop. You can use the exported fields to customize it further, e.g.:
+--
+-- >> (mkBHEnv myServer myManager) { bhRequestHook = customHook }
+mkBHEnv :: Server -> Manager -> BHEnv
+mkBHEnv s m = BHEnv s m return
 
 newtype BH m a = BH {
       unBH :: ReaderT BHEnv m a
@@ -344,10 +341,6 @@ instance (MonadReader r m) => MonadReader r (BH m) where
 
 instance (Functor m, Applicative m, MonadIO m) => MonadBH (BH m) where
   getBHEnv = BH getBHEnv
-
-
-instance (Functor m, Applicative m, MonadIO m) => MonadBH (ReaderT BHEnv m) where
-  getBHEnv = ask
 
 runBH :: BHEnv -> BH m a -> m a
 runBH e f = runReaderT (unBH f) e
@@ -479,9 +472,9 @@ data CompoundFormat = CompoundFileFormat Bool
 
 newtype NominalDiffTimeJSON = NominalDiffTimeJSON { ndtJSON ::  NominalDiffTime }
 
-data IndexSettingsSummary = IndexSettingsSummary { sSummaryIndexName :: IndexName
+data IndexSettingsSummary = IndexSettingsSummary { sSummaryIndexName     :: IndexName
                                                  , sSummaryFixedSettings :: IndexSettings
-                                                 , sSummaryUpdateable :: [UpdatableIndexSetting]}
+                                                 , sSummaryUpdateable    :: [UpdatableIndexSetting]}
                                                  deriving (Eq, Show, Generic, Typeable)
 
 {-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method.Method' -}
@@ -763,10 +756,6 @@ newtype ShardCount = ShardCount Int deriving (Eq, Show, Generic, ToJSON, Typeabl
 {-| 'ReplicaCount' is part of 'IndexSettings'
 -}
 newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic, ToJSON, Typeable)
-
-{-| 'Server' is used with the client functions to point at the ES instance
--}
-newtype Server = Server Text deriving (Eq, Show, Generic, Typeable)
 
 {-| 'IndexName' is used to describe which index to query/create/delete
 -}
