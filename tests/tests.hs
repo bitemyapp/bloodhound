@@ -238,7 +238,7 @@ searchExpectNoResults search = do
 
 searchExpectAggs :: Search -> BH IO ()
 searchExpectAggs search = do
-  reply <- searchAll search
+  reply <- searchByIndex testIndex search
   let isEmpty x = return (M.null x)
   let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
   liftIO $
@@ -247,7 +247,7 @@ searchExpectAggs search = do
 searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) =>
                         Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> BH IO ()
 searchValidBucketAgg search aggKey extractor = do
-  reply <- searchAll search
+  reply <- searchByIndex testIndex search
   let bucketDocs = docCount . head . buckets
   let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
   let count = result >>= aggregations >>= extractor aggKey >>= \x -> return (bucketDocs x)
@@ -272,8 +272,8 @@ searchExpectSource src expected = do
   _ <- insertData
   let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
   let search = (mkSearch (Just query) Nothing) { source = Just src }
-  reply <- searchAll search
-  result <- parseEsResponse reply--  :: Either EsError (SearchResult Value)
+  reply <- searchByIndex testIndex search
+  result <- parseEsResponse reply
   let value = grabFirst result
   liftIO $
     value `shouldBe` expected
