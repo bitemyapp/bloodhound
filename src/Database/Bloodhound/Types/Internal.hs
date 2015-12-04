@@ -22,6 +22,7 @@ module Database.Bloodhound.Types.Internal
     ) where
 
 
+import           Control.Applicative
 import           Control.Monad.Reader
 import           Data.Text            (Text)
 import           Data.Typeable        (Typeable)
