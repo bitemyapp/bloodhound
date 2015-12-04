@@ -776,7 +776,7 @@ statusCheck prd = prd . NHTS.statusCode . responseStatus
 -- this option only be used over an SSL connection.
 --
 -- >> (mkBHEnv myServer myManager) { bhRequestHook = basicAuthHook (EsUsername "myuser") (EsPassword "mypass") }
-basicAuthHook :: EsUsername -> EsPassword -> Request -> IO Request
+basicAuthHook :: Monad m => EsUsername -> EsPassword -> Request -> m Request
 basicAuthHook (EsUsername u) (EsPassword p) = return . applyBasicAuth u' p'
   where u' = T.encodeUtf8 u
         p' = T.encodeUtf8 p
