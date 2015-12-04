@@ -262,6 +262,9 @@ module Database.Bloodhound.Types
        , TermsResult(..)
        , DateHistogramResult(..)
        , DateRangeResult(..)
+
+       , EsUsername(..)
+       , EsPassword(..)
          ) where
 
 import           Control.Applicative
@@ -3533,3 +3536,9 @@ instance Enum DocVersion where
   fromEnum = docVersionNumber
   enumFrom = boundedEnumFrom
   enumFromThen = boundedEnumFromThen
+
+-- | Username type used for HTTP Basic authentication. See 'basicAuthHook'.
+newtype EsUsername = EsUsername { esUsername :: Text } deriving (Show, Eq)
+
+-- | Password type used for HTTP Basic authentication. See 'basicAuthHook'.
+newtype EsPassword = EsPassword { esPassword :: Text } deriving (Show, Eq)

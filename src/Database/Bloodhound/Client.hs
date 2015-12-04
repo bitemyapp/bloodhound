@@ -57,6 +57,8 @@ module Database.Bloodhound.Client
        , getStatus
        , encodeBulkOperations
        , encodeBulkOperation
+       -- * Authentication
+       , basicAuthHook
        -- * Reply-handling tools
        , isVersionConflict
        , isSuccess
@@ -767,3 +769,14 @@ isCreated = statusCheck (== 201)
 
 statusCheck :: (Int -> Bool) -> Reply -> Bool
 statusCheck prd = prd . NHTS.statusCode . responseStatus
+
+-- | This is a hook that can be set via the 'bhRequestHook' function
+-- that will authenticate all requests using an HTTP Basic
+-- Authentication header. Note that it is *strongly* recommended that
+-- this option only be used over an SSL connection.
+--
+-- >> (mkBHEnv myServer myManager) { bhRequestHook = basicAuthHook (EsUsername "myuser") (EsPassword "mypass") }
+basicAuthHook :: EsUsername -> EsPassword -> Request -> IO Request
+basicAuthHook (EsUsername u) (EsPassword p) = return . applyBasicAuth u' p'
+  where u' = T.encodeUtf8 u
+        p' = T.encodeUtf8 p
