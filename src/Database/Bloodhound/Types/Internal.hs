@@ -8,7 +8,7 @@
 -- Module : Database.Bloodhound.Types.Internal
 -- Copyright : (C) 2014 Chris Allen
 -- License : BSD-style (see the file LICENSE)
--- Maintainer : Chris Allen <cma@bitemyapp.com
+-- Maintainer : Chris Allen <cma@bitemyapp.com>
 -- Stability : provisional
 -- Portability : DeriveGeneric, RecordWildCards
 --
