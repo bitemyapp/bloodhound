@@ -37,6 +37,7 @@ module Database.Bloodhound.Client
        , putMapping
        , deleteMapping
        , indexDocument
+       , updateDocument
        , getDocument
        , documentExists
        , deleteDocument
@@ -474,6 +475,20 @@ deleteMapping (IndexName indexName)
   -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
   delete =<< joinPath [indexName, "_mapping", mappingName]
 
+versionCtlParams :: IndexDocumentSettings -> [(Text, Maybe Text)]
+versionCtlParams cfg =
+  case idsVersionControl cfg of
+    NoVersionControl -> []
+    InternalVersion v -> versionParams v "internal"
+    ExternalGT (ExternalDocVersion v) -> versionParams v "external_gt"
+    ExternalGTE (ExternalDocVersion v) -> versionParams v "external_gte"
+    ForceVersion (ExternalDocVersion v) -> versionParams v "force"
+  where
+    vt = T.pack . show . docVersionNumber
+    versionParams v t = [ ("version", Just $ vt v)
+                        , ("version_type", Just t)
+                        ]
+
 -- | 'indexDocument' is the primary way to save a single document in
 --   Elasticsearch. The document itself is simply something we can
 --   convert into a JSON 'Value'. The 'DocId' will function as the
@@ -488,21 +503,22 @@ indexDocument (IndexName indexName)
   (MappingName mappingName) cfg document (DocId docId) =
   bindM2 put url (return body)
   where url = addQuery params <$> joinPath [indexName, mappingName, docId]
-        versionCtlParams = case idsVersionControl cfg of
-          NoVersionControl -> []
-          InternalVersion v -> versionParams v "internal"
-          ExternalGT (ExternalDocVersion v) -> versionParams v "external_gt"
-          ExternalGTE (ExternalDocVersion v) -> versionParams v "external_gte"
-          ForceVersion (ExternalDocVersion v) -> versionParams v "force"
-        vt = T.pack . show . docVersionNumber
-        versionParams v t = [ ("version", Just $ vt v)
-                            , ("version_type", Just t)
-                            ]
         parentParams = case idsParent cfg of
           Nothing -> []
           Just (DocumentParent (DocId p)) -> [ ("parent", Just p) ]
-        params = versionCtlParams ++ parentParams
+        params = versionCtlParams cfg ++ parentParams
         body = Just (encode document)
+
+-- | 'updateDocument' provides a way to perform an partial update of a
+-- an already indexed document.
+updateDocument :: (ToJSON patch, MonadBH m) => IndexName -> MappingName
+                  -> IndexDocumentSettings -> patch -> DocId -> m Reply
+updateDocument (IndexName indexName)
+  (MappingName mappingName) cfg patch (DocId docId) =
+  bindM2 post url (return body)
+  where url = addQuery (versionCtlParams cfg) <$>
+              joinPath [indexName, mappingName, docId, "_update"]
+        body = Just (encode $ object ["doc" .= toJSON patch])
 
 -- | 'deleteDocument' is the primary way to delete a single document.
 --
