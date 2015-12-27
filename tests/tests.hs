@@ -180,6 +180,21 @@ exampleTweet = Tweet { user     = "bitemyapp"
                      , age      = 10000
                      , location = Location 40.12 (-71.34) }
 
+newAge :: Int
+newAge = 31337
+
+newUser :: Text
+newUser = "someotherapp"
+
+tweetPatch :: Value
+tweetPatch =
+  object [ "age" .= newAge
+         , "user" .= newUser
+         ]
+
+patchedTweet :: Tweet
+patchedTweet = exampleTweet{age = newAge, user = newUser}
+
 otherTweet :: Tweet
 otherTweet = Tweet { user     = "notmyapp"
                    , postDate = UTCTime
@@ -204,6 +219,12 @@ insertData = do
 insertData' :: IndexDocumentSettings -> BH IO Reply
 insertData' ids = do
   r <- indexDocument testIndex testMapping ids exampleTweet (DocId "1")
+  _ <- refreshIndex testIndex
+  return r
+
+updateData :: BH IO Reply
+updateData = do
+  r <- updateDocument testIndex testMapping defaultIndexDocumentSettings tweetPatch (DocId "1")
   _ <- refreshIndex testIndex
   return r
 
@@ -761,12 +782,13 @@ main = hspec $ do
       liftIO (errorResp `shouldBe` Right (EsError 404 "IndexMissingException[[bogus] missing]"))
 
   describe "document API" $ do
-    it "indexes, gets, and then deletes the generated document" $ withTestEnv $ do
+    it "indexes, updates, gets, and then deletes the generated document" $ withTestEnv $ do
       _ <- insertData
+      _ <- updateData
       docInserted <- getDocument testIndex testMapping (DocId "1")
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
-      liftIO $ (fmap getSource newTweet `shouldBe` Right (Just exampleTweet))
+      liftIO $ (fmap getSource newTweet `shouldBe` Right (Just patchedTweet))
 
     it "indexes, gets, and then deletes the generated document with a DocId containing a space" $ withTestEnv $ do
       _ <- insertWithSpaceInId
