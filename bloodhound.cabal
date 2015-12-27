@@ -27,6 +27,7 @@ library
                        Database.Bloodhound.Client
                        Database.Bloodhound.Types
                        Database.Bloodhound.Types.Class
+                       Database.Bloodhound.Types.Internal
   hs-source-dirs:      src
   build-depends:       base             >= 4.3     && <5,
                        bytestring       >= 0.10.0  && <0.11,

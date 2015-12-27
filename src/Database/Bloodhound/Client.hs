@@ -58,6 +58,8 @@ module Database.Bloodhound.Client
        , getStatus
        , encodeBulkOperations
        , encodeBulkOperation
+       -- * Authentication
+       , basicAuthHook
        -- * Reply-handling tools
        , isVersionConflict
        , isSuccess
@@ -175,10 +177,11 @@ dispatch :: MonadBH m => Method -> Text -> Maybe L.ByteString
             -> m Reply
 dispatch dMethod url body = do
   initReq <- liftIO $ parseUrl' url
+  reqHook <- bhRequestHook <$> getBHEnv
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
-  let req = initReq { method = dMethod
-                    , requestBody = reqBody
-                    , checkStatus = \_ _ _ -> Nothing}
+  req <- liftIO $ reqHook $ initReq { method = dMethod
+                                    , requestBody = reqBody
+                                    , checkStatus = \_ _ _ -> Nothing}
   mgr <- bhManager <$> getBHEnv
   liftIO $ httpLbs req mgr
 
@@ -222,8 +225,7 @@ bindM2 f ma mb = join (f <$> ma <*> mb)
 withBH :: ManagerSettings -> Server -> BH IO a -> IO a
 withBH ms s f = do
   mgr <- newManager ms
-  let env = BHEnv { bhServer  = s
-                  , bhManager = mgr }
+  let env = mkBHEnv s mgr
   runBH env f
 
 -- Shortcut functions for HTTP methods
@@ -249,11 +251,9 @@ post   = dispatch NHTM.methodPost
 -- Just 200
 getStatus :: MonadBH m => m (Maybe Status)
 getStatus = do
-  url <- joinPath []
-  request <- liftIO $ parseUrl' url
-  mgr <- bhManager <$> getBHEnv
-  response <- liftIO $ httpLbs request mgr
+  response <- get =<< url
   return $ decode (responseBody response)
+  where url = joinPath []
 
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
 --
@@ -785,3 +785,14 @@ isCreated = statusCheck (== 201)
 
 statusCheck :: (Int -> Bool) -> Reply -> Bool
 statusCheck prd = prd . NHTS.statusCode . responseStatus
+
+-- | This is a hook that can be set via the 'bhRequestHook' function
+-- that will authenticate all requests using an HTTP Basic
+-- Authentication header. Note that it is *strongly* recommended that
+-- this option only be used over an SSL connection.
+--
+-- >> (mkBHEnv myServer myManager) { bhRequestHook = basicAuthHook (EsUsername "myuser") (EsPassword "mypass") }
+basicAuthHook :: Monad m => EsUsername -> EsPassword -> Request -> m Request
+basicAuthHook (EsUsername u) (EsPassword p) = return . applyBasicAuth u' p'
+  where u' = T.encodeUtf8 u
+        p' = T.encodeUtf8 p
