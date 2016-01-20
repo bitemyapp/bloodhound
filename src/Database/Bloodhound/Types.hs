@@ -8,6 +8,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -284,6 +285,7 @@ import           Data.List                          (foldl', nub)
 import           Data.List.NonEmpty                 (NonEmpty (..), toList)
 import qualified Data.Map.Strict                    as M
 import           Data.Maybe
+import           Data.Scientific                    (Scientific)
 import           Data.Text                          (Text)
 import qualified Data.Text                          as T
 import           Data.Time.Calendar
@@ -1744,9 +1746,20 @@ class BucketAggregation a where
 
 data Bucket a = Bucket { buckets :: [a]} deriving (Show)
 
-data TermsResult = TermsResult { termKey       :: Text
-                               , termsDocCount :: Int
-                               , termsAggs     :: Maybe AggregationResults } deriving (Show)
+data TermsResult
+  = TextTermsResult
+    { textTermKey   :: Text
+    , termsDocCount :: Int
+    , termsAggs     :: Maybe AggregationResults }
+  | ScientificTermsResult
+    { scientificTermKey       :: Scientific
+    , termsDocCount           :: Int
+    , termsAggs               :: Maybe AggregationResults }
+  | BoolTermsResult
+    { boolTermKey   :: Bool
+    , termsDocCount :: Int
+    , termsAggs     :: Maybe AggregationResults }
+  deriving (Show)
 
 data DateHistogramResult = DateHistogramResult { dateKey           :: Int
                                                , dateKeyStr        :: Maybe Text
@@ -1770,7 +1783,9 @@ toDateHistogram t a = M.lookup t a >>= deserialize
   where deserialize = parseMaybe parseJSON
 
 instance BucketAggregation TermsResult where
-  key = termKey
+  key TextTermsResult{textTermKey} = textTermKey
+  key ScientificTermsResult{scientificTermKey} = T.pack $ show scientificTermKey
+  key BoolTermsResult{boolTermKey} = T.pack $ show boolTermKey
   docCount = termsDocCount
   aggs = termsAggs
 
@@ -1790,11 +1805,20 @@ instance (FromJSON a, BucketAggregation a) => FromJSON (Bucket a) where
   parseJSON _ = mempty
 
 instance FromJSON TermsResult where
-  parseJSON (Object v) = TermsResult <$>
-                         v .:   "key"       <*>
-                         v .:   "doc_count" <*>
-                         v .:?  "aggregations"
-  parseJSON _ = mempty
+  parseJSON = withObject "TermsResult" $ \o -> do
+    termsDocCount <- o .: "doc_count"
+    termsAggs <- o .:?  "aggregations"
+    case "key" `HM.lookup` o of
+      Just (String _) -> do
+        textTermKey <- o .: "key"
+        return TextTermsResult{..}
+      Just (Number _) -> do
+        scientificTermKey <- o .: "key"
+        return ScientificTermsResult{..}
+      Just (Bool _) -> do
+        boolTermKey <- o .: "key"
+        return BoolTermsResult{..}
+      _ -> mempty
 
 instance FromJSON DateHistogramResult where
   parseJSON (Object v) = DateHistogramResult   <$>
