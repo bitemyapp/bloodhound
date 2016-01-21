@@ -1739,7 +1739,7 @@ instance ToJSON DateMathExpr where
 type AggregationResults = M.Map Text Value
 
 class BucketAggregation a where
-  key :: a -> Text
+  key :: a -> BucketValue
   docCount :: a -> Int
   aggs :: a -> Maybe AggregationResults
 
@@ -1776,19 +1776,17 @@ toDateHistogram t a = M.lookup t a >>= deserialize
   where deserialize = parseMaybe parseJSON
 
 instance BucketAggregation TermsResult where
-  key (TermsResult (TextValue t) _ _) = t
-  key (TermsResult (ScientificValue s) _ _) = T.pack $ show s
-  key (TermsResult (BoolValue b) _ _) = T.pack $ show b
+  key = termKey
   docCount = termsDocCount
   aggs = termsAggs
 
 instance BucketAggregation DateHistogramResult where
-  key = showText . dateKey
+  key = TextValue . showText . dateKey
   docCount = dateDocCount
   aggs = dateHistogramAggs
 
 instance BucketAggregation DateRangeResult where
-  key = dateRangeKey
+  key = TextValue . dateRangeKey
   docCount = dateRangeDocCount
   aggs = dateRangeAggs
 
