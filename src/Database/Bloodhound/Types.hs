@@ -1802,11 +1802,11 @@ instance FromJSON BucketValue where
   parseJSON _ = mempty
 
 instance FromJSON TermsResult where
-  parseJSON = withObject "TermsResult" $ \o -> do
-    termKey <- o .: "key"
-    termsDocCount <- o .: "doc_count"
-    termsAggs <- o .:?  "aggregations"
-    return TermsResult{..}
+  parseJSON (Object v) = TermsResult <$>
+                         v .:   "key"       <*>
+                         v .:   "doc_count" <*>
+                         v .:?  "aggregations"
+  parseJSON _ = mempty
 
 instance FromJSON DateHistogramResult where
   parseJSON (Object v) = DateHistogramResult   <$>
