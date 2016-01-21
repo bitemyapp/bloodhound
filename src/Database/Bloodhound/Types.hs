@@ -1746,20 +1746,13 @@ class BucketAggregation a where
 
 data Bucket a = Bucket { buckets :: [a]} deriving (Show)
 
-data TermsResult
-  = TextTermsResult
-    { textTermKey   :: Text
-    , termsDocCount :: Int
-    , termsAggs     :: Maybe AggregationResults }
-  | ScientificTermsResult
-    { scientificTermKey       :: Scientific
-    , termsDocCount           :: Int
-    , termsAggs               :: Maybe AggregationResults }
-  | BoolTermsResult
-    { boolTermKey   :: Bool
-    , termsDocCount :: Int
-    , termsAggs     :: Maybe AggregationResults }
-  deriving (Show)
+data BucketValue = TextValue Text
+                 | ScientificValue Scientific
+                 | BoolValue Bool deriving (Show)
+
+data TermsResult = TermsResult { termKey       :: BucketValue
+                               , termsDocCount :: Int
+                               , termsAggs     :: Maybe AggregationResults } deriving (Show)
 
 data DateHistogramResult = DateHistogramResult { dateKey           :: Int
                                                , dateKeyStr        :: Maybe Text
@@ -1783,9 +1776,9 @@ toDateHistogram t a = M.lookup t a >>= deserialize
   where deserialize = parseMaybe parseJSON
 
 instance BucketAggregation TermsResult where
-  key TextTermsResult{textTermKey} = textTermKey
-  key ScientificTermsResult{scientificTermKey} = T.pack $ show scientificTermKey
-  key BoolTermsResult{boolTermKey} = T.pack $ show boolTermKey
+  key (TermsResult (TextValue t) _ _) = t
+  key (TermsResult (ScientificValue s) _ _) = T.pack $ show s
+  key (TermsResult (BoolValue b) _ _) = T.pack $ show b
   docCount = termsDocCount
   aggs = termsAggs
 
@@ -1804,21 +1797,18 @@ instance (FromJSON a, BucketAggregation a) => FromJSON (Bucket a) where
                          v .: "buckets"
   parseJSON _ = mempty
 
+instance FromJSON BucketValue where
+  parseJSON (String t) = return $ TextValue t
+  parseJSON (Number s) = return $ ScientificValue s
+  parseJSON (Bool b) = return $ BoolValue b
+  parseJSON _ = mempty
+
 instance FromJSON TermsResult where
   parseJSON = withObject "TermsResult" $ \o -> do
+    termKey <- o .: "key"
     termsDocCount <- o .: "doc_count"
     termsAggs <- o .:?  "aggregations"
-    case "key" `HM.lookup` o of
-      Just (String _) -> do
-        textTermKey <- o .: "key"
-        return TextTermsResult{..}
-      Just (Number _) -> do
-        scientificTermKey <- o .: "key"
-        return ScientificTermsResult{..}
-      Just (Bool _) -> do
-        boolTermKey <- o .: "key"
-        return BoolTermsResult{..}
-      _ -> mempty
+    return TermsResult{..}
 
 instance FromJSON DateHistogramResult where
   parseJSON (Object v) = DateHistogramResult   <$>
