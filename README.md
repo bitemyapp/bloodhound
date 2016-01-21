@@ -783,8 +783,6 @@ class BucketAggregation a where
   aggs :: a -> Maybe AggregationResults
 ```
 
-haskell
-
 You can use the function to get any nested results, if there were any. For example, if there were a nested terms aggregation keyed to "age" in a TermsResult named , you would call
 
 #### Terms Aggregation
@@ -832,8 +830,6 @@ data DateHistogramAggregation
                               datePostOffset :: Maybe Text,
                               dateAggs :: Maybe Aggregations}
 ```
-
-haskell
 
 The Date Histogram Aggregation works much the same as the Terms Aggregation.
 
