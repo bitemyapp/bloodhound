@@ -309,11 +309,11 @@ deepMerge = LS.foldl' go mempty
         merge _ b = b
 
 
-statusCodeIs :: Int -> Reply -> Bool
-statusCodeIs n resp = NHTS.statusCode (responseStatus resp) == n
+statusCodeIs :: (Int, Int) -> Reply -> Bool
+statusCodeIs r resp = inRange r $ NHTS.statusCode (responseStatus resp)
 
 respIsTwoHunna :: Reply -> Bool
-respIsTwoHunna = statusCodeIs 200
+respIsTwoHunna = statusCodeIs (200, 299)
 
 existentialQuery :: MonadBH m => Text -> m (Reply, Bool)
 existentialQuery url = do
