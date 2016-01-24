@@ -758,7 +758,8 @@ Since the \`\`\`Aggregations\`\`\` structure is just a Map Text Aggregation, M.i
 
 #### Extracting aggregations from results
 
-Aggregations are part of the reply structure of every search, in the form of
+Aggregations are part of the reply structure of every search, in the
+form of `Maybe AggregationResults`
 
 ``` {.haskell}
 -- Lift decode and response body to be in the IO monad.
@@ -774,7 +775,7 @@ terms
 Just (Bucket {buckets = [TermsResult {termKey = "bitemyapp", termsDocCount = 1, termsAggs = Nothing}]})
 ```
 
-Note that bucket aggregation results, such as the TermsResult is a member of the type class :
+Note that bucket aggregation results, such as the TermsResult is a member of the type class `BucketAggregation`:
 
 ``` {.haskell}
 class BucketAggregation a where
@@ -783,7 +784,10 @@ class BucketAggregation a where
   aggs :: a -> Maybe AggregationResults
 ```
 
-You can use the function to get any nested results, if there were any. For example, if there were a nested terms aggregation keyed to "age" in a TermsResult named , you would call
+You can use the `aggs` function to get any nested results, if there
+were any. For example, if there were a nested terms aggregation keyed
+to "age" in a TermsResult named `termresult` , you would call `aggs
+termresult >>= toTerms "age"`
 
 #### Terms Aggregation
 
@@ -801,7 +805,8 @@ data TermsAggregation
                       termAggs :: Maybe Aggregations}
 ```
 
-Term Aggregations have two factory functions, , and , and can be used as follows:
+Term Aggregations have two factory functions, `mkTermsAggregation`, and
+`mkTermsScriptAggregation`, and can be used as follows:
 
 ``` {.haskell}
 let ta = TermsAgg $ mkTermsAggregation "user"
@@ -833,13 +838,13 @@ data DateHistogramAggregation
 
 The Date Histogram Aggregation works much the same as the Terms Aggregation.
 
-Relevant functions include , and
+Relevant functions include `mkDateHistogram`, and `toDateHistogram`
 
 ``` {.haskell}
 let dh = DateHistogramAgg (mkDateHistogram (FieldName "postDate") Minute)
 ```
 
-Date histograms also accept a :
+Date histograms also accept a `FractionalInterval`:
 
 ``` {.haskell}
 FractionalInterval :: Float -> TimeInterval -> Interval
@@ -853,7 +858,7 @@ It can be used as follows:
 let dh = DateHistogramAgg (mkDateHistogram (FieldName "postDate") (FractionalInterval 1.5 Minutes))
 ```
 
-The is defined as:
+The `DateHistogramResult` is defined as:
 
 ``` {.haskell}
 data DateHistogramResult
@@ -863,9 +868,10 @@ data DateHistogramResult
                          dateHistogramAggs :: Maybe AggregationResults}
 ```
 
-It is an instance of , and can have nested aggregations in each bucket.
+It is an instance of `BucketAggregation`, and can have nested aggregations in each bucket.
 
-Buckets can be extracted from a using
+Buckets can be extracted from an `AggregationResult` using
+`toDateHistogram name`
 
 For more information on the Date Histogram Aggregation, see: <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html>
 
