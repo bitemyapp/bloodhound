@@ -1416,6 +1416,12 @@ main = hspec $ do
                                     (IndexSettings (ShardCount 1) (ReplicaCount 0))
                                     (NE.toList updates))
 
+  describe "Index Optimization" $ do
+    it "returns a successful response upon completion" $ withTestEnv $ do
+      _ <- createExampleIndex
+      resp <- optimizeIndex (IndexList (testIndex :| [])) defaultIndexOptimizationSettings
+      liftIO $ validateStatus resp 200
+
   describe "JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
     propJSON (Proxy :: Proxy IndexName)

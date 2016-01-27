@@ -140,6 +140,9 @@ module Database.Bloodhound.Types
        , FieldName(..)
        , Script(..)
        , IndexName(..)
+       , IndexSelection(..)
+       , IndexOptimizationSettings(..)
+       , defaultIndexOptimizationSettings
        , TemplateName(..)
        , TemplatePattern(..)
        , MappingName(..)
@@ -380,6 +383,28 @@ data IndexSettings =
 {-| 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and 2 replicas. -}
 defaultIndexSettings :: IndexSettings
 defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2)
+
+
+{-| 'IndexOptimizationSettings' is used to configure index optimization. See
+    <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-optimize.html>
+    for more info.
+-}
+data IndexOptimizationSettings =
+  IndexOptimizationSettings { maxNumSegments     :: Maybe Int
+                            -- ^ Number of segments to optimize to. 1 will fully optimize the index. If omitted, the default behavior is to only optimize if the server deems it necessary.
+                            , onlyExpungeDeletes :: Bool
+                            -- ^ Should the optimize process only expunge segments with deletes in them? If the purpose of the optimization is to free disk space, this should be set to True.
+                            , flushAfterOptimize :: Bool
+                            -- ^ Should a flush be performed after the optimize.
+                            } deriving (Eq, Show, Generic, Typeable)
+
+
+{-| 'defaultIndexOptimizationSettings' implements the default settings that
+    ElasticSearch uses for index optimization. 'maxNumSegments' is Nothing,
+    'onlyExpungeDeletes' is False, and flushAfterOptimize is True.
+-}
+defaultIndexOptimizationSettings :: IndexOptimizationSettings
+defaultIndexOptimizationSettings = IndexOptimizationSettings Nothing False True
 
 {-| 'UpdatableIndexSetting' are settings which may be updated after an index is created.
 
@@ -763,6 +788,12 @@ newtype ReplicaCount = ReplicaCount Int deriving (Eq, Show, Generic, ToJSON, Typ
 {-| 'IndexName' is used to describe which index to query/create/delete
 -}
 newtype IndexName = IndexName Text deriving (Eq, Generic, Show, ToJSON, FromJSON, Typeable)
+
+{-| 'IndexSelection' is used for APIs which take a single index, a list of
+    indexes, or the special @_all@ index.
+-}
+data IndexSelection = IndexList (NonEmpty IndexName)
+                    | AllIndexes deriving (Eq, Generic, Show, Typeable)
 
 {-| 'TemplateName' is used to describe which template to query/create/delete
 -}
