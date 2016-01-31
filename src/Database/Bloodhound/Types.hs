@@ -562,10 +562,13 @@ data EsResultFound a = EsResultFound {  _version :: DocVersion
 data EsError = EsError { errorStatus  :: Int
                        , errorMessage :: Text } deriving (Eq, Show, Generic, Typeable)
 
-{-| 'EsProtocolException' ideally should never be thrown. It will only
-be thrown when Bloodhound can't parse a response returned by the
-ElasticSearch server. This should be reported as a bug to the bug
-tracker. Be sure to include the body.
+{-| 'EsProtocolException' will be thrown if Bloodhound cannot parse a response
+returned by the ElasticSearch server. If you encounter this error, please
+verify that your domain data types and FromJSON instances are working properly
+(for example, the 'a' of '[Hit a]' in 'SearchResult.searchHits.hits'). If you're
+sure that your mappings are correct, then this error may be an indication of an
+incompatibility between Bloodhound and ElasticSearch. Please open a bug report
+and be sure to include the exception body.
 -}
 data EsProtocolException = EsProtocolException { esProtoExBody :: L.ByteString }
                                                deriving (Eq, Show, Generic, Typeable)
