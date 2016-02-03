@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -26,6 +27,7 @@ module Database.Bloodhound.Client
        , deleteIndex
        , updateIndexSettings
        , getIndexSettings
+       , optimizeIndex
        , indexExists
        , openIndex
        , closeIndex
@@ -81,7 +83,7 @@ import qualified Data.HashMap.Strict          as HM
 import           Data.Ix
 import qualified Data.List                    as LS (filter, foldl')
 import           Data.List.NonEmpty           (NonEmpty (..))
-import           Data.Maybe                   (fromMaybe, isJust)
+import           Data.Maybe                   (catMaybes, fromMaybe, isJust)
 import           Data.Monoid
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
@@ -302,6 +304,48 @@ getIndexSettings (IndexName indexName) = do
   where url = joinPath [indexName, "_settings"]
 
 
+-- | 'optimizeIndex' will optimize a single index, list of indexes or
+-- all indexes. Note that this call will block until finishing but
+-- will continue even if the request times out. Concurrent requests to
+-- optimize an index while another is performing will block until the
+-- previous one finishes. For more information see
+-- <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-optimize.html>. Nothing
+-- worthwhile comes back in the reply body, so matching on the status
+-- should suffice.
+--
+-- 'optimizeIndex' with a maxNumSegments of 1 and onlyExpungeDeletes
+-- to True is the main way to release disk space back to the OS being
+-- held by deleted documents.
+--
+-- Note that this API was deprecated in ElasticSearch 2.1 for the
+-- almost completely identical forcemerge API. Adding support to that
+-- API would be trivial but due to the significant breaking changes,
+-- this library cannot currently be used with >= 2.0, so that feature was omitted.
+--
+-- >>> let ixn = IndexName "unoptimizedindex"
+-- >>> _ <- runBH' $ deleteIndex ixn >> createIndex defaultIndexSettings ixn
+-- >>> response <- runBH' $ optimizeIndex (IndexList (ixn :| [])) (defaultIndexOptimizationSettings { maxNumSegments = Just 1, onlyExpungeDeletes = True })
+-- >>> respIsTwoHunna response
+-- True
+optimizeIndex :: MonadBH m => IndexSelection -> IndexOptimizationSettings -> m Reply
+optimizeIndex ixs IndexOptimizationSettings {..} =
+    bindM2 post url (return body)
+  where url = addQuery params <$> joinPath [indexName, "_optimize"]
+        params = catMaybes [ ("max_num_segments",) . Just . showText <$> maxNumSegments
+                           , Just ("only_expunge_deletes", Just (boolQP onlyExpungeDeletes))
+                           , Just ("flush", Just (boolQP flushAfterOptimize))
+                           ]
+        indexName = indexSelectionName ixs
+        boolQP True = "true"
+        boolQP False = "false"
+        body = Nothing
+
+
+-------------------------------------------------------------------------------
+indexSelectionName :: IndexSelection -> Text
+indexSelectionName (IndexList names) = T.intercalate "," [n | IndexName n <- toList names]
+indexSelectionName AllIndexes        = "_all"
+
 deepMerge :: [Object] -> Object
 deepMerge = LS.foldl' go mempty
   where go acc = LS.foldl' go' acc . HM.toList
@@ -395,6 +439,7 @@ closeIndex = openOrCloseIndexes CloseIndex
 -- >>> let aliasName = IndexName "an-alias"
 -- >>> let iAlias = IndexAlias src (IndexAliasName aliasName)
 -- >>> let aliasCreate = IndexAliasCreate Nothing Nothing
+-- >>> _ <- runBH' $ deleteIndex src
 -- >>> respIsTwoHunna <$> runBH' (createIndex defaultIndexSettings src)
 -- True
 -- >>> runBH' $ indexExists src
@@ -484,7 +529,7 @@ versionCtlParams cfg =
     ExternalGTE (ExternalDocVersion v) -> versionParams v "external_gte"
     ForceVersion (ExternalDocVersion v) -> versionParams v "force"
   where
-    vt = T.pack . show . docVersionNumber
+    vt = showText . docVersionNumber
     versionParams v t = [ ("version", Just $ vt v)
                         , ("version_type", Just t)
                         ]
