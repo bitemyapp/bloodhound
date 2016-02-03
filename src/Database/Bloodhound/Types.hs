@@ -8,6 +8,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -285,6 +286,7 @@ import           Data.List                          (foldl', nub)
 import           Data.List.NonEmpty                 (NonEmpty (..), toList)
 import qualified Data.Map.Strict                    as M
 import           Data.Maybe
+import           Data.Scientific                    (Scientific)
 import           Data.Text                          (Text)
 import qualified Data.Text                          as T
 import           Data.Time.Calendar
@@ -1747,14 +1749,18 @@ instance ToJSON DateMathExpr where
 type AggregationResults = M.Map Text Value
 
 class BucketAggregation a where
-  key :: a -> Text
+  key :: a -> BucketValue
   docCount :: a -> Int
   aggs :: a -> Maybe AggregationResults
 
 
 data Bucket a = Bucket { buckets :: [a]} deriving (Show)
 
-data TermsResult = TermsResult { termKey       :: Text
+data BucketValue = TextValue Text
+                 | ScientificValue Scientific
+                 | BoolValue Bool deriving (Show)
+
+data TermsResult = TermsResult { termKey       :: BucketValue
                                , termsDocCount :: Int
                                , termsAggs     :: Maybe AggregationResults } deriving (Show)
 
@@ -1785,18 +1791,24 @@ instance BucketAggregation TermsResult where
   aggs = termsAggs
 
 instance BucketAggregation DateHistogramResult where
-  key = showText . dateKey
+  key = TextValue . showText . dateKey
   docCount = dateDocCount
   aggs = dateHistogramAggs
 
 instance BucketAggregation DateRangeResult where
-  key = dateRangeKey
+  key = TextValue . dateRangeKey
   docCount = dateRangeDocCount
   aggs = dateRangeAggs
 
 instance (FromJSON a, BucketAggregation a) => FromJSON (Bucket a) where
   parseJSON (Object v) = Bucket <$>
                          v .: "buckets"
+  parseJSON _ = mempty
+
+instance FromJSON BucketValue where
+  parseJSON (String t) = return $ TextValue t
+  parseJSON (Number s) = return $ ScientificValue s
+  parseJSON (Bool b) = return $ BoolValue b
   parseJSON _ = mempty
 
 instance FromJSON TermsResult where
