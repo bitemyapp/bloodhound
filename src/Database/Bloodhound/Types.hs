@@ -238,6 +238,7 @@ module Database.Bloodhound.Types
        , Aggregation(..)
        , Aggregations
        , AggregationResults
+       , BucketValue(..)
        , Bucket(..)
        , BucketAggregation(..)
        , TermsAggregation(..)
