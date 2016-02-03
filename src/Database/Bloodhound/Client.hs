@@ -680,9 +680,8 @@ scroll' (Just sid) = do
       Right SearchResult {..} -> return (hits searchHits, scrollId)
       Left _ -> return ([], Nothing)
 
--- | Use the given scroll to fetch the next page of documents. If
--- there are still further pages, there will be a value in the
--- 'scrollId' field of the 'SearchResult'
+-- | Use the given scroll to fetch the next page of documents. If there are no
+-- further pages, 'SearchResult.searchHits.hits' will be '[]'.
 advanceScroll
   :: ( FromJSON a
      , MonadBH m
