@@ -130,7 +130,8 @@ data Tweet = Tweet { user     :: Text
                    , postDate :: UTCTime
                    , message  :: Text
                    , age      :: Int
-                   , location :: Location }
+                   , location :: Location
+                   , extra    :: Maybe Text }
            deriving (Eq, Generic, Show)
 
 instance ToJSON   Tweet where
@@ -178,7 +179,18 @@ exampleTweet = Tweet { user     = "bitemyapp"
                                   (secondsToDiffTime 10)
                      , message  = "Use haskell!"
                      , age      = 10000
-                     , location = Location 40.12 (-71.34) }
+                     , location = Location 40.12 (-71.34)
+                     , extra = Nothing }
+
+tweetWithExtra :: Tweet
+tweetWithExtra = Tweet { user     = "bitemyapp"
+                       , postDate = UTCTime
+                                    (ModifiedJulianDay 55000)
+                                    (secondsToDiffTime 10)
+                       , message  = "Use haskell!"
+                       , age      = 10000
+                       , location = Location 40.12 (-71.34)
+                       , extra = Just "blah blah" }
 
 newAge :: Int
 newAge = 31337
@@ -202,7 +214,8 @@ otherTweet = Tweet { user     = "notmyapp"
                                 (secondsToDiffTime 11)
                    , message  = "Use haskell!"
                    , age      = 1000
-                   , location = Location 40.12 (-71.34) }
+                   , location = Location 40.12 (-71.34)
+                   , extra = Nothing }
 
 resetIndex :: BH IO ()
 resetIndex = do
@@ -231,6 +244,12 @@ updateData = do
 insertOther :: BH IO ()
 insertOther = do
   _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings otherTweet (DocId "2")
+  _ <- refreshIndex testIndex
+  return ()
+
+insertExtra :: BH IO ()
+insertExtra = do
+  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings tweetWithExtra (DocId "4")
   _ <- refreshIndex testIndex
   return ()
 
@@ -1236,6 +1255,16 @@ main = hspec $ do
       forM_ intervals expect
       forM_ intervals valid
 
+    it "can execute missing aggregations" $ withTestEnv $ do
+      _ <- insertData
+      _ <- insertExtra
+      let ags = mkAggregations "missing_agg" (MissingAgg (MissingAggregation "extra"))
+      let search = mkAggregateSearch Nothing ags
+      let docCountPair k n = (k, object ["doc_count" .= Number n])
+      res <- searchTweets search
+      liftIO $
+        fmap aggregations res `shouldBe` Right (Just (M.fromList [docCountPair "missing_agg" 1]))
+
   describe "Highlights API" $ do
 
     it "returns highlight from query when there should be one" $ withTestEnv $ do
@@ -1284,7 +1313,8 @@ main = hspec $ do
 
     it "excludes source patterns" $ withTestEnv $ do
       searchExpectSource
-        (SourceIncludeExclude (Include []) (Exclude [Pattern "l*", Pattern "*ge", Pattern "postDate"]))
+        (SourceIncludeExclude (Include [])
+        (Exclude [Pattern "l*", Pattern "*ge", Pattern "postDate", Pattern "extra"]))
         (Right (Object (HM.fromList [("user",String "bitemyapp")])))
 
   describe "ToJSON RegexpFlags" $ do
