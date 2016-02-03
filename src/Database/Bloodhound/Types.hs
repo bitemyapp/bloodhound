@@ -237,6 +237,7 @@ module Database.Bloodhound.Types
        , Bucket(..)
        , BucketAggregation(..)
        , TermsAggregation(..)
+       , MissingAggregation(..)
        , ValueCountAggregation(..)
        , FilterAggregation(..)
        , DateHistogramAggregation(..)
@@ -1544,8 +1545,12 @@ data Aggregation = TermsAgg TermsAggregation
                  | DateHistogramAgg DateHistogramAggregation
                  | ValueCountAgg ValueCountAggregation
                  | FilterAgg FilterAggregation
-                 | DateRangeAgg DateRangeAggregation deriving (Eq, Show, Generic, Typeable)
+                 | DateRangeAgg DateRangeAggregation
+                 | MissingAgg MissingAggregation deriving (Eq, Show, Generic, Typeable)
 
+data MissingAggregation = MissingAggregation
+  { maField :: Text
+  } deriving (Eq, Show, Generic, Typeable)
 
 data TermsAggregation = TermsAggregation { term              :: Either Text Text
                                          , termInclude       :: Maybe TermInclusion
@@ -1705,6 +1710,8 @@ instance ToJSON Aggregation where
               , "aggs" .= ags]
   toJSON (DateRangeAgg a) = object [ "date_range" .= a
                                    ]
+  toJSON (MissingAgg (MissingAggregation{..})) =
+    object ["missing" .= object ["field" .= maField]]
 
 instance ToJSON DateRangeAggregation where
   toJSON DateRangeAggregation {..} =
