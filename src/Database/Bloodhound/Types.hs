@@ -1814,15 +1814,16 @@ data DateRangeResult = DateRangeResult { dateRangeKey          :: Text
                                        , dateRangeAggs         :: Maybe AggregationResults } deriving (Show, Eq, Generic, Typeable)
 
 toTerms :: Text -> AggregationResults ->  Maybe (Bucket TermsResult)
-toTerms t a = M.lookup t a >>= deserialize
-  where deserialize = parseMaybe parseJSON
+toTerms = toAggResult
 
 toDateHistogram :: Text -> AggregationResults -> Maybe (Bucket DateHistogramResult)
-toDateHistogram t a = M.lookup t a >>= deserialize
-  where deserialize = parseMaybe parseJSON
+toDateHistogram = toAggResult
 
 toMissing :: Text -> AggregationResults -> Maybe MissingResult
-toMissing t a = M.lookup t a >>= deserialize
+toMissing = toAggResult
+
+toAggResult :: (FromJSON a) => Text -> AggregationResults -> Maybe a
+toAggResult t a = M.lookup t a >>= deserialize
   where deserialize = parseMaybe parseJSON
 
 instance BucketAggregation TermsResult where
