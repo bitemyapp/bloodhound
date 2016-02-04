@@ -66,9 +66,6 @@ deleteExampleIndex = deleteIndex testIndex
 
 data ServerVersion = ServerVersion Int Int Int deriving (Show, Eq, Ord)
 
-es14 :: ServerVersion
-es14 = ServerVersion 1 4 0
-
 es13 :: ServerVersion
 es13 = ServerVersion 1 3 0
 
@@ -77,9 +74,6 @@ es12 = ServerVersion 1 2 0
 
 es11 :: ServerVersion
 es11 = ServerVersion 1 1 0
-
-es10 :: ServerVersion
-es10 = ServerVersion 1 0 0
 
 serverBranch :: ServerVersion -> ServerVersion
 serverBranch (ServerVersion majorVer minorVer patchVer) =
