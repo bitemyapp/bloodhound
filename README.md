@@ -23,7 +23,7 @@ Version compatibility
 
 Elasticsearch \>=1.0 && \<2.0 is recommended. Bloodhound mostly works with 0.9.x, but I don't recommend it if you expect everything to work. As of Bloodhound 0.3 all \>=1.0 && \<2.0 versions of Elasticsearch work. Some (or even most?) features will work with versions \>=2.0, but it is not officially supported yet.
 
-Current versions we test against are 1.0.3, 1.1.2, 1.2.3, 1.3.2, and 1.4.0. We also check that GHC 7.6 and 7.8 both build and pass tests. See our [TravisCI](https://travis-ci.org/bitemyapp/bloodhound) to learn more.
+Current versions we test against are 1.2.4, 1.3.6, 1.4.1, 1.5.2, 1.6.0, and 1.7.2. We also check that GHC 7.6 and 7.8 both build and pass tests. See our [TravisCI](https://travis-ci.org/bitemyapp/bloodhound) to learn more.
 
 Stability
 ---------
