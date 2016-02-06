@@ -47,6 +47,7 @@ module Database.Bloodhound.Types
        , mkDateHistogram
        , mkDocVersion
        , docVersionNumber
+       , toMissing
        , toTerms
        , toDateHistogram
        , omitNulls
@@ -265,6 +266,7 @@ module Database.Bloodhound.Types
        , HighlightTag(..)
        , HitHighlight
 
+       , MissingResult(..)
        , TermsResult(..)
        , DateHistogramResult(..)
        , DateRangeResult(..)
@@ -1792,6 +1794,8 @@ data BucketValue = TextValue Text
                  | ScientificValue Scientific
                  | BoolValue Bool deriving (Show)
 
+data MissingResult = MissingResult { missingDocCount :: Int } deriving (Show)
+
 data TermsResult = TermsResult { termKey       :: BucketValue
                                , termsDocCount :: Int
                                , termsAggs     :: Maybe AggregationResults } deriving (Show)
@@ -1810,11 +1814,16 @@ data DateRangeResult = DateRangeResult { dateRangeKey          :: Text
                                        , dateRangeAggs         :: Maybe AggregationResults } deriving (Show, Eq, Generic, Typeable)
 
 toTerms :: Text -> AggregationResults ->  Maybe (Bucket TermsResult)
-toTerms t a = M.lookup t a >>= deserialize
-  where deserialize = parseMaybe parseJSON
+toTerms = toAggResult
 
 toDateHistogram :: Text -> AggregationResults -> Maybe (Bucket DateHistogramResult)
-toDateHistogram t a = M.lookup t a >>= deserialize
+toDateHistogram = toAggResult
+
+toMissing :: Text -> AggregationResults -> Maybe MissingResult
+toMissing = toAggResult
+
+toAggResult :: (FromJSON a) => Text -> AggregationResults -> Maybe a
+toAggResult t a = M.lookup t a >>= deserialize
   where deserialize = parseMaybe parseJSON
 
 instance BucketAggregation TermsResult where
@@ -1842,6 +1851,10 @@ instance FromJSON BucketValue where
   parseJSON (Number s) = return $ ScientificValue s
   parseJSON (Bool b) = return $ BoolValue b
   parseJSON _ = mempty
+
+instance FromJSON MissingResult where
+  parseJSON = withObject "MissingResult" parse
+    where parse v = MissingResult <$> v .: "doc_count"
 
 instance FromJSON TermsResult where
   parseJSON (Object v) = TermsResult <$>
