@@ -1259,6 +1259,51 @@ main = hspec $ do
       liftIO $
         fmap aggregations res `shouldBe` Right (Just (M.fromList [docCountPair "missing_agg" 1]))
 
+    it "can parse sub aggregations" $ withTestEnv $ do
+      _ <- insertData
+      _ <- insertOther
+      let l2 = mkAggregations "level2" (TermsAgg (mkTermsAggregation "user"))
+      let l1 = mkAggregations "level1" (TermsAgg ((mkTermsAggregation "age") { termAggs = Just l2 }))
+      let search = mkAggregateSearch Nothing l1
+      eres <- fmapL show <$> searchTweets search
+      let finalResult = do
+            res <- eres
+            actualAggs <- note "no agg results returned" (aggregations res)
+            aggResults <- note "could not parse level1" (toTerms "level1" actualAggs)
+            let bucketsByTermKey = [(termKey tr, tr) | tr <- buckets aggResults]
+
+            nmaResult <- note "could not find notmyapp bucket" (lookup (TextValue "notmyapp") bucketsByTermKey)
+            nmaResultAgg <- note "notmyapp result had no aggs" (termsAggs nmaResult)
+            nmaBuckets <- note "could not parse notmyapp level2" (toTerms "level2" nmaResultAgg)
+            nmaBucket <- note "expected 1 notmyapp bucket" (headMay (buckets nmaBuckets))
+
+            bmaResult <- note "could not find bitemyapp bucket" (lookup (TextValue "bitemyapp") bucketsByTermKey)
+            bmaResultAgg <- note "bitemyapp result had no aggs" (termsAggs bmaResult)
+            bmaBuckets <- note "could not parse bitemyapp level2" (toTerms "level2" bmaResultAgg)
+            bmaBucket <- note "expected 1 bitemyapp bucket" (headMay (buckets bmaBuckets))
+            return (nmaResult, nmaBucket, bmaResult, bmaBucket)
+      liftIO $ case finalResult of
+        Left e -> expectationFailure e
+        Right (nmaResult, nmaBucket, bmaResult, bmaBucket) -> do
+          let nmaBucketExpected = TermsResult {
+                                      termKey = TextValue "notmyapp"
+                                    , termsDocCount = 1
+                                    , termsAggs = Nothing
+                                    }
+          let bmaBucketExpected = TermsResult {
+                                      termKey = TextValue "bitemyapp"
+                                    , termsDocCount = 1
+                                    , termsAggs = Nothing
+                                    }
+          termKey nmaResult `shouldBe` ScientificValue 1000.0
+          termsDocCount nmaResult `shouldBe` 1
+          nmaBucket `shouldBe` nmaBucketExpected
+
+          termKey bmaResult `shouldBe` ScientificValue 1000.0
+          termsDocCount bmaResult `shouldBe` 1
+          bmaBucket `shouldBe` bmaBucketExpected
+
+
   describe "Highlights API" $ do
 
     it "returns highlight from query when there should be one" $ withTestEnv $ do

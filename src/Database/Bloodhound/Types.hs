@@ -1786,15 +1786,15 @@ class BucketAggregation a where
   aggs :: a -> Maybe AggregationResults
 
 
-data Bucket a = Bucket { buckets :: [a]} deriving (Show)
+data Bucket a = Bucket { buckets :: [a]} deriving (Show, Eq)
 
 data BucketValue = TextValue Text
                  | ScientificValue Scientific
-                 | BoolValue Bool deriving (Show)
+                 | BoolValue Bool deriving (Show, Eq)
 
 data TermsResult = TermsResult { termKey       :: BucketValue
                                , termsDocCount :: Int
-                               , termsAggs     :: Maybe AggregationResults } deriving (Show)
+                               , termsAggs     :: Maybe AggregationResults } deriving (Show, Eq)
 
 data DateHistogramResult = DateHistogramResult { dateKey           :: Int
                                                , dateKeyStr        :: Maybe Text
