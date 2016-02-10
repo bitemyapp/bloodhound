@@ -52,7 +52,7 @@ Hackage page and Haddock documentation
 Elasticsearch Tutorial
 ======================
 
-It's not using Bloodhound, but if you need an introduction to or overview of Elasticsearch and how to use it, you can use [this screencast](http://vimeo.com/106463167).
+It's not using Bloodhound, but if you need an introduction to or overview of Elasticsearch and how to use it, you can use [this screencast](https://vimeo.com/106463167).
 
 Examples
 ========
@@ -834,7 +834,7 @@ let ta'  = ta { termCollectMode = Just BreadthFirst }
 let ta'' = TermsAgg ta'
 ```
 
-For more documentation on how the Terms Aggregation works, see <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html>
+For more documentation on how the Terms Aggregation works, see <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html>
 
 #### Date Histogram Aggregation
 
@@ -887,7 +887,7 @@ It is an instance of `BucketAggregation`, and can have nested aggregations in ea
 Buckets can be extracted from an `AggregationResult` using
 `toDateHistogram name`
 
-For more information on the Date Histogram Aggregation, see: <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html>
+For more information on the Date Histogram Aggregation, see: <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html>
 
 
 Contributors
@@ -910,12 +910,12 @@ Possible future functionality
 Span Queries
 ------------
 
-Beginning here: <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-span-first-query.html>
+Beginning here: <https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-span-first-query.html>
 
 Function Score Query
 --------------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html>
 
 Node discovery and failover
 ---------------------------
@@ -935,42 +935,42 @@ Might require making a lucene index on disk with the appropriate format.
 GeoShapeQuery
 -------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-query.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-query.html>
 
 GeoShapeFilter
 --------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-filter.html>
 
 Geohash cell filter
 -------------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geohash-cell-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geohash-cell-filter.html>
 
 HasChild Filter
 ---------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-child-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-has-child-filter.html>
 
 HasParent Filter
 ----------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-parent-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-has-parent-filter.html>
 
 Indices Filter
 --------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-indices-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-indices-filter.html>
 
 Query Filter
 ------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-filter.html>
 
 Script based sorting
 --------------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_script_based_sorting>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#_script_based_sorting>
 
 Collapsing redundantly nested and/or structures
 -----------------------------------------------
