@@ -13,7 +13,7 @@
 -------------------------------------------------------------------------------
 -- |
 -- Module : Database.Bloodhound.Types
--- Copyright : (C) 2014 Chris Allen
+-- Copyright : (C) 2014, 2015, 2016 Chris Allen
 -- License : BSD-style (see the file LICENSE)
 -- Maintainer : Chris Allen <cma@bitemyapp.com
 -- Stability : provisional
@@ -2082,6 +2082,7 @@ instance ToJSON Query where
   toJSON (TermsQuery fieldName terms) =
     object [ "terms" .= object conjoined ]
     where conjoined = [fieldName .= terms]
+
   toJSON (IdsQuery idsQueryMappingName docIds) =
     object [ "ids" .= object conjoined ]
     where conjoined = [ "type"   .= idsQueryMappingName
