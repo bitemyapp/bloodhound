@@ -23,12 +23,26 @@ Version compatibility
 
 Elasticsearch \>=1.0 && \<2.0 is recommended. Bloodhound mostly works with 0.9.x, but I don't recommend it if you expect everything to work. As of Bloodhound 0.3 all \>=1.0 && \<2.0 versions of Elasticsearch work. Some (or even most?) features will work with versions \>=2.0, but it is not officially supported yet.
 
-Current versions we test against are 1.0.3, 1.1.2, 1.2.3, 1.3.2, and 1.4.0. We also check that GHC 7.6 and 7.8 both build and pass tests. See our [TravisCI](https://travis-ci.org/bitemyapp/bloodhound) to learn more.
+Current versions we test against are 1.2.4, 1.3.6, 1.4.1, 1.5.2, 1.6.0, and 1.7.2. We also check that GHC 7.6 and 7.8 both build and pass tests. See our [TravisCI](https://travis-ci.org/bitemyapp/bloodhound) to learn more.
 
 Stability
 ---------
 
 Bloodhound is stable for production use. I will strive to avoid breaking API compatibility from here on forward, but dramatic features like a type-safe, fully integrated mapping API may require breaking things in the future.
+
+Testing
+---------
+
+The TravisCI tests are run using [Stack](http://docs.haskellstack.org/en/stable/README.html). You should use Stack instead of `cabal` to build and test Bloodhound to avoid compatibility problems. You will also need to have an ElasticSearch instance running at `localhost:9200` in order to execute some of the tests. See the "Version compatibility" section above for a list of ElasticSearch versions that are officially validated against in TravisCI.
+
+Steps to run the tests locally:
+  1. Dig through the [past releases] (https://www.elastic.co/downloads/past-releases) section of the ElasticSearch download page and install the desired ElasticSearch versions.
+  2. Install [Stack] (http://docs.haskellstack.org/en/stable/README.html#how-to-install)
+  3. In your local Bloodhound directory, run `stack setup && stack build`
+  4. Start the desired version of ElasticSearch at `localhost:9200`, which should be the default.
+  5. Run `stack test` in your local Bloodhound directory.
+  6. The unit tests will pass if you re-execute `stack test`, but some of the doctests might fail due to existing data in ElasticSearch. If you want to start with a clean slate, stop your ElasticSearch instance, delete the `data/` folder in the ElasticSearch installation, restart ElasticSearch, and re-run `stack test`.
+
 
 Hackage page and Haddock documentation
 ======================================
@@ -38,7 +52,7 @@ Hackage page and Haddock documentation
 Elasticsearch Tutorial
 ======================
 
-It's not using Bloodhound, but if you need an introduction to or overview of Elasticsearch and how to use it, you can use [this screencast](http://vimeo.com/106463167).
+It's not using Bloodhound, but if you need an introduction to or overview of Elasticsearch and how to use it, you can use [this screencast](https://vimeo.com/106463167).
 
 Examples
 ========
@@ -820,7 +834,7 @@ let ta'  = ta { termCollectMode = Just BreadthFirst }
 let ta'' = TermsAgg ta'
 ```
 
-For more documentation on how the Terms Aggregation works, see <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html>
+For more documentation on how the Terms Aggregation works, see <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html>
 
 #### Date Histogram Aggregation
 
@@ -873,7 +887,7 @@ It is an instance of `BucketAggregation`, and can have nested aggregations in ea
 Buckets can be extracted from an `AggregationResult` using
 `toDateHistogram name`
 
-For more information on the Date Histogram Aggregation, see: <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html>
+For more information on the Date Histogram Aggregation, see: <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html>
 
 
 Contributors
@@ -896,12 +910,12 @@ Possible future functionality
 Span Queries
 ------------
 
-Beginning here: <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-span-first-query.html>
+Beginning here: <https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-span-first-query.html>
 
 Function Score Query
 --------------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html>
 
 Node discovery and failover
 ---------------------------
@@ -921,42 +935,42 @@ Might require making a lucene index on disk with the appropriate format.
 GeoShapeQuery
 -------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-query.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-query.html>
 
 GeoShapeFilter
 --------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geo-shape-filter.html>
 
 Geohash cell filter
 -------------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-geohash-cell-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geohash-cell-filter.html>
 
 HasChild Filter
 ---------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-child-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-has-child-filter.html>
 
 HasParent Filter
 ----------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-parent-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-has-parent-filter.html>
 
 Indices Filter
 --------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-indices-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-indices-filter.html>
 
 Query Filter
 ------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-filter.html>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-filter.html>
 
 Script based sorting
 --------------------
 
-<http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_script_based_sorting>
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#_script_based_sorting>
 
 Collapsing redundantly nested and/or structures
 -----------------------------------------------

@@ -10,3 +10,4 @@ bloodhound-*-docs/
 bloodhound-*-docs.tar.gz
 bloodhound.iml
 .idea/
+.stack-work/
