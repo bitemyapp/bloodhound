@@ -4,7 +4,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NoMonomorphismRestriction  #-}
+-- {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE UndecidableInstances       #-}
@@ -311,6 +311,7 @@ import           Database.Bloodhound.Types.Internal
 
 -- $setup
 -- >>> :set -XOverloadedStrings
+-- >>> import Data.Aeson
 -- >>> import Database.Bloodhound
 -- >>> let testServer = (Server "http://localhost:9200")
 -- >>> let testIndex = IndexName "twitter"
@@ -2484,7 +2485,8 @@ instance FromJSON MoreLikeThisFieldQuery where
                     <*> o .:? "percent_terms_to_match"
                     <*> o .:? "min_term_freq"
                     <*> o .:? "max_query_terms"
-                    <*> (optionalNE =<< o .:? "stop_words")
+                    -- <*> (optionalNE =<< o .:? "stop_words")
+                    <*> o .:? "stop_words"
                     <*> o .:? "min_doc_freq"
                     <*> o .:? "max_doc_freq"
                     <*> o .:? "min_word_length"
@@ -2492,7 +2494,7 @@ instance FromJSON MoreLikeThisFieldQuery where
                     <*> o .:? "boost_terms"
                     <*> o .:? "boost"
                     <*> o .:? "analyzer"
-          optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
+          -- optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
 
 instance ToJSON MoreLikeThisQuery where
   toJSON (MoreLikeThisQuery text fields percent
@@ -2517,11 +2519,13 @@ instance FromJSON MoreLikeThisQuery where
   parseJSON = withObject "MoreLikeThisQuery" parse
     where parse o = MoreLikeThisQuery
                     <$> o .: "like_text"
-                    <*> (optionalNE =<< o .:? "fields")
+                    -- <*> (optionalNE =<< o .:? "fields")
+                    <*> o .:? "fields"
                     <*> o .:? "percent_terms_to_match"
                     <*> o .:? "min_term_freq"
                     <*> o .:? "max_query_terms"
-                    <*> (optionalNE =<< o .:? "stop_words")
+                    -- <*> (optionalNE =<< o .:? "stop_words")
+                    <*> o .:? "stop_words"
                     <*> o .:? "min_doc_freq"
                     <*> o .:? "max_doc_freq"
                     <*> o .:? "min_word_length"
@@ -2529,7 +2533,7 @@ instance FromJSON MoreLikeThisQuery where
                     <*> o .:? "boost_terms"
                     <*> o .:? "boost"
                     <*> o .:? "analyzer"
-          optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
+          -- optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
 
 instance ToJSON IndicesQuery where
   toJSON (IndicesQuery indices query noMatch) =
