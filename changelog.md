@@ -1,3 +1,41 @@
+0.11.0.0
+===================
+
+Thanks to the following people, Bloodhound 0.10.0.0 is being released! This one gets a bit messy due to the Aeson 0.11 changeover, but this should be good to go now. Note that Aeson 0.11 returned to Aeson 0.9's behavior and semantics.
+
+* @MichaelXavier
+  - #112 List indices support
+  - #94 Implement index optimization
+  - #91 Make `respIsTwoHunna` more semantic
+    - More detail: This is actually the cause of a bug in real code. If you happen to be
+      using parseEsResponse (which uses respIsTwoHunna) to parse the result of
+      certain operations such as creating an index, those operations return a
+      201 and unjustly are deemed to be a failure.
+  - Cleaned up errant Haskell tokens in README
+  - #84 Added request auth hooks
+
+* @dzhus / @MailOnline
+  - #85 Add updateDocument
+
+* @ReadmeCritic
+  - #108 Update README URLs based on HTTP redirects
+
+* @MHova
+  - #105 Add helper data types and functions for Missing Aggregations
+  - Removed unused server versions from the tests
+  - Updated readme to reflect actual ES versions supported and tested
+  - Added support for parsing results of Missing Aggregations
+  - #104 Export BucketValue
+  - #102 Add local testing instructions to the README
+  - #89 Support Bool and Numeric keys in TermsResults
+  - Added Missing Aggregation support
+  - #98 Improve EsProtocolException documentation for human error
+  - Updated README to warn about 2.0 compatibility
+  - Fix docs specifying an incorrect terminating condition
+
+* @bitemyapp
+  - Merge monkey, puzzled over spurious local doctest failures
+
 0.10.0.0
 ===================
 
