@@ -33,6 +33,7 @@ install:
 
 script:
   - stack setup
+  - stack update
   - stack build
   - stack test
 
