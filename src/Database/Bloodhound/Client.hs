@@ -31,6 +31,7 @@ module Database.Bloodhound.Client
        , indexExists
        , openIndex
        , closeIndex
+       , listIndices
        , updateIndexAliases
        , getIndexAliases
        , putTemplate
@@ -430,6 +431,19 @@ openIndex = openOrCloseIndexes OpenIndex
 closeIndex :: MonadBH m => IndexName -> m Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
+-- | 'listIndices' returns a list of all index names on a given 'Server'
+listIndices :: (MonadThrow m, MonadBH m) => m [IndexName]
+listIndices =
+  parse . responseBody =<< get =<< url
+  where
+    url = joinPath ["_cat/indices?v"]
+    -- parses the tabular format the indices api provides
+    parse body = case T.lines (T.decodeUtf8 (L.toStrict body)) of
+      (hdr:rows) -> let ks = T.words hdr
+                        keyedRows = [ HM.fromList (zip ks (T.words row)) | row <- rows ]
+                        names = catMaybes (HM.lookup "index" <$> keyedRows)
+                    in return (IndexName <$> names)
+      [] -> throwM (EsProtocolException body)
 
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at

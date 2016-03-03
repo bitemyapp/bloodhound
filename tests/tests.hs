@@ -1426,6 +1426,12 @@ main = hspec $ do
               L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
             Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)) `finally` cleanup
 
+  describe "Index Listing" $ do
+    it "returns a list of index names" $ withTestEnv $ do
+      _ <- createExampleIndex
+      ixns <- listIndices
+      liftIO (ixns `shouldContain` [testIndex])
+
   describe "Index Settings" $ do
     it "persists settings" $ withTestEnv $ do
       _ <- deleteExampleIndex
