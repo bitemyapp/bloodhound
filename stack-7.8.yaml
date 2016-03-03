@@ -15,4 +15,5 @@ extra-deps:
 - semigroups-0.18.0.1
 - tagged-0.8.3
 - uri-bytestring-0.1.9
+- void-0.7.1
 resolver: lts-2.18
