@@ -5,10 +5,13 @@ packages:
 - '.'
 extra-deps:
 - aeson-0.11.1.0
+- fail-4.9.0.0
 - http-types-0.9
 - http-client-0.4.24
 - attoparsec-0.13.0.1
 - doctest-0.10.1
 - doctest-prop-0.2.0.1
 - quickcheck-properties-0.1
+- semigroups-0.18.0.1
+- uri-bytestring-0.1.9
 resolver: lts-2.18
