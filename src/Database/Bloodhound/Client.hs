@@ -591,7 +591,7 @@ deleteDocument (IndexName indexName)
 -- | 'bulk' uses
 --    <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
 --    to perform bulk operations. The 'BulkOperation' data type encodes the
---    index/update/delete/create operations. You pass a 'V.Vector' of 'BulkOperation's
+--    index\/update\/delete\/create operations. You pass a 'V.Vector' of 'BulkOperation's
 --    and a 'Server' to 'bulk' in order to send those operations up to your Elasticsearch
 --    server to be performed. I changed from [BulkOperation] to a Vector due to memory overhead.
 --
