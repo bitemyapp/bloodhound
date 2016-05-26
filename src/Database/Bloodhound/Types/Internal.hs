@@ -62,7 +62,9 @@ newServerNoSniff addr = do
     return (Server rr)
 
 {- | make a 'Server' with automatic cluster sniffing, see
-    <https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-nodes-info.html>
+    <https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-nodes-info.html>.
+    You may also want to change 'managerConnCount' when creating a 'Manager',
+    it should be larger than your cluster's maximum node count.
 -}
 newServer :: String
     -> Int      -- ^ sniffing frequence in microsecond.

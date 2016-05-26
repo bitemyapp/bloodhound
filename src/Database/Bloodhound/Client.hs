@@ -23,6 +23,7 @@ module Database.Bloodhound.Client
 
          -- $setup
          withBH
+       , withBH'
        , createIndex
        , deleteIndex
        , updateIndexSettings
@@ -225,6 +226,13 @@ withBH ms s f = do
   mgr <- newManager ms
   let env = mkBHEnv s mgr
   runBH env f
+
+-- | Same with 'withBH', but don't create a new 'Manager'.
+-- Useful when enable cluster sniffing(so you can reuse sniffing's manager).
+-- It's also suggested that don't reuse manager with other http client
+-- when enable cluster sniffing.
+withBH' :: Manager -> Server -> BH IO a -> IO a
+withBH' mgr s f = runBH (mkBHEnv s mgr) f
 
 -- Shortcut functions for HTTP methods
 delete :: MonadBH m => Text -> m Reply
