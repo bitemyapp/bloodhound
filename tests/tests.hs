@@ -44,15 +44,15 @@ import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck
 
-testServer  :: Server
-testServer  = Server "http://localhost:9200"
 testIndex   :: IndexName
 testIndex   = IndexName "bloodhound-tests-twitter-1"
 testMapping :: MappingName
 testMapping = MappingName "tweet"
 
 withTestEnv :: BH IO a -> IO a
-withTestEnv = withBH defaultManagerSettings testServer
+withTestEnv bh = do
+    testServer <- newServerNoSniff "http://localhost:9200"
+    withBH defaultManagerSettings testServer bh
 
 validateStatus :: Response body -> Int -> Expectation
 validateStatus resp expected =
