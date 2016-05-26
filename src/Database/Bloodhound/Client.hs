@@ -72,35 +72,36 @@ module Database.Bloodhound.Client
        )
        where
 
-import qualified Blaze.ByteString.Builder     as BB
+import qualified Blaze.ByteString.Builder       as BB
+import qualified Blaze.ByteString.Builder.Char8 as BB
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
-import qualified Data.ByteString.Lazy.Char8   as L
-import           Data.Foldable                (toList)
-import qualified Data.HashMap.Strict          as HM
+import qualified Data.ByteString.Lazy.Char8     as L
+import           Data.Foldable                  (toList)
+import qualified Data.HashMap.Strict            as HM
 import           Data.Ix
-import qualified Data.List                    as LS (filter, foldl')
-import           Data.List.NonEmpty           (NonEmpty (..))
-import           Data.Maybe                   (catMaybes, fromMaybe, isJust)
+import qualified Data.List                      as LS (filter, foldl')
+import           Data.List.NonEmpty             (NonEmpty (..))
+import           Data.Maybe                     (catMaybes, fromMaybe, isJust)
 import           Data.Monoid
-import           Data.Text                    (Text)
-import qualified Data.Text                    as T
-import qualified Data.Text.Encoding           as T
+import           Data.Text                      (Text)
+import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as T
 import           Data.Time.Clock
-import qualified Data.Vector                  as V
+import qualified Data.Vector                    as V
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method    as NHTM
-import qualified Network.HTTP.Types.Status    as NHTS
-import qualified Network.HTTP.Types.URI       as NHTU
-import qualified Network.URI                  as URI
-import           Prelude                      hiding (filter, head)
+import qualified Network.HTTP.Types.Method      as NHTM
+import qualified Network.HTTP.Types.Status      as NHTS
+import qualified Network.HTTP.Types.URI         as NHTU
+import qualified Network.URI                    as URI
+import           Prelude                        hiding (filter, head)
 
+import qualified Data.RoundRobin                as RR
 import           Database.Bloodhound.Types
-import qualified Data.RoundRobin              as RR
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -185,10 +186,12 @@ dispatch dMethod path' body = do
   initReq <- liftIO (RR.select s)
   reqHook <- bhRequestHook <$> getBHEnv
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
-  req <- liftIO $ reqHook $ initReq { method = dMethod
-                                    , path   = T.encodeUtf8 path'
-                                    , requestBody = reqBody
-                                    , checkStatus = \_ _ _ -> Nothing}
+  req <- liftIO $ reqHook $ initReq
+    { method = dMethod
+    , path = BB.toByteString . BB.fromString . URI.escapeURIString URI.isUnescapedInURI $ T.unpack path'
+    , requestBody = reqBody
+    , checkStatus = \_ _ _ -> Nothing
+    }
   mgr <- bhManager <$> getBHEnv
   liftIO (httpLbs req mgr)
 
