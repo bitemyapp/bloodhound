@@ -1,6 +1,6 @@
 0.12.0.0
 ===================
-Add automagic cluster sniffing.
+Add automatic cluster sniffing.
 
 0.11.0.0
 ===================

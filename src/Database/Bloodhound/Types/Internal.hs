@@ -88,7 +88,7 @@ newServer addr freq mgr = do
             Just []   -> error "bloodhound: sniffing no nodes"
             Just reqs -> return reqs
 
-{- | default sniffing frequence: 15mins(15 * 60 * 10000000us).
+{- | default sniffing frequence: 15mins(15 * 60 * 1000000us).
 -}
 defSniffFreq :: Int
 defSniffFreq = 15 * 60 * 1000000
