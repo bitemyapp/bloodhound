@@ -305,6 +305,7 @@ import           GHC.Enum
 import           GHC.Generics                       (Generic)
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method          as NHTM
+import qualified Text.Read                          as TR
 
 import           Database.Bloodhound.Types.Class
 import           Database.Bloodhound.Types.Internal
@@ -1566,7 +1567,7 @@ data TimeInterval = Weeks
                   | Days
                   | Hours
                   | Minutes
-                  | Seconds deriving (Eq, Read)
+                  | Seconds deriving Eq
 
 data Interval = Year
               | Quarter
@@ -1711,6 +1712,16 @@ instance Show TimeInterval where
   show Hours    = "h"
   show Minutes  = "m"
   show Seconds  = "s"
+
+instance Read TimeInterval where
+  readPrec = f =<< TR.get
+    where
+      f 'w' = return Weeks
+      f 'd' = return Days
+      f 'h' = return Hours
+      f 'm' = return Minutes
+      f 's' = return Seconds
+      f  _  = fail "TimeInterval expected one of w, d, h, m, s"
 
 instance ToJSON Aggregation where
   toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
