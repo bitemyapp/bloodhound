@@ -76,6 +76,9 @@ module Database.Bloodhound.Types
        , CompoundFormat(..)
        , IndexTemplate(..)
        , Server(..)
+       , newServerNoSniff
+       , newServer
+       , defSniffFreq
        , Reply
        , EsResult(..)
        , EsResultFound(..)
@@ -313,7 +316,7 @@ import           Database.Bloodhound.Types.Internal
 -- >>> :set -XOverloadedStrings
 -- >>> import Data.Aeson
 -- >>> import Database.Bloodhound
--- >>> let testServer = (Server "http://localhost:9200")
+-- >>> testServer <- newServerNoSniff "http://localhost:9200"
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
 -- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)

@@ -84,7 +84,7 @@ import Network.HTTP.Client
 import qualified Network.HTTP.Types.Status as NHTS
 
 -- no trailing slashes in servers, library handles building the path.
-let testServer = (Server "http://localhost:9200")
+testServer <- newServerNoSniff "http://localhost:9200"
 let testIndex = IndexName "twitter"
 let testMapping = MappingName "tweet"
 let withBH' = withBH defaultManagerSettings testServer

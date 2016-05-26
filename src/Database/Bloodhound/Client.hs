@@ -106,7 +106,7 @@ import qualified Data.RoundRobin              as RR
 -- >>> :set -XDeriveGeneric
 -- >>> import Database.Bloodhound
 -- >>> import Test.DocTest.Prop (assert)
--- >>> let testServer = (Server "http://localhost:9200")
+-- >>> testServer <- newServerNoSniff "http://localhost:9200"
 -- >>> let runBH' = withBH defaultManagerSettings testServer
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
