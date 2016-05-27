@@ -16,4 +16,5 @@ extra-deps:
 - tagged-0.8.3
 - uri-bytestring-0.1.9
 - void-0.7.1
+- roundRobin-0.1.1.0
 resolver: lts-2.18

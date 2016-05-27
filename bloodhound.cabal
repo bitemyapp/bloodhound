@@ -1,5 +1,5 @@
 name:                bloodhound
-version:             0.11.0.0
+version:             0.12.0.0
 synopsis:            ElasticSearch client library for Haskell
 description:         ElasticSearch made awesome for Haskell hackers
 homepage:            https://github.com/bitemyapp/bloodhound
@@ -48,7 +48,8 @@ library
                        blaze-builder,
                        unordered-containers,
                        mtl-compat,
-                       hashable
+                       hashable,
+                       roundRobin       >= 0.1.1   && <0.2
   default-language:    Haskell2010
 
 test-suite tests

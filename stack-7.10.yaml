@@ -12,4 +12,5 @@ extra-deps:
 - quickcheck-properties-0.1
 - semigroups-0.18.0.1
 - uri-bytestring-0.1.9
+- roundRobin-0.1.1.0
 resolver: lts-5.1

@@ -23,6 +23,7 @@ module Database.Bloodhound.Client
 
          -- $setup
          withBH
+       , withBH'
        , createIndex
        , deleteIndex
        , updateIndexSettings
@@ -71,33 +72,35 @@ module Database.Bloodhound.Client
        )
        where
 
-import qualified Blaze.ByteString.Builder     as BB
+import qualified Blaze.ByteString.Builder       as BB
+import qualified Blaze.ByteString.Builder.Char8 as BB
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
-import qualified Data.ByteString.Lazy.Char8   as L
-import           Data.Foldable                (toList)
-import qualified Data.HashMap.Strict          as HM
+import qualified Data.ByteString.Lazy.Char8     as L
+import           Data.Foldable                  (toList)
+import qualified Data.HashMap.Strict            as HM
 import           Data.Ix
-import qualified Data.List                    as LS (filter, foldl')
-import           Data.List.NonEmpty           (NonEmpty (..))
-import           Data.Maybe                   (catMaybes, fromMaybe, isJust)
+import qualified Data.List                      as LS (filter, foldl')
+import           Data.List.NonEmpty             (NonEmpty (..))
+import           Data.Maybe                     (catMaybes, fromMaybe, isJust)
 import           Data.Monoid
-import           Data.Text                    (Text)
-import qualified Data.Text                    as T
-import qualified Data.Text.Encoding           as T
+import           Data.Text                      (Text)
+import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as T
 import           Data.Time.Clock
-import qualified Data.Vector                  as V
+import qualified Data.Vector                    as V
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method    as NHTM
-import qualified Network.HTTP.Types.Status    as NHTS
-import qualified Network.HTTP.Types.URI       as NHTU
-import qualified Network.URI                  as URI
-import           Prelude                      hiding (filter, head)
+import qualified Network.HTTP.Types.Method      as NHTM
+import qualified Network.HTTP.Types.Status      as NHTS
+import qualified Network.HTTP.Types.URI         as NHTU
+import qualified Network.URI                    as URI
+import           Prelude                        hiding (filter, head)
 
+import qualified Data.RoundRobin                as RR
 import           Database.Bloodhound.Types
 
 -- $setup
@@ -105,7 +108,7 @@ import           Database.Bloodhound.Types
 -- >>> :set -XDeriveGeneric
 -- >>> import Database.Bloodhound
 -- >>> import Test.DocTest.Prop (assert)
--- >>> let testServer = (Server "http://localhost:9200")
+-- >>> testServer <- newServerNoSniff "http://localhost:9200"
 -- >>> let runBH' = withBH defaultManagerSettings testServer
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
@@ -178,23 +181,22 @@ emptyBody = L.pack ""
 
 dispatch :: MonadBH m => Method -> Text -> Maybe L.ByteString
             -> m Reply
-dispatch dMethod url body = do
-  initReq <- liftIO $ parseUrl' url
+dispatch dMethod path' body = do
+  Server s <- bhServer <$> getBHEnv
+  initReq <- liftIO (RR.select s)
   reqHook <- bhRequestHook <$> getBHEnv
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
-  req <- liftIO $ reqHook $ initReq { method = dMethod
-                                    , requestBody = reqBody
-                                    , checkStatus = \_ _ _ -> Nothing}
+  req <- liftIO $ reqHook $ initReq
+    { method = dMethod
+    , path = BB.toByteString . BB.fromString . URI.escapeURIString URI.isUnescapedInURI $ T.unpack path'
+    , requestBody = reqBody
+    , checkStatus = \_ _ _ -> Nothing
+    }
   mgr <- bhManager <$> getBHEnv
-  liftIO $ httpLbs req mgr
+  liftIO (httpLbs req mgr)
 
-joinPath' :: [Text] -> Text
-joinPath' = T.intercalate "/"
-
-joinPath :: MonadBH m => [Text] -> m Text
-joinPath ps = do
-  Server s <- bhServer <$> getBHEnv
-  return $ joinPath' (s:ps)
+joinPath :: [Text] -> Text
+joinPath = T.intercalate "/"
 
 appendSearchTypeParam :: Text -> SearchType -> Text
 appendSearchTypeParam originalUrl st = addQuery params originalUrl
@@ -217,9 +219,6 @@ addQuery q u = u <> rendered
       T.decodeUtf8 $ BB.toByteString $ NHTU.renderQueryText prependQuestionMark q
     prependQuestionMark = True
 
-bindM2 :: (Applicative m, Monad m) => (a -> b -> m c) -> m a -> m b -> m c
-bindM2 f ma mb = join (f <$> ma <*> mb)
-
 -- | Convenience function that sets up a manager and BHEnv and runs
 -- the given set of bloodhound operations. Connections will be
 -- pipelined automatically in accordance with the given manager
@@ -230,6 +229,13 @@ withBH ms s f = do
   mgr <- newManager ms
   let env = mkBHEnv s mgr
   runBH env f
+
+-- | Same with 'withBH', but don't create a new 'Manager'.
+-- Useful when enable cluster sniffing(so you can reuse sniffing's manager).
+-- It's also suggested that don't reuse manager with other http client
+-- when enable cluster sniffing.
+withBH' :: Manager -> Server -> BH IO a -> IO a
+withBH' mgr s f = runBH (mkBHEnv s mgr) f
 
 -- Shortcut functions for HTTP methods
 delete :: MonadBH m => Text -> m Reply
@@ -254,7 +260,7 @@ post   = dispatch NHTM.methodPost
 -- Just 200
 getStatus :: MonadBH m => m (Maybe Status)
 getStatus = do
-  response <- get =<< url
+  response <- get url
   return $ decode (responseBody response)
   where url = joinPath []
 
@@ -267,9 +273,9 @@ getStatus = do
 -- True
 createIndex :: MonadBH m => IndexSettings -> IndexName -> m Reply
 createIndex indexSettings (IndexName indexName) =
-  bindM2 put url (return body)
+  put url body
   where url = joinPath [indexName]
-        body = Just $ encode indexSettings
+        body = Just (encode indexSettings)
 
 
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
@@ -281,8 +287,7 @@ createIndex indexSettings (IndexName indexName) =
 -- >>> runBH' $ indexExists testIndex
 -- False
 deleteIndex :: MonadBH m => IndexName -> m Reply
-deleteIndex (IndexName indexName) =
-  delete =<< joinPath [indexName]
+deleteIndex (IndexName indexName) = delete (joinPath [indexName])
 
 -- | 'updateIndexSettings' will apply a non-empty list of setting updates to an index
 --
@@ -292,7 +297,7 @@ deleteIndex (IndexName indexName) =
 -- True
 updateIndexSettings :: MonadBH m => NonEmpty UpdatableIndexSetting -> IndexName -> m Reply
 updateIndexSettings updates (IndexName indexName) =
-  bindM2 put url (return body)
+  put url body
   where url = joinPath [indexName, "_settings"]
         body = Just (encode jsonBody)
         jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
@@ -301,7 +306,7 @@ updateIndexSettings updates (IndexName indexName) =
 getIndexSettings :: (MonadBH m, MonadThrow m) => IndexName
                  -> m (Either EsError IndexSettingsSummary)
 getIndexSettings (IndexName indexName) = do
-  parseEsResponse =<< get =<< url
+  parseEsResponse =<< get url
   where url = joinPath [indexName, "_settings"]
 
 
@@ -330,8 +335,8 @@ getIndexSettings (IndexName indexName) = do
 -- True
 optimizeIndex :: MonadBH m => IndexSelection -> IndexOptimizationSettings -> m Reply
 optimizeIndex ixs IndexOptimizationSettings {..} =
-    bindM2 post url (return body)
-  where url = addQuery params <$> joinPath [indexName, "_optimize"]
+    post url body
+  where url = addQuery params $ joinPath [indexName, "_optimize"]
         params = catMaybes [ ("max_num_segments",) . Just . showText <$> maxNumSegments
                            , Just ("only_expunge_deletes", Just (boolQP onlyExpungeDeletes))
                            , Just ("flush", Just (boolQP flushAfterOptimize))
@@ -393,7 +398,7 @@ parseEsResponse reply
 -- >>> exists <- runBH' $ indexExists testIndex
 indexExists :: MonadBH m => IndexName -> m Bool
 indexExists (IndexName indexName) = do
-  (_, exists) <- existentialQuery =<< joinPath [indexName]
+  (_, exists) <- existentialQuery (joinPath [indexName])
   return exists
 
 -- | 'refreshIndex' will force a refresh on an index. You must
@@ -403,7 +408,7 @@ indexExists (IndexName indexName) = do
 -- >>> _ <- runBH' $ refreshIndex testIndex
 refreshIndex :: MonadBH m => IndexName -> m Reply
 refreshIndex (IndexName indexName) =
-  bindM2 post url (return Nothing)
+  post url Nothing
   where url = joinPath [indexName, "_refresh"]
 
 stringifyOCIndex :: OpenCloseIndex -> Text
@@ -413,7 +418,7 @@ stringifyOCIndex oci = case oci of
 
 openOrCloseIndexes :: MonadBH m => OpenCloseIndex -> IndexName -> m Reply
 openOrCloseIndexes oci (IndexName indexName) =
-  bindM2 post url (return Nothing)
+  post url Nothing
   where ociString = stringifyOCIndex oci
         url = joinPath [indexName, ociString]
 
@@ -434,7 +439,7 @@ closeIndex = openOrCloseIndexes CloseIndex
 -- | 'listIndices' returns a list of all index names on a given 'Server'
 listIndices :: (MonadThrow m, MonadBH m) => m [IndexName]
 listIndices =
-  parse . responseBody =<< get =<< url
+  parse . responseBody =<< get url
   where
     url = joinPath ["_cat/indices?v"]
     -- parses the tabular format the indices api provides
@@ -463,7 +468,7 @@ listIndices =
 -- >>> runBH' $ indexExists aliasName
 -- True
 updateIndexAliases :: MonadBH m => NonEmpty IndexAliasAction -> m Reply
-updateIndexAliases actions = bindM2 post url (return body)
+updateIndexAliases actions = post url body
   where url = joinPath ["_aliases"]
         body = Just (encode bodyJSON)
         bodyJSON = object [ "actions" .= toList actions]
@@ -471,7 +476,7 @@ updateIndexAliases actions = bindM2 post url (return body)
 -- | Get all aliases configured on the server.
 getIndexAliases :: (MonadBH m, MonadThrow m)
                 => m (Either EsError IndexAliasesSummary)
-getIndexAliases = parseEsResponse =<< get =<< url
+getIndexAliases = parseEsResponse =<< get url
   where url = joinPath ["_aliases"]
 
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
@@ -482,16 +487,16 @@ getIndexAliases = parseEsResponse =<< get =<< url
 --   >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
 putTemplate :: MonadBH m => IndexTemplate -> TemplateName -> m Reply
 putTemplate indexTemplate (TemplateName templateName) =
-  bindM2 put url (return body)
+  put url body
   where url = joinPath ["_template", templateName]
-        body = Just $ encode indexTemplate
+        body = Just (encode indexTemplate)
 
 -- | 'templateExists' checks to see if a template exists.
 --
 --   >>> exists <- runBH' $ templateExists (TemplateName "tweet-tpl")
 templateExists :: MonadBH m => TemplateName -> m Bool
 templateExists (TemplateName templateName) = do
-  (_, exists) <- existentialQuery =<< joinPath ["_template", templateName]
+  (_, exists) <- existentialQuery $ joinPath ["_template", templateName]
   return exists
 
 -- | 'deleteTemplate' is an HTTP DELETE and deletes a template.
@@ -501,7 +506,7 @@ templateExists (TemplateName templateName) = do
 --   >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
 deleteTemplate :: MonadBH m => TemplateName -> m Reply
 deleteTemplate (TemplateName templateName) =
-  delete =<< joinPath ["_template", templateName]
+  delete (joinPath ["_template", templateName])
 
 -- | 'putMapping' is an HTTP PUT and has upsert semantics. Mappings are schemas
 -- for documents in indexes.
@@ -513,11 +518,11 @@ deleteTemplate (TemplateName templateName) =
 putMapping :: (MonadBH m, ToJSON a) => IndexName
                  -> MappingName -> a -> m Reply
 putMapping (IndexName indexName) (MappingName mappingName) mapping =
-  bindM2 put url (return body)
+  put url body
   where url = joinPath [indexName, "_mapping", mappingName]
         -- "_mapping" and mappingName above were originally transposed
         -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
-        body = Just $ encode mapping
+        body = Just (encode mapping)
 
 -- | 'deleteMapping' is an HTTP DELETE and deletes a mapping for a given index.
 -- Mappings are schemas for documents in indexes.
@@ -532,7 +537,7 @@ deleteMapping (IndexName indexName)
   (MappingName mappingName) =
   -- "_mapping" and mappingName below were originally transposed
   -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
-  delete =<< joinPath [indexName, "_mapping", mappingName]
+  delete (joinPath [indexName, "_mapping", mappingName])
 
 versionCtlParams :: IndexDocumentSettings -> [(Text, Maybe Text)]
 versionCtlParams cfg =
@@ -560,8 +565,8 @@ indexDocument :: (ToJSON doc, MonadBH m) => IndexName -> MappingName
                  -> IndexDocumentSettings -> doc -> DocId -> m Reply
 indexDocument (IndexName indexName)
   (MappingName mappingName) cfg document (DocId docId) =
-  bindM2 put url (return body)
-  where url = addQuery params <$> joinPath [indexName, mappingName, docId]
+  put url body
+  where url = addQuery params (joinPath [indexName, mappingName, docId])
         parentParams = case idsParent cfg of
           Nothing -> []
           Just (DocumentParent (DocId p)) -> [ ("parent", Just p) ]
@@ -574,8 +579,8 @@ updateDocument :: (ToJSON patch, MonadBH m) => IndexName -> MappingName
                   -> IndexDocumentSettings -> patch -> DocId -> m Reply
 updateDocument (IndexName indexName)
   (MappingName mappingName) cfg patch (DocId docId) =
-  bindM2 post url (return body)
-  where url = addQuery (versionCtlParams cfg) <$>
+  post url body
+  where url = addQuery (versionCtlParams cfg) $
               joinPath [indexName, mappingName, docId, "_update"]
         body = Just (encode $ object ["doc" .= toJSON patch])
 
@@ -586,7 +591,7 @@ deleteDocument :: MonadBH m => IndexName -> MappingName
                   -> DocId -> m Reply
 deleteDocument (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
-  delete =<< joinPath [indexName, mappingName, docId]
+  delete (joinPath [indexName, mappingName, docId])
 
 -- | 'bulk' uses
 --    <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
@@ -599,9 +604,9 @@ deleteDocument (IndexName indexName)
 -- >>> _ <- runBH' $ bulk stream
 -- >>> _ <- runBH' $ refreshIndex testIndex
 bulk :: MonadBH m => V.Vector BulkOperation -> m Reply
-bulk bulkOps = bindM2 post url (return body)
+bulk bulkOps = post url body
   where url = joinPath ["_bulk"]
-        body = Just $ encodeBulkOperations bulkOps
+        body = Just (encodeBulkOperations bulkOps)
 
 -- | 'encodeBulkOperations' is a convenience function for dumping a vector of 'BulkOperation'
 --   into an 'L.ByteString'
@@ -666,7 +671,7 @@ getDocument :: MonadBH m => IndexName -> MappingName
                -> DocId -> m Reply
 getDocument (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
-  get =<< joinPath [indexName, mappingName, docId]
+  get (joinPath [indexName, mappingName, docId])
 
 -- | 'documentExists' enables you to check if a document exists. Returns 'Bool'
 --   in IO
@@ -676,9 +681,9 @@ documentExists :: MonadBH m => IndexName -> MappingName
                -> Maybe DocumentParent -> DocId -> m Bool
 documentExists (IndexName indexName) (MappingName mappingName)
                parent (DocId docId) = do
-  (_, exists) <- existentialQuery =<< url
+  (_, exists) <- existentialQuery url
   return exists
-  where url = addQuery params <$> joinPath [indexName, mappingName, docId]
+  where url = addQuery params (joinPath [indexName, mappingName, docId])
         parentParam = fmap (\(DocumentParent (DocId p)) -> p) parent
         params = LS.filter (\(_, v) -> isJust v) [("parent", parentParam)]
 
@@ -693,7 +698,7 @@ dispatchSearch url search = post url' (Just (encode search))
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> reply <- runBH' $ searchAll search
 searchAll :: MonadBH m => Search -> m Reply
-searchAll = bindM2 dispatchSearch url . return
+searchAll = dispatchSearch url
   where url = joinPath ["_search"]
 
 -- | 'searchByIndex', given a 'Search' and an 'IndexName', will perform that search
@@ -703,7 +708,7 @@ searchAll = bindM2 dispatchSearch url . return
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> reply <- runBH' $ searchByIndex testIndex search
 searchByIndex :: MonadBH m => IndexName -> Search -> m Reply
-searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
+searchByIndex (IndexName indexName) = dispatchSearch url
   where url = joinPath [indexName, "_search"]
 
 -- | 'searchByType', given a 'Search', 'IndexName', and 'MappingName', will perform that
@@ -715,7 +720,7 @@ searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
 searchByType :: MonadBH m => IndexName -> MappingName -> Search
                 -> m Reply
 searchByType (IndexName indexName)
-  (MappingName mappingName) = bindM2 dispatchSearch url . return
+  (MappingName mappingName) = dispatchSearch url
   where url = joinPath [indexName, mappingName, "_search"]
 
 -- | For a given scearch, request a scroll for efficient streaming of
@@ -726,8 +731,8 @@ getInitialScroll :: MonadBH m => IndexName -> MappingName -> Search -> m (Maybe 
 getInitialScroll (IndexName indexName) (MappingName mappingName) search = do
     let url = joinPath [indexName, mappingName, "_search"]
         search' = search { searchType = SearchTypeScan }
-    resp' <- bindM2 dispatchSearch url (return search')
-    let msr = decode' $ responseBody resp' :: Maybe (SearchResult ())
+    resp' <- dispatchSearch url search'
+    let msr = decode' (responseBody resp') :: Maybe (SearchResult ())
         msid = maybe Nothing scrollId msr
     return msid
 
@@ -751,7 +756,7 @@ advanceScroll
   -- ^ How long should the snapshot of data be kept around? This timeout is updated every time 'advanceScroll' is used, so don't feel the need to set it to the entire duration of your search processing. Note that durations < 1s will be rounded up. Also note that 'NominalDiffTime' is an instance of Num so literals like 60 will be interpreted as seconds. 60s is a reasonable default.
   -> m (Either EsError (SearchResult a))
 advanceScroll (ScrollId sid) scroll = do
-  url <- joinPath ["_search/scroll?scroll=" <> scrollTime]
+  let url = joinPath ["_search/scroll?scroll=" <> scrollTime]
   parseEsResponse =<< post url (Just . L.fromStrict $ T.encodeUtf8 sid)
   where scrollTime = showText secs <> "s"
         secs :: Integer
@@ -826,9 +831,6 @@ pageSearch :: From     -- ^ The result offset
            -> Search  -- ^ The current seach
            -> Search  -- ^ The paged search
 pageSearch resultOffset pageSize search = search { from = resultOffset, size = pageSize }
-
-parseUrl' :: MonadThrow m => Text -> m Request
-parseUrl' t = parseUrl (URI.escapeURIString URI.isAllowedInURI (T.unpack t))
 
 -- | Was there an optimistic concurrency control conflict when
 -- indexing a document?
