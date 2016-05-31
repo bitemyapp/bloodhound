@@ -569,8 +569,8 @@ data Mapping = Mapping { typeName      :: TypeName
    <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html#docs-bulk>
 -}
 data BulkOperation =
-    BulkIndex  IndexName MappingName DocId Value
-  | BulkCreate IndexName MappingName DocId Value
+    BulkIndex  IndexName MappingName (Maybe DocId) Value
+  | BulkCreate IndexName MappingName (Maybe DocId) Value
   | BulkDelete IndexName MappingName DocId
   | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Read, Show, Generic, Typeable)
 
