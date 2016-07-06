@@ -7,3 +7,6 @@ test:
 
 ghci:
 	stack ghci
+
+upload:
+	stack upload --no-signature .
