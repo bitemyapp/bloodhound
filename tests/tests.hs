@@ -1154,6 +1154,7 @@ main = hspec $ do
       searchExpectAggs search
       searchValidBucketAgg search "users" toTerms
 
+    -- One of these fails with 1.7.3
     it "can give execution hint parameters to term aggregations" $ when' (atmost es11) $ withTestEnv $ do
       _ <- insertData
       searchTermsAggHint [Map, Ordinals]
@@ -1165,7 +1166,7 @@ main = hspec $ do
     it "can give execution hint parameters to term aggregations" $ when' (atleast es12) $ withTestEnv $ do
       _ <- insertData
       searchTermsAggHint [GlobalOrdinals, GlobalOrdinalsHash, GlobalOrdinalsLowCardinality, Map]
-
+    -- One of the above.
 
     it "can execute value_count aggregations" $ withTestEnv $ do
       _ <- insertData

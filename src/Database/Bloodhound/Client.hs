@@ -176,15 +176,17 @@ mkReplicaCount n
 emptyBody :: L.ByteString
 emptyBody = L.pack ""
 
-dispatch :: MonadBH m => Method -> Text -> Maybe L.ByteString
-            -> m Reply
+dispatch :: MonadBH m
+         => Method
+         -> Text
+         -> Maybe L.ByteString
+         -> m Reply
 dispatch dMethod url body = do
   initReq <- liftIO $ parseUrl' url
   reqHook <- bhRequestHook <$> getBHEnv
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
-  req <- liftIO $ reqHook $ initReq { method = dMethod
-                                    , requestBody = reqBody
-                                    , checkStatus = \_ _ _ -> Nothing}
+  req <- liftIO $ reqHook $ setRequestIgnoreStatus $ initReq { method = dMethod
+                                                             , requestBody = reqBody }
   mgr <- bhManager <$> getBHEnv
   liftIO $ httpLbs req mgr
 
@@ -828,7 +830,7 @@ pageSearch :: From     -- ^ The result offset
 pageSearch resultOffset pageSize search = search { from = resultOffset, size = pageSize }
 
 parseUrl' :: MonadThrow m => Text -> m Request
-parseUrl' t = parseUrl (URI.escapeURIString URI.isAllowedInURI (T.unpack t))
+parseUrl' t = parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack t))
 
 -- | Was there an optimistic concurrency control conflict when
 -- indexing a document?
