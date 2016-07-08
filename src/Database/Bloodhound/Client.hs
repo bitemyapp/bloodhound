@@ -163,13 +163,13 @@ mkShardCount n
   | otherwise = Just (ShardCount n)
 
 -- | 'mkReplicaCount' is a straight-forward smart constructor for 'ReplicaCount'
---   which rejects 'Int' values below 1 and above 1000.
+--   which rejects 'Int' values below 0 and above 1000.
 --
 -- >>> mkReplicaCount 10
 -- Just (ReplicaCount 10)
 mkReplicaCount :: Int -> Maybe ReplicaCount
 mkReplicaCount n
-  | n < 1 = Nothing
+  | n < 0 = Nothing
   | n > 1000 = Nothing -- ...
   | otherwise = Just (ReplicaCount n)
 
