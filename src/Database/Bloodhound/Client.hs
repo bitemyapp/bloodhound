@@ -59,6 +59,10 @@ module Database.Bloodhound.Client
        , mkShardCount
        , mkReplicaCount
        , getStatus
+       , getSnapshotRepos
+       , updateSnapshotRepo
+       , verifySnapshotRepo
+       , deleteSnapshotRepo
        , encodeBulkOperations
        , encodeBulkOperation
        -- * Authentication
@@ -72,7 +76,7 @@ module Database.Bloodhound.Client
        where
 
 import qualified Blaze.ByteString.Builder     as BB
-import           Control.Applicative
+import           Control.Applicative          as A
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -183,7 +187,7 @@ dispatch :: MonadBH m
          -> m Reply
 dispatch dMethod url body = do
   initReq <- liftIO $ parseUrl' url
-  reqHook <- bhRequestHook <$> getBHEnv
+  reqHook <- bhRequestHook A.<$> getBHEnv
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
   req <- liftIO $ reqHook $ setRequestIgnoreStatus $ initReq { method = dMethod
                                                              , requestBody = reqBody }
@@ -259,6 +263,79 @@ getStatus = do
   response <- get =<< url
   return $ decode (responseBody response)
   where url = joinPath []
+
+-- | 'getSnapshotRepos' gets the definitions of a subset of the
+-- defined snapshot repos.
+getSnapshotRepos
+    :: ( MonadBH m
+       , MonadThrow m
+       )
+    => SnapshotRepoSelection
+    -> m (Either EsError [GenericSnapshotRepo])
+getSnapshotRepos sel = fmap (fmap unGSRs) . parseEsResponse =<< get =<< url
+  where
+    url = joinPath ["_snapshot", selectorSeg]
+    selectorSeg = case sel of
+                    AllSnapshotRepos -> "_all"
+                    SnapshotRepoList (p :| ps) -> T.intercalate "," (renderPat <$> (p:ps))
+    renderPat (RepoPattern t)                  = t
+    renderPat (ExactRepo (SnapshotRepoName t)) = t
+
+
+-- | Wrapper to extract the list of 'GenericSnapshotRepo' in the
+-- format they're returned in
+newtype GSRs = GSRs { unGSRs :: [GenericSnapshotRepo] }
+
+
+instance FromJSON GSRs where
+  parseJSON = withObject "Collection of GenericSnapshotRepo" parse
+    where
+      parse = fmap GSRs . mapM (uncurry go) . HM.toList
+      go rawName = withObject "GenericSnapshotRepo" $ \o ->
+        GenericSnapshotRepo (SnapshotRepoName rawName) <$> o .: "type"
+                                                       <*> o .: "settings"
+
+
+-- | Create or update a snapshot repo
+updateSnapshotRepo
+  :: ( MonadBH m
+     , SnapshotRepo repo
+     )
+  => SnapshotRepoUpdateSettings
+  -- ^ Use 'defaultSnapshotRepoUpdateSettings' if unsure
+  -> repo
+  -> m Reply --TODO: more specific?
+updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo = bindM2 post url (return (Just body))
+  where
+    url = addQuery params <$> joinPath ["_snapshots", snapshotRepoName gSnapshotRepoName]
+    params
+      | repoUpdateVerify = []
+      | otherwise        = [("verify", Just "false")]
+    body = encode $ object [ "types" .= gSnapshotRepoName
+                           , "settings" .= gSnapshotRepoSettings
+                           ]
+    GenericSnapshotRepo {..} = toGSnapshotRepo repo
+
+
+
+-- | Verify if a snapshot repo is working.
+verifySnapshotRepo
+    :: ( MonadBH m
+       , MonadThrow m
+       )
+    => SnapshotRepoName
+    -> m (Either EsError SnapshotVerification)
+verifySnapshotRepo (SnapshotRepoName n) =
+  parseEsResponse =<< bindM2 post url (return Nothing)
+  where
+    url = joinPath ["_snapshot", n, "_verify"]
+
+
+deleteSnapshotRepo :: MonadBH m => SnapshotRepoName -> m Reply
+deleteSnapshotRepo (SnapshotRepoName n) = delete =<< url
+  where
+    url = joinPath ["_snapshot", n]
+
 
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
 --

@@ -5,10 +5,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 -- {-# LANGUAGE NoMonomorphismRestriction  #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE NamedFieldPuns             #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -69,6 +69,9 @@ module Database.Bloodhound.Types
        , AllocationPolicy(..)
        , ReplicaBounds(..)
        , Bytes(..)
+       , gigabytes
+       , megabytes
+       , kilobytes
        , FSType(..)
        , InitialShardCount(..)
        , NodeAttrFilter(..)
@@ -235,6 +238,21 @@ module Database.Bloodhound.Types
        , CollectionMode(..)
        , TermOrder(..)
        , TermInclusion(..)
+       , SnapshotRepoSelection(..)
+       , GenericSnapshotRepo(..)
+       , SnapshotRepo(..)
+       , SnapshotRepoConversionError(..)
+       , SnapshotRepoType(..)
+       , GenericSnapshotRepoSettings(..)
+       , SnapshotRepoUpdateSettings(..)
+       , defaultSnapshotRepoUpdateSettings
+       , SnapshotRepoName(..)
+       , SnapshotRepoPattern(..)
+       , SnapshotVerification(..)
+       , SnapshotNodeVerification(..)
+       , FullNodeId(..)
+       , NodeName(..)
+       , FsSnapshotRepo(..)
 
        , Aggregation(..)
        , Aggregations
@@ -275,7 +293,7 @@ module Database.Bloodhound.Types
        , EsPassword(..)
          ) where
 
-import           Control.Applicative
+import           Control.Applicative                as A
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader
@@ -283,7 +301,7 @@ import           Control.Monad.State
 import           Control.Monad.Writer
 import           Data.Aeson
 import           Data.Aeson.Types                   (Pair, Parser, emptyObject,
-                                                     parseMaybe)
+                                                     parseEither, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8         as L
 import           Data.Char
 import           Data.Hashable                      (Hashable)
@@ -332,7 +350,7 @@ mkBHEnv s m = BHEnv s m return
 newtype BH m a = BH {
       unBH :: ReaderT BHEnv m a
     } deriving ( Functor
-               , Applicative
+               , A.Applicative
                , Monad
                , MonadIO
                , MonadState s
@@ -483,7 +501,30 @@ data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasUnbounded
                    deriving (Eq, Read, Show, Generic, Typeable)
 
+-- | A measure of bytes used for various configurations. You may want
+-- to use smart constructors like 'gigabytes' for larger values.
+--
+-- >>> gigabytes 9
+-- Bytes 9000000000
+--
+-- >>> megabytes 9
+-- Bytes 9000000
+--
+-- >>> kilobytes 9
+-- Bytes 9000
 newtype Bytes = Bytes Int deriving (Eq, Read, Show, Generic, Typeable, Ord, ToJSON, FromJSON)
+
+gigabytes :: Int -> Bytes
+gigabytes n = megabytes (1000 * n)
+
+
+megabytes :: Int -> Bytes
+megabytes n = kilobytes (1000 * n)
+
+
+kilobytes :: Int -> Bytes
+kilobytes n = Bytes (1000 * n)
+
 
 data FSType = FSSimple
             | FSBuffered deriving (Eq, Read, Show, Generic, Typeable, Ord)
@@ -3625,3 +3666,149 @@ newtype EsUsername = EsUsername { esUsername :: Text } deriving (Read, Show, Eq)
 
 -- | Password type used for HTTP Basic authentication. See 'basicAuthHook'.
 newtype EsPassword = EsPassword { esPassword :: Text } deriving (Read, Show, Eq)
+
+
+data SnapshotRepoSelection = SnapshotRepoList (NonEmpty SnapshotRepoPattern)
+                           | AllSnapshotRepos deriving (Eq, Generic, Show, Typeable)
+
+
+-- | Either specifies an exact repo name or one with globs in it,
+-- e.g. @RepoPattern "foo*"@ __NOTE__: Patterns are not supported on ES < 1.7
+data SnapshotRepoPattern = ExactRepo SnapshotRepoName
+                         | RepoPattern Text
+                         deriving (Eq, Generic, Show, Typeable)
+
+-- | The unique name of a snapshot repository.
+newtype SnapshotRepoName = SnapshotRepoName  { snapshotRepoName :: Text }
+                         deriving (Eq, Generic, Show, Typeable, ToJSON, FromJSON)
+
+
+-- | A generic representation of a snapshot repo. This is what gets
+-- sent to and parsed from the server. For repo types enabled by
+-- plugins that aren't exported by this library, consider making a
+-- custom type which implements 'SnapshotRepo'. If it is a common repo
+-- type, consider submitting a pull request to have it included in the
+-- library proper
+data GenericSnapshotRepo = GenericSnapshotRepo {
+      gSnapshotRepoName     :: SnapshotRepoName
+    , gSnapshotRepoType     :: SnapshotRepoType
+    , gSnapshotRepoSettings :: GenericSnapshotRepoSettings
+    } deriving (Eq, Generic, Show, Typeable)
+
+
+newtype SnapshotRepoType = SnapshotRepoType { snapshotRepoType :: Text }
+                         deriving (Eq, Generic, Show, Typeable, ToJSON, FromJSON)
+
+
+-- | Opaque representation of snapshot repo settings. Instances of
+-- 'SnapshotRepo' will produce this.
+newtype GenericSnapshotRepoSettings = GenericSnapshotRepoSettings { gSnapshotRepoSettingsObject :: Object }
+                                    deriving (Eq, Generic, Show, Typeable, ToJSON, FromJSON)
+
+
+-- | The result of running 'verifySnapshotRepo'. --TODO: more detail once you know what a failure looks like
+newtype SnapshotVerification = SnapshotVerification { snapshotNodeVerifications :: [SnapshotNodeVerification] }
+                             deriving (Eq, Generic, Show, Typeable)
+
+
+instance FromJSON SnapshotVerification where
+  parseJSON = withObject "SnapshotVerification" parse
+    where
+      parse o = do
+        o2 <- o .: "nodes"
+        SnapshotVerification <$> mapM (uncurry parse') (HM.toList o2)
+      parse' rawFullId = withObject "SnapshotNodeVerification" $ \o ->
+        SnapshotNodeVerification (FullNodeId rawFullId) <$> o .: "name"
+
+
+data SnapshotNodeVerification = SnapshotNodeVerification {
+      snvFullId   :: FullNodeId
+    , snvNodeName :: NodeName
+    } deriving (Eq, Generic, Show, Typeable)
+
+
+-- | Unique, automatically-generated name assigned to nodes that are
+-- usually returned in node-oriented APIs.
+newtype FullNodeId = FullNodeId { fullNodeId :: Text }
+                   deriving (Eq, Generic, Show, Typeable, FromJSON)
+
+
+newtype NodeName = NodeName { nodeName :: Text }
+                 deriving (Eq, Generic, Show, Typeable, FromJSON)
+
+
+data SnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings {
+     repoUpdateVerify :: Bool
+     -- ^ After creation/update, synchronously check that nodes can
+     -- write to this repo. Defaults to True. You may use False if you
+     -- need a faster response and plan on verifying manually later
+     -- with 'verifySnapshotRepo'.
+    } deriving (Eq, Show, Generic, Typeable)
+
+
+-- | Reasonable defaults for repo creation/update
+--
+-- * repoUpdateVerify True
+defaultSnapshotRepoUpdateSettings :: SnapshotRepoUpdateSettings
+defaultSnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings True
+
+
+-- | A filesystem-based snapshot repo that ships with elasticsearch.
+data FsSnapshotRepo = FsSnapshotRepo {
+      fsrName                   :: SnapshotRepoName
+    , fsrLocation               :: FilePath
+    , fsrCompressMetadata       :: Bool
+    , fsrChunkSize              :: Maybe Bytes
+    , fsrMaxRestoreBytesPerSec  :: Maybe Bytes
+    , fsrMaxSnapshotBytesPerSec :: Maybe Bytes
+    } deriving (Eq, Generic, Show, Typeable)
+
+
+instance SnapshotRepo FsSnapshotRepo where
+  toGSnapshotRepo FsSnapshotRepo {..} =
+    GenericSnapshotRepo fsrName fsRepoType (GenericSnapshotRepoSettings settings)
+    where
+      Object settings = object $ [ "location" .= fsrLocation
+                                 , "compress" .= fsrCompressMetadata
+                                 ] ++ optionalPairs
+      optionalPairs = catMaybes [ ("chunk_size" .=) <$> fsrChunkSize
+                                , ("max_restore_bytes_per_sec" .=) <$> fsrMaxRestoreBytesPerSec
+                                , ("max_snapshot_bytes_per_sec" .=) <$> fsrMaxSnapshotBytesPerSec
+                                ]
+  fromGSnapshotRepo GenericSnapshotRepo {..}
+    | gSnapshotRepoType == fsRepoType = do
+      let o = gSnapshotRepoSettingsObject gSnapshotRepoSettings
+      parseRepo $ do
+        FsSnapshotRepo gSnapshotRepoName <$> o .: "location"
+                                         <*> o .:? "compress" .!= False
+                                         <*> o .:? "chunk_size"
+                                         <*> o .:? "max_restore_bytes_per_sec"
+                                         <*> o .:? "max_snapshot_bytes_per_sec"
+    | otherwise = Left (RepoTypeMismatch fsRepoType gSnapshotRepoType)
+
+
+--TODO: test what error case looks like
+parseRepo :: Parser a -> Either SnapshotRepoConversionError a
+parseRepo parser = case parseEither (const parser) () of
+  Left e -> Left (OtherRepoConversionError (T.pack e))
+  Right a -> Right a
+
+
+fsRepoType :: SnapshotRepoType
+fsRepoType = SnapshotRepoType "fs"
+
+-- | Law: fromGSnapshotRepo (toGSnapshotRepo r) == Right r
+class SnapshotRepo r where
+  toGSnapshotRepo :: r -> GenericSnapshotRepo
+  fromGSnapshotRepo :: GenericSnapshotRepo -> Either SnapshotRepoConversionError r
+
+
+data SnapshotRepoConversionError = RepoTypeMismatch SnapshotRepoType
+                                                    -- ^ Expected type
+                                                    SnapshotRepoType
+                                                    -- ^ Actual type
+                                 | OtherRepoConversionError Text
+                                 deriving (Show, Eq, Generic, Typeable)
+
+
+instance Exception SnapshotRepoConversionError

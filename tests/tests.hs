@@ -14,6 +14,7 @@ import           Control.Error
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Reader
+import           Control.Monad.Trans.Resource
 import           Data.Aeson
 import           Data.Aeson.Types                (parseEither)
 import qualified Data.ByteString.Lazy.Char8      as BL8
@@ -38,6 +39,7 @@ import           GHC.Generics                    as G
 import           Network.HTTP.Client             hiding (Proxy)
 import qualified Network.HTTP.Types.Status       as NHTS
 import           Prelude                         hiding (filter)
+import           System.IO.Temp
 import           Test.Hspec
 import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 
@@ -773,7 +775,8 @@ $(derive makeArbitrary ''AllocationPolicy)
 $(derive makeArbitrary ''InitialShardCount)
 $(derive makeArbitrary ''FSType)
 $(derive makeArbitrary ''CompoundFormat)
-
+$(derive makeArbitrary ''FsSnapshotRepo)
+$(derive makeArbitrary ''SnapshotRepoName)
 
 main :: IO ()
 main = hspec $ do
@@ -1364,6 +1367,17 @@ main = hspec $ do
         Just dv -> (dv >= minBound) .&&.
                    (dv <= maxBound) .&&.
                    docVersionNumber dv === i
+
+  describe "FsSnapshotRepo" $ do
+    prop "SnapshotRepo laws" $ \fsr ->
+      fromGSnapshotRepo (toGSnapshotRepo fsr) === Right (fsr :: FsSnapshotRepo)
+
+  describe "snapshot repos" $ do
+    it "always parses all snapshots API" $ withTestEnv $ do
+      res <- getSnapshotRepos AllSnapshotRepos
+      liftIO $ case res of
+        Left e -> expectationFailure ("Expected a right but got Left " <> show e)
+        Right _ -> return ()
 
   describe "Enum DocVersion" $ do
     it "follows the laws of Enum, Bounded" $ do

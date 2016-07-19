@@ -22,7 +22,7 @@ module Database.Bloodhound.Types.Internal
     ) where
 
 
-import           Control.Applicative
+import           Control.Applicative  as A
 import           Control.Monad.Reader
 import           Data.Text            (Text)
 import           Data.Typeable        (Typeable)
@@ -51,6 +51,6 @@ newtype Server = Server Text deriving (Eq, Show, Generic, Typeable)
     own monad transformer stack. A default instance for a ReaderT and
     alias 'BH' is provided for the simple case.
 -}
-class (Functor m, Applicative m, MonadIO m) => MonadBH m where
+class (Functor m, A.Applicative m, MonadIO m) => MonadBH m where
   getBHEnv :: m BHEnv
 
