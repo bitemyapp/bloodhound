@@ -2988,7 +2988,7 @@ instance FromJSON UpdatableIndexSetting where
                 <|> blocksWrite `taggedAt` ["blocks", "write"]
                 <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
             where taggedAt f ks = taggedAt' f (Object o) ks
-          taggedAt' f v [] = f =<< (parseJSON v <|> (parseJSON =<< unStringlyTypeJSON v))
+          taggedAt' f v [] = f =<< (parseJSON v <|> (parseJSON (unStringlyTypeJSON v)))
           taggedAt' f v (k:ks) = withObject "Object" (\o -> do v' <- o .: k
                                                                taggedAt' f v' ks) v
           numberOfReplicas               = pure . NumberOfReplicas
@@ -3030,18 +3030,17 @@ instance FromJSON IndexSettingsSummary where
           redundant (NumberOfReplicas _) = True
           redundant _ = False
 
--- | For some reason in the settings API, all leaf values get returned
+-- | For some reason in several settings APIs, all leaf values get returned
 -- as strings. This function attepmts to recover from this for all
--- non-recursive JSON types. If nothing can be done or the same value
--- would be return, it returns 'mzero'
-unStringlyTypeJSON :: MonadPlus m => Value -> m Value
-unStringlyTypeJSON (String "true") = return (Bool True)
-unStringlyTypeJSON (String "false") = return (Bool False)
-unStringlyTypeJSON (String "null") = return Null
-unStringlyTypeJSON (String t) = case readMay (T.unpack t) of
-                                  Just n -> return (Number n)
-                                  Nothing -> mzero
-unStringlyTypeJSON _ = mzero
+-- non-recursive JSON types. If nothing can be done, the value is left alone.
+unStringlyTypeJSON :: Value -> Value
+unStringlyTypeJSON (String "true") = Bool True
+unStringlyTypeJSON (String "false") = Bool False
+unStringlyTypeJSON (String "null") = Null
+unStringlyTypeJSON v@(String t) = case readMay (T.unpack t) of
+                                  Just n -> Number n
+                                  Nothing -> v
+unStringlyTypeJSON v = v
 
 
 parseSettings :: Object -> Parser [UpdatableIndexSetting]
@@ -3680,7 +3679,7 @@ data SnapshotRepoPattern = ExactRepo SnapshotRepoName
 
 -- | The unique name of a snapshot repository.
 newtype SnapshotRepoName = SnapshotRepoName  { snapshotRepoName :: Text }
-                         deriving (Eq, Generic, Show, Typeable, ToJSON, FromJSON)
+                         deriving (Eq, Ord, Generic, Show, Typeable, ToJSON, FromJSON)
 
 
 -- | A generic representation of a snapshot repo. This is what gets
@@ -3696,15 +3695,26 @@ data GenericSnapshotRepo = GenericSnapshotRepo {
     } deriving (Eq, Generic, Show, Typeable)
 
 
+instance SnapshotRepo GenericSnapshotRepo where
+  toGSnapshotRepo = id
+  fromGSnapshotRepo = Right
+
+
 newtype SnapshotRepoType = SnapshotRepoType { snapshotRepoType :: Text }
-                         deriving (Eq, Generic, Show, Typeable, ToJSON, FromJSON)
+                         deriving (Eq, Ord, Generic, Show, Typeable, ToJSON, FromJSON)
 
 
 -- | Opaque representation of snapshot repo settings. Instances of
 -- 'SnapshotRepo' will produce this.
 newtype GenericSnapshotRepoSettings = GenericSnapshotRepoSettings { gSnapshotRepoSettingsObject :: Object }
-                                    deriving (Eq, Generic, Show, Typeable, ToJSON, FromJSON)
+                                    deriving (Eq, Generic, Show, Typeable, ToJSON)
 
+
+ -- Regardless of whether you send strongly typed json, my version of
+ -- ES sends back stringly typed json in the settings, e.g. booleans
+ -- as strings, so we'll try to convert them.
+instance FromJSON GenericSnapshotRepoSettings where
+  parseJSON = fmap (GenericSnapshotRepoSettings . fmap unStringlyTypeJSON). parseJSON
 
 -- | The result of running 'verifySnapshotRepo'. --TODO: more detail once you know what a failure looks like
 newtype SnapshotVerification = SnapshotVerification { snapshotNodeVerifications :: [SnapshotNodeVerification] }
@@ -3730,11 +3740,11 @@ data SnapshotNodeVerification = SnapshotNodeVerification {
 -- | Unique, automatically-generated name assigned to nodes that are
 -- usually returned in node-oriented APIs.
 newtype FullNodeId = FullNodeId { fullNodeId :: Text }
-                   deriving (Eq, Generic, Show, Typeable, FromJSON)
+                   deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
 
 
 newtype NodeName = NodeName { nodeName :: Text }
-                 deriving (Eq, Generic, Show, Typeable, FromJSON)
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
 
 
 data SnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings {

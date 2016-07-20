@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeOperators              #-}
@@ -11,10 +12,10 @@ module Main where
 
 import           Control.Applicative
 import           Control.Error
-import           Control.Exception
+import           Control.Exception               (evaluate)
 import           Control.Monad
+import           Control.Monad.Catch
 import           Control.Monad.Reader
-import           Control.Monad.Trans.Resource
 import           Data.Aeson
 import           Data.Aeson.Types                (parseEither)
 import qualified Data.ByteString.Lazy.Char8      as BL8
@@ -26,6 +27,7 @@ import           Data.List.NonEmpty              (NonEmpty (..))
 import qualified Data.List.NonEmpty              as NE
 import qualified Data.Map.Strict                 as M
 import           Data.Monoid
+import           Data.Ord                        (comparing)
 import           Data.Proxy
 import           Data.Text                       (Text)
 import qualified Data.Text                       as T
@@ -40,6 +42,7 @@ import           Network.HTTP.Client             hiding (Proxy)
 import qualified Network.HTTP.Types.Status       as NHTS
 import           Prelude                         hiding (filter)
 import           System.IO.Temp
+import           System.Posix.Files
 import           Test.Hspec
 import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 
@@ -56,10 +59,14 @@ testMapping = MappingName "tweet"
 withTestEnv :: BH IO a -> IO a
 withTestEnv = withBH defaultManagerSettings testServer
 
-validateStatus :: Response body -> Int -> Expectation
+validateStatus :: Show body => Response body -> Int -> Expectation
 validateStatus resp expected =
-  (NHTS.statusCode $ responseStatus resp)
-  `shouldBe` (expected :: Int)
+  if actual == expected
+    then return ()
+    else expectationFailure ("Expected " <> show expected <> " but got " <> show actual <> ": " <> show body)
+  where
+    actual = NHTS.statusCode (responseStatus resp)
+    body = responseBody resp
 
 createExampleIndex :: BH IO Reply
 createExampleIndex = createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) testIndex
@@ -313,6 +320,28 @@ searchExpectSource src expected = do
   let value = grabFirst result
   liftIO $
     value `shouldBe` expected
+
+withSnapshotRepo
+    :: ( MonadMask m
+       , MonadBH m
+       )
+    => SnapshotRepoName
+    -> (GenericSnapshotRepo -> m a)
+    -> m a
+withSnapshotRepo srn@(SnapshotRepoName n) f =
+  withSystemTempDirectory (T.unpack n) $ \dir -> bracket (alloc dir) free f
+  where
+    alloc dir = do
+      liftIO (setFileMode dir mode)
+      let repo = FsSnapshotRepo srn dir True Nothing Nothing Nothing
+      resp <- updateSnapshotRepo defaultSnapshotRepoUpdateSettings repo
+      liftIO (validateStatus resp 200)
+      return (toGSnapshotRepo repo)
+    mode = ownerModes `unionFileModes` groupModes `unionFileModes` otherModes
+    free GenericSnapshotRepo {..} = do
+      resp <- deleteSnapshotRepo gSnapshotRepoName
+      liftIO (validateStatus resp 200)
+
 
 data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
 instance FromJSON BulkTest where
@@ -1378,6 +1407,38 @@ main = hspec $ do
       liftIO $ case res of
         Left e -> expectationFailure ("Expected a right but got Left " <> show e)
         Right _ -> return ()
+
+    it "finds an existing list of repos" $ withTestEnv $ do
+      let r1n = SnapshotRepoName "bloodhound-repo1"
+      let r2n = SnapshotRepoName "bloodhound-repo2"
+      withSnapshotRepo r1n $ \r1 ->
+        withSnapshotRepo r2n $ \r2 -> do
+          repos <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| [ExactRepo r2n]))
+          liftIO $ case repos of
+            Right xs -> do
+              let srt = L.sortBy (comparing gSnapshotRepoName)
+              srt xs `shouldBe` srt [r1, r2]
+            Left e -> expectationFailure (show e)
+
+    it "creates and updates with updateSnapshotRepo" $ withTestEnv $ do
+      let r1n = SnapshotRepoName "bloodhound-repo1"
+      withSnapshotRepo r1n $ \r1 -> do
+        let Just (String dir) = HM.lookup "location" (gSnapshotRepoSettingsObject (gSnapshotRepoSettings r1))
+        let noCompression = FsSnapshotRepo r1n (T.unpack dir) False Nothing Nothing Nothing
+        resp <- updateSnapshotRepo defaultSnapshotRepoUpdateSettings noCompression
+        liftIO (validateStatus resp 200)
+        Right [roundtrippedNoCompression] <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| []))
+        liftIO (roundtrippedNoCompression `shouldBe` toGSnapshotRepo noCompression)
+
+    it "can verify existing repos" $ withTestEnv $ do
+      let r1n = SnapshotRepoName "bloodhound-repo1"
+      withSnapshotRepo r1n $ \_ -> do
+        res <- verifySnapshotRepo r1n
+        liftIO $ case res of
+          Right (SnapshotVerification vs)
+            | null vs -> expectationFailure "Expected nonempty set of verifying nodes"
+            | otherwise -> return ()
+          Left e -> expectationFailure (show e)
 
   describe "Enum DocVersion" $ do
     it "follows the laws of Enum, Bounded" $ do
