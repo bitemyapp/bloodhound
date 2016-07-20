@@ -63,6 +63,9 @@ module Database.Bloodhound.Client
        , updateSnapshotRepo
        , verifySnapshotRepo
        , deleteSnapshotRepo
+       , createSnapshot
+       , getSnapshots
+       , deleteSnapshot
        , encodeBulkOperations
        , encodeBulkOperation
        -- * Authentication
@@ -306,7 +309,8 @@ updateSnapshotRepo
   -- ^ Use 'defaultSnapshotRepoUpdateSettings' if unsure
   -> repo
   -> m Reply
-updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo = bindM2 post url (return (Just body))
+updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo =
+  bindM2 put url (return (Just body))
   where
     url = addQuery params <$> joinPath ["_snapshot", snapshotRepoName gSnapshotRepoName]
     params
@@ -336,6 +340,64 @@ deleteSnapshotRepo :: MonadBH m => SnapshotRepoName -> m Reply
 deleteSnapshotRepo (SnapshotRepoName n) = delete =<< url
   where
     url = joinPath ["_snapshot", n]
+
+
+createSnapshot
+    :: (MonadBH m)
+    => SnapshotRepoName
+    -> SnapshotName
+    -> SnapshotCreateSettings
+    -> m Reply
+createSnapshot (SnapshotRepoName repoName)
+               (SnapshotName snapName)
+               SnapshotCreateSettings {..} =
+  bindM2 put url (return (Just body))
+  where
+    url = addQuery params <$> joinPath ["_snapshot", repoName, snapName]
+    params = [("wait_for_completion", Just (boolQP snapWaitForCompletion))]
+    body = encode $ object prs
+    prs = catMaybes [ ("indices" .=) . renderIndices <$> snapIndices
+                    , Just ("ignore_unavailable" .= snapIgnoreUnavailable)
+                    , Just ("ignore_global_state" .= snapIncludeGlobalState)
+                    , Just ("partial" .= snapPartial)
+                    ]
+    renderIndices (i :| is) = T.intercalate "," (renderIndex <$> (i:is))
+    renderIndex (IndexName n) = n
+
+
+getSnapshots
+    :: ( MonadBH m
+       , MonadThrow m
+       )
+    => SnapshotRepoName
+    -> SnapshotSelection
+    -> m (Either EsError
+     [SnapshotInfo])
+getSnapshots (SnapshotRepoName repoName) sel =
+  fmap (fmap unSIs) . parseEsResponse =<< get =<< url
+  where
+    url = joinPath ["_snapshot", repoName, snapPath]
+    snapPath = case sel of
+      AllSnapshots -> "_all"
+      SnapshotList (s :| ss) -> T.intercalate "," (renderPath <$> (s:ss))
+    renderPath (SnapPattern t)              = t
+    renderPath (ExactSnap (SnapshotName t)) = t
+
+
+newtype SIs = SIs { unSIs :: [SnapshotInfo] }
+
+
+instance FromJSON SIs where
+  parseJSON = withObject "Collection of SnapshotInfo" parse
+    where
+      parse o = SIs <$> o .: "snapshots"
+
+
+deleteSnapshot :: MonadBH m => SnapshotRepoName -> SnapshotName -> m Reply
+deleteSnapshot (SnapshotRepoName repoName) (SnapshotName snapName) =
+  delete =<< url
+  where
+    url = joinPath ["_snapshot", repoName, snapName]
 
 
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
@@ -417,8 +479,6 @@ optimizeIndex ixs IndexOptimizationSettings {..} =
                            , Just ("flush", Just (boolQP flushAfterOptimize))
                            ]
         indexName = indexSelectionName ixs
-        boolQP True = "true"
-        boolQP False = "false"
         body = Nothing
 
 
@@ -934,3 +994,8 @@ basicAuthHook :: Monad m => EsUsername -> EsPassword -> Request -> m Request
 basicAuthHook (EsUsername u) (EsPassword p) = return . applyBasicAuth u' p'
   where u' = T.encodeUtf8 u
         p' = T.encodeUtf8 p
+
+
+boolQP :: Bool -> Text
+boolQP True  = "true"
+boolQP False = "false"

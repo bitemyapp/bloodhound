@@ -253,6 +253,13 @@ module Database.Bloodhound.Types
        , FullNodeId(..)
        , NodeName(..)
        , FsSnapshotRepo(..)
+       , SnapshotCreateSettings(..)
+       , defaultSnapshotCreateSettings
+       , SnapshotSelection(..)
+       , SnapshotPattern(..)
+       , SnapshotInfo(..)
+       , SnapshotName(..)
+       , SnapshotState(..)
 
        , Aggregation(..)
        , Aggregations
@@ -3672,7 +3679,7 @@ data SnapshotRepoSelection = SnapshotRepoList (NonEmpty SnapshotRepoPattern)
 
 
 -- | Either specifies an exact repo name or one with globs in it,
--- e.g. @RepoPattern "foo*"@ __NOTE__: Patterns are not supported on ES < 1.7
+-- e.g. @RepoPattern "foo*"@ __NOTE__:@ Patterns are not supported on ES < 1.7
 data SnapshotRepoPattern = ExactRepo SnapshotRepoName
                          | RepoPattern Text
                          deriving (Eq, Generic, Show, Typeable)
@@ -3716,7 +3723,7 @@ newtype GenericSnapshotRepoSettings = GenericSnapshotRepoSettings { gSnapshotRep
 instance FromJSON GenericSnapshotRepoSettings where
   parseJSON = fmap (GenericSnapshotRepoSettings . fmap unStringlyTypeJSON). parseJSON
 
--- | The result of running 'verifySnapshotRepo'. --TODO: more detail once you know what a failure looks like
+-- | The result of running 'verifySnapshotRepo'.
 newtype SnapshotVerification = SnapshotVerification { snapshotNodeVerifications :: [SnapshotNodeVerification] }
                              deriving (Eq, Generic, Show, Typeable)
 
@@ -3797,7 +3804,6 @@ instance SnapshotRepo FsSnapshotRepo where
     | otherwise = Left (RepoTypeMismatch fsRepoType gSnapshotRepoType)
 
 
---TODO: test what error case looks like
 parseRepo :: Parser a -> Either SnapshotRepoConversionError a
 parseRepo parser = case parseEither (const parser) () of
   Left e -> Left (OtherRepoConversionError (T.pack e))
@@ -3822,3 +3828,113 @@ data SnapshotRepoConversionError = RepoTypeMismatch SnapshotRepoType
 
 
 instance Exception SnapshotRepoConversionError
+
+
+data SnapshotCreateSettings = SnapshotCreateSettings {
+      snapWaitForCompletion :: Bool
+      -- ^ Should the API call return immediately after initializing
+      -- the snapshot or wait until completed. Note that if this is
+      -- enabled it could wait a long time, so you should adjust your
+      -- 'ManagerSettings' accordingly to set long timeouts or
+      -- explicitly handle timeouts.
+    , snapIndices :: Maybe (NonEmpty IndexName)
+    -- ^ Nothing will snapshot all indices. Just [] is permissable and
+    -- will essentially be a no-op snapshot.
+    , snapIgnoreUnavailable :: Bool
+    -- ^ If set to True, any matched indices that don't exist will be
+    -- ignored. Otherwise it will be an error and fail.
+    , snapIncludeGlobalState :: Bool
+    , snapPartial :: Bool
+    -- ^ If some indices failed to snapshot (e.g. if not all primary
+    -- shards are available), should the process proceed?
+    }
+
+
+-- | Reasonable defaults for snapshot creation
+--
+-- * snapWaitForCompletion False
+-- * snapIndices Nothing
+-- * snapIgnoreUnavailable False
+-- * snapIncludeGlobalState True
+-- * snapPartial False
+defaultSnapshotCreateSettings :: SnapshotCreateSettings
+defaultSnapshotCreateSettings =
+  SnapshotCreateSettings False Nothing False True False
+
+
+data SnapshotSelection = SnapshotList (NonEmpty SnapshotPattern)
+                       | AllSnapshots deriving (Eq, Generic, Show, Typeable)
+
+
+-- | Either specifies an exact snapshot name or one with globs in it,
+-- e.g. @SnapPattern "foo*"@ __NOTE__: Patterns are not supported on
+-- ES < 1.7
+data SnapshotPattern = ExactSnap SnapshotName
+                     | SnapPattern Text
+                     deriving (Eq, Generic, Show, Typeable)
+
+
+-- | General information about the state of a snapshot. Has some
+-- redundancies with 'SnapshotStatus'
+data SnapshotInfo = SnapshotInfo {
+      snapInfoShards    :: ShardResult
+      --TODO: what does failures produce? list of what?
+    , snapInfoDuration  :: NominalDiffTime
+    , snapInfoEndTime   :: UTCTime
+    , snapInfoStartTime :: UTCTime
+    , snapInfoState     :: SnapshotState
+    , snapInfoIndices   :: [IndexName]
+    , snapInfoName      :: SnapshotName
+    } deriving (Eq, Generic, Show, Typeable)
+
+
+instance FromJSON SnapshotInfo where
+  parseJSON = withObject "SnapshotInfo" parse
+    where
+      parse o = SnapshotInfo <$> o .: "shards"
+                             <*> (unMS <$> o .: "duration_in_millis")
+                             <*> (posixMS <$> o .: "end_time_in_millis")
+                             <*> (posixMS <$> o .: "start_time_in_millis")
+                             <*> o .: "state"
+                             <*> o .: "indices"
+                             <*> o .: "snapshot"
+
+-- | Milliseconds
+newtype MS = MS NominalDiffTime
+
+
+-- keeps the unexported constructor warnings at bay
+unMS :: MS -> NominalDiffTime
+unMS (MS t) = t
+
+
+instance FromJSON MS where
+  parseJSON = withScientific "MS" (return . MS . parse)
+    where
+      parse n = fromInteger ((truncate n) * 1000)
+
+
+data SnapshotState = SnapshotInit
+                   | SnapshotStarted
+                   | SnapshotSuccess
+                   | SnapshotFailed
+                   | SnapshotAborted
+                   | SnapshotMissing
+                   | SnapshotWaiting
+                   deriving (Show, Eq, Generic, Typeable)
+
+instance FromJSON SnapshotState where
+  parseJSON = withText "SnapshotState" parse
+    where
+      parse "INIT"    = return SnapshotInit
+      parse "STARTED" = return SnapshotStarted
+      parse "SUCCESS" = return SnapshotSuccess
+      parse "FAILED"  = return SnapshotFailed
+      parse "ABORTED" = return SnapshotAborted
+      parse "MISSING" = return SnapshotMissing
+      parse "WAITING" = return SnapshotWaiting
+      parse t         = fail ("Invalid snapshot state " <> T.unpack t)
+
+
+newtype SnapshotName = SnapshotName { snapshotName :: Text }
+                     deriving (Show, Eq, Ord, Generic, Typeable, ToJSON, FromJSON)

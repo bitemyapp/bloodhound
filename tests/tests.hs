@@ -68,9 +68,9 @@ validateStatus resp expected =
     actual = NHTS.statusCode (responseStatus resp)
     body = responseBody resp
 
-createExampleIndex :: BH IO Reply
+createExampleIndex :: (MonadBH m) => m Reply
 createExampleIndex = createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) testIndex
-deleteExampleIndex :: BH IO Reply
+deleteExampleIndex :: (MonadBH m) => m Reply
 deleteExampleIndex = deleteIndex testIndex
 
 data ServerVersion = ServerVersion Int Int Int deriving (Show, Eq, Ord)
@@ -341,6 +341,29 @@ withSnapshotRepo srn@(SnapshotRepoName n) f =
     free GenericSnapshotRepo {..} = do
       resp <- deleteSnapshotRepo gSnapshotRepoName
       liftIO (validateStatus resp 200)
+
+
+withSnapshot
+    :: ( MonadMask m
+       , MonadBH m
+       )
+    => SnapshotRepoName
+    -> SnapshotName
+    -> m a
+    -> m a
+withSnapshot srn sn = bracket_ alloc free
+  where
+    alloc = do
+      resp <- createSnapshot srn sn createSettings
+      liftIO (validateStatus resp 200)
+    -- We'll make this synchronous for testing purposes
+    createSettings = defaultSnapshotCreateSettings { snapWaitForCompletion = True
+                                                   , snapIndices = Just (testIndex :| [])
+                                                   -- We don't actually need to back up any data
+                                                   }
+    free = do
+      deleteSnapshot srn sn
+
 
 
 data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
@@ -1402,7 +1425,7 @@ main = hspec $ do
       fromGSnapshotRepo (toGSnapshotRepo fsr) === Right (fsr :: FsSnapshotRepo)
 
   describe "snapshot repos" $ do
-    it "always parses all snapshots API" $ withTestEnv $ do
+    it "always parses all snapshot repos API" $ withTestEnv $ do
       res <- getSnapshotRepos AllSnapshotRepos
       liftIO $ case res of
         Left e -> expectationFailure ("Expected a right but got Left " <> show e)
@@ -1439,6 +1462,30 @@ main = hspec $ do
             | null vs -> expectationFailure "Expected nonempty set of verifying nodes"
             | otherwise -> return ()
           Left e -> expectationFailure (show e)
+
+  describe "snapshots" $ do
+    it "always parses all snapshots API" $ withTestEnv $ do
+      let r1n = SnapshotRepoName "bloodhound-repo1"
+      withSnapshotRepo r1n $ \_ -> do
+        res <- getSnapshots r1n AllSnapshots
+        liftIO $ case res of
+          Left e -> expectationFailure ("Expected a right but got Left " <> show e)
+          Right _ -> return ()
+
+    it "can parse a snapshot that it created" $ withTestEnv $ do
+      let r1n = SnapshotRepoName "bloodhound-repo1"
+      withSnapshotRepo r1n $ \_ -> do
+        let s1n = SnapshotName "example-snapshot"
+        withSnapshot r1n s1n $ do
+          res <- getSnapshots r1n (SnapshotList (ExactSnap s1n :| []))
+          liftIO $ case res of
+            Right [snap]
+              | snapInfoState snap == SnapshotSuccess &&
+                snapInfoName snap == s1n -> return ()
+              | otherwise -> expectationFailure (show snap)
+            Right [] -> expectationFailure "There were no snapshots"
+            Right snaps -> expectationFailure ("Expected 1 snapshot but got" <> show (length snaps))
+            Left e -> expectationFailure (show e)
 
   describe "Enum DocVersion" $ do
     it "follows the laws of Enum, Bounded" $ do
