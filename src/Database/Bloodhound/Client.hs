@@ -66,6 +66,7 @@ module Database.Bloodhound.Client
        , createSnapshot
        , getSnapshots
        , deleteSnapshot
+       , restoreSnapshot
        , encodeBulkOperations
        , encodeBulkOperation
        -- * Authentication
@@ -361,7 +362,11 @@ createSnapshot (SnapshotRepoName repoName)
                     , Just ("ignore_global_state" .= snapIncludeGlobalState)
                     , Just ("partial" .= snapPartial)
                     ]
-    renderIndices (i :| is) = T.intercalate "," (renderIndex <$> (i:is))
+
+
+renderIndices :: NonEmpty IndexName -> Text
+renderIndices (i :| is) = T.intercalate "," (renderIndex <$> (i:is))
+  where
     renderIndex (IndexName n) = n
 
 
@@ -398,6 +403,37 @@ deleteSnapshot (SnapshotRepoName repoName) (SnapshotName snapName) =
   delete =<< url
   where
     url = joinPath ["_snapshot", repoName, snapName]
+
+
+-- | Restore a snapshot to the cluster See
+-- <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/modules-snapshots.html#_restore>
+-- for more details.
+restoreSnapshot
+    :: MonadBH m
+    => SnapshotRepoName
+    -> SnapshotName
+    -> SnapshotRestoreSettings
+    -- ^ Start with 'defaultSnapshotRestoreSettings' and customize
+    -- from there for reasonable defaults.
+    -> m Reply
+restoreSnapshot (SnapshotRepoName repoName)
+                (SnapshotName snapName)
+                SnapshotRestoreSettings {..} = bindM2 put url (return (Just body))
+  where
+    url = addQuery params <$> joinPath ["_snapshot", repoName, snapName, "_restore"]
+    params = [("wait_for_completion", Just (boolQP snapRestoreWaitForCompletion))]
+    body = encode (object prs)
+    prs = catMaybes [ ("indices" .=) . renderIndices <$> snapRestoreIndices
+                    , Just ("ignore_unavailable" .= snapRestoreIgnoreUnavailable)
+                    , Just ("include_global_state" .= snapRestoreIncludeGlobalState)
+                    , ("rename_pattern" .=) <$> snapRestoreRenamePattern
+                    , ("rename_replacement" .=) . renderTokens <$> snapRestoreRenameReplacement
+                    , Just ("include_aliases" .= snapRestoreIncludeAliases)
+                    ]
+    renderTokens (t :| ts) = mconcat (renderToken <$> (t:ts))
+    renderToken (RRTLit t)      = t
+    renderToken RRSubWholeMatch = "$0"
+    renderToken (RRSubGroup g)  = T.pack (show (rrGroupRefNum g))
 
 
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
@@ -484,7 +520,7 @@ optimizeIndex ixs IndexOptimizationSettings {..} =
 
 -------------------------------------------------------------------------------
 indexSelectionName :: IndexSelection -> Text
-indexSelectionName (IndexList names) = T.intercalate "," [n | IndexName n <- toList names]
+indexSelectionName (IndexList names) = renderIndices names
 indexSelectionName AllIndexes        = "_all"
 
 deepMerge :: [Object] -> Object

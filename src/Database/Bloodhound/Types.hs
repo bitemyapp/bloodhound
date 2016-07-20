@@ -260,6 +260,13 @@ module Database.Bloodhound.Types
        , SnapshotInfo(..)
        , SnapshotName(..)
        , SnapshotState(..)
+       , SnapshotRestoreSettings(..)
+       , defaultSnapshotRestoreSettings
+       , RestoreRenamePattern(..)
+       , RestoreRenameToken(..)
+       , RRGroupRefNum
+       , rrGroupRefNum
+       , mkRRGroupRefNum
 
        , Aggregation(..)
        , Aggregations
@@ -3831,23 +3838,23 @@ instance Exception SnapshotRepoConversionError
 
 
 data SnapshotCreateSettings = SnapshotCreateSettings {
-      snapWaitForCompletion :: Bool
+      snapWaitForCompletion  :: Bool
       -- ^ Should the API call return immediately after initializing
-      -- the snapshot or wait until completed. Note that if this is
+      -- the snapshot or wait until completed? Note that if this is
       -- enabled it could wait a long time, so you should adjust your
       -- 'ManagerSettings' accordingly to set long timeouts or
       -- explicitly handle timeouts.
-    , snapIndices :: Maybe (NonEmpty IndexName)
+    , snapIndices            :: Maybe (NonEmpty IndexName)
     -- ^ Nothing will snapshot all indices. Just [] is permissable and
     -- will essentially be a no-op snapshot.
-    , snapIgnoreUnavailable :: Bool
+    , snapIgnoreUnavailable  :: Bool
     -- ^ If set to True, any matched indices that don't exist will be
     -- ignored. Otherwise it will be an error and fail.
     , snapIncludeGlobalState :: Bool
-    , snapPartial :: Bool
+    , snapPartial            :: Bool
     -- ^ If some indices failed to snapshot (e.g. if not all primary
     -- shards are available), should the process proceed?
-    }
+    } deriving (Eq, Generic, Show, Typeable)
 
 
 -- | Reasonable defaults for snapshot creation
@@ -3858,8 +3865,13 @@ data SnapshotCreateSettings = SnapshotCreateSettings {
 -- * snapIncludeGlobalState True
 -- * snapPartial False
 defaultSnapshotCreateSettings :: SnapshotCreateSettings
-defaultSnapshotCreateSettings =
-  SnapshotCreateSettings False Nothing False True False
+defaultSnapshotCreateSettings = SnapshotCreateSettings {
+      snapWaitForCompletion = False
+    , snapIndices = Nothing
+    , snapIgnoreUnavailable = False
+    , snapIncludeGlobalState = True
+    , snapPartial = False
+    }
 
 
 data SnapshotSelection = SnapshotList (NonEmpty SnapshotPattern)
@@ -3938,3 +3950,94 @@ instance FromJSON SnapshotState where
 
 newtype SnapshotName = SnapshotName { snapshotName :: Text }
                      deriving (Show, Eq, Ord, Generic, Typeable, ToJSON, FromJSON)
+
+
+data SnapshotRestoreSettings = SnapshotRestoreSettings {
+      snapRestoreWaitForCompletion  :: Bool
+      -- ^ Should the API call return immediately after initializing
+      -- the restore or wait until completed? Note that if this is
+      -- enabled, it could wait a long time, so you should adjust your
+      -- 'ManagerSettings' accordingly to set long timeouts or
+      -- explicitly handle timeouts.
+    , snapRestoreIndices            :: Maybe (NonEmpty IndexName)
+    -- ^ Nothing will restore all indices in the snapshot. Just [] is
+    -- permissable and will essentially be a no-op restore.
+    , snapRestoreIgnoreUnavailable  :: Bool
+    -- ^ If set to True, any indices that do not exist will be ignored
+    -- during snapshot rather than failing the restore.
+    , snapRestoreIncludeGlobalState :: Bool
+    -- ^ If set to false, will ignore any global state in the snapshot
+    -- and will not restore it.
+    , snapRestoreRenamePattern      :: Maybe RestoreRenamePattern
+    -- ^ A regex pattern for matching indices. Used with
+    -- 'snapRestoreRenameReplacement', the restore can reference the
+    -- matched index and create a new index name upon restore.
+    , snapRestoreRenameReplacement  :: Maybe (NonEmpty RestoreRenameToken)
+    -- ^ Expression of how index renames should be constructed.
+    , snapRestorePartial            :: Bool
+    -- ^ If some indices fail to restore, should the process proceed?
+    , snapRestoreIncludeAliases     :: Bool
+    -- ^ Should the restore also restore the aliases captured in the
+    -- snapshot.
+    } deriving (Eq, Generic, Show, Typeable)
+--TODO: temporary settings changes
+
+-- | Regex-stype pattern, e.g. "index_(.+)" to match index names
+newtype RestoreRenamePattern = RestoreRenamePattern { rrPattern :: Text }
+                             deriving (Show, Eq, Generic, Typeable, Ord, ToJSON)
+
+
+-- | A single token in a index renaming scheme for a restore. These
+-- are concatenated into a string before being sent to
+-- ElasticSearch. Check out these Java
+-- <https://docs.oracle.com/javase/7/docs/api/java/util/regex/Matcher.html
+-- docs> to find out more if you're into that sort of thing.
+data RestoreRenameToken = RRTLit Text
+                        -- ^ Just a literal string of characters
+                        | RRSubWholeMatch
+                        -- ^ Equivalent to $0. The entire matched pattern, not any subgroup
+                        | RRSubGroup RRGroupRefNum
+                        -- ^ A specific reference to a group number
+                        deriving (Show, Eq, Generic, Typeable)
+
+
+-- | A group number for regex matching. Only values from 1-9 are
+-- supported. Construct with mkRRGroupRefNum
+newtype RRGroupRefNum = RRGroupRefNum { rrGroupRefNum :: Int }
+                      deriving (Show, Eq, Generic, Typeable, Ord)
+
+instance Bounded RRGroupRefNum where
+  minBound = RRGroupRefNum 1
+  maxBound = RRGroupRefNum 9
+
+
+
+-- | Only allows valid group number references (0-9).
+mkRRGroupRefNum :: Int -> Maybe RRGroupRefNum
+mkRRGroupRefNum i
+  | i >= (rrGroupRefNum minBound) && i <= (rrGroupRefNum maxBound) =
+    Just $ RRGroupRefNum i
+  | otherwise = Nothing
+
+
+-- | Reasonable defaults for snapshot restores
+--
+-- * snapRestoreWaitForCompletion False
+-- * snapRestoreIndices Nothing
+-- * snapRestoreIgnoreUnavailable False
+-- * snapRestoreIncludeGlobalState True
+-- * snapRestoreRenamePattern Nothing
+-- * snapRestoreRenameReplacement Nothing
+-- * snapRestorePartial False
+-- * snapRestoreIncludeAliases True
+defaultSnapshotRestoreSettings :: SnapshotRestoreSettings
+defaultSnapshotRestoreSettings = SnapshotRestoreSettings {
+      snapRestoreWaitForCompletion = False
+    , snapRestoreIndices = Nothing
+    , snapRestoreIgnoreUnavailable  = False
+    , snapRestoreIncludeGlobalState = True
+    , snapRestoreRenamePattern = Nothing
+    , snapRestoreRenameReplacement = Nothing
+    , snapRestorePartial = False
+    , snapRestoreIncludeAliases = True
+    }

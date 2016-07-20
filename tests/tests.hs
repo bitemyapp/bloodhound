@@ -1487,6 +1487,9 @@ main = hspec $ do
             Right snaps -> expectationFailure ("Expected 1 snapshot but got" <> show (length snaps))
             Left e -> expectationFailure (show e)
 
+  describe "snapshot restore" $ do
+    it "can restore a snapshot that we create" pending
+
   describe "Enum DocVersion" $ do
     it "follows the laws of Enum, Bounded" $ do
       evaluate (succ maxBound :: DocVersion) `shouldThrow` anyErrorCall
