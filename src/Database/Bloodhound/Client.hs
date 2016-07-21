@@ -418,7 +418,7 @@ restoreSnapshot
     -> m Reply
 restoreSnapshot (SnapshotRepoName repoName)
                 (SnapshotName snapName)
-                SnapshotRestoreSettings {..} = bindM2 put url (return (Just body))
+                SnapshotRestoreSettings {..} = bindM2 post url (return (Just body))
   where
     url = addQuery params <$> joinPath ["_snapshot", repoName, snapName, "_restore"]
     params = [("wait_for_completion", Just (boolQP snapRestoreWaitForCompletion))]
@@ -429,6 +429,8 @@ restoreSnapshot (SnapshotRepoName repoName)
                     , ("rename_pattern" .=) <$> snapRestoreRenamePattern
                     , ("rename_replacement" .=) . renderTokens <$> snapRestoreRenameReplacement
                     , Just ("include_aliases" .= snapRestoreIncludeAliases)
+                    , ("index_settings" .= ) <$> snapRestoreIndexSettingsOverrides
+                    , ("ignore_index_settings" .= ) <$> snapRestoreIgnoreIndexSettings
                     ]
     renderTokens (t :| ts) = mconcat (renderToken <$> (t:ts))
     renderToken (RRTLit t)      = t

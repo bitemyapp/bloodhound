@@ -267,6 +267,7 @@ module Database.Bloodhound.Types
        , RRGroupRefNum
        , rrGroupRefNum
        , mkRRGroupRefNum
+       , RestoreIndexSettings(..)
 
        , Aggregation(..)
        , Aggregations
@@ -3979,8 +3980,16 @@ data SnapshotRestoreSettings = SnapshotRestoreSettings {
     , snapRestoreIncludeAliases     :: Bool
     -- ^ Should the restore also restore the aliases captured in the
     -- snapshot.
+    , snapRestoreIndexSettingsOverrides :: Maybe RestoreIndexSettings
+    -- ^ Settings to apply during the restore process.
+    , snapRestoreIgnoreIndexSettings :: Maybe (NonEmpty Text)
+    -- ^ This type could be more rich but it isn't clear which
+    -- settings are allowed to be ignored during restore, so we're
+    -- going with including this feature in a basic form rather than
+    -- omitting it. One example here would be
+    -- "index.refresh_interval". Any setting specified here will
+    -- revert back to the server default during the restore process.
     } deriving (Eq, Generic, Show, Typeable)
---TODO: temporary settings changes
 
 -- | Regex-stype pattern, e.g. "index_(.+)" to match index names
 newtype RestoreRenamePattern = RestoreRenamePattern { rrPattern :: Text }
@@ -4030,6 +4039,8 @@ mkRRGroupRefNum i
 -- * snapRestoreRenameReplacement Nothing
 -- * snapRestorePartial False
 -- * snapRestoreIncludeAliases True
+-- * snapRestoreIndexSettingsOverrides Nothing
+-- * snapRestoreIgnoreIndexSettings Nothing
 defaultSnapshotRestoreSettings :: SnapshotRestoreSettings
 defaultSnapshotRestoreSettings = SnapshotRestoreSettings {
       snapRestoreWaitForCompletion = False
@@ -4040,4 +4051,20 @@ defaultSnapshotRestoreSettings = SnapshotRestoreSettings {
     , snapRestoreRenameReplacement = Nothing
     , snapRestorePartial = False
     , snapRestoreIncludeAliases = True
+    , snapRestoreIndexSettingsOverrides = Nothing
+    , snapRestoreIgnoreIndexSettings = Nothing
     }
+
+
+-- | Index settings that can be overridden. The docs only mention you
+-- can update number of replicas, but there may be more. You
+-- definitely cannot override shard count.
+data RestoreIndexSettings = RestoreIndexSettings {
+      restoreOverrideReplicas :: Maybe ReplicaCount
+    } deriving (Show, Eq, Generic, Typeable)
+
+
+instance ToJSON RestoreIndexSettings where
+  toJSON RestoreIndexSettings {..} = object prs
+    where
+      prs = catMaybes [("index.number_of_replicas" .=) <$> restoreOverrideReplicas]

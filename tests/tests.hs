@@ -1488,7 +1488,39 @@ main = hspec $ do
             Left e -> expectationFailure (show e)
 
   describe "snapshot restore" $ do
-    it "can restore a snapshot that we create" pending
+    it "can restore a snapshot that we create" $ withTestEnv $ do
+      let r1n = SnapshotRepoName "bloodhound-repo1"
+      withSnapshotRepo r1n $ \_ -> do
+        let s1n = SnapshotName "example-snapshot"
+        withSnapshot r1n s1n $ do
+          let settings = defaultSnapshotRestoreSettings { snapRestoreWaitForCompletion = True }
+          -- have to close an index to restore it
+          resp1 <- closeIndex testIndex
+          liftIO (validateStatus resp1 200)
+          resp2 <- restoreSnapshot r1n s1n settings
+          liftIO (validateStatus resp2 200)
+
+    it "can restore and rename" $ withTestEnv $ do
+      let r1n = SnapshotRepoName "bloodhound-repo1"
+      withSnapshotRepo r1n $ \_ -> do
+        let s1n = SnapshotName "example-snapshot"
+        withSnapshot r1n s1n $ do
+          let pat = RestoreRenamePattern "bloodhound-tests-twitter-(\\d+)"
+          let replace = RRTLit "restored-" :| [RRSubWholeMatch]
+          let expectedIndex = IndexName "restored-bloodhound-tests-twitter-1"
+          let overrides = RestoreIndexSettings { restoreOverrideReplicas = Just (ReplicaCount 0) }
+          let settings = defaultSnapshotRestoreSettings { snapRestoreWaitForCompletion = True
+                                                        , snapRestoreRenamePattern = Just pat
+                                                        , snapRestoreRenameReplacement = Just replace
+                                                        , snapRestoreIndexSettingsOverrides = Just overrides
+                                                        }
+          -- have to close an index to restore it
+          let go = do
+                resp <- restoreSnapshot r1n s1n settings
+                liftIO (validateStatus resp 200)
+                exists <- indexExists expectedIndex
+                liftIO (exists `shouldBe` True)
+          go `finally` deleteIndex expectedIndex
 
   describe "Enum DocVersion" $ do
     it "follows the laws of Enum, Bounded" $ do
