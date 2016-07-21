@@ -343,6 +343,7 @@ deleteSnapshotRepo (SnapshotRepoName n) = delete =<< url
     url = joinPath ["_snapshot", n]
 
 
+-- | Create and start a snapshot
 createSnapshot
     :: (MonadBH m)
     => SnapshotRepoName
@@ -370,14 +371,14 @@ renderIndices (i :| is) = T.intercalate "," (renderIndex <$> (i:is))
     renderIndex (IndexName n) = n
 
 
+-- | Get info about known snapshots given a pattern and repo name.
 getSnapshots
     :: ( MonadBH m
        , MonadThrow m
        )
     => SnapshotRepoName
     -> SnapshotSelection
-    -> m (Either EsError
-     [SnapshotInfo])
+    -> m (Either EsError [SnapshotInfo])
 getSnapshots (SnapshotRepoName repoName) sel =
   fmap (fmap unSIs) . parseEsResponse =<< get =<< url
   where
@@ -398,6 +399,7 @@ instance FromJSON SIs where
       parse o = SIs <$> o .: "snapshots"
 
 
+-- | Delete a snapshot. Cancels if it is running.
 deleteSnapshot :: MonadBH m => SnapshotRepoName -> SnapshotName -> m Reply
 deleteSnapshot (SnapshotRepoName repoName) (SnapshotName snapName) =
   delete =<< url
