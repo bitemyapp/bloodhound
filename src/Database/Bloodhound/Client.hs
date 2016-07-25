@@ -358,15 +358,16 @@ createSnapshot (SnapshotRepoName repoName)
     url = addQuery params <$> joinPath ["_snapshot", repoName, snapName]
     params = [("wait_for_completion", Just (boolQP snapWaitForCompletion))]
     body = encode $ object prs
-    prs = catMaybes [ ("indices" .=) . renderIndices <$> snapIndices
+    prs = catMaybes [ ("indices" .=) . indexSelectionName <$> snapIndices
                     , Just ("ignore_unavailable" .= snapIgnoreUnavailable)
                     , Just ("ignore_global_state" .= snapIncludeGlobalState)
                     , Just ("partial" .= snapPartial)
                     ]
 
 
-renderIndices :: NonEmpty IndexName -> Text
-renderIndices (i :| is) = T.intercalate "," (renderIndex <$> (i:is))
+indexSelectionName :: IndexSelection -> Text
+indexSelectionName AllIndexes            = "_all"
+indexSelectionName (IndexList (i :| is)) = T.intercalate "," (renderIndex <$> (i:is))
   where
     renderIndex (IndexName n) = n
 
@@ -425,15 +426,17 @@ restoreSnapshot (SnapshotRepoName repoName)
     url = addQuery params <$> joinPath ["_snapshot", repoName, snapName, "_restore"]
     params = [("wait_for_completion", Just (boolQP snapRestoreWaitForCompletion))]
     body = encode (object prs)
-    prs = catMaybes [ ("indices" .=) . renderIndices <$> snapRestoreIndices
-                    , Just ("ignore_unavailable" .= snapRestoreIgnoreUnavailable)
-                    , Just ("include_global_state" .= snapRestoreIncludeGlobalState)
-                    , ("rename_pattern" .=) <$> snapRestoreRenamePattern
-                    , ("rename_replacement" .=) . renderTokens <$> snapRestoreRenameReplacement
-                    , Just ("include_aliases" .= snapRestoreIncludeAliases)
-                    , ("index_settings" .= ) <$> snapRestoreIndexSettingsOverrides
-                    , ("ignore_index_settings" .= ) <$> snapRestoreIgnoreIndexSettings
-                    ]
+
+
+    prs = catMaybes [ ("indices" .=) . indexSelectionName <$> snapRestoreIndices
+                 , Just ("ignore_unavailable" .= snapRestoreIgnoreUnavailable)
+                 , Just ("include_global_state" .= snapRestoreIncludeGlobalState)
+                 , ("rename_pattern" .=) <$> snapRestoreRenamePattern
+                 , ("rename_replacement" .=) . renderTokens <$> snapRestoreRenameReplacement
+                 , Just ("include_aliases" .= snapRestoreIncludeAliases)
+                 , ("index_settings" .= ) <$> snapRestoreIndexSettingsOverrides
+                 , ("ignore_index_settings" .= ) <$> snapRestoreIgnoreIndexSettings
+                 ]
     renderTokens (t :| ts) = mconcat (renderToken <$> (t:ts))
     renderToken (RRTLit t)      = t
     renderToken RRSubWholeMatch = "$0"
@@ -521,11 +524,6 @@ optimizeIndex ixs IndexOptimizationSettings {..} =
         indexName = indexSelectionName ixs
         body = Nothing
 
-
--------------------------------------------------------------------------------
-indexSelectionName :: IndexSelection -> Text
-indexSelectionName (IndexList names) = renderIndices names
-indexSelectionName AllIndexes        = "_all"
 
 deepMerge :: [Object] -> Object
 deepMerge = LS.foldl' go mempty

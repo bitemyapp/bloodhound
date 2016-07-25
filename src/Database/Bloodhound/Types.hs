@@ -861,6 +861,7 @@ newtype IndexName = IndexName Text deriving (Eq, Generic, Read, Show, ToJSON, Fr
 {-| 'IndexSelection' is used for APIs which take a single index, a list of
     indexes, or the special @_all@ index.
 -}
+--TODO: this does not fully support <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/multi-index.html multi-index syntax>. It wouldn't be too hard to implement but you'd have to add the optional parameters (ignore_unavailable, allow_no_indices, expand_wildcards) to any APIs using it. Also would be a breaking API.
 data IndexSelection = IndexList (NonEmpty IndexName)
                     | AllIndexes deriving (Eq, Generic, Show, Typeable)
 
@@ -3853,7 +3854,7 @@ data SnapshotCreateSettings = SnapshotCreateSettings {
       -- enabled it could wait a long time, so you should adjust your
       -- 'ManagerSettings' accordingly to set long timeouts or
       -- explicitly handle timeouts.
-    , snapIndices            :: Maybe (NonEmpty IndexName)
+    , snapIndices            :: Maybe IndexSelection
     -- ^ Nothing will snapshot all indices. Just [] is permissable and
     -- will essentially be a no-op snapshot.
     , snapIgnoreUnavailable  :: Bool
@@ -3989,7 +3990,7 @@ data SnapshotRestoreSettings = SnapshotRestoreSettings {
       -- enabled, it could wait a long time, so you should adjust your
       -- 'ManagerSettings' accordingly to set long timeouts or
       -- explicitly handle timeouts.
-    , snapRestoreIndices            :: Maybe (NonEmpty IndexName)
+    , snapRestoreIndices            :: Maybe IndexSelection
     -- ^ Nothing will restore all indices in the snapshot. Just [] is
     -- permissable and will essentially be a no-op restore.
     , snapRestoreIgnoreUnavailable  :: Bool

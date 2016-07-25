@@ -358,7 +358,7 @@ withSnapshot srn sn = bracket_ alloc free
       liftIO (validateStatus resp 200)
     -- We'll make this synchronous for testing purposes
     createSettings = defaultSnapshotCreateSettings { snapWaitForCompletion = True
-                                                   , snapIndices = Just (testIndex :| [])
+                                                   , snapIndices = Just (IndexList (testIndex :| []))
                                                    -- We don't actually need to back up any data
                                                    }
     free = do
