@@ -87,6 +87,9 @@ es12 = ServerVersion 1 2 0
 es11 :: ServerVersion
 es11 = ServerVersion 1 1 0
 
+es14 :: ServerVersion
+es14 = ServerVersion 1 4 0
+
 es15 :: ServerVersion
 es15 = ServerVersion 1 5 0
 
@@ -1495,7 +1498,8 @@ main = hspec $ do
         Right [roundtrippedNoCompression] <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| []))
         liftIO (roundtrippedNoCompression `shouldBe` toGSnapshotRepo noCompression)
 
-    it "can verify existing repos" $ when' canSnapshot $ withTestEnv $ do
+    -- verify came around in 1.4 it seems
+    it "can verify existing repos" $ when' canSnapshot $ when' (atleast es14) $ withTestEnv $ do
       let r1n = SnapshotRepoName "bloodhound-repo1"
       withSnapshotRepo r1n $ \_ -> do
         res <- verifySnapshotRepo r1n
