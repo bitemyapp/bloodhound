@@ -324,7 +324,9 @@ updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo =
 
 
 
--- | Verify if a snapshot repo is working.
+-- | Verify if a snapshot repo is working. __NOTE:__ this API did not
+-- make it into ElasticSearch until 1.4. If you use an older version,
+-- you will get an error here.
 verifySnapshotRepo
     :: ( MonadBH m
        , MonadThrow m
