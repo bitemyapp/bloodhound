@@ -4011,7 +4011,9 @@ data SnapshotRestoreSettings = SnapshotRestoreSettings {
     -- ^ Should the restore also restore the aliases captured in the
     -- snapshot.
     , snapRestoreIndexSettingsOverrides :: Maybe RestoreIndexSettings
-    -- ^ Settings to apply during the restore process.
+    -- ^ Settings to apply during the restore process. __NOTE:__ This
+    -- option is not supported in ES < 1.5 and should be set to
+    -- Nothing in that case.
     , snapRestoreIgnoreIndexSettings :: Maybe (NonEmpty Text)
     -- ^ This type could be more rich but it isn't clear which
     -- settings are allowed to be ignored during restore, so we're
