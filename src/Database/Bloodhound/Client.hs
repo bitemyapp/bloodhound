@@ -59,6 +59,14 @@ module Database.Bloodhound.Client
        , mkShardCount
        , mkReplicaCount
        , getStatus
+       , getSnapshotRepos
+       , updateSnapshotRepo
+       , verifySnapshotRepo
+       , deleteSnapshotRepo
+       , createSnapshot
+       , getSnapshots
+       , deleteSnapshot
+       , restoreSnapshot
        , encodeBulkOperations
        , encodeBulkOperation
        -- * Authentication
@@ -71,32 +79,33 @@ module Database.Bloodhound.Client
        )
        where
 
-import qualified Blaze.ByteString.Builder     as BB
-import           Control.Applicative
+import qualified Blaze.ByteString.Builder           as BB
+import           Control.Applicative                as A
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
-import qualified Data.ByteString.Lazy.Char8   as L
-import           Data.Foldable                (toList)
-import qualified Data.HashMap.Strict          as HM
+import qualified Data.ByteString.Lazy.Char8         as L
+import           Data.Foldable                      (toList)
+import qualified Data.HashMap.Strict                as HM
 import           Data.Ix
-import qualified Data.List                    as LS (filter, foldl')
-import           Data.List.NonEmpty           (NonEmpty (..))
-import           Data.Maybe                   (catMaybes, fromMaybe, isJust)
+import qualified Data.List                          as LS (filter, foldl')
+import           Data.List.NonEmpty                 (NonEmpty (..))
+import           Data.Maybe                         (catMaybes, fromMaybe,
+                                                     isJust)
 import           Data.Monoid
-import           Data.Text                    (Text)
-import qualified Data.Text                    as T
-import qualified Data.Text.Encoding           as T
+import           Data.Text                          (Text)
+import qualified Data.Text                          as T
+import qualified Data.Text.Encoding                 as T
 import           Data.Time.Clock
-import qualified Data.Vector                  as V
+import qualified Data.Vector                        as V
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method    as NHTM
-import qualified Network.HTTP.Types.Status    as NHTS
-import qualified Network.HTTP.Types.URI       as NHTU
-import qualified Network.URI                  as URI
-import           Prelude                      hiding (filter, head)
+import qualified Network.HTTP.Types.Method          as NHTM
+import qualified Network.HTTP.Types.Status          as NHTS
+import qualified Network.HTTP.Types.URI             as NHTU
+import qualified Network.URI                        as URI
+import           Prelude                            hiding (filter, head)
 
 import           Database.Bloodhound.Types
 
@@ -183,7 +192,7 @@ dispatch :: MonadBH m
          -> m Reply
 dispatch dMethod url body = do
   initReq <- liftIO $ parseUrl' url
-  reqHook <- bhRequestHook <$> getBHEnv
+  reqHook <- bhRequestHook A.<$> getBHEnv
   let reqBody = RequestBodyLBS $ fromMaybe emptyBody body
   req <- liftIO $ reqHook $ setRequestIgnoreStatus $ initReq { method = dMethod
                                                              , requestBody = reqBody }
@@ -259,6 +268,182 @@ getStatus = do
   response <- get =<< url
   return $ decode (responseBody response)
   where url = joinPath []
+
+-- | 'getSnapshotRepos' gets the definitions of a subset of the
+-- defined snapshot repos.
+getSnapshotRepos
+    :: ( MonadBH m
+       , MonadThrow m
+       )
+    => SnapshotRepoSelection
+    -> m (Either EsError [GenericSnapshotRepo])
+getSnapshotRepos sel = fmap (fmap unGSRs) . parseEsResponse =<< get =<< url
+  where
+    url = joinPath ["_snapshot", selectorSeg]
+    selectorSeg = case sel of
+                    AllSnapshotRepos -> "_all"
+                    SnapshotRepoList (p :| ps) -> T.intercalate "," (renderPat <$> (p:ps))
+    renderPat (RepoPattern t)                  = t
+    renderPat (ExactRepo (SnapshotRepoName t)) = t
+
+
+-- | Wrapper to extract the list of 'GenericSnapshotRepo' in the
+-- format they're returned in
+newtype GSRs = GSRs { unGSRs :: [GenericSnapshotRepo] }
+
+
+instance FromJSON GSRs where
+  parseJSON = withObject "Collection of GenericSnapshotRepo" parse
+    where
+      parse = fmap GSRs . mapM (uncurry go) . HM.toList
+      go rawName = withObject "GenericSnapshotRepo" $ \o -> do
+        GenericSnapshotRepo (SnapshotRepoName rawName) <$> o .: "type"
+                                                       <*> o .: "settings"
+
+
+-- | Create or update a snapshot repo
+updateSnapshotRepo
+  :: ( MonadBH m
+     , SnapshotRepo repo
+     )
+  => SnapshotRepoUpdateSettings
+  -- ^ Use 'defaultSnapshotRepoUpdateSettings' if unsure
+  -> repo
+  -> m Reply
+updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo =
+  bindM2 put url (return (Just body))
+  where
+    url = addQuery params <$> joinPath ["_snapshot", snapshotRepoName gSnapshotRepoName]
+    params
+      | repoUpdateVerify = []
+      | otherwise        = [("verify", Just "false")]
+    body = encode $ object [ "type" .= gSnapshotRepoType
+                           , "settings" .= gSnapshotRepoSettings
+                           ]
+    GenericSnapshotRepo {..} = toGSnapshotRepo repo
+
+
+
+-- | Verify if a snapshot repo is working. __NOTE:__ this API did not
+-- make it into ElasticSearch until 1.4. If you use an older version,
+-- you will get an error here.
+verifySnapshotRepo
+    :: ( MonadBH m
+       , MonadThrow m
+       )
+    => SnapshotRepoName
+    -> m (Either EsError SnapshotVerification)
+verifySnapshotRepo (SnapshotRepoName n) =
+  parseEsResponse =<< bindM2 post url (return Nothing)
+  where
+    url = joinPath ["_snapshot", n, "_verify"]
+
+
+deleteSnapshotRepo :: MonadBH m => SnapshotRepoName -> m Reply
+deleteSnapshotRepo (SnapshotRepoName n) = delete =<< url
+  where
+    url = joinPath ["_snapshot", n]
+
+
+-- | Create and start a snapshot
+createSnapshot
+    :: (MonadBH m)
+    => SnapshotRepoName
+    -> SnapshotName
+    -> SnapshotCreateSettings
+    -> m Reply
+createSnapshot (SnapshotRepoName repoName)
+               (SnapshotName snapName)
+               SnapshotCreateSettings {..} =
+  bindM2 put url (return (Just body))
+  where
+    url = addQuery params <$> joinPath ["_snapshot", repoName, snapName]
+    params = [("wait_for_completion", Just (boolQP snapWaitForCompletion))]
+    body = encode $ object prs
+    prs = catMaybes [ ("indices" .=) . indexSelectionName <$> snapIndices
+                    , Just ("ignore_unavailable" .= snapIgnoreUnavailable)
+                    , Just ("ignore_global_state" .= snapIncludeGlobalState)
+                    , Just ("partial" .= snapPartial)
+                    ]
+
+
+indexSelectionName :: IndexSelection -> Text
+indexSelectionName AllIndexes            = "_all"
+indexSelectionName (IndexList (i :| is)) = T.intercalate "," (renderIndex <$> (i:is))
+  where
+    renderIndex (IndexName n) = n
+
+
+-- | Get info about known snapshots given a pattern and repo name.
+getSnapshots
+    :: ( MonadBH m
+       , MonadThrow m
+       )
+    => SnapshotRepoName
+    -> SnapshotSelection
+    -> m (Either EsError [SnapshotInfo])
+getSnapshots (SnapshotRepoName repoName) sel =
+  fmap (fmap unSIs) . parseEsResponse =<< get =<< url
+  where
+    url = joinPath ["_snapshot", repoName, snapPath]
+    snapPath = case sel of
+      AllSnapshots -> "_all"
+      SnapshotList (s :| ss) -> T.intercalate "," (renderPath <$> (s:ss))
+    renderPath (SnapPattern t)              = t
+    renderPath (ExactSnap (SnapshotName t)) = t
+
+
+newtype SIs = SIs { unSIs :: [SnapshotInfo] }
+
+
+instance FromJSON SIs where
+  parseJSON = withObject "Collection of SnapshotInfo" parse
+    where
+      parse o = SIs <$> o .: "snapshots"
+
+
+-- | Delete a snapshot. Cancels if it is running.
+deleteSnapshot :: MonadBH m => SnapshotRepoName -> SnapshotName -> m Reply
+deleteSnapshot (SnapshotRepoName repoName) (SnapshotName snapName) =
+  delete =<< url
+  where
+    url = joinPath ["_snapshot", repoName, snapName]
+
+
+-- | Restore a snapshot to the cluster See
+-- <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/modules-snapshots.html#_restore>
+-- for more details.
+restoreSnapshot
+    :: MonadBH m
+    => SnapshotRepoName
+    -> SnapshotName
+    -> SnapshotRestoreSettings
+    -- ^ Start with 'defaultSnapshotRestoreSettings' and customize
+    -- from there for reasonable defaults.
+    -> m Reply
+restoreSnapshot (SnapshotRepoName repoName)
+                (SnapshotName snapName)
+                SnapshotRestoreSettings {..} = bindM2 post url (return (Just body))
+  where
+    url = addQuery params <$> joinPath ["_snapshot", repoName, snapName, "_restore"]
+    params = [("wait_for_completion", Just (boolQP snapRestoreWaitForCompletion))]
+    body = encode (object prs)
+
+
+    prs = catMaybes [ ("indices" .=) . indexSelectionName <$> snapRestoreIndices
+                 , Just ("ignore_unavailable" .= snapRestoreIgnoreUnavailable)
+                 , Just ("include_global_state" .= snapRestoreIncludeGlobalState)
+                 , ("rename_pattern" .=) <$> snapRestoreRenamePattern
+                 , ("rename_replacement" .=) . renderTokens <$> snapRestoreRenameReplacement
+                 , Just ("include_aliases" .= snapRestoreIncludeAliases)
+                 , ("index_settings" .= ) <$> snapRestoreIndexSettingsOverrides
+                 , ("ignore_index_settings" .= ) <$> snapRestoreIgnoreIndexSettings
+                 ]
+    renderTokens (t :| ts) = mconcat (renderToken <$> (t:ts))
+    renderToken (RRTLit t)      = t
+    renderToken RRSubWholeMatch = "$0"
+    renderToken (RRSubGroup g)  = T.pack (show (rrGroupRefNum g))
+
 
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
 --
@@ -339,15 +524,8 @@ optimizeIndex ixs IndexOptimizationSettings {..} =
                            , Just ("flush", Just (boolQP flushAfterOptimize))
                            ]
         indexName = indexSelectionName ixs
-        boolQP True = "true"
-        boolQP False = "false"
         body = Nothing
 
-
--------------------------------------------------------------------------------
-indexSelectionName :: IndexSelection -> Text
-indexSelectionName (IndexList names) = T.intercalate "," [n | IndexName n <- toList names]
-indexSelectionName AllIndexes        = "_all"
 
 deepMerge :: [Object] -> Object
 deepMerge = LS.foldl' go mempty
@@ -856,3 +1034,8 @@ basicAuthHook :: Monad m => EsUsername -> EsPassword -> Request -> m Request
 basicAuthHook (EsUsername u) (EsPassword p) = return . applyBasicAuth u' p'
   where u' = T.encodeUtf8 u
         p' = T.encodeUtf8 p
+
+
+boolQP :: Bool -> Text
+boolQP True  = "true"
+boolQP False = "false"

@@ -5,10 +5,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 -- {-# LANGUAGE NoMonomorphismRestriction  #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE NamedFieldPuns             #-}
 
 -------------------------------------------------------------------------------
 -- |
@@ -69,6 +69,9 @@ module Database.Bloodhound.Types
        , AllocationPolicy(..)
        , ReplicaBounds(..)
        , Bytes(..)
+       , gigabytes
+       , megabytes
+       , kilobytes
        , FSType(..)
        , InitialShardCount(..)
        , NodeAttrFilter(..)
@@ -235,6 +238,38 @@ module Database.Bloodhound.Types
        , CollectionMode(..)
        , TermOrder(..)
        , TermInclusion(..)
+       , SnapshotRepoSelection(..)
+       , GenericSnapshotRepo(..)
+       , SnapshotRepo(..)
+       , SnapshotRepoConversionError(..)
+       , SnapshotRepoType(..)
+       , GenericSnapshotRepoSettings(..)
+       , SnapshotRepoUpdateSettings(..)
+       , defaultSnapshotRepoUpdateSettings
+       , SnapshotRepoName(..)
+       , SnapshotRepoPattern(..)
+       , SnapshotVerification(..)
+       , SnapshotNodeVerification(..)
+       , FullNodeId(..)
+       , NodeName(..)
+       , FsSnapshotRepo(..)
+       , SnapshotCreateSettings(..)
+       , defaultSnapshotCreateSettings
+       , SnapshotSelection(..)
+       , SnapshotPattern(..)
+       , SnapshotInfo(..)
+       , SnapshotShardFailure(..)
+       , ShardId(..)
+       , SnapshotName(..)
+       , SnapshotState(..)
+       , SnapshotRestoreSettings(..)
+       , defaultSnapshotRestoreSettings
+       , RestoreRenamePattern(..)
+       , RestoreRenameToken(..)
+       , RRGroupRefNum
+       , rrGroupRefNum
+       , mkRRGroupRefNum
+       , RestoreIndexSettings(..)
 
        , Aggregation(..)
        , Aggregations
@@ -275,7 +310,7 @@ module Database.Bloodhound.Types
        , EsPassword(..)
          ) where
 
-import           Control.Applicative
+import           Control.Applicative                as A
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader
@@ -283,7 +318,7 @@ import           Control.Monad.State
 import           Control.Monad.Writer
 import           Data.Aeson
 import           Data.Aeson.Types                   (Pair, Parser, emptyObject,
-                                                     parseMaybe)
+                                                     parseEither, parseMaybe)
 import qualified Data.ByteString.Lazy.Char8         as L
 import           Data.Char
 import           Data.Hashable                      (Hashable)
@@ -332,7 +367,7 @@ mkBHEnv s m = BHEnv s m return
 newtype BH m a = BH {
       unBH :: ReaderT BHEnv m a
     } deriving ( Functor
-               , Applicative
+               , A.Applicative
                , Monad
                , MonadIO
                , MonadState s
@@ -483,7 +518,30 @@ data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasUnbounded
                    deriving (Eq, Read, Show, Generic, Typeable)
 
+-- | A measure of bytes used for various configurations. You may want
+-- to use smart constructors like 'gigabytes' for larger values.
+--
+-- >>> gigabytes 9
+-- Bytes 9000000000
+--
+-- >>> megabytes 9
+-- Bytes 9000000
+--
+-- >>> kilobytes 9
+-- Bytes 9000
 newtype Bytes = Bytes Int deriving (Eq, Read, Show, Generic, Typeable, Ord, ToJSON, FromJSON)
+
+gigabytes :: Int -> Bytes
+gigabytes n = megabytes (1000 * n)
+
+
+megabytes :: Int -> Bytes
+megabytes n = kilobytes (1000 * n)
+
+
+kilobytes :: Int -> Bytes
+kilobytes n = Bytes (1000 * n)
+
 
 data FSType = FSSimple
             | FSBuffered deriving (Eq, Read, Show, Generic, Typeable, Ord)
@@ -803,6 +861,7 @@ newtype IndexName = IndexName Text deriving (Eq, Generic, Read, Show, ToJSON, Fr
 {-| 'IndexSelection' is used for APIs which take a single index, a list of
     indexes, or the special @_all@ index.
 -}
+--TODO: this does not fully support <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/multi-index.html multi-index syntax>. It wouldn't be too hard to implement but you'd have to add the optional parameters (ignore_unavailable, allow_no_indices, expand_wildcards) to any APIs using it. Also would be a breaking API.
 data IndexSelection = IndexList (NonEmpty IndexName)
                     | AllIndexes deriving (Eq, Generic, Show, Typeable)
 
@@ -2947,7 +3006,7 @@ instance FromJSON UpdatableIndexSetting where
                 <|> blocksWrite `taggedAt` ["blocks", "write"]
                 <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
             where taggedAt f ks = taggedAt' f (Object o) ks
-          taggedAt' f v [] = f =<< (parseJSON v <|> (parseJSON =<< unStringlyTypeJSON v))
+          taggedAt' f v [] = f =<< (parseJSON v <|> (parseJSON (unStringlyTypeJSON v)))
           taggedAt' f v (k:ks) = withObject "Object" (\o -> do v' <- o .: k
                                                                taggedAt' f v' ks) v
           numberOfReplicas               = pure . NumberOfReplicas
@@ -2989,18 +3048,17 @@ instance FromJSON IndexSettingsSummary where
           redundant (NumberOfReplicas _) = True
           redundant _ = False
 
--- | For some reason in the settings API, all leaf values get returned
+-- | For some reason in several settings APIs, all leaf values get returned
 -- as strings. This function attepmts to recover from this for all
--- non-recursive JSON types. If nothing can be done or the same value
--- would be return, it returns 'mzero'
-unStringlyTypeJSON :: MonadPlus m => Value -> m Value
-unStringlyTypeJSON (String "true") = return (Bool True)
-unStringlyTypeJSON (String "false") = return (Bool False)
-unStringlyTypeJSON (String "null") = return Null
-unStringlyTypeJSON (String t) = case readMay (T.unpack t) of
-                                  Just n -> return (Number n)
-                                  Nothing -> mzero
-unStringlyTypeJSON _ = mzero
+-- non-recursive JSON types. If nothing can be done, the value is left alone.
+unStringlyTypeJSON :: Value -> Value
+unStringlyTypeJSON (String "true") = Bool True
+unStringlyTypeJSON (String "false") = Bool False
+unStringlyTypeJSON (String "null") = Null
+unStringlyTypeJSON v@(String t) = case readMay (T.unpack t) of
+                                  Just n -> Number n
+                                  Nothing -> v
+unStringlyTypeJSON v = v
 
 
 parseSettings :: Object -> Parser [UpdatableIndexSetting]
@@ -3625,3 +3683,418 @@ newtype EsUsername = EsUsername { esUsername :: Text } deriving (Read, Show, Eq)
 
 -- | Password type used for HTTP Basic authentication. See 'basicAuthHook'.
 newtype EsPassword = EsPassword { esPassword :: Text } deriving (Read, Show, Eq)
+
+
+data SnapshotRepoSelection = SnapshotRepoList (NonEmpty SnapshotRepoPattern)
+                           | AllSnapshotRepos deriving (Eq, Generic, Show, Typeable)
+
+
+-- | Either specifies an exact repo name or one with globs in it,
+-- e.g. @RepoPattern "foo*"@ __NOTE__: Patterns are not supported on ES < 1.7
+data SnapshotRepoPattern = ExactRepo SnapshotRepoName
+                         | RepoPattern Text
+                         deriving (Eq, Generic, Show, Typeable)
+
+-- | The unique name of a snapshot repository.
+newtype SnapshotRepoName = SnapshotRepoName  { snapshotRepoName :: Text }
+                         deriving (Eq, Ord, Generic, Show, Typeable, ToJSON, FromJSON)
+
+
+-- | A generic representation of a snapshot repo. This is what gets
+-- sent to and parsed from the server. For repo types enabled by
+-- plugins that aren't exported by this library, consider making a
+-- custom type which implements 'SnapshotRepo'. If it is a common repo
+-- type, consider submitting a pull request to have it included in the
+-- library proper
+data GenericSnapshotRepo = GenericSnapshotRepo {
+      gSnapshotRepoName     :: SnapshotRepoName
+    , gSnapshotRepoType     :: SnapshotRepoType
+    , gSnapshotRepoSettings :: GenericSnapshotRepoSettings
+    } deriving (Eq, Generic, Show, Typeable)
+
+
+instance SnapshotRepo GenericSnapshotRepo where
+  toGSnapshotRepo = id
+  fromGSnapshotRepo = Right
+
+
+newtype SnapshotRepoType = SnapshotRepoType { snapshotRepoType :: Text }
+                         deriving (Eq, Ord, Generic, Show, Typeable, ToJSON, FromJSON)
+
+
+-- | Opaque representation of snapshot repo settings. Instances of
+-- 'SnapshotRepo' will produce this.
+newtype GenericSnapshotRepoSettings = GenericSnapshotRepoSettings { gSnapshotRepoSettingsObject :: Object }
+                                    deriving (Eq, Generic, Show, Typeable, ToJSON)
+
+
+ -- Regardless of whether you send strongly typed json, my version of
+ -- ES sends back stringly typed json in the settings, e.g. booleans
+ -- as strings, so we'll try to convert them.
+instance FromJSON GenericSnapshotRepoSettings where
+  parseJSON = fmap (GenericSnapshotRepoSettings . fmap unStringlyTypeJSON). parseJSON
+
+-- | The result of running 'verifySnapshotRepo'.
+newtype SnapshotVerification = SnapshotVerification { snapshotNodeVerifications :: [SnapshotNodeVerification] }
+                             deriving (Eq, Generic, Show, Typeable)
+
+
+instance FromJSON SnapshotVerification where
+  parseJSON = withObject "SnapshotVerification" parse
+    where
+      parse o = do
+        o2 <- o .: "nodes"
+        SnapshotVerification <$> mapM (uncurry parse') (HM.toList o2)
+      parse' rawFullId = withObject "SnapshotNodeVerification" $ \o ->
+        SnapshotNodeVerification (FullNodeId rawFullId) <$> o .: "name"
+
+
+-- | A node that has verified a snapshot
+data SnapshotNodeVerification = SnapshotNodeVerification {
+      snvFullId   :: FullNodeId
+    , snvNodeName :: NodeName
+    } deriving (Eq, Generic, Show, Typeable)
+
+
+-- | Unique, automatically-generated name assigned to nodes that are
+-- usually returned in node-oriented APIs.
+newtype FullNodeId = FullNodeId { fullNodeId :: Text }
+                   deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+
+-- | A human-readable node name that is supplied by the user in the
+-- node config or automatically generated by ElasticSearch.
+newtype NodeName = NodeName { nodeName :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+
+data SnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings {
+     repoUpdateVerify :: Bool
+     -- ^ After creation/update, synchronously check that nodes can
+     -- write to this repo. Defaults to True. You may use False if you
+     -- need a faster response and plan on verifying manually later
+     -- with 'verifySnapshotRepo'.
+    } deriving (Eq, Show, Generic, Typeable)
+
+
+-- | Reasonable defaults for repo creation/update
+--
+-- * repoUpdateVerify True
+defaultSnapshotRepoUpdateSettings :: SnapshotRepoUpdateSettings
+defaultSnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings True
+
+
+-- | A filesystem-based snapshot repo that ships with
+-- ElasticSearch. This is an instance of 'SnapshotRepo' so it can be
+-- used with 'updateSnapshotRepo'
+data FsSnapshotRepo = FsSnapshotRepo {
+      fsrName                   :: SnapshotRepoName
+    , fsrLocation               :: FilePath
+    , fsrCompressMetadata       :: Bool
+    , fsrChunkSize              :: Maybe Bytes
+    -- ^ Size by which to split large files during snapshotting.
+    , fsrMaxRestoreBytesPerSec  :: Maybe Bytes
+    -- ^ Throttle node restore rate. If not supplied, defaults to 40mb/sec
+    , fsrMaxSnapshotBytesPerSec :: Maybe Bytes
+    -- ^ Throttle node snapshot rate. If not supplied, defaults to 40mb/sec
+    } deriving (Eq, Generic, Show, Typeable)
+
+
+instance SnapshotRepo FsSnapshotRepo where
+  toGSnapshotRepo FsSnapshotRepo {..} =
+    GenericSnapshotRepo fsrName fsRepoType (GenericSnapshotRepoSettings settings)
+    where
+      Object settings = object $ [ "location" .= fsrLocation
+                                 , "compress" .= fsrCompressMetadata
+                                 ] ++ optionalPairs
+      optionalPairs = catMaybes [ ("chunk_size" .=) <$> fsrChunkSize
+                                , ("max_restore_bytes_per_sec" .=) <$> fsrMaxRestoreBytesPerSec
+                                , ("max_snapshot_bytes_per_sec" .=) <$> fsrMaxSnapshotBytesPerSec
+                                ]
+  fromGSnapshotRepo GenericSnapshotRepo {..}
+    | gSnapshotRepoType == fsRepoType = do
+      let o = gSnapshotRepoSettingsObject gSnapshotRepoSettings
+      parseRepo $ do
+        FsSnapshotRepo gSnapshotRepoName <$> o .: "location"
+                                         <*> o .:? "compress" .!= False
+                                         <*> o .:? "chunk_size"
+                                         <*> o .:? "max_restore_bytes_per_sec"
+                                         <*> o .:? "max_snapshot_bytes_per_sec"
+    | otherwise = Left (RepoTypeMismatch fsRepoType gSnapshotRepoType)
+
+
+parseRepo :: Parser a -> Either SnapshotRepoConversionError a
+parseRepo parser = case parseEither (const parser) () of
+  Left e -> Left (OtherRepoConversionError (T.pack e))
+  Right a -> Right a
+
+
+fsRepoType :: SnapshotRepoType
+fsRepoType = SnapshotRepoType "fs"
+
+-- | Law: fromGSnapshotRepo (toGSnapshotRepo r) == Right r
+class SnapshotRepo r where
+  toGSnapshotRepo :: r -> GenericSnapshotRepo
+  fromGSnapshotRepo :: GenericSnapshotRepo -> Either SnapshotRepoConversionError r
+
+
+data SnapshotRepoConversionError = RepoTypeMismatch SnapshotRepoType SnapshotRepoType
+                                 -- ^ Expected type and actual type
+                                 | OtherRepoConversionError Text
+                                 deriving (Show, Eq, Generic, Typeable)
+
+
+instance Exception SnapshotRepoConversionError
+
+
+data SnapshotCreateSettings = SnapshotCreateSettings {
+      snapWaitForCompletion  :: Bool
+      -- ^ Should the API call return immediately after initializing
+      -- the snapshot or wait until completed? Note that if this is
+      -- enabled it could wait a long time, so you should adjust your
+      -- 'ManagerSettings' accordingly to set long timeouts or
+      -- explicitly handle timeouts.
+    , snapIndices            :: Maybe IndexSelection
+    -- ^ Nothing will snapshot all indices. Just [] is permissable and
+    -- will essentially be a no-op snapshot.
+    , snapIgnoreUnavailable  :: Bool
+    -- ^ If set to True, any matched indices that don't exist will be
+    -- ignored. Otherwise it will be an error and fail.
+    , snapIncludeGlobalState :: Bool
+    , snapPartial            :: Bool
+    -- ^ If some indices failed to snapshot (e.g. if not all primary
+    -- shards are available), should the process proceed?
+    } deriving (Eq, Generic, Show, Typeable)
+
+
+-- | Reasonable defaults for snapshot creation
+--
+-- * snapWaitForCompletion False
+-- * snapIndices Nothing
+-- * snapIgnoreUnavailable False
+-- * snapIncludeGlobalState True
+-- * snapPartial False
+defaultSnapshotCreateSettings :: SnapshotCreateSettings
+defaultSnapshotCreateSettings = SnapshotCreateSettings {
+      snapWaitForCompletion = False
+    , snapIndices = Nothing
+    , snapIgnoreUnavailable = False
+    , snapIncludeGlobalState = True
+    , snapPartial = False
+    }
+
+
+data SnapshotSelection = SnapshotList (NonEmpty SnapshotPattern)
+                       | AllSnapshots deriving (Eq, Generic, Show, Typeable)
+
+
+-- | Either specifies an exact snapshot name or one with globs in it,
+-- e.g. @SnapPattern "foo*"@ __NOTE__: Patterns are not supported on
+-- ES < 1.7
+data SnapshotPattern = ExactSnap SnapshotName
+                     | SnapPattern Text
+                     deriving (Eq, Generic, Show, Typeable)
+
+
+-- | General information about the state of a snapshot. Has some
+-- redundancies with 'SnapshotStatus'
+data SnapshotInfo = SnapshotInfo {
+      snapInfoShards    :: ShardResult
+    , snapInfoFailures  :: [SnapshotShardFailure]
+    , snapInfoDuration  :: NominalDiffTime
+    , snapInfoEndTime   :: UTCTime
+    , snapInfoStartTime :: UTCTime
+    , snapInfoState     :: SnapshotState
+    , snapInfoIndices   :: [IndexName]
+    , snapInfoName      :: SnapshotName
+    } deriving (Eq, Generic, Show, Typeable)
+
+
+instance FromJSON SnapshotInfo where
+  parseJSON = withObject "SnapshotInfo" parse
+    where
+      parse o = SnapshotInfo <$> o .: "shards"
+                             <*> o .: "failures"
+                             <*> (unMS <$> o .: "duration_in_millis")
+                             <*> (posixMS <$> o .: "end_time_in_millis")
+                             <*> (posixMS <$> o .: "start_time_in_millis")
+                             <*> o .: "state"
+                             <*> o .: "indices"
+                             <*> o .: "snapshot"
+
+data SnapshotShardFailure = SnapshotShardFailure {
+      snapShardFailureIndex :: IndexName
+    , snapShardFailureNodeId :: Maybe NodeName -- I'm not 100% sure this isn't actually 'FullNodeId'
+    , snapShardFailureReason :: Text
+    , snapShardFailureShardId :: ShardId
+    } deriving (Eq, Show, Generic, Typeable)
+
+
+instance FromJSON SnapshotShardFailure where
+  parseJSON = withObject "SnapshotShardFailure" parse
+    where
+      parse o = SnapshotShardFailure <$> o .: "index"
+                                     <*> o .:? "node_id"
+                                     <*> o .: "reason"
+                                     <*> o .: "shard_id"
+
+
+newtype ShardId = ShardId { shardId :: Int }
+                deriving (Eq, Show, Generic, Typeable, FromJSON)
+
+-- | Milliseconds
+newtype MS = MS NominalDiffTime
+
+
+-- keeps the unexported constructor warnings at bay
+unMS :: MS -> NominalDiffTime
+unMS (MS t) = t
+
+
+instance FromJSON MS where
+  parseJSON = withScientific "MS" (return . MS . parse)
+    where
+      parse n = fromInteger ((truncate n) * 1000)
+
+
+data SnapshotState = SnapshotInit
+                   | SnapshotStarted
+                   | SnapshotSuccess
+                   | SnapshotFailed
+                   | SnapshotAborted
+                   | SnapshotMissing
+                   | SnapshotWaiting
+                   deriving (Show, Eq, Generic, Typeable)
+
+instance FromJSON SnapshotState where
+  parseJSON = withText "SnapshotState" parse
+    where
+      parse "INIT"    = return SnapshotInit
+      parse "STARTED" = return SnapshotStarted
+      parse "SUCCESS" = return SnapshotSuccess
+      parse "FAILED"  = return SnapshotFailed
+      parse "ABORTED" = return SnapshotAborted
+      parse "MISSING" = return SnapshotMissing
+      parse "WAITING" = return SnapshotWaiting
+      parse t         = fail ("Invalid snapshot state " <> T.unpack t)
+
+
+newtype SnapshotName = SnapshotName { snapshotName :: Text }
+                     deriving (Show, Eq, Ord, Generic, Typeable, ToJSON, FromJSON)
+
+
+data SnapshotRestoreSettings = SnapshotRestoreSettings {
+      snapRestoreWaitForCompletion  :: Bool
+      -- ^ Should the API call return immediately after initializing
+      -- the restore or wait until completed? Note that if this is
+      -- enabled, it could wait a long time, so you should adjust your
+      -- 'ManagerSettings' accordingly to set long timeouts or
+      -- explicitly handle timeouts.
+    , snapRestoreIndices            :: Maybe IndexSelection
+    -- ^ Nothing will restore all indices in the snapshot. Just [] is
+    -- permissable and will essentially be a no-op restore.
+    , snapRestoreIgnoreUnavailable  :: Bool
+    -- ^ If set to True, any indices that do not exist will be ignored
+    -- during snapshot rather than failing the restore.
+    , snapRestoreIncludeGlobalState :: Bool
+    -- ^ If set to false, will ignore any global state in the snapshot
+    -- and will not restore it.
+    , snapRestoreRenamePattern      :: Maybe RestoreRenamePattern
+    -- ^ A regex pattern for matching indices. Used with
+    -- 'snapRestoreRenameReplacement', the restore can reference the
+    -- matched index and create a new index name upon restore.
+    , snapRestoreRenameReplacement  :: Maybe (NonEmpty RestoreRenameToken)
+    -- ^ Expression of how index renames should be constructed.
+    , snapRestorePartial            :: Bool
+    -- ^ If some indices fail to restore, should the process proceed?
+    , snapRestoreIncludeAliases     :: Bool
+    -- ^ Should the restore also restore the aliases captured in the
+    -- snapshot.
+    , snapRestoreIndexSettingsOverrides :: Maybe RestoreIndexSettings
+    -- ^ Settings to apply during the restore process. __NOTE:__ This
+    -- option is not supported in ES < 1.5 and should be set to
+    -- Nothing in that case.
+    , snapRestoreIgnoreIndexSettings :: Maybe (NonEmpty Text)
+    -- ^ This type could be more rich but it isn't clear which
+    -- settings are allowed to be ignored during restore, so we're
+    -- going with including this feature in a basic form rather than
+    -- omitting it. One example here would be
+    -- "index.refresh_interval". Any setting specified here will
+    -- revert back to the server default during the restore process.
+    } deriving (Eq, Generic, Show, Typeable)
+
+-- | Regex-stype pattern, e.g. "index_(.+)" to match index names
+newtype RestoreRenamePattern = RestoreRenamePattern { rrPattern :: Text }
+                             deriving (Show, Eq, Generic, Typeable, Ord, ToJSON)
+
+
+-- | A single token in a index renaming scheme for a restore. These
+-- are concatenated into a string before being sent to
+-- ElasticSearch. Check out these Java
+-- <https://docs.oracle.com/javase/7/docs/api/java/util/regex/Matcher.html docs> to find out more if you're into that sort of thing.
+data RestoreRenameToken = RRTLit Text
+                        -- ^ Just a literal string of characters
+                        | RRSubWholeMatch
+                        -- ^ Equivalent to $0. The entire matched pattern, not any subgroup
+                        | RRSubGroup RRGroupRefNum
+                        -- ^ A specific reference to a group number
+                        deriving (Show, Eq, Generic, Typeable)
+
+
+-- | A group number for regex matching. Only values from 1-9 are
+-- supported. Construct with 'mkRRGroupRefNum'
+newtype RRGroupRefNum = RRGroupRefNum { rrGroupRefNum :: Int }
+                      deriving (Show, Eq, Generic, Typeable, Ord)
+
+instance Bounded RRGroupRefNum where
+  minBound = RRGroupRefNum 1
+  maxBound = RRGroupRefNum 9
+
+
+-- | Only allows valid group number references (1-9).
+mkRRGroupRefNum :: Int -> Maybe RRGroupRefNum
+mkRRGroupRefNum i
+  | i >= (rrGroupRefNum minBound) && i <= (rrGroupRefNum maxBound) =
+    Just $ RRGroupRefNum i
+  | otherwise = Nothing
+
+
+-- | Reasonable defaults for snapshot restores
+--
+-- * snapRestoreWaitForCompletion False
+-- * snapRestoreIndices Nothing
+-- * snapRestoreIgnoreUnavailable False
+-- * snapRestoreIncludeGlobalState True
+-- * snapRestoreRenamePattern Nothing
+-- * snapRestoreRenameReplacement Nothing
+-- * snapRestorePartial False
+-- * snapRestoreIncludeAliases True
+-- * snapRestoreIndexSettingsOverrides Nothing
+-- * snapRestoreIgnoreIndexSettings Nothing
+defaultSnapshotRestoreSettings :: SnapshotRestoreSettings
+defaultSnapshotRestoreSettings = SnapshotRestoreSettings {
+      snapRestoreWaitForCompletion = False
+    , snapRestoreIndices = Nothing
+    , snapRestoreIgnoreUnavailable  = False
+    , snapRestoreIncludeGlobalState = True
+    , snapRestoreRenamePattern = Nothing
+    , snapRestoreRenameReplacement = Nothing
+    , snapRestorePartial = False
+    , snapRestoreIncludeAliases = True
+    , snapRestoreIndexSettingsOverrides = Nothing
+    , snapRestoreIgnoreIndexSettings = Nothing
+    }
+
+
+-- | Index settings that can be overridden. The docs only mention you
+-- can update number of replicas, but there may be more. You
+-- definitely cannot override shard count.
+data RestoreIndexSettings = RestoreIndexSettings {
+      restoreOverrideReplicas :: Maybe ReplicaCount
+    } deriving (Show, Eq, Generic, Typeable)
+
+
+instance ToJSON RestoreIndexSettings where
+  toJSON RestoreIndexSettings {..} = object prs
+    where
+      prs = catMaybes [("index.number_of_replicas" .=) <$> restoreOverrideReplicas]
