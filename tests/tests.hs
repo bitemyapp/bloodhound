@@ -36,6 +36,7 @@ import           Data.Time.Clock                 (NominalDiffTime, UTCTime (..),
                                                   secondsToDiffTime)
 import           Data.Typeable
 import qualified Data.Vector                     as V
+import qualified Data.Version                    as Vers
 import           Database.Bloodhound
 import           GHC.Generics                    as G
 import           Network.HTTP.Client             hiding (Proxy)
@@ -76,42 +77,28 @@ createExampleIndex = createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0))
 deleteExampleIndex :: (MonadBH m) => m Reply
 deleteExampleIndex = deleteIndex testIndex
 
-data ServerVersion = ServerVersion Int Int Int deriving (Show, Eq, Ord)
+es13 :: Vers.Version
+es13 = Vers.Version [1, 3, 0] []
 
-es13 :: ServerVersion
-es13 = ServerVersion 1 3 0
+es12 :: Vers.Version
+es12 = Vers.Version [1, 2, 0] []
 
-es12 :: ServerVersion
-es12 = ServerVersion 1 2 0
+es11 :: Vers.Version
+es11 = Vers.Version [1, 1, 0] []
 
-es11 :: ServerVersion
-es11 = ServerVersion 1 1 0
+es14 :: Vers.Version
+es14 = Vers.Version [1, 4, 0] []
 
-es14 :: ServerVersion
-es14 = ServerVersion 1 4 0
+es15 :: Vers.Version
+es15 = Vers.Version [1, 5, 0] []
 
-es15 :: ServerVersion
-es15 = ServerVersion 1 5 0
+es16 :: Vers.Version
+es16 = Vers.Version [1, 6, 0] []
 
-es16 :: ServerVersion
-es16 = ServerVersion 1 6 0
-
-serverBranch :: ServerVersion -> ServerVersion
-serverBranch (ServerVersion majorVer minorVer patchVer) =
-  ServerVersion majorVer minorVer patchVer
-
-mkServerVersion :: [Int] -> Maybe ServerVersion
-mkServerVersion [majorVer, minorVer, patchVer] =
-  Just (ServerVersion majorVer minorVer patchVer)
-mkServerVersion _                 = Nothing
-
-getServerVersion :: IO (Maybe ServerVersion)
-getServerVersion = liftM extractVersion (withTestEnv getStatus)
+getServerVersion :: IO (Maybe Vers.Version)
+getServerVersion = fmap extractVersion <$> withTestEnv getStatus
   where
-    version'                    = T.splitOn "." . number . version
-    toInt                       = read . T.unpack
-    parseVersion v              = map toInt (version' v)
-    extractVersion              = join . liftM (mkServerVersion . parseVersion)
+    extractVersion              = versionNumber . number . version
 
 -- | Get configured repo paths for snapshotting. Note that by default
 -- this is not enabled and if we are over es 1.5, we won't be able to
@@ -140,17 +127,14 @@ canSnapshot = do
   repoPaths <- getRepoPaths
   return (not caresAboutRepos || not (null (repoPaths)))
 
-testServerBranch :: IO (Maybe ServerVersion)
-testServerBranch = getServerVersion >>= \v -> return $ liftM serverBranch v
+atleast :: Vers.Version -> IO Bool
+atleast v = getServerVersion >>= \x -> return $ x >= Just v
 
-atleast :: ServerVersion -> IO Bool
-atleast v = testServerBranch >>= \x -> return $ x >= Just (serverBranch v)
+atmost :: Vers.Version -> IO Bool
+atmost v = getServerVersion >>= \x -> return $ x <= Just v
 
-atmost :: ServerVersion -> IO Bool
-atmost v = testServerBranch >>= \x -> return $ x <= Just (serverBranch v)
-
-is :: ServerVersion -> IO Bool
-is v = testServerBranch >>= \x -> return $ x == Just (serverBranch v)
+is :: Vers.Version -> IO Bool
+is v = getServerVersion >>= \x -> return $ x == Just v
 
 when' :: Monad m => m Bool -> m () -> m ()
 when' b f = b >>= \x -> when x f
@@ -473,6 +457,7 @@ instance ApproxEq RegexpFlag
 instance ApproxEq RegexpFlags
 instance ApproxEq NullValue
 instance ApproxEq Version
+instance ApproxEq VersionNumber
 instance ApproxEq DistanceRange
 instance ApproxEq IndexName
 instance ApproxEq MappingName
@@ -570,6 +555,8 @@ instance ApproxEq MultiMatchQuery
 instance ApproxEq IndexSettings
 instance ApproxEq AllocationPolicy
 instance ApproxEq Char
+instance ApproxEq Vers.Version where
+  (=~) = (==)
 instance ApproxEq a => ApproxEq [a] where
   as =~ bs = and (zipWith (=~) as bs)
 instance (ApproxEq l, ApproxEq r) => ApproxEq (Either l r) where
@@ -578,6 +565,7 @@ instance (ApproxEq l, ApproxEq r) => ApproxEq (Either l r) where
   _ =~ _ = False
 instance ApproxEq NodeAttrFilter
 instance ApproxEq NodeAttrName
+instance ApproxEq BuildHash
 
 -- | Due to the way nodeattrfilters get serialized here, they may come
 -- out in a different order, but they are morally equivalent
@@ -767,10 +755,16 @@ instance Arbitrary NodeAttrFilter where
     let ts = T.pack <$> s :| ss
     return (NodeAttrFilter n ts)
 
+instance Arbitrary VersionNumber where
+  arbitrary = mk . fmap getPositive . getNonEmpty <$> arbitrary
+    where
+      mk versions = VersionNumber (Vers.Version versions [])
+
 $(derive makeArbitrary ''IndexName)
 $(derive makeArbitrary ''MappingName)
 $(derive makeArbitrary ''DocId)
 $(derive makeArbitrary ''Version)
+$(derive makeArbitrary ''BuildHash)
 $(derive makeArbitrary ''IndexAliasRouting)
 $(derive makeArbitrary ''ShardCount)
 $(derive makeArbitrary ''ReplicaCount)

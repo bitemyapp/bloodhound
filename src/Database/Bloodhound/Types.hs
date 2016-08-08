@@ -60,6 +60,8 @@ module Database.Bloodhound.Types
        , mkBHEnv
        , MonadBH(..)
        , Version(..)
+       , VersionNumber(..)
+       , BuildHash(..)
        , Status(..)
        , Existence(..)
        , NullValue(..)
@@ -252,6 +254,31 @@ module Database.Bloodhound.Types
        , SnapshotNodeVerification(..)
        , FullNodeId(..)
        , NodeName(..)
+       , ClusterName(..)
+       , NodesInfo(..)
+       , EsAddress(..)
+       , PluginName(..)
+       , NodeInfo(..)
+       , NodePluginInfo(..)
+       , NodeHTTPInfo(..)
+       , NodeTransportInfo(..)
+       , BoundTransportAddress(..)
+       , NodeNetworkInfo(..)
+       , MacAddress(..)
+       , NetworkInterfaceName(..)
+       , NodeNetworkInterface(..)
+       , NodeThreadPoolsInfo(..)
+       , NodeThreadPoolInfo(..)
+       , ThreadPoolSize(..)
+       , ThreadPoolType(..)
+       , NodeJVMInfo(..)
+       , JVMMemoryPool(..)
+       , JVMGCCollector(..)
+       , JVMMemoryInfo(..)
+       , PID(..)
+       , NodeOSInfo(..)
+       , CPUInfo(..)
+       , NodeProcessInfo(..)
        , FsSnapshotRepo(..)
        , SnapshotCreateSettings(..)
        , defaultSnapshotCreateSettings
@@ -323,7 +350,7 @@ import qualified Data.ByteString.Lazy.Char8         as L
 import           Data.Char
 import           Data.Hashable                      (Hashable)
 import qualified Data.HashMap.Strict                as HM
-import           Data.List                          (foldl', nub)
+import           Data.List                          (foldl', intercalate, nub)
 import           Data.List.NonEmpty                 (NonEmpty (..), toList)
 import qualified Data.Map.Strict                    as M
 import           Data.Maybe
@@ -336,10 +363,12 @@ import           Data.Time.Clock.POSIX
 import qualified Data.Traversable                   as DT
 import           Data.Typeable                      (Typeable)
 import qualified Data.Vector                        as V
+import qualified Data.Version                       as Vers
 import           GHC.Enum
 import           GHC.Generics                       (Generic)
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method          as NHTM
+import qualified Text.ParserCombinators.ReadP       as RP
 import qualified Text.Read                          as TR
 
 import           Database.Bloodhound.Types.Class
@@ -395,11 +424,15 @@ runBH :: BHEnv -> BH m a -> m a
 runBH e f = runReaderT (unBH f) e
 
 {-| 'Version' is embedded in 'Status' -}
-data Version = Version { number          :: Text
-                       , build_hash      :: Text
+data Version = Version { number          :: VersionNumber
+                       , build_hash      :: BuildHash
                        , build_timestamp :: UTCTime
                        , build_snapshot  :: Bool
-                       , lucene_version  :: Text } deriving (Eq, Read, Show, Generic, Typeable)
+                       , lucene_version  :: VersionNumber } deriving (Eq, Read, Show, Generic, Typeable)
+
+-- | Traditional software versioning number
+newtype VersionNumber = VersionNumber { versionNumber :: Vers.Version
+                                      } deriving (Eq, Read, Show, Generic, Typeable, Ord)
 
 {-| 'Status' is a data type for describing the JSON body returned by
     Elasticsearch when you query its status. This was deprecated in 1.2.0.
@@ -1734,6 +1767,17 @@ instance FromJSON Version where
                     <*> o .: "build_timestamp"
                     <*> o .: "build_snapshot"
                     <*> o .: "lucene_version"
+
+instance ToJSON VersionNumber where
+  toJSON = toJSON . Vers.showVersion . versionNumber
+
+instance FromJSON VersionNumber where
+  parseJSON = withText "VersionNumber" (parse . T.unpack)
+    where
+      parse s = case filter (null . snd)(RP.readP_to_S Vers.parseVersion s) of
+                  [(v, _)] -> pure (VersionNumber v)
+                  [] -> fail ("Invalid version string " ++ s)
+                  xs -> fail ("Ambiguous version string " ++ s ++ " (" ++ intercalate ", " (Vers.showVersion . fst <$> xs) ++ ")")
 
 instance ToJSON TermOrder where
   toJSON (TermOrder termSortField termSortOrder) = object [termSortField .= termSortOrder]
@@ -3767,6 +3811,183 @@ newtype FullNodeId = FullNodeId { fullNodeId :: Text }
 newtype NodeName = NodeName { nodeName :: Text }
                  deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
 
+newtype ClusterName = ClusterName { clusterName :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+data NodesInfo = NodesInfo {
+      nodesInfo        :: [NodeInfo]
+    , nodesClusterName :: ClusterName
+    } deriving (Eq, Show, Generic, Typeable)
+
+-- | A quirky address format used throughout ElasticSearch. An example
+-- would be inet[/1.1.1.1:9200]. inet may be a placeholder for a
+-- <https://en.wikipedia.org/wiki/Fully_qualified_domain_name FQDN>.
+newtype EsAddress = EsAddress { esAddress :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+-- | Typically a 7 character hex string.
+newtype BuildHash = BuildHash { buildHash :: Text }
+                 deriving (Eq, Ord, Generic, Read, Show, Typeable, FromJSON, ToJSON)
+
+newtype PluginName = PluginName { pluginName :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+data NodeInfo = NodeInfo {
+      nodeInfoHTTPAddress      :: EsAddress --TODO: better name
+    , nodeInfoBuild            :: BuildHash
+    , nodeInfoESVersion        :: VersionNumber --TODO: distribution provides this
+    , nodeInfoIP               :: Server
+    , nodeInfoHost             :: Server
+    , nodeInfoTransportAddress :: EsAddress
+    , nodeInfoName             :: NodeName
+    , nodeInfoFullId           :: FullNodeId
+    , nodeInfoPlugins          :: [NodePluginInfo]
+    , nodeInfoHTTP             :: NodeHTTPInfo
+    , nodeInfoTransport        :: NodeTransportInfo
+    , nodeInfoNetwork          :: NodeNetworkInfo
+    , nodeInfoThreadPool       :: NodeThreadPoolsInfo
+    , nodeInfoJVM              :: NodeJVMInfo
+    , nodeInfoProcess          :: NodeProcessInfo
+    , nodeInfoOS               :: NodeOSInfo
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodePluginInfo = NodePluginInfo {
+      nodePluginSite        :: Bool
+    -- ^ Is this a site plugin?
+    , nodePluginJVM         :: Bool
+    -- ^ Is this plugin running on the JVM
+    , nodePluginDescription :: Text
+    , nodePluginVersion     :: VersionNumber
+    , nodePluginName        :: PluginName
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeHTTPInfo = NodeHTTPInfo {
+      nodeHTTPMaxContentLength :: Bytes
+    , nodeHTTPTransportAddress :: BoundTransportAddress
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeTransportInfo = NodeTransportInfo {
+      nodeTransportProfiles :: [BoundTransportAddress] --TODO: bound transport/publish addresses, paper over NULL meaning []
+    , nodeTransportAddress  :: BoundTransportAddress
+    } deriving (Eq, Show, Generic, Typeable)
+
+data BoundTransportAddress = BoundTransportAddress {
+      publicAddress :: EsAddress
+    , boundAddress  :: EsAddress
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeNetworkInfo = NodeNetworkInfo {
+      nodeNetworkPrimaryInterface :: NodeNetworkInterface
+    , nodeNetworkRefreshInterval  :: NominalDiffTime
+    } deriving (Eq, Show, Generic, Typeable)
+
+newtype MacAddress = MacAddress { macAddress :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+newtype NetworkInterfaceName = NetworkInterfaceName { networkInterfaceName :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+data NodeNetworkInterface = NodeNetworkInterface {
+      nodeNetIfaceMacAddress :: MacAddress
+    , nodeNetIfaceName       :: NetworkInterfaceName
+    , nodeNetIfaceAddress    :: Server
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeThreadPoolsInfo = NodeThreadPoolsInfo {
+      nodeThreadPoolsRefresh           :: NodeThreadPoolInfo
+    , nodeThreadPoolsManagement        :: NodeThreadPoolInfo
+    , nodeThreadPoolsPercolate         :: NodeThreadPoolInfo
+    , nodeThreadPoolsListener          :: NodeThreadPoolInfo
+    , nodeThreadPoolsFetchShardStarted :: NodeThreadPoolInfo
+    , nodeThreadPoolsSearch            :: NodeThreadPoolInfo
+    , nodeThreadPoolsFlush             :: NodeThreadPoolInfo
+    , nodeThreadPoolsWarmer            :: NodeThreadPoolInfo
+    , nodeThreadPoolsOptimize          :: NodeThreadPoolInfo
+    , nodeThreadPoolsBulk              :: NodeThreadPoolInfo
+    , nodeThreadPoolsSuggest           :: NodeThreadPoolInfo
+    , nodeThreadPoolsMerge             :: NodeThreadPoolInfo
+    , nodeThreadPoolsSnapshot          :: NodeThreadPoolInfo
+    , nodeThreadPoolsGet               :: NodeThreadPoolInfo
+    , nodeThreadPoolsFetchShardStore   :: NodeThreadPoolInfo
+    , nodeThreadPoolsIndex             :: NodeThreadPoolInfo
+    , nodeThreadPoolsGeneric           :: NodeThreadPoolInfo
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeThreadPoolInfo = NodeThreadPoolInfo {
+      nodeThreadPoolQueueSize :: ThreadPoolSize
+    , nodeThreadPoolKeepalive :: Maybe NominalDiffTime
+    , nodeThreadPoolMin       :: Maybe Int
+    , nodeThreadPoolMax       :: Maybe Int
+    , nodeThreadPoolType      :: ThreadPoolType
+    } deriving (Eq, Show, Generic, Typeable)
+
+data ThreadPoolSize = ThreadPoolLimited Int
+                    | ThreadPoolUnbounded
+                    deriving (Eq, Show, Generic, Typeable)
+
+data ThreadPoolType = ThreadPoolScaling
+                    | ThreadPoolFixed
+                    | ThreadPoolCached --TODO: are there others
+                    deriving (Eq, Show, Generic, Typeable)
+
+data NodeJVMInfo = NodeJVMInfo {
+      nodeJVMInfoMemoryPools             :: [JVMMemoryPool]
+    , nodeJVMInfoMemoryPoolsGCCollectors :: [JVMGCCollector]
+    , nodeJVMInfoMemoryInfo              :: JVMMemoryInfo
+    , nodeJVMInfoStartTime               :: UTCTime
+    , nodeJVMInfoVMVendor                :: Text
+    , nodeJVMVMVersion                   :: VersionNumber
+    -- ^ JVM doesn't seme to follow normal version conventions
+    , nodeJVMVMName                      :: Text
+    , nodeJVMVersion                     :: VersionNumber --TODO: normalize underscores
+    , nodeJVMPID                         :: PID
+    } deriving (Eq, Show, Generic, Typeable)
+
+data JVMMemoryInfo = JVMMemoryInfo {
+      jvmMemoryInfoDirectMax   :: Bytes
+    , jvmMemoryInfoNonHeapMax  :: Bytes
+    , jvmMemoryInfoNonHeapInit :: Bytes
+    , jvmMemoryInfoHeapMax     :: Bytes
+    , jvmMemoryInfoHeapInit    :: Bytes
+    } deriving (Eq, Show, Generic, Typeable)
+
+newtype JVMMemoryPool = JVMMemoryPool {
+      jvmMemoryPool :: Text
+    } deriving (Eq, Show, Generic, Typeable, FromJSON)
+
+newtype JVMGCCollector = JVMGCCollector {
+      jvmGCCollector :: Text
+    } deriving (Eq, Show, Generic, Typeable, FromJSON)
+
+newtype PID = PID {
+      pid :: Int
+    } deriving (Eq, Show, Generic, Typeable, FromJSON)
+
+data NodeOSInfo = NodeOSInfo {
+      nodeOSSwap                :: Bytes
+    , nodeOSMem                 :: Bytes
+    , nodeOSCPUInfo             :: CPUInfo
+    , nodeOSAvailableProcessors :: Int
+    , nodeOSRefreshInterval     :: NominalDiffTime
+    } deriving (Eq, Show, Generic, Typeable)
+
+data CPUInfo = CPUInfo {
+      cpuCacheSize      :: Bytes
+    , cpuCoresPerSocket :: Int
+    , cpuTotalSockets   :: Int
+    , cpuTotalCores     :: Int
+    , cpuMHZ            :: Int
+    , cpuModel          :: Text
+    , cpuVendor         :: Text
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeProcessInfo = NodeProcessInfo {
+      nodeProcessMLockAll           :: Bool
+    -- ^ See <https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.html>
+    , nodeProcessMaxFileDescriptors :: Int
+    , nodeProcessId                 :: PID
+    , nodeProcessRefreshInterval    :: NominalDiffTime
+    } deriving (Eq, Show, Generic, Typeable)
 
 data SnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings {
      repoUpdateVerify :: Bool
@@ -3923,9 +4144,9 @@ instance FromJSON SnapshotInfo where
                              <*> o .: "snapshot"
 
 data SnapshotShardFailure = SnapshotShardFailure {
-      snapShardFailureIndex :: IndexName
-    , snapShardFailureNodeId :: Maybe NodeName -- I'm not 100% sure this isn't actually 'FullNodeId'
-    , snapShardFailureReason :: Text
+      snapShardFailureIndex   :: IndexName
+    , snapShardFailureNodeId  :: Maybe NodeName -- I'm not 100% sure this isn't actually 'FullNodeId'
+    , snapShardFailureReason  :: Text
     , snapShardFailureShardId :: ShardId
     } deriving (Eq, Show, Generic, Typeable)
 
@@ -3984,37 +4205,37 @@ newtype SnapshotName = SnapshotName { snapshotName :: Text }
 
 
 data SnapshotRestoreSettings = SnapshotRestoreSettings {
-      snapRestoreWaitForCompletion  :: Bool
+      snapRestoreWaitForCompletion      :: Bool
       -- ^ Should the API call return immediately after initializing
       -- the restore or wait until completed? Note that if this is
       -- enabled, it could wait a long time, so you should adjust your
       -- 'ManagerSettings' accordingly to set long timeouts or
       -- explicitly handle timeouts.
-    , snapRestoreIndices            :: Maybe IndexSelection
+    , snapRestoreIndices                :: Maybe IndexSelection
     -- ^ Nothing will restore all indices in the snapshot. Just [] is
     -- permissable and will essentially be a no-op restore.
-    , snapRestoreIgnoreUnavailable  :: Bool
+    , snapRestoreIgnoreUnavailable      :: Bool
     -- ^ If set to True, any indices that do not exist will be ignored
     -- during snapshot rather than failing the restore.
-    , snapRestoreIncludeGlobalState :: Bool
+    , snapRestoreIncludeGlobalState     :: Bool
     -- ^ If set to false, will ignore any global state in the snapshot
     -- and will not restore it.
-    , snapRestoreRenamePattern      :: Maybe RestoreRenamePattern
+    , snapRestoreRenamePattern          :: Maybe RestoreRenamePattern
     -- ^ A regex pattern for matching indices. Used with
     -- 'snapRestoreRenameReplacement', the restore can reference the
     -- matched index and create a new index name upon restore.
-    , snapRestoreRenameReplacement  :: Maybe (NonEmpty RestoreRenameToken)
+    , snapRestoreRenameReplacement      :: Maybe (NonEmpty RestoreRenameToken)
     -- ^ Expression of how index renames should be constructed.
-    , snapRestorePartial            :: Bool
+    , snapRestorePartial                :: Bool
     -- ^ If some indices fail to restore, should the process proceed?
-    , snapRestoreIncludeAliases     :: Bool
+    , snapRestoreIncludeAliases         :: Bool
     -- ^ Should the restore also restore the aliases captured in the
     -- snapshot.
     , snapRestoreIndexSettingsOverrides :: Maybe RestoreIndexSettings
     -- ^ Settings to apply during the restore process. __NOTE:__ This
     -- option is not supported in ES < 1.5 and should be set to
     -- Nothing in that case.
-    , snapRestoreIgnoreIndexSettings :: Maybe (NonEmpty Text)
+    , snapRestoreIgnoreIndexSettings    :: Maybe (NonEmpty Text)
     -- ^ This type could be more rich but it isn't clear which
     -- settings are allowed to be ignored during restore, so we're
     -- going with including this feature in a basic form rather than
