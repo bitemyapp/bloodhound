@@ -23,6 +23,7 @@ module Database.Bloodhound.Client
 
          -- $setup
          withBH
+       -- ** Indices
        , createIndex
        , deleteIndex
        , updateIndexSettings
@@ -32,18 +33,23 @@ module Database.Bloodhound.Client
        , openIndex
        , closeIndex
        , listIndices
+       -- *** Index Aliases
        , updateIndexAliases
        , getIndexAliases
+       -- *** Index Templates
        , putTemplate
        , templateExists
        , deleteTemplate
+       -- ** Mapping
        , putMapping
        , deleteMapping
+       -- ** Documents
        , indexDocument
        , updateDocument
        , getDocument
        , documentExists
        , deleteDocument
+       -- ** Searching
        , searchAll
        , searchByIndex
        , searchByType
@@ -59,14 +65,19 @@ module Database.Bloodhound.Client
        , mkShardCount
        , mkReplicaCount
        , getStatus
+       -- ** Snapshot/Restore
+       -- *** Snapshot Repos
        , getSnapshotRepos
        , updateSnapshotRepo
        , verifySnapshotRepo
        , deleteSnapshotRepo
+       -- *** Snapshots
        , createSnapshot
        , getSnapshots
        , deleteSnapshot
+       -- *** Restoring Snapshots
        , restoreSnapshot
+       -- ** Request Utilities
        , encodeBulkOperations
        , encodeBulkOperation
        -- * Authentication
