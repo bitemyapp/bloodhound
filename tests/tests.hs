@@ -1565,6 +1565,17 @@ main = hspec $ do
                 liftIO (exists `shouldBe` True)
           go `finally` deleteIndex expectedIndex
 
+  describe "getNodesInfo" $ do
+     it "fetches the responding node when LocalNode is used" $ withTestEnv $ do
+       res <- getNodesInfo LocalNode
+       liftIO $ case res of
+         -- This is really just a smoke test for response
+         -- parsing. Node info is so variable, there's not much I can
+         -- assert here.
+         Right NodesInfo {..} -> length nodesInfo `shouldBe` 1
+           --TODO: more assertions if possible
+         Left e -> expectationFailure ("Expected NodesInfo but got " <> show e)
+
   describe "Enum DocVersion" $ do
     it "follows the laws of Enum, Bounded" $ do
       evaluate (succ maxBound :: DocVersion) `shouldThrow` anyErrorCall

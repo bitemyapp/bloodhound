@@ -148,6 +148,8 @@ module Database.Bloodhound.Types
        , Script(..)
        , IndexName(..)
        , IndexSelection(..)
+       , NodeSelection(..)
+       , NodeSelector(..)
        , IndexOptimizationSettings(..)
        , defaultIndexOptimizationSettings
        , TemplateName(..)
@@ -338,6 +340,7 @@ module Database.Bloodhound.Types
          ) where
 
 import           Control.Applicative                as A
+import           Control.Arrow                      (first)
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader
@@ -897,6 +900,25 @@ newtype IndexName = IndexName Text deriving (Eq, Generic, Read, Show, ToJSON, Fr
 --TODO: this does not fully support <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/multi-index.html multi-index syntax>. It wouldn't be too hard to implement but you'd have to add the optional parameters (ignore_unavailable, allow_no_indices, expand_wildcards) to any APIs using it. Also would be a breaking API.
 data IndexSelection = IndexList (NonEmpty IndexName)
                     | AllIndexes deriving (Eq, Generic, Show, Typeable)
+
+{-| 'NodeSelection' is used for most cluster APIs. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster.html#cluster-nodes here> for more details.
+-}
+data NodeSelection = LocalNode
+                   -- ^ Whatever node receives this request
+                   | NodeList (NonEmpty NodeSelector)
+                   | AllNodes deriving (Eq, Generic, Show, Typeable)
+
+
+-- | An exact match or pattern to identify a node. Note that All of
+-- these options support wildcarding, so your node name, server, attr
+-- name can all contain * characters to be a fuzzy match.
+data NodeSelector = NodeByName NodeName
+                  | NodeByFullNodeId FullNodeId
+                  | NodeByHost Server
+                  -- ^ e.g. 10.0.0.1 or even 10.0.0.*
+                  | NodeByAttribute NodeAttrName Text
+                  -- ^ NodeAttrName can be a pattern, e.g. rack*. The value can too.
+                  deriving (Eq, Generic, Show, Typeable)
 
 {-| 'TemplateName' is used to describe which template to query/create/delete
 -}
@@ -3833,9 +3855,9 @@ newtype PluginName = PluginName { pluginName :: Text }
                  deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
 
 data NodeInfo = NodeInfo {
-      nodeInfoHTTPAddress      :: EsAddress --TODO: better name
+      nodeInfoHTTPAddress      :: EsAddress
     , nodeInfoBuild            :: BuildHash
-    , nodeInfoESVersion        :: VersionNumber --TODO: distribution provides this
+    , nodeInfoESVersion        :: VersionNumber
     , nodeInfoIP               :: Server
     , nodeInfoHost             :: Server
     , nodeInfoTransportAddress :: EsAddress
@@ -3849,6 +3871,9 @@ data NodeInfo = NodeInfo {
     , nodeInfoJVM              :: NodeJVMInfo
     , nodeInfoProcess          :: NodeProcessInfo
     , nodeInfoOS               :: NodeOSInfo
+    , nodeInfoSettings         :: Object
+    -- ^ The members of the settings objects are not consistent,
+    -- dependent on plugins, etc.
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodePluginInfo = NodePluginInfo {
@@ -3872,8 +3897,8 @@ data NodeTransportInfo = NodeTransportInfo {
     } deriving (Eq, Show, Generic, Typeable)
 
 data BoundTransportAddress = BoundTransportAddress {
-      publicAddress :: EsAddress
-    , boundAddress  :: EsAddress
+      publishAddress :: EsAddress
+    , boundAddress   :: EsAddress
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodeNetworkInfo = NodeNetworkInfo {
@@ -3921,7 +3946,7 @@ data NodeThreadPoolInfo = NodeThreadPoolInfo {
     , nodeThreadPoolType      :: ThreadPoolType
     } deriving (Eq, Show, Generic, Typeable)
 
-data ThreadPoolSize = ThreadPoolLimited Int
+data ThreadPoolSize = ThreadPoolBounded Int
                     | ThreadPoolUnbounded
                     deriving (Eq, Show, Generic, Typeable)
 
@@ -3942,6 +3967,9 @@ data NodeJVMInfo = NodeJVMInfo {
     , nodeJVMVersion                     :: VersionNumber --TODO: normalize underscores
     , nodeJVMPID                         :: PID
     } deriving (Eq, Show, Generic, Typeable)
+
+-- | Handles quirks in the way JVM versions are rendered (1.7.0_101 -> 1.7.0.101)
+newtype JVMVersion = JVMVersion { unJVMVersion :: VersionNumber }
 
 data JVMMemoryInfo = JVMMemoryInfo {
       jvmMemoryInfoDirectMax   :: Bytes
@@ -4319,3 +4347,208 @@ instance ToJSON RestoreIndexSettings where
   toJSON RestoreIndexSettings {..} = object prs
     where
       prs = catMaybes [("index.number_of_replicas" .=) <$> restoreOverrideReplicas]
+
+
+instance FromJSON NodesInfo where
+  parseJSON = withObject "NodesInfo" parse
+    where
+      parse o = do
+        nodes <- o .: "nodes"
+        infos <- forM (HM.toList nodes) $ \(fullNID, v) -> do
+          node <- parseJSON v
+          parseNodeInfo (FullNodeId fullNID) node
+        cn <- o .: "cluster_name"
+        return (NodesInfo infos cn)
+
+
+parseNodeInfo :: FullNodeId -> Object -> Parser NodeInfo
+parseNodeInfo nid o =
+  NodeInfo <$> o .: "http_address"
+           <*> o .: "build"
+           <*> o .: "version"
+           <*> o .: "ip"
+           <*> o .: "host"
+           <*> o .: "transport_address"
+           <*> o .: "name"
+           <*> pure nid
+           <*> o .: "plugins"
+           <*> o .: "http"
+           <*> o .: "transport"
+           <*> o .: "network"
+           <*> o .: "thread_pool"
+           <*> o .: "jvm"
+           <*> o .: "process"
+           <*> o .: "os"
+           <*> o .: "settings"
+
+instance FromJSON NodePluginInfo where
+  parseJSON = withObject "NodePluginInfo" parse
+    where
+      parse o = NodePluginInfo <$> o .: "site"
+                               <*> o .: "jvm"
+                               <*> o .: "description"
+                               <*> o .: "version"
+                               <*> o .: "name"
+
+instance FromJSON NodeHTTPInfo where
+  parseJSON = withObject "NodeHTTPInfo" parse
+    where
+      parse o = NodeHTTPInfo <$> o .: "max_content_length_in_bytes"
+                             <*> parseJSON (Object o)
+
+instance FromJSON BoundTransportAddress where
+  parseJSON = withObject "BoundTransportAddress" parse
+    where
+      parse o = BoundTransportAddress <$> o .: "publish_address"
+                                      <*> o .: "bound_address"
+
+instance FromJSON NodeOSInfo where
+  parseJSON = withObject "NodeOSInfo" parse
+    where
+      parse o = do
+        swap <- o .: "swap"
+        mem <- o .: "mem"
+        NodeOSInfo <$> swap .: "total_in_bytes"
+                   <*> mem .: "total_in_bytes"
+                   <*> o .: "cpu"
+                   <*> o .: "available_processors"
+                   <*> (unMS <$> o .: "refresh_interval_in_millis")
+
+
+instance FromJSON CPUInfo where
+  parseJSON = withObject "CPUInfo" parse
+    where
+      parse o = CPUInfo <$> o .: "cache_size_in_bytes"
+                        <*> o .: "cores_per_socket"
+                        <*> o .: "total_sockets"
+                        <*> o .: "total_cores"
+                        <*> o .: "mhz"
+                        <*> o .: "model"
+                        <*> o .: "vendor"
+
+instance FromJSON NodeProcessInfo where
+  parseJSON = withObject "NodeProcessInfo" parse
+    where
+      parse o = NodeProcessInfo <$> o .: "mlockall"
+                                <*> o .: "max_file_descriptors"
+                                <*> o .: "id"
+                                <*> (unMS <$> o .: "refresh_interval_in_millis")
+
+instance FromJSON NodeJVMInfo where
+  parseJSON = withObject "NodeJVMInfo" parse
+    where
+      parse o = NodeJVMInfo <$> o .: "memory_pools"
+                            <*> o .: "gc_collectors"
+                            <*> o .: "mem"
+                            <*> (posixMS <$> o .: "start_time_in_millis")
+                            <*> o .: "vm_vendor"
+                            <*> o .: "vm_version"
+                            <*> o .: "vm_name"
+                            <*> (unJVMVersion <$> o .: "version")
+                            <*> o .: "pid"
+
+instance FromJSON JVMVersion where
+  parseJSON (String t) =
+    JVMVersion <$> parseJSON (String (T.replace "_" "." t))
+  parseJSON v = JVMVersion <$> parseJSON v
+
+instance FromJSON JVMMemoryInfo where
+  parseJSON = withObject "JVMMemoryInfo" parse
+    where
+      parse o = JVMMemoryInfo <$> o .: "direct_max_in_bytes"
+                              <*> o .: "non_heap_max_in_bytes"
+                              <*> o .: "non_heap_init_in_bytes"
+                              <*> o .: "heap_max_in_bytes"
+                              <*> o .: "heap_init_in_bytes"
+
+instance FromJSON NodeThreadPoolsInfo where
+  parseJSON = withObject "NodeThreadPoolsInfo" parse
+    where
+      parse o = NodeThreadPoolsInfo <$> o .: "refresh"
+                                    <*> o .: "management"
+                                    <*> o .: "percolate"
+                                    <*> o .: "listener"
+                                    <*> o .: "fetch_shard_started"
+                                    <*> o .: "search"
+                                    <*> o .: "flush"
+                                    <*> o .: "warmer"
+                                    <*> o .: "optimize"
+                                    <*> o .: "bulk"
+                                    <*> o .: "suggest"
+                                    <*> o .: "merge"
+                                    <*> o .: "snapshot"
+                                    <*> o .: "get"
+                                    <*> o .: "fetch_shard_store"
+                                    <*> o .: "index"
+                                    <*> o .: "generic"
+
+instance FromJSON NodeThreadPoolInfo where
+  parseJSON = withObject "NodeThreadPoolInfo" parse
+    where
+      parse o = do
+        ka <- maybe (return Nothing) (fmap Just . parseStringInterval) =<< o .:? "keep_alive"
+        NodeThreadPoolInfo <$> (parseJSON . unStringlyTypeJSON =<< o .: "queue_size")
+                           <*> pure ka
+                           <*> o .:? "min"
+                           <*> o .:? "max"
+                           <*> o .: "type"
+
+parseStringInterval :: (Monad m) => String -> m NominalDiffTime
+parseStringInterval s = case span isNumber s of
+  ("", _) -> fail "Invalid interval"
+  (nS, unitS) -> case (readMay nS, readMay unitS) of
+    (Just n, Just unit) -> return (fromInteger (n * unitNDT unit))
+    (Nothing, _) -> fail "Invalid interval number"
+    (_, Nothing) -> fail "Invalid interval unit"
+  where
+    unitNDT Seconds = 1
+    unitNDT Minutes = 60
+    unitNDT Hours   = 60 * 60
+    unitNDT Days    = 24 * 60 * 60
+    unitNDT Weeks   = 7 * 24 * 60 * 60
+
+instance FromJSON ThreadPoolSize where
+  parseJSON v = parseAsNumber v <|> parseAsString v
+    where
+      parseAsNumber = parseAsInt <=< parseJSON
+      parseAsInt (-1) = return ThreadPoolUnbounded
+      parseAsInt n
+        | n >= 0 = return (ThreadPoolBounded n)
+        | otherwise = fail "Thread pool size must be >= -1."
+      parseAsString = withText "ThreadPoolSize" $ \t ->
+        case first (readMay . T.unpack) (T.span isNumber t) of
+          (Just n, "k") -> return (ThreadPoolBounded (n * 1000))
+          (Just n, "") -> return (ThreadPoolBounded n)
+          _ -> fail ("Invalid thread pool size " <> T.unpack t)
+
+instance FromJSON ThreadPoolType where
+  parseJSON = withText "ThreadPoolType" parse
+    where
+      parse "scaling" = return ThreadPoolScaling
+      parse "fixed"   = return ThreadPoolFixed
+      parse "cached"  = return ThreadPoolCached
+      parse e         = fail ("Unexpected thread pool type" <> T.unpack e)
+
+instance FromJSON NodeTransportInfo where
+  parseJSON = withObject "NodeTransportInfo" parse
+    where
+      parse o = NodeTransportInfo <$> (parseProfiles =<< o .: "profiles")
+                                  <*> parseJSON (Object o)
+      parseProfiles (Object o) | HM.null o = return []
+      parseProfiles v@(Array _) = parseJSON v
+      parseProfiles Null = return []
+      parseProfiles _ = fail "Could not parse profiles"
+
+instance FromJSON NodeNetworkInfo where
+  parseJSON = withObject "NodeNetworkInfo" parse
+    where
+      parse o = NodeNetworkInfo <$> o .: "primary_interface"
+                                <*> (unMS <$> o .: "refresh_interval_in_millis")
+
+
+instance FromJSON NodeNetworkInterface where
+  parseJSON = withObject "NodeNetworkInterface" parse
+    where
+      parse o = NodeNetworkInterface <$> o .: "mac_address"
+                                     <*> o .: "name"
+                                     <*> o .: "address"

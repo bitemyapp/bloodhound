@@ -77,6 +77,8 @@ module Database.Bloodhound.Client
        , deleteSnapshot
        -- *** Restoring Snapshots
        , restoreSnapshot
+       -- ** Nodes
+       , getNodesInfo
        -- ** Request Utilities
        , encodeBulkOperations
        , encodeBulkOperation
@@ -111,6 +113,7 @@ import qualified Data.Text                          as T
 import qualified Data.Text.Encoding                 as T
 import           Data.Time.Clock
 import qualified Data.Vector                        as V
+import Debug.Trace
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method          as NHTM
 import qualified Network.HTTP.Types.Status          as NHTS
@@ -456,6 +459,24 @@ restoreSnapshot (SnapshotRepoName repoName)
     renderToken (RRSubGroup g)  = T.pack (show (rrGroupRefNum g))
 
 
+getNodesInfo
+    :: ( MonadBH m
+       , MonadThrow m
+       )
+    => NodeSelection
+    -> m (Either EsError NodesInfo)
+getNodesInfo sel = parseEsResponse =<< get =<< url
+  where
+    url = joinPath ["_nodes", selectionSeg]
+    selectionSeg = case sel of
+      LocalNode -> "_local"
+      NodeList (l :| ls) -> T.intercalate "," (selToSeg <$> (l:ls))
+      AllNodes -> "_all"
+    selToSeg (NodeByName (NodeName n))            = n
+    selToSeg (NodeByFullNodeId (FullNodeId i))    = i
+    selToSeg (NodeByHost (Server s))              = s
+    selToSeg (NodeByAttribute (NodeAttrName a) v) = a <> ":" <> v
+
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
 --
 -- >>> response <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
@@ -569,13 +590,13 @@ parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
 parseEsResponse reply
   | respIsTwoHunna reply = case eitherDecode body of
                              Right a -> return (Right a)
-                             Left _ -> tryParseError
+                             Left e -> traceShow e tryParseError
   | otherwise = tryParseError
   where body = responseBody reply
         tryParseError = case eitherDecode body of
                           Right e -> return (Left e)
                           -- this case should not be possible
-                          Left _ -> explode
+                          Left e -> traceShow e explode
         explode = throwM (EsProtocolException body)
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
