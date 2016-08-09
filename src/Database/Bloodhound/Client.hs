@@ -92,34 +92,32 @@ module Database.Bloodhound.Client
        )
        where
 
-import qualified Blaze.ByteString.Builder           as BB
-import           Control.Applicative                as A
+import qualified Blaze.ByteString.Builder     as BB
+import           Control.Applicative          as A
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
-import qualified Data.ByteString.Lazy.Char8         as L
-import           Data.Foldable                      (toList)
-import qualified Data.HashMap.Strict                as HM
+import qualified Data.ByteString.Lazy.Char8   as L
+import           Data.Foldable                (toList)
+import qualified Data.HashMap.Strict          as HM
 import           Data.Ix
-import qualified Data.List                          as LS (filter, foldl')
-import           Data.List.NonEmpty                 (NonEmpty (..))
-import           Data.Maybe                         (catMaybes, fromMaybe,
-                                                     isJust)
+import qualified Data.List                    as LS (filter, foldl')
+import           Data.List.NonEmpty           (NonEmpty (..))
+import           Data.Maybe                   (catMaybes, fromMaybe, isJust)
 import           Data.Monoid
-import           Data.Text                          (Text)
-import qualified Data.Text                          as T
-import qualified Data.Text.Encoding                 as T
+import           Data.Text                    (Text)
+import qualified Data.Text                    as T
+import qualified Data.Text.Encoding           as T
 import           Data.Time.Clock
-import qualified Data.Vector                        as V
-import Debug.Trace
+import qualified Data.Vector                  as V
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method          as NHTM
-import qualified Network.HTTP.Types.Status          as NHTS
-import qualified Network.HTTP.Types.URI             as NHTU
-import qualified Network.URI                        as URI
-import           Prelude                            hiding (filter, head)
+import qualified Network.HTTP.Types.Method    as NHTM
+import qualified Network.HTTP.Types.Status    as NHTS
+import qualified Network.HTTP.Types.URI       as NHTU
+import qualified Network.URI                  as URI
+import           Prelude                      hiding (filter, head)
 
 import           Database.Bloodhound.Types
 
@@ -590,13 +588,13 @@ parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
 parseEsResponse reply
   | respIsTwoHunna reply = case eitherDecode body of
                              Right a -> return (Right a)
-                             Left e -> traceShow e tryParseError
+                             Left _ -> tryParseError
   | otherwise = tryParseError
   where body = responseBody reply
         tryParseError = case eitherDecode body of
                           Right e -> return (Left e)
                           -- this case should not be possible
-                          Left e -> traceShow e explode
+                          Left _ -> explode
         explode = throwM (EsProtocolException body)
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'

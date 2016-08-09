@@ -3892,7 +3892,7 @@ data NodeHTTPInfo = NodeHTTPInfo {
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodeTransportInfo = NodeTransportInfo {
-      nodeTransportProfiles :: [BoundTransportAddress] --TODO: bound transport/publish addresses, paper over NULL meaning []
+      nodeTransportProfiles :: [BoundTransportAddress]
     , nodeTransportAddress  :: BoundTransportAddress
     } deriving (Eq, Show, Generic, Typeable)
 
@@ -3952,7 +3952,7 @@ data ThreadPoolSize = ThreadPoolBounded Int
 
 data ThreadPoolType = ThreadPoolScaling
                     | ThreadPoolFixed
-                    | ThreadPoolCached --TODO: are there others
+                    | ThreadPoolCached
                     deriving (Eq, Show, Generic, Typeable)
 
 data NodeJVMInfo = NodeJVMInfo {
@@ -3964,7 +3964,7 @@ data NodeJVMInfo = NodeJVMInfo {
     , nodeJVMVMVersion                   :: VersionNumber
     -- ^ JVM doesn't seme to follow normal version conventions
     , nodeJVMVMName                      :: Text
-    , nodeJVMVersion                     :: VersionNumber --TODO: normalize underscores
+    , nodeJVMVersion                     :: VersionNumber
     , nodeJVMPID                         :: PID
     } deriving (Eq, Show, Generic, Typeable)
 

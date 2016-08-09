@@ -1573,7 +1573,6 @@ main = hspec $ do
          -- parsing. Node info is so variable, there's not much I can
          -- assert here.
          Right NodesInfo {..} -> length nodesInfo `shouldBe` 1
-           --TODO: more assertions if possible
          Left e -> expectationFailure ("Expected NodesInfo but got " <> show e)
 
   describe "Enum DocVersion" $ do
