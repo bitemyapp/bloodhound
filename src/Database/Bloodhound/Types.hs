@@ -3922,8 +3922,8 @@ data NodeThreadPoolsInfo = NodeThreadPoolsInfo {
       nodeThreadPoolsRefresh           :: NodeThreadPoolInfo
     , nodeThreadPoolsManagement        :: NodeThreadPoolInfo
     , nodeThreadPoolsPercolate         :: NodeThreadPoolInfo
-    , nodeThreadPoolsListener          :: NodeThreadPoolInfo
-    , nodeThreadPoolsFetchShardStarted :: NodeThreadPoolInfo
+    , nodeThreadPoolsListener          :: Maybe NodeThreadPoolInfo
+    , nodeThreadPoolsFetchShardStarted :: Maybe NodeThreadPoolInfo
     , nodeThreadPoolsSearch            :: NodeThreadPoolInfo
     , nodeThreadPoolsFlush             :: NodeThreadPoolInfo
     , nodeThreadPoolsWarmer            :: NodeThreadPoolInfo
@@ -3933,7 +3933,7 @@ data NodeThreadPoolsInfo = NodeThreadPoolsInfo {
     , nodeThreadPoolsMerge             :: NodeThreadPoolInfo
     , nodeThreadPoolsSnapshot          :: NodeThreadPoolInfo
     , nodeThreadPoolsGet               :: NodeThreadPoolInfo
-    , nodeThreadPoolsFetchShardStore   :: NodeThreadPoolInfo
+    , nodeThreadPoolsFetchShardStore   :: Maybe NodeThreadPoolInfo
     , nodeThreadPoolsIndex             :: NodeThreadPoolInfo
     , nodeThreadPoolsGeneric           :: NodeThreadPoolInfo
     } deriving (Eq, Show, Generic, Typeable)
@@ -4467,8 +4467,8 @@ instance FromJSON NodeThreadPoolsInfo where
       parse o = NodeThreadPoolsInfo <$> o .: "refresh"
                                     <*> o .: "management"
                                     <*> o .: "percolate"
-                                    <*> o .: "listener"
-                                    <*> o .: "fetch_shard_started"
+                                    <*> o .:? "listener"
+                                    <*> o .:? "fetch_shard_started"
                                     <*> o .: "search"
                                     <*> o .: "flush"
                                     <*> o .: "warmer"
@@ -4478,7 +4478,7 @@ instance FromJSON NodeThreadPoolsInfo where
                                     <*> o .: "merge"
                                     <*> o .: "snapshot"
                                     <*> o .: "get"
-                                    <*> o .: "fetch_shard_store"
+                                    <*> o .:? "fetch_shard_store"
                                     <*> o .: "index"
                                     <*> o .: "generic"
 
@@ -4532,7 +4532,7 @@ instance FromJSON ThreadPoolType where
 instance FromJSON NodeTransportInfo where
   parseJSON = withObject "NodeTransportInfo" parse
     where
-      parse o = NodeTransportInfo <$> (parseProfiles =<< o .: "profiles")
+      parse o = NodeTransportInfo <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
                                   <*> parseJSON (Object o)
       parseProfiles (Object o) | HM.null o = return []
       parseProfiles v@(Array _) = parseJSON v
