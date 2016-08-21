@@ -13,4 +13,4 @@ extra-deps:
 - semigroups-0.18.0.1
 - uri-bytestring-0.1.9
 - temporary-resourcet-0.1.0.0
-resolver: lts-5.1
+resolver: lts-6.12
