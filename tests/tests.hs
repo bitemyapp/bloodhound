@@ -1575,6 +1575,16 @@ main = hspec $ do
          Right NodesInfo {..} -> length nodesInfo `shouldBe` 1
          Left e -> expectationFailure ("Expected NodesInfo but got " <> show e)
 
+  describe "getNodesStats" $ do
+     it "fetches the responding node when LocalNode is used" $ withTestEnv $ do
+       res <- getNodesStats LocalNode
+       liftIO $ case res of
+         -- This is really just a smoke test for response
+         -- parsing. Node stats is so variable, there's not much I can
+         -- assert here.
+         Right NodesStats {..} -> length nodesStats `shouldBe` 1
+         Left e -> expectationFailure ("Expected NodesStats but got " <> show e)
+
   describe "Enum DocVersion" $ do
     it "follows the laws of Enum, Bounded" $ do
       evaluate (succ maxBound :: DocVersion) `shouldThrow` anyErrorCall

@@ -79,6 +79,7 @@ module Database.Bloodhound.Client
        , restoreSnapshot
        -- ** Nodes
        , getNodesInfo
+       , getNodesStats
        -- ** Request Utilities
        , encodeBulkOperations
        , encodeBulkOperation
@@ -466,6 +467,24 @@ getNodesInfo
 getNodesInfo sel = parseEsResponse =<< get =<< url
   where
     url = joinPath ["_nodes", selectionSeg]
+    selectionSeg = case sel of
+      LocalNode -> "_local"
+      NodeList (l :| ls) -> T.intercalate "," (selToSeg <$> (l:ls))
+      AllNodes -> "_all"
+    selToSeg (NodeByName (NodeName n))            = n
+    selToSeg (NodeByFullNodeId (FullNodeId i))    = i
+    selToSeg (NodeByHost (Server s))              = s
+    selToSeg (NodeByAttribute (NodeAttrName a) v) = a <> ":" <> v
+
+getNodesStats
+    :: ( MonadBH m
+       , MonadThrow m
+       )
+    => NodeSelection
+    -> m (Either EsError NodesStats)
+getNodesStats sel = parseEsResponse =<< get =<< url
+  where
+    url = joinPath ["_nodes", selectionSeg, "stats"]
     selectionSeg = case sel of
       LocalNode -> "_local"
       NodeList (l :| ls) -> T.intercalate "," (selToSeg <$> (l:ls))

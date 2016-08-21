@@ -258,6 +258,18 @@ module Database.Bloodhound.Types
        , NodeName(..)
        , ClusterName(..)
        , NodesInfo(..)
+       , NodesStats(..)
+       , NodeStats(..)
+       , NodeBreakerStats(..)
+       , NodeHTTPStats(..)
+       , NodeTransportStats(..)
+       , NodeFSStats(..)
+       , NodeNetworkStats(..)
+       , NodeThreadPoolsStats(..)
+       , NodeJVMStats(..)
+       , NodeProcessStats(..)
+       , NodeOSStats(..)
+       , NodeIndicesStats(..)
        , EsAddress(..)
        , PluginName(..)
        , NodeInfo(..)
@@ -3841,6 +3853,58 @@ data NodesInfo = NodesInfo {
     , nodesClusterName :: ClusterName
     } deriving (Eq, Show, Generic, Typeable)
 
+data NodesStats = NodesStats {
+      nodesStats            :: [NodeStats]
+    , nodesStatsClusterName :: ClusterName
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeStats = NodeStats {
+      nodeStatsName             :: NodeName
+    , nodeStatsFullId           :: FullNodeId
+    , nodeStatsParentBreaker    :: NodeBreakerStats
+    , nodeStatsRequestBreaker   :: NodeBreakerStats
+    , nodeStatsFieldDataBreaker :: NodeBreakerStats
+    , nodeStatsHTTP             :: NodeHTTPStats
+    , nodeStatsTransport        :: NodeTransportStats
+    , nodeStatsFS               :: NodeFSStats
+    , nodeStatsNetwork          :: NodeNetworkStats
+    , nodeStatsThreadPool       :: NodeThreadPoolsStats
+    , nodeStatsJVM              :: NodeJVMStats
+    , nodeStatsProcess          :: NodeProcessStats
+    , nodeStatsOS               :: NodeOSStats
+    , nodeStatsIndices          :: NodeIndicesStats
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeBreakerStats = NodeBreakerStats
+                      deriving (Eq, Show, Generic, Typeable)
+
+data NodeHTTPStats = NodeHTTPStats
+                   deriving (Eq, Show, Generic, Typeable)
+
+data NodeTransportStats = NodeTransportStats
+                        deriving (Eq, Show, Generic, Typeable)
+
+data NodeFSStats = NodeFSStats
+                 deriving (Eq, Show, Generic, Typeable)
+
+data NodeNetworkStats = NodeNetworkStats
+                      deriving (Eq, Show, Generic, Typeable)
+
+data NodeThreadPoolsStats = NodeThreadPoolsStats
+                          deriving (Eq, Show, Generic, Typeable)
+
+data NodeJVMStats = NodeJVMStats
+                  deriving (Eq, Show, Generic, Typeable)
+
+data NodeProcessStats = NodeProcessStats
+                      deriving (Eq, Show, Generic, Typeable)
+
+data NodeOSStats = NodeOSStats
+                 deriving (Eq, Show, Generic, Typeable)
+
+data NodeIndicesStats = NodeIndicesStats
+                      deriving (Eq, Show, Generic, Typeable)
+
 -- | A quirky address format used throughout ElasticSearch. An example
 -- would be inet[/1.1.1.1:9200]. inet may be a placeholder for a
 -- <https://en.wikipedia.org/wiki/Fully_qualified_domain_name FQDN>.
@@ -4360,6 +4424,64 @@ instance FromJSON NodesInfo where
         cn <- o .: "cluster_name"
         return (NodesInfo infos cn)
 
+instance FromJSON NodesStats where
+  parseJSON = withObject "NodesStats" parse
+    where
+      parse o = do
+        nodes <- o .: "nodes"
+        stats <- forM (HM.toList nodes) $ \(fullNID, v) -> do
+          node <- parseJSON v
+          parseNodeStats (FullNodeId fullNID) node
+        cn <- o .: "cluster_name"
+        return (NodesStats stats cn)
+
+instance FromJSON NodeBreakerStats where
+  parseJSON _ = pure NodeBreakerStats
+
+instance FromJSON NodeHTTPStats where
+  parseJSON _ = pure NodeHTTPStats
+
+instance FromJSON NodeTransportStats where
+  parseJSON _ = pure NodeTransportStats
+
+instance FromJSON NodeFSStats where
+  parseJSON _ = pure NodeFSStats
+
+instance FromJSON NodeNetworkStats where
+  parseJSON _ = pure NodeNetworkStats
+
+instance FromJSON NodeThreadPoolsStats where
+  parseJSON _ = pure NodeThreadPoolsStats
+
+instance FromJSON NodeJVMStats where
+  parseJSON _ = pure NodeJVMStats
+
+instance FromJSON NodeProcessStats where
+  parseJSON _ = pure NodeProcessStats
+
+instance FromJSON NodeOSStats where
+  parseJSON _ = pure NodeOSStats
+
+instance FromJSON NodeIndicesStats where
+  parseJSON _ = pure NodeIndicesStats
+
+parseNodeStats :: FullNodeId -> Object -> Parser NodeStats
+parseNodeStats fnid o = do
+  breakers <- o .: "breakers"
+  NodeStats <$> o .: "name"
+            <*> pure fnid
+            <*> breakers .: "parent"
+            <*> breakers .: "request"
+            <*> breakers .: "fielddata"
+            <*> o .: "http"
+            <*> o .: "transport"
+            <*> o .: "fs"
+            <*> o .: "network"
+            <*> o .: "thread_pool"
+            <*> o .: "jvm"
+            <*> o .: "process"
+            <*> o .: "os"
+            <*> o .: "indices"
 
 parseNodeInfo :: FullNodeId -> Object -> Parser NodeInfo
 parseNodeInfo nid o =
