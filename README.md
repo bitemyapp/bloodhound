@@ -70,6 +70,7 @@ Index Operations
 -- the multi-line examples into your ghci REPL.
 
 :set -XDeriveGeneric
+:set -XOverloadedStrings
 :{
 import Control.Applicative
 import Database.Bloodhound
