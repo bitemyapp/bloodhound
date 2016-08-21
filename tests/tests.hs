@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -584,6 +585,11 @@ noDuplicates xs = nub xs == xs
 
 instance Arbitrary NominalDiffTime where
   arbitrary = fromInteger <$> arbitrary
+
+#if !MIN_VERSION_QuickCheck(2,8,0)
+instance (Arbitrary k, Ord k, Arbitrary v) => Arbitrary (M.Map k v) where
+  arbitrary = M.fromList <$> arbitrary
+#endif
 
 instance Arbitrary Text where
   arbitrary = T.pack <$> arbitrary
