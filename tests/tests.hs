@@ -585,9 +585,6 @@ noDuplicates xs = nub xs == xs
 instance Arbitrary NominalDiffTime where
   arbitrary = fromInteger <$> arbitrary
 
-instance (Arbitrary k, Ord k, Arbitrary v) => Arbitrary (M.Map k v) where
-  arbitrary = M.fromList <$> arbitrary
-
 instance Arbitrary Text where
   arbitrary = T.pack <$> arbitrary
 
