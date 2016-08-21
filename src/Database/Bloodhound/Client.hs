@@ -77,6 +77,8 @@ module Database.Bloodhound.Client
        , deleteSnapshot
        -- *** Restoring Snapshots
        , restoreSnapshot
+       -- ** Nodes
+       , getNodesInfo
        -- ** Request Utilities
        , encodeBulkOperations
        , encodeBulkOperation
@@ -90,33 +92,32 @@ module Database.Bloodhound.Client
        )
        where
 
-import qualified Blaze.ByteString.Builder           as BB
-import           Control.Applicative                as A
+import qualified Blaze.ByteString.Builder     as BB
+import           Control.Applicative          as A
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.ByteString.Lazy.Builder
-import qualified Data.ByteString.Lazy.Char8         as L
-import           Data.Foldable                      (toList)
-import qualified Data.HashMap.Strict                as HM
+import qualified Data.ByteString.Lazy.Char8   as L
+import           Data.Foldable                (toList)
+import qualified Data.HashMap.Strict          as HM
 import           Data.Ix
-import qualified Data.List                          as LS (filter, foldl')
-import           Data.List.NonEmpty                 (NonEmpty (..))
-import           Data.Maybe                         (catMaybes, fromMaybe,
-                                                     isJust)
+import qualified Data.List                    as LS (filter, foldl')
+import           Data.List.NonEmpty           (NonEmpty (..))
+import           Data.Maybe                   (catMaybes, fromMaybe, isJust)
 import           Data.Monoid
-import           Data.Text                          (Text)
-import qualified Data.Text                          as T
-import qualified Data.Text.Encoding                 as T
+import           Data.Text                    (Text)
+import qualified Data.Text                    as T
+import qualified Data.Text.Encoding           as T
 import           Data.Time.Clock
-import qualified Data.Vector                        as V
+import qualified Data.Vector                  as V
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method          as NHTM
-import qualified Network.HTTP.Types.Status          as NHTS
-import qualified Network.HTTP.Types.URI             as NHTU
-import qualified Network.URI                        as URI
-import           Prelude                            hiding (filter, head)
+import qualified Network.HTTP.Types.Method    as NHTM
+import qualified Network.HTTP.Types.Status    as NHTS
+import qualified Network.HTTP.Types.URI       as NHTU
+import qualified Network.URI                  as URI
+import           Prelude                      hiding (filter, head)
 
 import           Database.Bloodhound.Types
 
@@ -455,6 +456,24 @@ restoreSnapshot (SnapshotRepoName repoName)
     renderToken RRSubWholeMatch = "$0"
     renderToken (RRSubGroup g)  = T.pack (show (rrGroupRefNum g))
 
+
+getNodesInfo
+    :: ( MonadBH m
+       , MonadThrow m
+       )
+    => NodeSelection
+    -> m (Either EsError NodesInfo)
+getNodesInfo sel = parseEsResponse =<< get =<< url
+  where
+    url = joinPath ["_nodes", selectionSeg]
+    selectionSeg = case sel of
+      LocalNode -> "_local"
+      NodeList (l :| ls) -> T.intercalate "," (selToSeg <$> (l:ls))
+      AllNodes -> "_all"
+    selToSeg (NodeByName (NodeName n))            = n
+    selToSeg (NodeByFullNodeId (FullNodeId i))    = i
+    selToSeg (NodeByHost (Server s))              = s
+    selToSeg (NodeByAttribute (NodeAttrName a) v) = a <> ":" <> v
 
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
 --

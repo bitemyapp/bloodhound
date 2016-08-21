@@ -60,6 +60,8 @@ module Database.Bloodhound.Types
        , mkBHEnv
        , MonadBH(..)
        , Version(..)
+       , VersionNumber(..)
+       , BuildHash(..)
        , Status(..)
        , Existence(..)
        , NullValue(..)
@@ -146,6 +148,8 @@ module Database.Bloodhound.Types
        , Script(..)
        , IndexName(..)
        , IndexSelection(..)
+       , NodeSelection(..)
+       , NodeSelector(..)
        , IndexOptimizationSettings(..)
        , defaultIndexOptimizationSettings
        , TemplateName(..)
@@ -252,6 +256,31 @@ module Database.Bloodhound.Types
        , SnapshotNodeVerification(..)
        , FullNodeId(..)
        , NodeName(..)
+       , ClusterName(..)
+       , NodesInfo(..)
+       , EsAddress(..)
+       , PluginName(..)
+       , NodeInfo(..)
+       , NodePluginInfo(..)
+       , NodeHTTPInfo(..)
+       , NodeTransportInfo(..)
+       , BoundTransportAddress(..)
+       , NodeNetworkInfo(..)
+       , MacAddress(..)
+       , NetworkInterfaceName(..)
+       , NodeNetworkInterface(..)
+       , NodeThreadPoolsInfo(..)
+       , NodeThreadPoolInfo(..)
+       , ThreadPoolSize(..)
+       , ThreadPoolType(..)
+       , NodeJVMInfo(..)
+       , JVMMemoryPool(..)
+       , JVMGCCollector(..)
+       , JVMMemoryInfo(..)
+       , PID(..)
+       , NodeOSInfo(..)
+       , CPUInfo(..)
+       , NodeProcessInfo(..)
        , FsSnapshotRepo(..)
        , SnapshotCreateSettings(..)
        , defaultSnapshotCreateSettings
@@ -311,6 +340,7 @@ module Database.Bloodhound.Types
          ) where
 
 import           Control.Applicative                as A
+import           Control.Arrow                      (first)
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader
@@ -323,7 +353,7 @@ import qualified Data.ByteString.Lazy.Char8         as L
 import           Data.Char
 import           Data.Hashable                      (Hashable)
 import qualified Data.HashMap.Strict                as HM
-import           Data.List                          (foldl', nub)
+import           Data.List                          (foldl', intercalate, nub)
 import           Data.List.NonEmpty                 (NonEmpty (..), toList)
 import qualified Data.Map.Strict                    as M
 import           Data.Maybe
@@ -336,10 +366,12 @@ import           Data.Time.Clock.POSIX
 import qualified Data.Traversable                   as DT
 import           Data.Typeable                      (Typeable)
 import qualified Data.Vector                        as V
+import qualified Data.Version                       as Vers
 import           GHC.Enum
 import           GHC.Generics                       (Generic)
 import           Network.HTTP.Client
 import qualified Network.HTTP.Types.Method          as NHTM
+import qualified Text.ParserCombinators.ReadP       as RP
 import qualified Text.Read                          as TR
 
 import           Database.Bloodhound.Types.Class
@@ -395,11 +427,15 @@ runBH :: BHEnv -> BH m a -> m a
 runBH e f = runReaderT (unBH f) e
 
 {-| 'Version' is embedded in 'Status' -}
-data Version = Version { number          :: Text
-                       , build_hash      :: Text
+data Version = Version { number          :: VersionNumber
+                       , build_hash      :: BuildHash
                        , build_timestamp :: UTCTime
                        , build_snapshot  :: Bool
-                       , lucene_version  :: Text } deriving (Eq, Read, Show, Generic, Typeable)
+                       , lucene_version  :: VersionNumber } deriving (Eq, Read, Show, Generic, Typeable)
+
+-- | Traditional software versioning number
+newtype VersionNumber = VersionNumber { versionNumber :: Vers.Version
+                                      } deriving (Eq, Read, Show, Generic, Typeable, Ord)
 
 {-| 'Status' is a data type for describing the JSON body returned by
     Elasticsearch when you query its status. This was deprecated in 1.2.0.
@@ -864,6 +900,25 @@ newtype IndexName = IndexName Text deriving (Eq, Generic, Read, Show, ToJSON, Fr
 --TODO: this does not fully support <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/multi-index.html multi-index syntax>. It wouldn't be too hard to implement but you'd have to add the optional parameters (ignore_unavailable, allow_no_indices, expand_wildcards) to any APIs using it. Also would be a breaking API.
 data IndexSelection = IndexList (NonEmpty IndexName)
                     | AllIndexes deriving (Eq, Generic, Show, Typeable)
+
+{-| 'NodeSelection' is used for most cluster APIs. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster.html#cluster-nodes here> for more details.
+-}
+data NodeSelection = LocalNode
+                   -- ^ Whatever node receives this request
+                   | NodeList (NonEmpty NodeSelector)
+                   | AllNodes deriving (Eq, Generic, Show, Typeable)
+
+
+-- | An exact match or pattern to identify a node. Note that All of
+-- these options support wildcarding, so your node name, server, attr
+-- name can all contain * characters to be a fuzzy match.
+data NodeSelector = NodeByName NodeName
+                  | NodeByFullNodeId FullNodeId
+                  | NodeByHost Server
+                  -- ^ e.g. 10.0.0.1 or even 10.0.0.*
+                  | NodeByAttribute NodeAttrName Text
+                  -- ^ NodeAttrName can be a pattern, e.g. rack*. The value can too.
+                  deriving (Eq, Generic, Show, Typeable)
 
 {-| 'TemplateName' is used to describe which template to query/create/delete
 -}
@@ -1734,6 +1789,17 @@ instance FromJSON Version where
                     <*> o .: "build_timestamp"
                     <*> o .: "build_snapshot"
                     <*> o .: "lucene_version"
+
+instance ToJSON VersionNumber where
+  toJSON = toJSON . Vers.showVersion . versionNumber
+
+instance FromJSON VersionNumber where
+  parseJSON = withText "VersionNumber" (parse . T.unpack)
+    where
+      parse s = case filter (null . snd)(RP.readP_to_S Vers.parseVersion s) of
+                  [(v, _)] -> pure (VersionNumber v)
+                  [] -> fail ("Invalid version string " ++ s)
+                  xs -> fail ("Ambiguous version string " ++ s ++ " (" ++ intercalate ", " (Vers.showVersion . fst <$> xs) ++ ")")
 
 instance ToJSON TermOrder where
   toJSON (TermOrder termSortField termSortOrder) = object [termSortField .= termSortOrder]
@@ -3767,6 +3833,189 @@ newtype FullNodeId = FullNodeId { fullNodeId :: Text }
 newtype NodeName = NodeName { nodeName :: Text }
                  deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
 
+newtype ClusterName = ClusterName { clusterName :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+data NodesInfo = NodesInfo {
+      nodesInfo        :: [NodeInfo]
+    , nodesClusterName :: ClusterName
+    } deriving (Eq, Show, Generic, Typeable)
+
+-- | A quirky address format used throughout ElasticSearch. An example
+-- would be inet[/1.1.1.1:9200]. inet may be a placeholder for a
+-- <https://en.wikipedia.org/wiki/Fully_qualified_domain_name FQDN>.
+newtype EsAddress = EsAddress { esAddress :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+-- | Typically a 7 character hex string.
+newtype BuildHash = BuildHash { buildHash :: Text }
+                 deriving (Eq, Ord, Generic, Read, Show, Typeable, FromJSON, ToJSON)
+
+newtype PluginName = PluginName { pluginName :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+data NodeInfo = NodeInfo {
+      nodeInfoHTTPAddress      :: EsAddress
+    , nodeInfoBuild            :: BuildHash
+    , nodeInfoESVersion        :: VersionNumber
+    , nodeInfoIP               :: Server
+    , nodeInfoHost             :: Server
+    , nodeInfoTransportAddress :: EsAddress
+    , nodeInfoName             :: NodeName
+    , nodeInfoFullId           :: FullNodeId
+    , nodeInfoPlugins          :: [NodePluginInfo]
+    , nodeInfoHTTP             :: NodeHTTPInfo
+    , nodeInfoTransport        :: NodeTransportInfo
+    , nodeInfoNetwork          :: NodeNetworkInfo
+    , nodeInfoThreadPool       :: NodeThreadPoolsInfo
+    , nodeInfoJVM              :: NodeJVMInfo
+    , nodeInfoProcess          :: NodeProcessInfo
+    , nodeInfoOS               :: NodeOSInfo
+    , nodeInfoSettings         :: Object
+    -- ^ The members of the settings objects are not consistent,
+    -- dependent on plugins, etc.
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodePluginInfo = NodePluginInfo {
+      nodePluginSite        :: Bool
+    -- ^ Is this a site plugin?
+    , nodePluginJVM         :: Bool
+    -- ^ Is this plugin running on the JVM
+    , nodePluginDescription :: Text
+    , nodePluginVersion     :: VersionNumber
+    , nodePluginName        :: PluginName
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeHTTPInfo = NodeHTTPInfo {
+      nodeHTTPMaxContentLength :: Bytes
+    , nodeHTTPTransportAddress :: BoundTransportAddress
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeTransportInfo = NodeTransportInfo {
+      nodeTransportProfiles :: [BoundTransportAddress]
+    , nodeTransportAddress  :: BoundTransportAddress
+    } deriving (Eq, Show, Generic, Typeable)
+
+data BoundTransportAddress = BoundTransportAddress {
+      publishAddress :: EsAddress
+    , boundAddress   :: EsAddress
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeNetworkInfo = NodeNetworkInfo {
+      nodeNetworkPrimaryInterface :: NodeNetworkInterface
+    , nodeNetworkRefreshInterval  :: NominalDiffTime
+    } deriving (Eq, Show, Generic, Typeable)
+
+newtype MacAddress = MacAddress { macAddress :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+newtype NetworkInterfaceName = NetworkInterfaceName { networkInterfaceName :: Text }
+                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
+
+data NodeNetworkInterface = NodeNetworkInterface {
+      nodeNetIfaceMacAddress :: MacAddress
+    , nodeNetIfaceName       :: NetworkInterfaceName
+    , nodeNetIfaceAddress    :: Server
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeThreadPoolsInfo = NodeThreadPoolsInfo {
+      nodeThreadPoolsRefresh           :: NodeThreadPoolInfo
+    , nodeThreadPoolsManagement        :: NodeThreadPoolInfo
+    , nodeThreadPoolsPercolate         :: NodeThreadPoolInfo
+    , nodeThreadPoolsListener          :: Maybe NodeThreadPoolInfo
+    , nodeThreadPoolsFetchShardStarted :: Maybe NodeThreadPoolInfo
+    , nodeThreadPoolsSearch            :: NodeThreadPoolInfo
+    , nodeThreadPoolsFlush             :: NodeThreadPoolInfo
+    , nodeThreadPoolsWarmer            :: NodeThreadPoolInfo
+    , nodeThreadPoolsOptimize          :: NodeThreadPoolInfo
+    , nodeThreadPoolsBulk              :: NodeThreadPoolInfo
+    , nodeThreadPoolsSuggest           :: NodeThreadPoolInfo
+    , nodeThreadPoolsMerge             :: NodeThreadPoolInfo
+    , nodeThreadPoolsSnapshot          :: NodeThreadPoolInfo
+    , nodeThreadPoolsGet               :: NodeThreadPoolInfo
+    , nodeThreadPoolsFetchShardStore   :: Maybe NodeThreadPoolInfo
+    , nodeThreadPoolsIndex             :: NodeThreadPoolInfo
+    , nodeThreadPoolsGeneric           :: NodeThreadPoolInfo
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeThreadPoolInfo = NodeThreadPoolInfo {
+      nodeThreadPoolQueueSize :: ThreadPoolSize
+    , nodeThreadPoolKeepalive :: Maybe NominalDiffTime
+    , nodeThreadPoolMin       :: Maybe Int
+    , nodeThreadPoolMax       :: Maybe Int
+    , nodeThreadPoolType      :: ThreadPoolType
+    } deriving (Eq, Show, Generic, Typeable)
+
+data ThreadPoolSize = ThreadPoolBounded Int
+                    | ThreadPoolUnbounded
+                    deriving (Eq, Show, Generic, Typeable)
+
+data ThreadPoolType = ThreadPoolScaling
+                    | ThreadPoolFixed
+                    | ThreadPoolCached
+                    deriving (Eq, Show, Generic, Typeable)
+
+data NodeJVMInfo = NodeJVMInfo {
+      nodeJVMInfoMemoryPools             :: [JVMMemoryPool]
+    , nodeJVMInfoMemoryPoolsGCCollectors :: [JVMGCCollector]
+    , nodeJVMInfoMemoryInfo              :: JVMMemoryInfo
+    , nodeJVMInfoStartTime               :: UTCTime
+    , nodeJVMInfoVMVendor                :: Text
+    , nodeJVMVMVersion                   :: VersionNumber
+    -- ^ JVM doesn't seme to follow normal version conventions
+    , nodeJVMVMName                      :: Text
+    , nodeJVMVersion                     :: VersionNumber
+    , nodeJVMPID                         :: PID
+    } deriving (Eq, Show, Generic, Typeable)
+
+-- | Handles quirks in the way JVM versions are rendered (1.7.0_101 -> 1.7.0.101)
+newtype JVMVersion = JVMVersion { unJVMVersion :: VersionNumber }
+
+data JVMMemoryInfo = JVMMemoryInfo {
+      jvmMemoryInfoDirectMax   :: Bytes
+    , jvmMemoryInfoNonHeapMax  :: Bytes
+    , jvmMemoryInfoNonHeapInit :: Bytes
+    , jvmMemoryInfoHeapMax     :: Bytes
+    , jvmMemoryInfoHeapInit    :: Bytes
+    } deriving (Eq, Show, Generic, Typeable)
+
+newtype JVMMemoryPool = JVMMemoryPool {
+      jvmMemoryPool :: Text
+    } deriving (Eq, Show, Generic, Typeable, FromJSON)
+
+newtype JVMGCCollector = JVMGCCollector {
+      jvmGCCollector :: Text
+    } deriving (Eq, Show, Generic, Typeable, FromJSON)
+
+newtype PID = PID {
+      pid :: Int
+    } deriving (Eq, Show, Generic, Typeable, FromJSON)
+
+data NodeOSInfo = NodeOSInfo {
+      nodeOSSwap                :: Bytes
+    , nodeOSMem                 :: Bytes
+    , nodeOSCPUInfo             :: CPUInfo
+    , nodeOSAvailableProcessors :: Int
+    , nodeOSRefreshInterval     :: NominalDiffTime
+    } deriving (Eq, Show, Generic, Typeable)
+
+data CPUInfo = CPUInfo {
+      cpuCacheSize      :: Bytes
+    , cpuCoresPerSocket :: Int
+    , cpuTotalSockets   :: Int
+    , cpuTotalCores     :: Int
+    , cpuMHZ            :: Int
+    , cpuModel          :: Text
+    , cpuVendor         :: Text
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeProcessInfo = NodeProcessInfo {
+      nodeProcessMLockAll           :: Bool
+    -- ^ See <https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.html>
+    , nodeProcessMaxFileDescriptors :: Int
+    , nodeProcessId                 :: PID
+    , nodeProcessRefreshInterval    :: NominalDiffTime
+    } deriving (Eq, Show, Generic, Typeable)
 
 data SnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings {
      repoUpdateVerify :: Bool
@@ -3923,9 +4172,9 @@ instance FromJSON SnapshotInfo where
                              <*> o .: "snapshot"
 
 data SnapshotShardFailure = SnapshotShardFailure {
-      snapShardFailureIndex :: IndexName
-    , snapShardFailureNodeId :: Maybe NodeName -- I'm not 100% sure this isn't actually 'FullNodeId'
-    , snapShardFailureReason :: Text
+      snapShardFailureIndex   :: IndexName
+    , snapShardFailureNodeId  :: Maybe NodeName -- I'm not 100% sure this isn't actually 'FullNodeId'
+    , snapShardFailureReason  :: Text
     , snapShardFailureShardId :: ShardId
     } deriving (Eq, Show, Generic, Typeable)
 
@@ -3984,37 +4233,37 @@ newtype SnapshotName = SnapshotName { snapshotName :: Text }
 
 
 data SnapshotRestoreSettings = SnapshotRestoreSettings {
-      snapRestoreWaitForCompletion  :: Bool
+      snapRestoreWaitForCompletion      :: Bool
       -- ^ Should the API call return immediately after initializing
       -- the restore or wait until completed? Note that if this is
       -- enabled, it could wait a long time, so you should adjust your
       -- 'ManagerSettings' accordingly to set long timeouts or
       -- explicitly handle timeouts.
-    , snapRestoreIndices            :: Maybe IndexSelection
+    , snapRestoreIndices                :: Maybe IndexSelection
     -- ^ Nothing will restore all indices in the snapshot. Just [] is
     -- permissable and will essentially be a no-op restore.
-    , snapRestoreIgnoreUnavailable  :: Bool
+    , snapRestoreIgnoreUnavailable      :: Bool
     -- ^ If set to True, any indices that do not exist will be ignored
     -- during snapshot rather than failing the restore.
-    , snapRestoreIncludeGlobalState :: Bool
+    , snapRestoreIncludeGlobalState     :: Bool
     -- ^ If set to false, will ignore any global state in the snapshot
     -- and will not restore it.
-    , snapRestoreRenamePattern      :: Maybe RestoreRenamePattern
+    , snapRestoreRenamePattern          :: Maybe RestoreRenamePattern
     -- ^ A regex pattern for matching indices. Used with
     -- 'snapRestoreRenameReplacement', the restore can reference the
     -- matched index and create a new index name upon restore.
-    , snapRestoreRenameReplacement  :: Maybe (NonEmpty RestoreRenameToken)
+    , snapRestoreRenameReplacement      :: Maybe (NonEmpty RestoreRenameToken)
     -- ^ Expression of how index renames should be constructed.
-    , snapRestorePartial            :: Bool
+    , snapRestorePartial                :: Bool
     -- ^ If some indices fail to restore, should the process proceed?
-    , snapRestoreIncludeAliases     :: Bool
+    , snapRestoreIncludeAliases         :: Bool
     -- ^ Should the restore also restore the aliases captured in the
     -- snapshot.
     , snapRestoreIndexSettingsOverrides :: Maybe RestoreIndexSettings
     -- ^ Settings to apply during the restore process. __NOTE:__ This
     -- option is not supported in ES < 1.5 and should be set to
     -- Nothing in that case.
-    , snapRestoreIgnoreIndexSettings :: Maybe (NonEmpty Text)
+    , snapRestoreIgnoreIndexSettings    :: Maybe (NonEmpty Text)
     -- ^ This type could be more rich but it isn't clear which
     -- settings are allowed to be ignored during restore, so we're
     -- going with including this feature in a basic form rather than
@@ -4098,3 +4347,208 @@ instance ToJSON RestoreIndexSettings where
   toJSON RestoreIndexSettings {..} = object prs
     where
       prs = catMaybes [("index.number_of_replicas" .=) <$> restoreOverrideReplicas]
+
+
+instance FromJSON NodesInfo where
+  parseJSON = withObject "NodesInfo" parse
+    where
+      parse o = do
+        nodes <- o .: "nodes"
+        infos <- forM (HM.toList nodes) $ \(fullNID, v) -> do
+          node <- parseJSON v
+          parseNodeInfo (FullNodeId fullNID) node
+        cn <- o .: "cluster_name"
+        return (NodesInfo infos cn)
+
+
+parseNodeInfo :: FullNodeId -> Object -> Parser NodeInfo
+parseNodeInfo nid o =
+  NodeInfo <$> o .: "http_address"
+           <*> o .: "build"
+           <*> o .: "version"
+           <*> o .: "ip"
+           <*> o .: "host"
+           <*> o .: "transport_address"
+           <*> o .: "name"
+           <*> pure nid
+           <*> o .: "plugins"
+           <*> o .: "http"
+           <*> o .: "transport"
+           <*> o .: "network"
+           <*> o .: "thread_pool"
+           <*> o .: "jvm"
+           <*> o .: "process"
+           <*> o .: "os"
+           <*> o .: "settings"
+
+instance FromJSON NodePluginInfo where
+  parseJSON = withObject "NodePluginInfo" parse
+    where
+      parse o = NodePluginInfo <$> o .: "site"
+                               <*> o .: "jvm"
+                               <*> o .: "description"
+                               <*> o .: "version"
+                               <*> o .: "name"
+
+instance FromJSON NodeHTTPInfo where
+  parseJSON = withObject "NodeHTTPInfo" parse
+    where
+      parse o = NodeHTTPInfo <$> o .: "max_content_length_in_bytes"
+                             <*> parseJSON (Object o)
+
+instance FromJSON BoundTransportAddress where
+  parseJSON = withObject "BoundTransportAddress" parse
+    where
+      parse o = BoundTransportAddress <$> o .: "publish_address"
+                                      <*> o .: "bound_address"
+
+instance FromJSON NodeOSInfo where
+  parseJSON = withObject "NodeOSInfo" parse
+    where
+      parse o = do
+        swap <- o .: "swap"
+        mem <- o .: "mem"
+        NodeOSInfo <$> swap .: "total_in_bytes"
+                   <*> mem .: "total_in_bytes"
+                   <*> o .: "cpu"
+                   <*> o .: "available_processors"
+                   <*> (unMS <$> o .: "refresh_interval_in_millis")
+
+
+instance FromJSON CPUInfo where
+  parseJSON = withObject "CPUInfo" parse
+    where
+      parse o = CPUInfo <$> o .: "cache_size_in_bytes"
+                        <*> o .: "cores_per_socket"
+                        <*> o .: "total_sockets"
+                        <*> o .: "total_cores"
+                        <*> o .: "mhz"
+                        <*> o .: "model"
+                        <*> o .: "vendor"
+
+instance FromJSON NodeProcessInfo where
+  parseJSON = withObject "NodeProcessInfo" parse
+    where
+      parse o = NodeProcessInfo <$> o .: "mlockall"
+                                <*> o .: "max_file_descriptors"
+                                <*> o .: "id"
+                                <*> (unMS <$> o .: "refresh_interval_in_millis")
+
+instance FromJSON NodeJVMInfo where
+  parseJSON = withObject "NodeJVMInfo" parse
+    where
+      parse o = NodeJVMInfo <$> o .: "memory_pools"
+                            <*> o .: "gc_collectors"
+                            <*> o .: "mem"
+                            <*> (posixMS <$> o .: "start_time_in_millis")
+                            <*> o .: "vm_vendor"
+                            <*> o .: "vm_version"
+                            <*> o .: "vm_name"
+                            <*> (unJVMVersion <$> o .: "version")
+                            <*> o .: "pid"
+
+instance FromJSON JVMVersion where
+  parseJSON (String t) =
+    JVMVersion <$> parseJSON (String (T.replace "_" "." t))
+  parseJSON v = JVMVersion <$> parseJSON v
+
+instance FromJSON JVMMemoryInfo where
+  parseJSON = withObject "JVMMemoryInfo" parse
+    where
+      parse o = JVMMemoryInfo <$> o .: "direct_max_in_bytes"
+                              <*> o .: "non_heap_max_in_bytes"
+                              <*> o .: "non_heap_init_in_bytes"
+                              <*> o .: "heap_max_in_bytes"
+                              <*> o .: "heap_init_in_bytes"
+
+instance FromJSON NodeThreadPoolsInfo where
+  parseJSON = withObject "NodeThreadPoolsInfo" parse
+    where
+      parse o = NodeThreadPoolsInfo <$> o .: "refresh"
+                                    <*> o .: "management"
+                                    <*> o .: "percolate"
+                                    <*> o .:? "listener"
+                                    <*> o .:? "fetch_shard_started"
+                                    <*> o .: "search"
+                                    <*> o .: "flush"
+                                    <*> o .: "warmer"
+                                    <*> o .: "optimize"
+                                    <*> o .: "bulk"
+                                    <*> o .: "suggest"
+                                    <*> o .: "merge"
+                                    <*> o .: "snapshot"
+                                    <*> o .: "get"
+                                    <*> o .:? "fetch_shard_store"
+                                    <*> o .: "index"
+                                    <*> o .: "generic"
+
+instance FromJSON NodeThreadPoolInfo where
+  parseJSON = withObject "NodeThreadPoolInfo" parse
+    where
+      parse o = do
+        ka <- maybe (return Nothing) (fmap Just . parseStringInterval) =<< o .:? "keep_alive"
+        NodeThreadPoolInfo <$> (parseJSON . unStringlyTypeJSON =<< o .: "queue_size")
+                           <*> pure ka
+                           <*> o .:? "min"
+                           <*> o .:? "max"
+                           <*> o .: "type"
+
+parseStringInterval :: (Monad m) => String -> m NominalDiffTime
+parseStringInterval s = case span isNumber s of
+  ("", _) -> fail "Invalid interval"
+  (nS, unitS) -> case (readMay nS, readMay unitS) of
+    (Just n, Just unit) -> return (fromInteger (n * unitNDT unit))
+    (Nothing, _) -> fail "Invalid interval number"
+    (_, Nothing) -> fail "Invalid interval unit"
+  where
+    unitNDT Seconds = 1
+    unitNDT Minutes = 60
+    unitNDT Hours   = 60 * 60
+    unitNDT Days    = 24 * 60 * 60
+    unitNDT Weeks   = 7 * 24 * 60 * 60
+
+instance FromJSON ThreadPoolSize where
+  parseJSON v = parseAsNumber v <|> parseAsString v
+    where
+      parseAsNumber = parseAsInt <=< parseJSON
+      parseAsInt (-1) = return ThreadPoolUnbounded
+      parseAsInt n
+        | n >= 0 = return (ThreadPoolBounded n)
+        | otherwise = fail "Thread pool size must be >= -1."
+      parseAsString = withText "ThreadPoolSize" $ \t ->
+        case first (readMay . T.unpack) (T.span isNumber t) of
+          (Just n, "k") -> return (ThreadPoolBounded (n * 1000))
+          (Just n, "") -> return (ThreadPoolBounded n)
+          _ -> fail ("Invalid thread pool size " <> T.unpack t)
+
+instance FromJSON ThreadPoolType where
+  parseJSON = withText "ThreadPoolType" parse
+    where
+      parse "scaling" = return ThreadPoolScaling
+      parse "fixed"   = return ThreadPoolFixed
+      parse "cached"  = return ThreadPoolCached
+      parse e         = fail ("Unexpected thread pool type" <> T.unpack e)
+
+instance FromJSON NodeTransportInfo where
+  parseJSON = withObject "NodeTransportInfo" parse
+    where
+      parse o = NodeTransportInfo <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
+                                  <*> parseJSON (Object o)
+      parseProfiles (Object o) | HM.null o = return []
+      parseProfiles v@(Array _) = parseJSON v
+      parseProfiles Null = return []
+      parseProfiles _ = fail "Could not parse profiles"
+
+instance FromJSON NodeNetworkInfo where
+  parseJSON = withObject "NodeNetworkInfo" parse
+    where
+      parse o = NodeNetworkInfo <$> o .: "primary_interface"
+                                <*> (unMS <$> o .: "refresh_interval_in_millis")
+
+
+instance FromJSON NodeNetworkInterface where
+  parseJSON = withObject "NodeNetworkInterface" parse
+    where
+      parse o = NodeNetworkInterface <$> o .: "mac_address"
+                                     <*> o .: "name"
+                                     <*> o .: "address"

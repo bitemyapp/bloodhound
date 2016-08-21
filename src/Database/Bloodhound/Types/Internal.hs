@@ -24,6 +24,7 @@ module Database.Bloodhound.Types.Internal
 
 import           Control.Applicative  as A
 import           Control.Monad.Reader
+import           Data.Aeson
 import           Data.Text            (Text)
 import           Data.Typeable        (Typeable)
 import           GHC.Generics         (Generic)
@@ -43,7 +44,7 @@ instance (Functor m, Applicative m, MonadIO m) => MonadBH (ReaderT BHEnv m) wher
 
 {-| 'Server' is used with the client functions to point at the ES instance
 -}
-newtype Server = Server Text deriving (Eq, Show, Generic, Typeable)
+newtype Server = Server Text deriving (Eq, Show, Generic, Typeable, FromJSON)
 
 {-| All API calls to Elasticsearch operate within
     MonadBH
