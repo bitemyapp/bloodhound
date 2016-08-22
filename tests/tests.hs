@@ -1244,6 +1244,17 @@ main = hspec $ do
       searchExpectAggs search
       searchValidBucketAgg search "users" toTerms
 
+    it "returns cardinality aggregation results" $ withTestEnv $ do
+      _ <- insertData
+      let cardinality = CardinalityAgg $ mkCardinalityAggregation $ FieldName "user"
+      let search = mkAggregateSearch Nothing $ mkAggregations "users" cardinality
+      let search' = search { Database.Bloodhound.from = From 0, size = Size 0 }
+      searchExpectAggs search'
+      let docCountPair k n = (k, object ["value" .= Number n])
+      res <- searchTweets search'
+      liftIO $
+        fmap aggregations res `shouldBe` Right (Just (M.fromList [ docCountPair "users" 1]))
+
     it "can give collection hint parameters to term aggregations" $ when' (atleast es13) $ withTestEnv $ do
       _ <- insertData
       let terms = TermsAgg $ (mkTermsAggregation "user") { termCollectMode = Just BreadthFirst }
