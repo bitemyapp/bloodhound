@@ -96,6 +96,9 @@ es15 = Vers.Version [1, 5, 0] []
 es16 :: Vers.Version
 es16 = Vers.Version [1, 6, 0] []
 
+es20 :: Vers.Version
+es20 = Vers.Version [2, 0, 0] []
+
 getServerVersion :: IO (Maybe Vers.Version)
 getServerVersion = fmap extractVersion <$> withTestEnv getStatus
   where
@@ -885,11 +888,16 @@ main = hspec $ do
         validateStatus resp 200
         validateStatus deleteResp 200
 
-  describe "error parsing" $ do
-    it "can parse EsErrors" $ withTestEnv $ do
+  describe "error parsing"  $ do
+    it "can parse EsErrors for < 2.0" $ when' (atmost es16) $ withTestEnv $ do
       res <- getDocument (IndexName "bogus") (MappingName "also_bogus") (DocId "bogus_as_well")
       let errorResp = eitherDecode (responseBody res)
       liftIO (errorResp `shouldBe` Right (EsError 404 "IndexMissingException[[bogus] missing]"))
+
+    it "can parse EsErrors for >= 2.0" $ when' (atleast es20) $ withTestEnv $ do
+      res <- getDocument (IndexName "bogus") (MappingName "also_bogus") (DocId "bogus_as_well")
+      let errorResp = eitherDecode (responseBody res)
+      liftIO (errorResp `shouldBe` Right (EsError 404 "no such index"))
 
   describe "document API" $ do
     it "indexes, updates, gets, and then deletes the generated document" $ withTestEnv $ do
