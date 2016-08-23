@@ -174,15 +174,32 @@ data ParentMapping = ParentMapping deriving (Eq, Show)
 
 instance ToJSON ParentMapping where
   toJSON ParentMapping =
-    object ["parent" .= Null ]
+    object ["parent" .=
+              object ["properties" .=
+                object [ "user"     .= object ["type"    .= ("string" :: Text)]
+                      -- Serializing the date as a date is breaking other tests, mysteriously.
+                      -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+                      --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+                      , "message"  .= object ["type" .= ("string" :: Text)]
+                      , "age"      .= object ["type" .= ("integer" :: Text)]
+                      , "location" .= object ["type" .= ("geo_point" :: Text)]
+                      ]]]
 
 data ChildMapping = ChildMapping deriving (Eq, Show)
 
 instance ToJSON ChildMapping where
   toJSON ChildMapping =
     object ["child" .=
-      object ["_parent" .= object ["type" .= ("parent" :: Text)]]
-    ]
+      object ["_parent" .= object ["type" .= ("parent" :: Text)]
+             , "properties" .=
+                  object [ "user"     .= object ["type"    .= ("string" :: Text)]
+                    -- Serializing the date as a date is breaking other tests, mysteriously.
+                    -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+                    --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+                    , "message"  .= object ["type" .= ("string" :: Text)]
+                    , "age"      .= object ["type" .= ("integer" :: Text)]
+                    , "location" .= object ["type" .= ("geo_point" :: Text)]
+                    ]]]
 
 data TweetMapping = TweetMapping deriving (Eq, Show)
 
@@ -924,8 +941,8 @@ main = hspec $ do
 
     it "indexes two documents in a parent/child relationship and checks that the child exists" $ withTestEnv $ do
       resetIndex
-      _ <- putMapping testIndex (MappingName "parent") ParentMapping
       _ <- putMapping testIndex (MappingName "child") ChildMapping
+      _ <- putMapping testIndex (MappingName "parent") ParentMapping
       _ <- indexDocument testIndex (MappingName "parent") defaultIndexDocumentSettings exampleTweet (DocId "1")
       let parent = (Just . DocumentParent . DocId) "1"
           ids = IndexDocumentSettings NoVersionControl parent
