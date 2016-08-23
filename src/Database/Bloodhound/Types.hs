@@ -2990,7 +2990,7 @@ instance FromJSON MatchQueryType where
 instance FromJSON Status where
   parseJSON (Object v) = Status <$>
                          v .:? "ok" <*>
-                         v .: "status" <*>
+                         (v .:? "status" .!= 200) <*>
                          v .: "name" <*>
                          v .: "version" <*>
                          v .: "tagline"
