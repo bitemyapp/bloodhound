@@ -2990,7 +2990,7 @@ instance FromJSON MatchQueryType where
 instance FromJSON Status where
   parseJSON (Object v) = Status <$>
                          v .:? "ok" <*>
-                         v .: "status" <*>
+                         (v .:? "status" .!= 200) <*>
                          v .: "name" <*>
                          v .: "version" <*>
                          v .: "tagline"
@@ -3261,7 +3261,7 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
 instance FromJSON EsError where
   parseJSON (Object v) = EsError <$>
                          v .: "status" <*>
-                         v .: "error"
+                         (v .: "error" <|> (v .: "error" >>= (.: "reason")))
   parseJSON _ = empty
 
 instance FromJSON IndexAliasesSummary where
