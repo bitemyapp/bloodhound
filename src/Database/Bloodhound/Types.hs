@@ -45,6 +45,7 @@ module Database.Bloodhound.Types
        , mkTermsAggregation
        , mkTermsScriptAggregation
        , mkDateHistogram
+       , mkCardinalityAggregation
        , mkDocVersion
        , docVersionNumber
        , toMissing
@@ -310,6 +311,7 @@ module Database.Bloodhound.Types
        , MissingAggregation(..)
        , ValueCountAggregation(..)
        , FilterAggregation(..)
+       , CardinalityAggregation(..)
        , DateHistogramAggregation(..)
        , DateRangeAggregation(..)
        , DateRangeAggRange(..)
@@ -1694,6 +1696,7 @@ data Interval = Year
               | FractionalInterval Float TimeInterval deriving (Eq, Read, Show, Generic, Typeable)
 
 data Aggregation = TermsAgg TermsAggregation
+                 | CardinalityAgg CardinalityAggregation
                  | DateHistogramAgg DateHistogramAggregation
                  | ValueCountAgg ValueCountAggregation
                  | FilterAgg FilterAggregation
@@ -1715,6 +1718,10 @@ data TermsAggregation = TermsAggregation { term              :: Either Text Text
                                          , termExecutionHint :: Maybe ExecutionHint
                                          , termAggs          :: Maybe Aggregations
                                     } deriving (Eq, Read, Show, Generic, Typeable)
+
+data CardinalityAggregation = CardinalityAggregation { cardinalityField :: FieldName,
+                                                       precisionThreshold :: Maybe Int
+                                                     } deriving (Eq, Read, Show, Generic, Typeable)
 
 data DateHistogramAggregation = DateHistogramAggregation { dateField      :: FieldName
                                                          , dateInterval   :: Interval
@@ -1773,6 +1780,9 @@ mkTermsScriptAggregation t = TermsAggregation (Right t) Nothing Nothing Nothing 
 
 mkDateHistogram :: FieldName -> Interval -> DateHistogramAggregation
 mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
+
+mkCardinalityAggregation :: FieldName -> CardinalityAggregation
+mkCardinalityAggregation t = CardinalityAggregation t Nothing
 
 instance ToJSON Version where
   toJSON Version {..} = object ["number" .= number
@@ -1863,6 +1873,12 @@ instance ToJSON Aggregation where
                "aggs"  .= termAggs ]
     where
       toJSON' x = case x of { Left y -> "field" .= y;  Right y -> "script" .= y }
+
+  toJSON (CardinalityAgg (CardinalityAggregation field precisionThreshold)) =
+    object ["cardinality" .= omitNulls [ "field"              .= field,
+                                         "precisionThreshold" .= precisionThreshold
+                                       ]
+           ]
 
   toJSON (DateHistogramAgg (DateHistogramAggregation field interval format preZone postZone preOffset postOffset dateHistoAggs)) =
     omitNulls ["date_histogram" .= omitNulls [ "field"       .= field,
