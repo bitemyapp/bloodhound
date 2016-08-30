@@ -1917,10 +1917,7 @@ instance ToJSON DateRangeAggRange where
 instance ToJSON DateMathExpr where
   toJSON (DateMathExpr a mods) = String (fmtA a <> mconcat (fmtMod <$> mods))
     where fmtA DMNow = "now"
-          fmtA (DMDate date) = case toGregorian date of
-                                 (y,m,d) -> showText y <> "-" <>
-                                            showText m <> "-" <>
-                                            showText d <> "||"
+          fmtA (DMDate date) = (T.pack $ showGregorian date) <> "||"
           fmtMod (AddTime n u) = "+" <> showText n <> fmtU u
           fmtMod (SubtractTime n u) = "-" <> showText n <> fmtU u
           fmtMod (RoundDownTo u) = "/" <> fmtU u
