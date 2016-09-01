@@ -260,12 +260,16 @@ module Database.Bloodhound.Types
        , NodesInfo(..)
        , NodesStats(..)
        , NodeStats(..)
+       , NodeBreakersStats(..)
        , NodeBreakerStats(..)
        , NodeHTTPStats(..)
        , NodeTransportStats(..)
        , NodeFSStats(..)
+       , NodeDataPathStats(..)
+       , NodeFSTotalStats(..)
        , NodeNetworkStats(..)
        , NodeThreadPoolsStats(..)
+       , NodeThreadPoolStats(..)
        , NodeJVMStats(..)
        , NodeProcessStats(..)
        , NodeOSStats(..)
@@ -3859,39 +3863,125 @@ data NodesStats = NodesStats {
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodeStats = NodeStats {
-      nodeStatsName             :: NodeName
-    , nodeStatsFullId           :: FullNodeId
-    , nodeStatsParentBreaker    :: NodeBreakerStats
-    , nodeStatsRequestBreaker   :: NodeBreakerStats
-    , nodeStatsFieldDataBreaker :: NodeBreakerStats
-    , nodeStatsHTTP             :: NodeHTTPStats
-    , nodeStatsTransport        :: NodeTransportStats
-    , nodeStatsFS               :: NodeFSStats
-    , nodeStatsNetwork          :: NodeNetworkStats
-    , nodeStatsThreadPool       :: NodeThreadPoolsStats
-    , nodeStatsJVM              :: NodeJVMStats
-    , nodeStatsProcess          :: NodeProcessStats
-    , nodeStatsOS               :: NodeOSStats
-    , nodeStatsIndices          :: NodeIndicesStats
+      nodeStatsName          :: NodeName
+    , nodeStatsFullId        :: FullNodeId
+    , nodeStatsBreakersStats :: NodeBreakersStats
+    , nodeStatsHTTP          :: NodeHTTPStats
+    , nodeStatsTransport     :: NodeTransportStats
+    , nodeStatsFS            :: NodeFSStats
+    , nodeStatsNetwork       :: NodeNetworkStats
+    , nodeStatsThreadPool    :: NodeThreadPoolsStats
+    , nodeStatsJVM           :: NodeJVMStats
+    , nodeStatsProcess       :: NodeProcessStats
+    , nodeStatsOS            :: NodeOSStats
+    , nodeStatsIndices       :: NodeIndicesStats
     } deriving (Eq, Show, Generic, Typeable)
 
-data NodeBreakerStats = NodeBreakerStats
-                      deriving (Eq, Show, Generic, Typeable)
+data NodeBreakersStats = NodeBreakersStats {
+      nodeStatsParentBreaker    :: NodeBreakerStats
+    , nodeStatsRequestBreaker   :: NodeBreakerStats
+    , nodeStatsFieldDataBreaker :: NodeBreakerStats
+    } deriving (Eq, Show, Generic, Typeable)
 
-data NodeHTTPStats = NodeHTTPStats
-                   deriving (Eq, Show, Generic, Typeable)
+data NodeBreakerStats = NodeBreakerStats {
+      nodeBreakersTripped   :: Int
+    , nodeBreakersOverhead  :: Double
+    , nodeBreakersEstSize   :: Bytes
+    , nodeBreakersLimitSize :: Bytes
+    } deriving (Eq, Show, Generic, Typeable)
 
-data NodeTransportStats = NodeTransportStats
-                        deriving (Eq, Show, Generic, Typeable)
+data NodeHTTPStats = NodeHTTPStats {
+      nodeHTTPTotalOpened :: Int
+    , nodeHTTPCurrentOpen :: Int
+    } deriving (Eq, Show, Generic, Typeable)
 
-data NodeFSStats = NodeFSStats
-                 deriving (Eq, Show, Generic, Typeable)
+data NodeTransportStats = NodeTransportStats {
+      nodeTransportTXSize     :: Bytes
+    , nodeTransportCount      :: Int
+    , nodeTransportRXSize     :: Bytes
+    , nodeTransportRXCount    :: Int
+    , nodeTransportServerOpen :: Int
+    } deriving (Eq, Show, Generic, Typeable)
 
-data NodeNetworkStats = NodeNetworkStats
-                      deriving (Eq, Show, Generic, Typeable)
+data NodeFSStats = NodeFSStats {
+      nodeFSDataPaths :: [NodeDataPathStats]
+    , nodeFSTotal     :: NodeFSTotalStats
+    , nodeFSTimestamp :: UTCTime
+    } deriving (Eq, Show, Generic, Typeable)
 
-data NodeThreadPoolsStats = NodeThreadPoolsStats
-                          deriving (Eq, Show, Generic, Typeable)
+data NodeDataPathStats = NodeDataPathStats {
+      nodeDataPathDiskServiceTime :: Double
+    , nodeDataPathDiskQueue       :: Double
+    , nodeDataPathIOSize          :: Bytes
+    , nodeDataPathWriteSize       :: Bytes
+    , nodeDataPathReadSize        :: Bytes
+    , nodeDataPathIOOps           :: Int
+    , nodeDataPathWrites          :: Int
+    , nodeDataPathReads           :: Int
+    , nodeDataPathAvailable       :: Bytes
+    , nodeDataPathFree            :: Bytes
+    , nodeDataPathTotal           :: Bytes
+    , nodeDataPathType            :: Text
+    , nodeDataPathDevice          :: Text
+    , nodeDataPathMount           :: Text
+    , nodeDataPathPath            :: Text
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeFSTotalStats = NodeFSTotalStats {
+      nodeFSTotalDiskServiceTime :: Double
+    , nodeFSTotalDiskQueue       :: Double
+    , nodeFSTotalIOSize          :: Bytes
+    , nodeFSTotalWriteSize       :: Bytes
+    , nodeFSTotalReadSize        :: Bytes
+    , nodeFSTotalIOOps           :: Int
+    , nodeFSTotalWrites          :: Int
+    , nodeFSTotalReads           :: Int
+    , nodeFSTotalAvailable       :: Bytes
+    , nodeFSTotalFree            :: Bytes
+    , nodeFSTotalTotal           :: Bytes
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeNetworkStats = NodeNetworkStats {
+      nodeNetTCPOutRSTs      :: Int
+    , nodeNetTCPInErrs       :: Int
+    , nodeNetTCPAttemptFails :: Int
+    , nodeNetTCPEstabResets  :: Int
+    , nodeNetTCPRetransSegs  :: Int
+    , nodeNetTCPOutSegs      :: Int
+    , nodeNetTCPInSegs       :: Int
+    , nodeNetTCPCurrEstab    :: Int
+    , nodeNetTCPPassiveOpens :: Int
+    , nodeNetTCPActiveOpens  :: Int
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeThreadPoolsStats = NodeThreadPoolsStats {
+      nodeThreadPoolsStatsSnapshot          :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsBulk              :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsMerge             :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsGet               :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsManagement        :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsFetchShardStore   :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsOptimize          :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsFlush             :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsSearch            :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsWarmer            :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsGeneric           :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsSuggest           :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsRefresh           :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsIndex             :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsListener          :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsFetchShardStarted :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsPercolate         :: NodeThreadPoolStats
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeThreadPoolStats = NodeThreadPoolStats {
+      nodeThreadPoolCompleted :: Int
+    , nodeThreadPoolLargest   :: Int
+    , nodeThreadPoolRejected  :: Int
+    , nodeThreadPoolActive    :: Int
+    , nodeThreadPoolQueue     :: Int
+    , nodeThreadPoolThreads   :: Int
+    } deriving (Eq, Show, Generic, Typeable)
 
 data NodeJVMStats = NodeJVMStats
                   deriving (Eq, Show, Generic, Typeable)
@@ -4436,22 +4526,114 @@ instance FromJSON NodesStats where
         return (NodesStats stats cn)
 
 instance FromJSON NodeBreakerStats where
-  parseJSON _ = pure NodeBreakerStats
+  parseJSON = withObject "NodeBreakerStats" parse
+    where
+      parse o = NodeBreakerStats <$> o .: "tripped"
+                                 <*> o .: "overhead"
+                                 <*> o .: "estimated_size_in_bytes"
+                                 <*> o .: "limit_size_in_bytes"
 
 instance FromJSON NodeHTTPStats where
-  parseJSON _ = pure NodeHTTPStats
+  parseJSON = withObject "NodeHTTPStats" parse
+    where
+      parse o = NodeHTTPStats <$> o .: "total_opened"
+                              <*> o .: "current_open"
 
 instance FromJSON NodeTransportStats where
-  parseJSON _ = pure NodeTransportStats
+  parseJSON = withObject "NodeTransportStats" parse
+    where
+      parse o = NodeTransportStats <$> o .: "tx_size_in_bytes"
+                                   <*> o .: "tx_count"
+                                   <*> o .: "rx_size_in_bytes"
+                                   <*> o .: "rx_count"
+                                   <*> o .: "server_open"
 
 instance FromJSON NodeFSStats where
-  parseJSON _ = pure NodeFSStats
+  parseJSON = withObject "NodeFSStats" parse
+    where
+      parse o = NodeFSStats <$> o .: "data"
+                            <*> o .: "total"
+                            <*> (posixMS <$> o .: "timestamp")
+
+instance FromJSON NodeDataPathStats where
+  parseJSON = withObject "NodeDataPathStats" parse
+    where
+      parse o = NodeDataPathStats <$> (parseJSON . unStringlyTypeJSON =<< o .: "disk_service_time")
+                                  <*> (parseJSON . unStringlyTypeJSON =<< o .: "disk_queue")
+                                  <*> o .: "disk_io_size_in_bytes"
+                                  <*> o .: "disk_write_size_in_bytes"
+                                  <*> o .: "disk_read_size_in_bytes"
+                                  <*> o .: "disk_io_op"
+                                  <*> o .: "disk_writes"
+                                  <*> o .: "disk_reads"
+                                  <*> o .: "available_in_bytes"
+                                  <*> o .: "free_in_bytes"
+                                  <*> o .: "total_in_bytes"
+                                  <*> o .: "type"
+                                  <*> o .: "dev"
+                                  <*> o .: "mount"
+                                  <*> o .: "path"
+
+instance FromJSON NodeFSTotalStats where
+  parseJSON = withObject "NodeFSTotalStats" parse
+    where
+      parse o = NodeFSTotalStats <$> (parseJSON . unStringlyTypeJSON =<< o .: "disk_service_time")
+                                 <*> (parseJSON . unStringlyTypeJSON =<< o .: "disk_queue")
+                                 <*> o .: "disk_io_size_in_bytes"
+                                 <*> o .: "disk_write_size_in_bytes"
+                                 <*> o .: "disk_read_size_in_bytes"
+                                 <*> o .: "disk_io_op"
+                                 <*> o .: "disk_writes"
+                                 <*> o .: "disk_reads"
+                                 <*> o .: "available_in_bytes"
+                                 <*> o .: "free_in_bytes"
+                                 <*> o .: "total_in_bytes"
 
 instance FromJSON NodeNetworkStats where
-  parseJSON _ = pure NodeNetworkStats
+  parseJSON = withObject "NodeNetworkStats" parse
+    where
+      parse o = do
+        tcp <- o .: "tcp"
+        NodeNetworkStats <$> tcp .: "out_rsts"
+                         <*> tcp .: "in_errs"
+                         <*> tcp .: "attempt_fails"
+                         <*> tcp .: "estab_resets"
+                         <*> tcp .: "retrans_segs"
+                         <*> tcp .: "out_segs"
+                         <*> tcp .: "in_segs"
+                         <*> tcp .: "curr_estab"
+                         <*> tcp .: "passive_opens"
+                         <*> tcp .: "active_opens"
 
 instance FromJSON NodeThreadPoolsStats where
-  parseJSON _ = pure NodeThreadPoolsStats
+  parseJSON = withObject "NodeThreadPoolsStats" parse
+    where
+      parse o = NodeThreadPoolsStats <$> o .: "snapshot"
+                                     <*> o .: "bulk"
+                                     <*> o .: "merge"
+                                     <*> o .: "get"
+                                     <*> o .: "management"
+                                     <*> o .: "fetch_shard_store"
+                                     <*> o .: "optimize"
+                                     <*> o .: "flush"
+                                     <*> o .: "search"
+                                     <*> o .: "warmer"
+                                     <*> o .: "generic"
+                                     <*> o .: "suggest"
+                                     <*> o .: "refresh"
+                                     <*> o .: "index"
+                                     <*> o .: "listener"
+                                     <*> o .: "fetch_shard_started"
+                                     <*> o .: "percolate"
+instance FromJSON NodeThreadPoolStats where
+    parseJSON = withObject "NodeThreadPoolStats" parse
+      where
+        parse o = NodeThreadPoolStats <$> o .: "completed"
+                                      <*> o .: "largest"
+                                      <*> o .: "rejected"
+                                      <*> o .: "active"
+                                      <*> o .: "queue"
+                                      <*> o .: "threads"
 
 instance FromJSON NodeJVMStats where
   parseJSON _ = pure NodeJVMStats
@@ -4465,14 +4647,18 @@ instance FromJSON NodeOSStats where
 instance FromJSON NodeIndicesStats where
   parseJSON _ = pure NodeIndicesStats
 
+instance FromJSON NodeBreakersStats where
+  parseJSON = withObject "NodeBreakersStats" parse
+    where
+      parse o = NodeBreakersStats <$> o .: "parent"
+                                  <*> o .: "request"
+                                  <*> o .: "fielddata"
+
 parseNodeStats :: FullNodeId -> Object -> Parser NodeStats
 parseNodeStats fnid o = do
-  breakers <- o .: "breakers"
   NodeStats <$> o .: "name"
             <*> pure fnid
-            <*> breakers .: "parent"
-            <*> breakers .: "request"
-            <*> breakers .: "fielddata"
+            <*> o .: "breakers"
             <*> o .: "http"
             <*> o .: "transport"
             <*> o .: "fs"
