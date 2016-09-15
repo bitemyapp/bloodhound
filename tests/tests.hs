@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -95,6 +96,9 @@ es15 = Vers.Version [1, 5, 0] []
 es16 :: Vers.Version
 es16 = Vers.Version [1, 6, 0] []
 
+es20 :: Vers.Version
+es20 = Vers.Version [2, 0, 0] []
+
 getServerVersion :: IO (Maybe Vers.Version)
 getServerVersion = fmap extractVersion <$> withTestEnv getStatus
   where
@@ -173,15 +177,32 @@ data ParentMapping = ParentMapping deriving (Eq, Show)
 
 instance ToJSON ParentMapping where
   toJSON ParentMapping =
-    object ["parent" .= Null ]
+    object ["parent" .=
+              object ["properties" .=
+                object [ "user"     .= object ["type"    .= ("string" :: Text)]
+                      -- Serializing the date as a date is breaking other tests, mysteriously.
+                      -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+                      --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+                      , "message"  .= object ["type" .= ("string" :: Text)]
+                      , "age"      .= object ["type" .= ("integer" :: Text)]
+                      , "location" .= object ["type" .= ("geo_point" :: Text)]
+                      ]]]
 
 data ChildMapping = ChildMapping deriving (Eq, Show)
 
 instance ToJSON ChildMapping where
   toJSON ChildMapping =
     object ["child" .=
-      object ["_parent" .= object ["type" .= ("parent" :: Text)]]
-    ]
+      object ["_parent" .= object ["type" .= ("parent" :: Text)]
+             , "properties" .=
+                  object [ "user"     .= object ["type"    .= ("string" :: Text)]
+                    -- Serializing the date as a date is breaking other tests, mysteriously.
+                    -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+                    --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+                    , "message"  .= object ["type" .= ("string" :: Text)]
+                    , "age"      .= object ["type" .= ("integer" :: Text)]
+                    , "location" .= object ["type" .= ("geo_point" :: Text)]
+                    ]]]
 
 data TweetMapping = TweetMapping deriving (Eq, Show)
 
@@ -585,8 +606,10 @@ noDuplicates xs = nub xs == xs
 instance Arbitrary NominalDiffTime where
   arbitrary = fromInteger <$> arbitrary
 
+#if !MIN_VERSION_QuickCheck(2,8,0)
 instance (Arbitrary k, Ord k, Arbitrary v) => Arbitrary (M.Map k v) where
   arbitrary = M.fromList <$> arbitrary
+#endif
 
 instance Arbitrary Text where
   arbitrary = T.pack <$> arbitrary
@@ -882,11 +905,16 @@ main = hspec $ do
         validateStatus resp 200
         validateStatus deleteResp 200
 
-  describe "error parsing" $ do
-    it "can parse EsErrors" $ withTestEnv $ do
+  describe "error parsing"  $ do
+    it "can parse EsErrors for < 2.0" $ when' (atmost es16) $ withTestEnv $ do
       res <- getDocument (IndexName "bogus") (MappingName "also_bogus") (DocId "bogus_as_well")
       let errorResp = eitherDecode (responseBody res)
       liftIO (errorResp `shouldBe` Right (EsError 404 "IndexMissingException[[bogus] missing]"))
+
+    it "can parse EsErrors for >= 2.0" $ when' (atleast es20) $ withTestEnv $ do
+      res <- getDocument (IndexName "bogus") (MappingName "also_bogus") (DocId "bogus_as_well")
+      let errorResp = eitherDecode (responseBody res)
+      liftIO (errorResp `shouldBe` Right (EsError 404 "no such index"))
 
   describe "document API" $ do
     it "indexes, updates, gets, and then deletes the generated document" $ withTestEnv $ do
@@ -921,8 +949,8 @@ main = hspec $ do
 
     it "indexes two documents in a parent/child relationship and checks that the child exists" $ withTestEnv $ do
       resetIndex
-      _ <- putMapping testIndex (MappingName "parent") ParentMapping
       _ <- putMapping testIndex (MappingName "child") ChildMapping
+      _ <- putMapping testIndex (MappingName "parent") ParentMapping
       _ <- indexDocument testIndex (MappingName "parent") defaultIndexDocumentSettings exampleTweet (DocId "1")
       let parent = (Just . DocumentParent . DocId) "1"
           ids = IndexDocumentSettings NoVersionControl parent
@@ -1240,6 +1268,17 @@ main = hspec $ do
       let search = mkAggregateSearch Nothing $ mkAggregations "users" terms
       searchExpectAggs search
       searchValidBucketAgg search "users" toTerms
+
+    it "returns cardinality aggregation results" $ withTestEnv $ do
+      _ <- insertData
+      let cardinality = CardinalityAgg $ mkCardinalityAggregation $ FieldName "user"
+      let search = mkAggregateSearch Nothing $ mkAggregations "users" cardinality
+      let search' = search { Database.Bloodhound.from = From 0, size = Size 0 }
+      searchExpectAggs search'
+      let docCountPair k n = (k, object ["value" .= Number n])
+      res <- searchTweets search'
+      liftIO $
+        fmap aggregations res `shouldBe` Right (Just (M.fromList [ docCountPair "users" 1]))
 
     it "can give collection hint parameters to term aggregations" $ when' (atleast es13) $ withTestEnv $ do
       _ <- insertData

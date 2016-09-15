@@ -45,6 +45,7 @@ module Database.Bloodhound.Types
        , mkTermsAggregation
        , mkTermsScriptAggregation
        , mkDateHistogram
+       , mkCardinalityAggregation
        , mkDocVersion
        , docVersionNumber
        , toMissing
@@ -330,6 +331,7 @@ module Database.Bloodhound.Types
        , MissingAggregation(..)
        , ValueCountAggregation(..)
        , FilterAggregation(..)
+       , CardinalityAggregation(..)
        , DateHistogramAggregation(..)
        , DateRangeAggregation(..)
        , DateRangeAggRange(..)
@@ -1714,6 +1716,7 @@ data Interval = Year
               | FractionalInterval Float TimeInterval deriving (Eq, Read, Show, Generic, Typeable)
 
 data Aggregation = TermsAgg TermsAggregation
+                 | CardinalityAgg CardinalityAggregation
                  | DateHistogramAgg DateHistogramAggregation
                  | ValueCountAgg ValueCountAggregation
                  | FilterAgg FilterAggregation
@@ -1735,6 +1738,10 @@ data TermsAggregation = TermsAggregation { term              :: Either Text Text
                                          , termExecutionHint :: Maybe ExecutionHint
                                          , termAggs          :: Maybe Aggregations
                                     } deriving (Eq, Read, Show, Generic, Typeable)
+
+data CardinalityAggregation = CardinalityAggregation { cardinalityField :: FieldName,
+                                                       precisionThreshold :: Maybe Int
+                                                     } deriving (Eq, Read, Show, Generic, Typeable)
 
 data DateHistogramAggregation = DateHistogramAggregation { dateField      :: FieldName
                                                          , dateInterval   :: Interval
@@ -1793,6 +1800,9 @@ mkTermsScriptAggregation t = TermsAggregation (Right t) Nothing Nothing Nothing 
 
 mkDateHistogram :: FieldName -> Interval -> DateHistogramAggregation
 mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
+
+mkCardinalityAggregation :: FieldName -> CardinalityAggregation
+mkCardinalityAggregation t = CardinalityAggregation t Nothing
 
 instance ToJSON Version where
   toJSON Version {..} = object ["number" .= number
@@ -1884,6 +1894,12 @@ instance ToJSON Aggregation where
     where
       toJSON' x = case x of { Left y -> "field" .= y;  Right y -> "script" .= y }
 
+  toJSON (CardinalityAgg (CardinalityAggregation field precisionThreshold)) =
+    object ["cardinality" .= omitNulls [ "field"              .= field,
+                                         "precisionThreshold" .= precisionThreshold
+                                       ]
+           ]
+
   toJSON (DateHistogramAgg (DateHistogramAggregation field interval format preZone postZone preOffset postOffset dateHistoAggs)) =
     omitNulls ["date_histogram" .= omitNulls [ "field"       .= field,
                                                "interval"    .= interval,
@@ -1921,10 +1937,7 @@ instance ToJSON DateRangeAggRange where
 instance ToJSON DateMathExpr where
   toJSON (DateMathExpr a mods) = String (fmtA a <> mconcat (fmtMod <$> mods))
     where fmtA DMNow = "now"
-          fmtA (DMDate date) = case toGregorian date of
-                                 (y,m,d) -> showText y <> "-" <>
-                                            showText m <> "-" <>
-                                            showText d <> "||"
+          fmtA (DMDate date) = (T.pack $ showGregorian date) <> "||"
           fmtMod (AddTime n u) = "+" <> showText n <> fmtU u
           fmtMod (SubtractTime n u) = "-" <> showText n <> fmtU u
           fmtMod (RoundDownTo u) = "/" <> fmtU u
@@ -3010,7 +3023,7 @@ instance FromJSON MatchQueryType where
 instance FromJSON Status where
   parseJSON (Object v) = Status <$>
                          v .:? "ok" <*>
-                         v .: "status" <*>
+                         (v .:? "status" .!= 200) <*>
                          v .: "name" <*>
                          v .: "version" <*>
                          v .: "tagline"
@@ -3281,7 +3294,7 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
 instance FromJSON EsError where
   parseJSON (Object v) = EsError <$>
                          v .: "status" <*>
-                         v .: "error"
+                         (v .: "error" <|> (v .: "error" >>= (.: "reason")))
   parseJSON _ = empty
 
 instance FromJSON IndexAliasesSummary where
