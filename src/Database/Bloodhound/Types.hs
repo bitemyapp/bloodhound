@@ -3927,14 +3927,14 @@ data NodeFSStats = NodeFSStats {
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodeDataPathStats = NodeDataPathStats {
-      nodeDataPathDiskServiceTime :: Double
-    , nodeDataPathDiskQueue       :: Double
-    , nodeDataPathIOSize          :: Bytes
-    , nodeDataPathWriteSize       :: Bytes
-    , nodeDataPathReadSize        :: Bytes
-    , nodeDataPathIOOps           :: Int
-    , nodeDataPathWrites          :: Int
-    , nodeDataPathReads           :: Int
+      nodeDataPathDiskServiceTime :: Maybe Double
+    , nodeDataPathDiskQueue       :: Maybe Double
+    , nodeDataPathIOSize          :: Maybe Bytes
+    , nodeDataPathWriteSize       :: Maybe Bytes
+    , nodeDataPathReadSize        :: Maybe Bytes
+    , nodeDataPathIOOps           :: Maybe Int
+    , nodeDataPathWrites          :: Maybe Int
+    , nodeDataPathReads           :: Maybe Int
     , nodeDataPathAvailable       :: Bytes
     , nodeDataPathFree            :: Bytes
     , nodeDataPathTotal           :: Bytes
@@ -3945,14 +3945,14 @@ data NodeDataPathStats = NodeDataPathStats {
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodeFSTotalStats = NodeFSTotalStats {
-      nodeFSTotalDiskServiceTime :: Double
-    , nodeFSTotalDiskQueue       :: Double
-    , nodeFSTotalIOSize          :: Bytes
-    , nodeFSTotalWriteSize       :: Bytes
-    , nodeFSTotalReadSize        :: Bytes
-    , nodeFSTotalIOOps           :: Int
-    , nodeFSTotalWrites          :: Int
-    , nodeFSTotalReads           :: Int
+      nodeFSTotalDiskServiceTime :: Maybe Double
+    , nodeFSTotalDiskQueue       :: Maybe Double
+    , nodeFSTotalIOSize          :: Maybe Bytes
+    , nodeFSTotalWriteSize       :: Maybe Bytes
+    , nodeFSTotalReadSize        :: Maybe Bytes
+    , nodeFSTotalIOOps           :: Maybe Int
+    , nodeFSTotalWrites          :: Maybe Int
+    , nodeFSTotalReads           :: Maybe Int
     , nodeFSTotalAvailable       :: Bytes
     , nodeFSTotalFree            :: Bytes
     , nodeFSTotalTotal           :: Bytes
@@ -4711,33 +4711,41 @@ instance FromJSON NodeFSStats where
 instance FromJSON NodeDataPathStats where
   parseJSON = withObject "NodeDataPathStats" parse
     where
-      parse o = NodeDataPathStats <$> (parseJSON . unStringlyTypeJSON =<< o .: "disk_service_time")
-                                  <*> (parseJSON . unStringlyTypeJSON =<< o .: "disk_queue")
-                                  <*> o .: "disk_io_size_in_bytes"
-                                  <*> o .: "disk_write_size_in_bytes"
-                                  <*> o .: "disk_read_size_in_bytes"
-                                  <*> o .: "disk_io_op"
-                                  <*> o .: "disk_writes"
-                                  <*> o .: "disk_reads"
-                                  <*> o .: "available_in_bytes"
-                                  <*> o .: "free_in_bytes"
-                                  <*> o .: "total_in_bytes"
-                                  <*> o .: "type"
-                                  <*> o .: "dev"
-                                  <*> o .: "mount"
-                                  <*> o .: "path"
+      parse o =
+        NodeDataPathStats <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
+                          <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
+                          <*> o .:? "disk_io_size_in_bytes"
+                          <*> o .:? "disk_write_size_in_bytes"
+                          <*> o .:? "disk_read_size_in_bytes"
+                          <*> o .:? "disk_io_op"
+                          <*> o .:? "disk_writes"
+                          <*> o .:? "disk_reads"
+                          <*> o .: "available_in_bytes"
+                          <*> o .: "free_in_bytes"
+                          <*> o .: "total_in_bytes"
+                          <*> o .: "type"
+                          <*> o .: "dev"
+                          <*> o .: "mount"
+                          <*> o .: "path"
+
+newtype StringlyTypedDouble = StringlyTypedDouble { unStringlyTypedDouble :: Double }
+
+
+instance FromJSON StringlyTypedDouble where
+  parseJSON = fmap StringlyTypedDouble . parseJSON . unStringlyTypeJSON
+
 
 instance FromJSON NodeFSTotalStats where
   parseJSON = withObject "NodeFSTotalStats" parse
     where
-      parse o = NodeFSTotalStats <$> (parseJSON . unStringlyTypeJSON =<< o .: "disk_service_time")
-                                 <*> (parseJSON . unStringlyTypeJSON =<< o .: "disk_queue")
-                                 <*> o .: "disk_io_size_in_bytes"
-                                 <*> o .: "disk_write_size_in_bytes"
-                                 <*> o .: "disk_read_size_in_bytes"
-                                 <*> o .: "disk_io_op"
-                                 <*> o .: "disk_writes"
-                                 <*> o .: "disk_reads"
+      parse o = NodeFSTotalStats <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
+                                 <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
+                                 <*> o .:? "disk_io_size_in_bytes"
+                                 <*> o .:? "disk_write_size_in_bytes"
+                                 <*> o .:? "disk_read_size_in_bytes"
+                                 <*> o .:? "disk_io_op"
+                                 <*> o .:? "disk_writes"
+                                 <*> o .:? "disk_reads"
                                  <*> o .: "available_in_bytes"
                                  <*> o .: "free_in_bytes"
                                  <*> o .: "total_in_bytes"
