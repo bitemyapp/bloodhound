@@ -613,7 +613,7 @@ data InitialShardCount = QuorumShards
 
 data NodeAttrFilter = NodeAttrFilter { nodeAttrFilterName   :: NodeAttrName
                                      , nodeAttrFilterValues :: NonEmpty Text}
-                                     deriving (Eq, Read, Show, Generic, Ord)
+                                     deriving (Eq, Read, Show, Generic, Ord, Typeable)
 
 newtype NodeAttrName = NodeAttrName Text deriving (Eq, Read, Show, Ord, Generic, Typeable)
 
