@@ -259,6 +259,26 @@ module Database.Bloodhound.Types
        , NodeName(..)
        , ClusterName(..)
        , NodesInfo(..)
+       , NodesStats(..)
+       , NodeStats(..)
+       , NodeBreakersStats(..)
+       , NodeBreakerStats(..)
+       , NodeHTTPStats(..)
+       , NodeTransportStats(..)
+       , NodeFSStats(..)
+       , NodeDataPathStats(..)
+       , NodeFSTotalStats(..)
+       , NodeNetworkStats(..)
+       , NodeThreadPoolsStats(..)
+       , NodeThreadPoolStats(..)
+       , NodeJVMStats(..)
+       , JVMBufferPoolStats(..)
+       , JVMGCStats(..)
+       , JVMPoolStats(..)
+       , NodeProcessStats(..)
+       , NodeOSStats(..)
+       , LoadAvgs(..)
+       , NodeIndicesStats(..)
        , EsAddress(..)
        , PluginName(..)
        , NodeInfo(..)
@@ -593,7 +613,7 @@ data InitialShardCount = QuorumShards
 
 data NodeAttrFilter = NodeAttrFilter { nodeAttrFilterName   :: NodeAttrName
                                      , nodeAttrFilterValues :: NonEmpty Text}
-                                     deriving (Eq, Read, Show, Generic, Ord)
+                                     deriving (Eq, Read, Show, Generic, Ord, Typeable)
 
 newtype NodeAttrName = NodeAttrName Text deriving (Eq, Read, Show, Ord, Generic, Typeable)
 
@@ -1719,7 +1739,7 @@ data TermsAggregation = TermsAggregation { term              :: Either Text Text
                                          , termAggs          :: Maybe Aggregations
                                     } deriving (Eq, Read, Show, Generic, Typeable)
 
-data CardinalityAggregation = CardinalityAggregation { cardinalityField :: FieldName,
+data CardinalityAggregation = CardinalityAggregation { cardinalityField   :: FieldName,
                                                        precisionThreshold :: Maybe Int
                                                      } deriving (Eq, Read, Show, Generic, Typeable)
 
@@ -3854,6 +3874,280 @@ data NodesInfo = NodesInfo {
     , nodesClusterName :: ClusterName
     } deriving (Eq, Show, Generic, Typeable)
 
+data NodesStats = NodesStats {
+      nodesStats            :: [NodeStats]
+    , nodesStatsClusterName :: ClusterName
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeStats = NodeStats {
+      nodeStatsName          :: NodeName
+    , nodeStatsFullId        :: FullNodeId
+    , nodeStatsBreakersStats :: Maybe NodeBreakersStats
+    , nodeStatsHTTP          :: NodeHTTPStats
+    , nodeStatsTransport     :: NodeTransportStats
+    , nodeStatsFS            :: NodeFSStats
+    , nodeStatsNetwork       :: NodeNetworkStats
+    , nodeStatsThreadPool    :: NodeThreadPoolsStats
+    , nodeStatsJVM           :: NodeJVMStats
+    , nodeStatsProcess       :: NodeProcessStats
+    , nodeStatsOS            :: NodeOSStats
+    , nodeStatsIndices       :: NodeIndicesStats
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeBreakersStats = NodeBreakersStats {
+      nodeStatsParentBreaker    :: NodeBreakerStats
+    , nodeStatsRequestBreaker   :: NodeBreakerStats
+    , nodeStatsFieldDataBreaker :: NodeBreakerStats
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeBreakerStats = NodeBreakerStats {
+      nodeBreakersTripped   :: Int
+    , nodeBreakersOverhead  :: Double
+    , nodeBreakersEstSize   :: Bytes
+    , nodeBreakersLimitSize :: Bytes
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeHTTPStats = NodeHTTPStats {
+      nodeHTTPTotalOpened :: Int
+    , nodeHTTPCurrentOpen :: Int
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeTransportStats = NodeTransportStats {
+      nodeTransportTXSize     :: Bytes
+    , nodeTransportCount      :: Int
+    , nodeTransportRXSize     :: Bytes
+    , nodeTransportRXCount    :: Int
+    , nodeTransportServerOpen :: Int
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeFSStats = NodeFSStats {
+      nodeFSDataPaths :: [NodeDataPathStats]
+    , nodeFSTotal     :: NodeFSTotalStats
+    , nodeFSTimestamp :: UTCTime
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeDataPathStats = NodeDataPathStats {
+      nodeDataPathDiskServiceTime :: Maybe Double
+    , nodeDataPathDiskQueue       :: Maybe Double
+    , nodeDataPathIOSize          :: Maybe Bytes
+    , nodeDataPathWriteSize       :: Maybe Bytes
+    , nodeDataPathReadSize        :: Maybe Bytes
+    , nodeDataPathIOOps           :: Maybe Int
+    , nodeDataPathWrites          :: Maybe Int
+    , nodeDataPathReads           :: Maybe Int
+    , nodeDataPathAvailable       :: Bytes
+    , nodeDataPathFree            :: Bytes
+    , nodeDataPathTotal           :: Bytes
+    , nodeDataPathType            :: Maybe Text
+    , nodeDataPathDevice          :: Text
+    , nodeDataPathMount           :: Text
+    , nodeDataPathPath            :: Text
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeFSTotalStats = NodeFSTotalStats {
+      nodeFSTotalDiskServiceTime :: Maybe Double
+    , nodeFSTotalDiskQueue       :: Maybe Double
+    , nodeFSTotalIOSize          :: Maybe Bytes
+    , nodeFSTotalWriteSize       :: Maybe Bytes
+    , nodeFSTotalReadSize        :: Maybe Bytes
+    , nodeFSTotalIOOps           :: Maybe Int
+    , nodeFSTotalWrites          :: Maybe Int
+    , nodeFSTotalReads           :: Maybe Int
+    , nodeFSTotalAvailable       :: Bytes
+    , nodeFSTotalFree            :: Bytes
+    , nodeFSTotalTotal           :: Bytes
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeNetworkStats = NodeNetworkStats {
+      nodeNetTCPOutRSTs      :: Int
+    , nodeNetTCPInErrs       :: Int
+    , nodeNetTCPAttemptFails :: Int
+    , nodeNetTCPEstabResets  :: Int
+    , nodeNetTCPRetransSegs  :: Int
+    , nodeNetTCPOutSegs      :: Int
+    , nodeNetTCPInSegs       :: Int
+    , nodeNetTCPCurrEstab    :: Int
+    , nodeNetTCPPassiveOpens :: Int
+    , nodeNetTCPActiveOpens  :: Int
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeThreadPoolsStats = NodeThreadPoolsStats {
+      nodeThreadPoolsStatsSnapshot          :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsBulk              :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsMerge             :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsGet               :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsManagement        :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsFetchShardStore   :: Maybe NodeThreadPoolStats
+    , nodeThreadPoolsStatsOptimize          :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsFlush             :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsSearch            :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsWarmer            :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsGeneric           :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsSuggest           :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsRefresh           :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsIndex             :: NodeThreadPoolStats
+    , nodeThreadPoolsStatsListener          :: Maybe NodeThreadPoolStats
+    , nodeThreadPoolsStatsFetchShardStarted :: Maybe NodeThreadPoolStats
+    , nodeThreadPoolsStatsPercolate         :: NodeThreadPoolStats
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeThreadPoolStats = NodeThreadPoolStats {
+      nodeThreadPoolCompleted :: Int
+    , nodeThreadPoolLargest   :: Int
+    , nodeThreadPoolRejected  :: Int
+    , nodeThreadPoolActive    :: Int
+    , nodeThreadPoolQueue     :: Int
+    , nodeThreadPoolThreads   :: Int
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeJVMStats = NodeJVMStats {
+      nodeJVMStatsMappedBufferPool :: JVMBufferPoolStats
+    , nodeJVMStatsDirectBufferPool :: JVMBufferPoolStats
+    , nodeJVMStatsGCOldCollector   :: JVMGCStats
+    , nodeJVMStatsGCYoungCollector :: JVMGCStats
+    , nodeJVMStatsPeakThreadsCount :: Int
+    , nodeJVMStatsThreadsCount     :: Int
+    , nodeJVMStatsOldPool          :: JVMPoolStats
+    , nodeJVMStatsSurvivorPool     :: JVMPoolStats
+    , nodeJVMStatsYoungPool        :: JVMPoolStats
+    , nodeJVMStatsNonHeapCommitted :: Bytes
+    , nodeJVMStatsNonHeapUsed      :: Bytes
+    , nodeJVMStatsHeapMax          :: Bytes
+    , nodeJVMStatsHeapCommitted    :: Bytes
+    , nodeJVMStatsHeapUsedPercent  :: Int
+    , nodeJVMStatsHeapUsed         :: Bytes
+    , nodeJVMStatsUptime           :: NominalDiffTime
+    , nodeJVMStatsTimestamp        :: UTCTime
+    } deriving (Eq, Show, Generic, Typeable)
+
+data JVMBufferPoolStats = JVMBufferPoolStats {
+      jvmBufferPoolStatsTotalCapacity :: Bytes
+    , jvmBufferPoolStatsUsed          :: Bytes
+    , jvmBufferPoolStatsCount         :: Int
+    } deriving (Eq, Show, Generic, Typeable)
+
+data JVMGCStats = JVMGCStats {
+      jvmGCStatsCollectionTime  :: NominalDiffTime
+    , jvmGCStatsCollectionCount :: Int
+    } deriving (Eq, Show, Generic, Typeable)
+
+data JVMPoolStats = JVMPoolStats {
+      jvmPoolStatsPeakMax  :: Bytes
+    , jvmPoolStatsPeakUsed :: Bytes
+    , jvmPoolStatsMax      :: Bytes
+    , jvmPoolStatsUsed     :: Bytes
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeProcessStats = NodeProcessStats {
+      nodeProcessMemTotalVirtual :: Bytes
+    , nodeProcessMemShare        :: Bytes
+    , nodeProcessMemResident     :: Bytes
+    , nodeProcessCPUTotal        :: NominalDiffTime
+    , nodeProcessCPUUser         :: NominalDiffTime
+    , nodeProcessCPUSys          :: NominalDiffTime
+    , nodeProcessCPUPercent      :: Int
+    , nodeProcessOpenFDs         :: Int
+    , nodeProcessTimestamp       :: UTCTime
+    } deriving (Eq, Show, Generic, Typeable)
+
+data NodeOSStats = NodeOSStats {
+      nodeOSSwapFree       :: Bytes
+    , nodeOSSwapUsed       :: Bytes
+    , nodeOSMemActualUsed  :: Bytes
+    , nodeOSMemActualFree  :: Bytes
+    , nodeOSMemUsedPercent :: Int
+    , nodeOSMemFreePercent :: Int
+    , nodeOSMemUsed        :: Bytes
+    , nodeOSMemFree        :: Bytes
+    , nodeOSCPUStolen      :: Int
+    , nodeOSCPUUsage       :: Int
+    , nodeOSCPUIdle        :: Int
+    , nodeOSCPUUser        :: Int
+    , nodeOSCPUSys         :: Int
+    , nodeOSLoad           :: LoadAvgs
+    , nodeOSUptime         :: NominalDiffTime
+    , nodeOSTimestamp      :: UTCTime
+    } deriving (Eq, Show, Generic, Typeable)
+
+data LoadAvgs = LoadAvgs {
+     loadAvg1Min  :: Double
+   , loadAvg5Min  :: Double
+   , loadAvg15Min :: Double
+   } deriving (Eq, Show, Generic, Typeable)
+
+data NodeIndicesStats = NodeIndicesStats {
+      nodeIndicesStatsRecoveryThrottleTime    :: Maybe NominalDiffTime
+    , nodeIndicesStatsRecoveryCurrentAsTarget :: Maybe Int
+    , nodeIndicesStatsRecoveryCurrentAsSource :: Maybe Int
+    , nodeIndicesStatsQueryCacheMisses        :: Maybe Int
+    , nodeIndicesStatsQueryCacheHits          :: Maybe Int
+    , nodeIndicesStatsQueryCacheEvictions     :: Maybe Int
+    , nodeIndicesStatsQueryCacheSize          :: Maybe Bytes
+    , nodeIndicesStatsSuggestCurrent          :: Int
+    , nodeIndicesStatsSuggestTime             :: NominalDiffTime
+    , nodeIndicesStatsSuggestTotal            :: Int
+    , nodeIndicesStatsTranslogSize            :: Bytes
+    , nodeIndicesStatsTranslogOps             :: Int
+    , nodeIndicesStatsSegFixedBitSetMemory    :: Maybe Bytes
+    , nodeIndicesStatsSegVersionMapMemory     :: Bytes
+    , nodeIndicesStatsSegIndexWriterMaxMemory :: Maybe Bytes
+    , nodeIndicesStatsSegIndexWriterMemory    :: Bytes
+    , nodeIndicesStatsSegMemory               :: Bytes
+    , nodeIndicesStatsSegCount                :: Int
+    , nodeIndicesStatsCompletionSize          :: Bytes
+    , nodeIndicesStatsPercolateQueries        :: Int
+    , nodeIndicesStatsPercolateMemory         :: Bytes
+    , nodeIndicesStatsPercolateCurrent        :: Int
+    , nodeIndicesStatsPercolateTime           :: NominalDiffTime
+    , nodeIndicesStatsPercolateTotal          :: Int
+    , nodeIndicesStatsFieldDataEvictions      :: Int
+    , nodeIndicesStatsFieldDataMemory         :: Bytes
+    , nodeIndicesStatsIDCacheMemory           :: Bytes
+    , nodeIndicesStatsFilterCacheEvictions    :: Int
+    , nodeIndicesStatsFilterCacheMemory       :: Bytes
+    , nodeIndicesStatsWarmerTotalTime         :: NominalDiffTime
+    , nodeIndicesStatsWarmerTotal             :: Int
+    , nodeIndicesStatsWarmerCurrent           :: Int
+    , nodeIndicesStatsFlushTotalTime          :: NominalDiffTime
+    , nodeIndicesStatsFlushTotal              :: Int
+    , nodeIndicesStatsRefreshTotalTime        :: NominalDiffTime
+    , nodeIndicesStatsRefreshTotal            :: Int
+    , nodeIndicesStatsMergesTotalSize         :: Bytes
+    , nodeIndicesStatsMergesTotalDocs         :: Int
+    , nodeIndicesStatsMergesTotalTime         :: NominalDiffTime
+    , nodeIndicesStatsMergesTotal             :: Int
+    , nodeIndicesStatsMergesCurrentSize       :: Bytes
+    , nodeIndicesStatsMergesCurrentDocs       :: Int
+    , nodeIndicesStatsMergesCurrent           :: Int
+    , nodeIndicesStatsSearchFetchCurrent      :: Int
+    , nodeIndicesStatsSearchFetchTime         :: NominalDiffTime
+    , nodeIndicesStatsSearchFetchTotal        :: Int
+    , nodeIndicesStatsSearchQueryCurrent      :: Int
+    , nodeIndicesStatsSearchQueryTime         :: NominalDiffTime
+    , nodeIndicesStatsSearchQueryTotal        :: Int
+    , nodeIndicesStatsSearchOpenContexts      :: Int
+    , nodeIndicesStatsGetCurrent              :: Int
+    , nodeIndicesStatsGetMissingTime          :: NominalDiffTime
+    , nodeIndicesStatsGetMissingTotal         :: Int
+    , nodeIndicesStatsGetExistsTime           :: NominalDiffTime
+    , nodeIndicesStatsGetExistsTotal          :: Int
+    , nodeIndicesStatsGetTime                 :: NominalDiffTime
+    , nodeIndicesStatsGetTotal                :: Int
+    , nodeIndicesStatsIndexingThrottleTime    :: Maybe NominalDiffTime
+    , nodeIndicesStatsIndexingIsThrottled     :: Maybe Bool
+    , nodeIndicesStatsIndexingNoopUpdateTotal :: Maybe Int
+    , nodeIndicesStatsIndexingDeleteCurrent   :: Int
+    , nodeIndicesStatsIndexingDeleteTime      :: NominalDiffTime
+    , nodeIndicesStatsIndexingDeleteTotal     :: Int
+    , nodeIndicesStatsIndexingIndexCurrent    :: Int
+    , nodeIndicesStatsIndexingIndexTime       :: NominalDiffTime
+    , nodeIndicesStatsIndexingTotal           :: Int
+    , nodeIndicesStatsStoreThrottleTime       :: NominalDiffTime
+    , nodeIndicesStatsStoreSize               :: Bytes
+    , nodeIndicesStatsDocsDeleted             :: Int
+    , nodeIndicesStatsDocsCount               :: Int
+    } deriving (Eq, Show, Generic, Typeable)
+
 -- | A quirky address format used throughout ElasticSearch. An example
 -- would be inet[/1.1.1.1:9200]. inet may be a placeholder for a
 -- <https://en.wikipedia.org/wiki/Fully_qualified_domain_name FQDN>.
@@ -4373,6 +4667,359 @@ instance FromJSON NodesInfo where
         cn <- o .: "cluster_name"
         return (NodesInfo infos cn)
 
+instance FromJSON NodesStats where
+  parseJSON = withObject "NodesStats" parse
+    where
+      parse o = do
+        nodes <- o .: "nodes"
+        stats <- forM (HM.toList nodes) $ \(fullNID, v) -> do
+          node <- parseJSON v
+          parseNodeStats (FullNodeId fullNID) node
+        cn <- o .: "cluster_name"
+        return (NodesStats stats cn)
+
+instance FromJSON NodeBreakerStats where
+  parseJSON = withObject "NodeBreakerStats" parse
+    where
+      parse o = NodeBreakerStats <$> o .: "tripped"
+                                 <*> o .: "overhead"
+                                 <*> o .: "estimated_size_in_bytes"
+                                 <*> o .: "limit_size_in_bytes"
+
+instance FromJSON NodeHTTPStats where
+  parseJSON = withObject "NodeHTTPStats" parse
+    where
+      parse o = NodeHTTPStats <$> o .: "total_opened"
+                              <*> o .: "current_open"
+
+instance FromJSON NodeTransportStats where
+  parseJSON = withObject "NodeTransportStats" parse
+    where
+      parse o = NodeTransportStats <$> o .: "tx_size_in_bytes"
+                                   <*> o .: "tx_count"
+                                   <*> o .: "rx_size_in_bytes"
+                                   <*> o .: "rx_count"
+                                   <*> o .: "server_open"
+
+instance FromJSON NodeFSStats where
+  parseJSON = withObject "NodeFSStats" parse
+    where
+      parse o = NodeFSStats <$> o .: "data"
+                            <*> o .: "total"
+                            <*> (posixMS <$> o .: "timestamp")
+
+instance FromJSON NodeDataPathStats where
+  parseJSON = withObject "NodeDataPathStats" parse
+    where
+      parse o =
+        NodeDataPathStats <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
+                          <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
+                          <*> o .:? "disk_io_size_in_bytes"
+                          <*> o .:? "disk_write_size_in_bytes"
+                          <*> o .:? "disk_read_size_in_bytes"
+                          <*> o .:? "disk_io_op"
+                          <*> o .:? "disk_writes"
+                          <*> o .:? "disk_reads"
+                          <*> o .: "available_in_bytes"
+                          <*> o .: "free_in_bytes"
+                          <*> o .: "total_in_bytes"
+                          <*> o .:? "type"
+                          <*> o .: "dev"
+                          <*> o .: "mount"
+                          <*> o .: "path"
+
+newtype StringlyTypedDouble = StringlyTypedDouble { unStringlyTypedDouble :: Double }
+
+
+instance FromJSON StringlyTypedDouble where
+  parseJSON = fmap StringlyTypedDouble . parseJSON . unStringlyTypeJSON
+
+
+instance FromJSON NodeFSTotalStats where
+  parseJSON = withObject "NodeFSTotalStats" parse
+    where
+      parse o = NodeFSTotalStats <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
+                                 <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
+                                 <*> o .:? "disk_io_size_in_bytes"
+                                 <*> o .:? "disk_write_size_in_bytes"
+                                 <*> o .:? "disk_read_size_in_bytes"
+                                 <*> o .:? "disk_io_op"
+                                 <*> o .:? "disk_writes"
+                                 <*> o .:? "disk_reads"
+                                 <*> o .: "available_in_bytes"
+                                 <*> o .: "free_in_bytes"
+                                 <*> o .: "total_in_bytes"
+
+instance FromJSON NodeNetworkStats where
+  parseJSON = withObject "NodeNetworkStats" parse
+    where
+      parse o = do
+        tcp <- o .: "tcp"
+        NodeNetworkStats <$> tcp .: "out_rsts"
+                         <*> tcp .: "in_errs"
+                         <*> tcp .: "attempt_fails"
+                         <*> tcp .: "estab_resets"
+                         <*> tcp .: "retrans_segs"
+                         <*> tcp .: "out_segs"
+                         <*> tcp .: "in_segs"
+                         <*> tcp .: "curr_estab"
+                         <*> tcp .: "passive_opens"
+                         <*> tcp .: "active_opens"
+
+instance FromJSON NodeThreadPoolsStats where
+  parseJSON = withObject "NodeThreadPoolsStats" parse
+    where
+      parse o = NodeThreadPoolsStats <$> o .: "snapshot"
+                                     <*> o .: "bulk"
+                                     <*> o .: "merge"
+                                     <*> o .: "get"
+                                     <*> o .: "management"
+                                     <*> o .:? "fetch_shard_store"
+                                     <*> o .: "optimize"
+                                     <*> o .: "flush"
+                                     <*> o .: "search"
+                                     <*> o .: "warmer"
+                                     <*> o .: "generic"
+                                     <*> o .: "suggest"
+                                     <*> o .: "refresh"
+                                     <*> o .: "index"
+                                     <*> o .:? "listener"
+                                     <*> o .:? "fetch_shard_started"
+                                     <*> o .: "percolate"
+instance FromJSON NodeThreadPoolStats where
+    parseJSON = withObject "NodeThreadPoolStats" parse
+      where
+        parse o = NodeThreadPoolStats <$> o .: "completed"
+                                      <*> o .: "largest"
+                                      <*> o .: "rejected"
+                                      <*> o .: "active"
+                                      <*> o .: "queue"
+                                      <*> o .: "threads"
+
+instance FromJSON NodeJVMStats where
+  parseJSON = withObject "NodeJVMStats" parse
+    where
+      parse o = do
+        bufferPools <- o .: "buffer_pools"
+        mapped <- bufferPools .: "mapped"
+        direct <- bufferPools .: "direct"
+        gc <- o .: "gc"
+        collectors <- gc .: "collectors"
+        oldC <- collectors .: "old"
+        youngC <- collectors .: "young"
+        threads <- o .: "threads"
+        mem <- o .: "mem"
+        pools <- mem .: "pools"
+        oldM <- pools .: "old"
+        survivorM <- pools .: "survivor"
+        youngM <- pools .: "young"
+        NodeJVMStats <$> pure mapped
+                     <*> pure direct
+                     <*> pure oldC
+                     <*> pure youngC
+                     <*> threads .: "peak_count"
+                     <*> threads .: "count"
+                     <*> pure oldM
+                     <*> pure survivorM
+                     <*> pure youngM
+                     <*> mem .: "non_heap_committed_in_bytes"
+                     <*> mem .: "non_heap_used_in_bytes"
+                     <*> mem .: "heap_max_in_bytes"
+                     <*> mem .: "heap_committed_in_bytes"
+                     <*> mem .: "heap_used_percent"
+                     <*> mem .: "heap_used_in_bytes"
+                     <*> (unMS <$> o .: "uptime_in_millis")
+                     <*> (posixMS <$> o .: "timestamp")
+
+instance FromJSON JVMBufferPoolStats where
+  parseJSON = withObject "JVMBufferPoolStats" parse
+    where
+      parse o = JVMBufferPoolStats <$> o .: "total_capacity_in_bytes"
+                                   <*> o .: "used_in_bytes"
+                                   <*> o .: "count"
+
+instance FromJSON JVMGCStats where
+  parseJSON = withObject "JVMGCStats" parse
+    where
+      parse o = JVMGCStats <$> (unMS <$> o .: "collection_time_in_millis")
+                           <*> o .: "collection_count"
+
+instance FromJSON JVMPoolStats where
+  parseJSON = withObject "JVMPoolStats" parse
+    where
+      parse o = JVMPoolStats <$> o .: "peak_max_in_bytes"
+                             <*> o .: "peak_used_in_bytes"
+                             <*> o .: "max_in_bytes"
+                             <*> o .: "used_in_bytes"
+
+instance FromJSON NodeProcessStats where
+  parseJSON = withObject "NodeProcessStats" parse
+    where
+      parse o = do
+        mem <- o .: "mem"
+        cpu <- o .: "cpu"
+        NodeProcessStats <$> mem .: "total_virtual_in_bytes"
+                         <*> mem .: "share_in_bytes"
+                         <*> mem .: "resident_in_bytes"
+                         <*> (unMS <$> cpu .: "total_in_millis")
+                         <*> (unMS <$> cpu .: "user_in_millis")
+                         <*> (unMS <$> cpu .: "sys_in_millis")
+                         <*> cpu .: "percent"
+                         <*> o .: "open_file_descriptors"
+                         <*> (posixMS <$> o .: "timestamp")
+
+instance FromJSON NodeOSStats where
+  parseJSON = withObject "NodeOSStats" parse
+    where
+      parse o = do
+        swap <- o .: "swap"
+        mem <- o .: "mem"
+        cpu <- o .: "cpu"
+        load <- o .: "load_average"
+        NodeOSStats <$> swap .: "free_in_bytes"
+                    <*> swap .: "used_in_bytes"
+                    <*> mem .: "actual_used_in_bytes"
+                    <*> mem .: "actual_free_in_bytes"
+                    <*> mem .: "used_percent"
+                    <*> mem .: "free_percent"
+                    <*> mem .: "used_in_bytes"
+                    <*> mem .: "free_in_bytes"
+                    <*> cpu .: "stolen"
+                    <*> cpu .: "usage"
+                    <*> cpu .: "idle"
+                    <*> cpu .: "user"
+                    <*> cpu .: "sys"
+                    <*> pure load
+                    <*> (unMS <$> o .: "uptime_in_millis")
+                    <*> (posixMS <$> o .: "timestamp")
+
+instance FromJSON LoadAvgs where
+  parseJSON = withArray "LoadAvgs" parse
+    where
+      parse v = case V.toList v of
+        [one, five, fifteen] -> LoadAvgs <$> parseJSON one
+                                         <*> parseJSON five
+                                         <*> parseJSON fifteen
+        _                    -> fail "Expecting a triple of Doubles"
+
+instance FromJSON NodeIndicesStats where
+  parseJSON = withObject "NodeIndicesStats" parse
+    where
+      parse o = do
+        let (.::) mv k = case mv of
+              Just v -> Just <$> v .: k
+              Nothing -> pure Nothing
+        mRecovery <- o .:? "recovery"
+        mQueryCache <- o .:? "query_cache"
+        suggest <- o .: "suggest"
+        translog <- o .: "translog"
+        segments <- o .: "segments"
+        completion <- o .: "completion"
+        percolate <- o .: "percolate"
+        fielddata <- o .: "fielddata"
+        idCache <- o .: "id_cache"
+        filterCache <- o .: "filter_cache"
+        warmer <- o .: "warmer"
+        flush <- o .: "flush"
+        refresh <- o .: "refresh"
+        merges <- o .: "merges"
+        search <- o .: "search"
+        getStats <- o .: "get"
+        indexing <- o .: "indexing"
+        store <- o .: "store"
+        docs <- o .: "docs"
+        NodeIndicesStats <$> (fmap unMS <$> mRecovery .:: "throttle_time_in_millis")
+                         <*> mRecovery .:: "current_as_target"
+                         <*> mRecovery .:: "current_as_source"
+                         <*> mQueryCache .:: "miss_count"
+                         <*> mQueryCache .:: "hit_count"
+                         <*> mQueryCache .:: "evictions"
+                         <*> mQueryCache .:: "memory_size_in_bytes"
+                         <*> suggest .: "current"
+                         <*> (unMS <$> suggest .: "time_in_millis")
+                         <*> suggest .: "total"
+                         <*> translog .: "size_in_bytes"
+                         <*> translog .: "operations"
+                         <*> segments .:? "fixed_bit_set_memory_in_bytes"
+                         <*> segments .: "version_map_memory_in_bytes"
+                         <*> segments .:? "index_writer_max_memory_in_bytes"
+                         <*> segments .: "index_writer_memory_in_bytes"
+                         <*> segments .: "memory_in_bytes"
+                         <*> segments .: "count"
+                         <*> completion .: "size_in_bytes"
+                         <*> percolate .: "queries"
+                         <*> percolate .: "memory_size_in_bytes"
+                         <*> percolate .: "current"
+                         <*> (unMS <$> percolate .: "time_in_millis")
+                         <*> percolate .: "total"
+                         <*> fielddata .: "evictions"
+                         <*> fielddata .: "memory_size_in_bytes"
+                         <*> idCache .: "memory_size_in_bytes"
+                         <*> filterCache .: "evictions"
+                         <*> filterCache .: "memory_size_in_bytes"
+                         <*> (unMS <$> warmer .: "total_time_in_millis")
+                         <*> warmer .: "total"
+                         <*> warmer .: "current"
+                         <*> (unMS <$> flush .: "total_time_in_millis")
+                         <*> flush .: "total"
+                         <*> (unMS <$> refresh .: "total_time_in_millis")
+                         <*> refresh .: "total"
+                         <*> merges .: "total_size_in_bytes"
+                         <*> merges .: "total_docs"
+                         <*> (unMS <$> merges .: "total_time_in_millis")
+                         <*> merges .: "total"
+                         <*> merges .: "current_size_in_bytes"
+                         <*> merges .: "current_docs"
+                         <*> merges .: "current"
+                         <*> search .: "fetch_current"
+                         <*> (unMS <$> search .: "fetch_time_in_millis")
+                         <*> search .: "fetch_total"
+                         <*> search .: "query_current"
+                         <*> (unMS <$> search .: "query_time_in_millis")
+                         <*> search .: "query_total"
+                         <*> search .: "open_contexts"
+                         <*> getStats .: "current"
+                         <*> (unMS <$> getStats .: "missing_time_in_millis")
+                         <*> getStats .: "missing_total"
+                         <*> (unMS <$> getStats .: "exists_time_in_millis")
+                         <*> getStats .: "exists_total"
+                         <*> (unMS <$> getStats .: "time_in_millis")
+                         <*> getStats .: "total"
+                         <*> (fmap unMS <$> indexing .:? "throttle_time_in_millis")
+                         <*> indexing .:? "is_throttled"
+                         <*> indexing .:? "noop_update_total"
+                         <*> indexing .: "delete_current"
+                         <*> (unMS <$> indexing .: "delete_time_in_millis")
+                         <*> indexing .: "delete_total"
+                         <*> indexing .: "index_current"
+                         <*> (unMS <$> indexing .: "index_time_in_millis")
+                         <*> indexing .: "index_total"
+                         <*> (unMS <$> store .: "throttle_time_in_millis")
+                         <*> store .: "size_in_bytes"
+                         <*> docs .: "deleted"
+                         <*> docs .: "count"
+
+instance FromJSON NodeBreakersStats where
+  parseJSON = withObject "NodeBreakersStats" parse
+    where
+      parse o = NodeBreakersStats <$> o .: "parent"
+                                  <*> o .: "request"
+                                  <*> o .: "fielddata"
+
+parseNodeStats :: FullNodeId -> Object -> Parser NodeStats
+parseNodeStats fnid o = do
+  NodeStats <$> o .: "name"
+            <*> pure fnid
+            <*> o .:? "breakers"
+            <*> o .: "http"
+            <*> o .: "transport"
+            <*> o .: "fs"
+            <*> o .: "network"
+            <*> o .: "thread_pool"
+            <*> o .: "jvm"
+            <*> o .: "process"
+            <*> o .: "os"
+            <*> o .: "indices"
 
 parseNodeInfo :: FullNodeId -> Object -> Parser NodeInfo
 parseNodeInfo nid o =
