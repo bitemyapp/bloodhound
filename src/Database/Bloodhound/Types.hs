@@ -62,6 +62,7 @@ module Database.Bloodhound.Types
        , MonadBH(..)
        , Version(..)
        , VersionNumber(..)
+       , MaybeNA(..)
        , BuildHash(..)
        , Status(..)
        , Existence(..)
@@ -4189,7 +4190,7 @@ data NodePluginInfo = NodePluginInfo {
     , nodePluginJVM         :: Bool
     -- ^ Is this plugin running on the JVM
     , nodePluginDescription :: Text
-    , nodePluginVersion     :: Maybe VersionNumber
+    , nodePluginVersion     :: MaybeNA VersionNumber
     , nodePluginName        :: PluginName
     } deriving (Eq, Show, Generic, Typeable)
 
@@ -4875,7 +4876,7 @@ instance FromJSON NodeOSStats where
         swap <- o .: "swap"
         mem <- o .: "mem"
         cpu <- o .: "cpu"
-        load <- (Just <$> o .: "load_average" <|> pure Nothing)
+        load <- o .:? "load_average"
         NodeOSStats <$> swap .: "free_in_bytes"
                     <*> swap .: "used_in_bytes"
                     <*> mem .: "actual_used_in_bytes"
@@ -5047,7 +5048,7 @@ instance FromJSON NodePluginInfo where
       parse o = NodePluginInfo <$> o .:  "site"
                                <*> o .:  "jvm"
                                <*> o .:  "description"
-                               <*> (Just <$> (o .: "version") <|> pure Nothing)
+                               <*> o .: "version"
                                <*> o .:  "name"
 
 instance FromJSON NodeHTTPInfo where
@@ -5212,3 +5213,10 @@ instance FromJSON NodeNetworkInterface where
       parse o = NodeNetworkInterface <$> o .: "mac_address"
                                      <*> o .: "name"
                                      <*> o .: "address"
+
+newtype MaybeNA a = MaybeNA { unMaybeNA :: Maybe a }
+  deriving (Show, Eq)
+
+instance FromJSON a => FromJSON (MaybeNA a) where
+  parseJSON (String "NA") = pure $ MaybeNA Nothing
+  parseJSON o = MaybeNA . Just <$> parseJSON o
