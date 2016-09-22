@@ -4064,7 +4064,7 @@ data NodeOSStats = NodeOSStats {
     , nodeOSCPUIdle        :: Int
     , nodeOSCPUUser        :: Int
     , nodeOSCPUSys         :: Int
-    , nodeOSLoad           :: LoadAvgs
+    , nodeOSLoad           :: Maybe LoadAvgs
     , nodeOSUptime         :: NominalDiffTime
     , nodeOSTimestamp      :: UTCTime
     } deriving (Eq, Show, Generic, Typeable)
@@ -4189,7 +4189,7 @@ data NodePluginInfo = NodePluginInfo {
     , nodePluginJVM         :: Bool
     -- ^ Is this plugin running on the JVM
     , nodePluginDescription :: Text
-    , nodePluginVersion     :: VersionNumber
+    , nodePluginVersion     :: Maybe VersionNumber
     , nodePluginName        :: PluginName
     } deriving (Eq, Show, Generic, Typeable)
 
@@ -4875,7 +4875,7 @@ instance FromJSON NodeOSStats where
         swap <- o .: "swap"
         mem <- o .: "mem"
         cpu <- o .: "cpu"
-        load <- o .: "load_average"
+        load <- (Just <$> o .: "load_average" <|> pure Nothing)
         NodeOSStats <$> swap .: "free_in_bytes"
                     <*> swap .: "used_in_bytes"
                     <*> mem .: "actual_used_in_bytes"
@@ -5044,11 +5044,11 @@ parseNodeInfo nid o =
 instance FromJSON NodePluginInfo where
   parseJSON = withObject "NodePluginInfo" parse
     where
-      parse o = NodePluginInfo <$> o .: "site"
-                               <*> o .: "jvm"
-                               <*> o .: "description"
-                               <*> o .: "version"
-                               <*> o .: "name"
+      parse o = NodePluginInfo <$> o .:  "site"
+                               <*> o .:  "jvm"
+                               <*> o .:  "description"
+                               <*> (Just <$> (o .: "version") <|> pure Nothing)
+                               <*> o .:  "name"
 
 instance FromJSON NodeHTTPInfo where
   parseJSON = withObject "NodeHTTPInfo" parse
