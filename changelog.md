@@ -1,3 +1,8 @@
+0.12.0.0
+===================
+* #138 Make `nodeOSLoad` record a `Maybe` for Windows compatibility 
+* #138 Change the `nodePluginVersion` record to deal with plugins which report `NA` as their version.
+
 0.11.0.0
 ===================
 
