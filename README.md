@@ -94,8 +94,8 @@ let withBH' = withBH defaultManagerSettings testServer
 let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 -- createIndex returns MonadBH m => m Reply. You can use withBH for
-   one-off commands or you can use runBH to group together commands
-   and to pass in your own HTTP manager for pipelining.
+-- one-off commands or you can use runBH to group together commands
+-- and to pass in your own HTTP manager for pipelining.
 
 -- response :: Reply, Reply is a synonym for Network.HTTP.Conduit.Response
 response <- withBH' $ createIndex defaultIndexSettings testIndex
