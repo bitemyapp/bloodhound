@@ -620,8 +620,10 @@ instance Arbitrary Day where
     arbitrary = ModifiedJulianDay <$> (2000 +) <$> arbitrary
     shrink    = (ModifiedJulianDay <$>) . shrink . toModifiedJulianDay
 
+#if !MIN_VERSION_QuickCheck(2,9,0)
 instance Arbitrary a => Arbitrary (NonEmpty a) where
   arbitrary = liftA2 (:|) arbitrary arbitrary
+#endif
 
 arbitraryScore :: Gen Score
 arbitraryScore = fmap getPositive <$> arbitrary
