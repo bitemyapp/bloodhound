@@ -360,6 +360,12 @@ module Database.Bloodhound.Types
 
        , EsUsername(..)
        , EsPassword(..)
+
+       , BulkResponse(..)
+       , OperationType(..)
+       , BulkResponseItem(..)
+       , BulkItemResult(..)
+       , BulkItemError(..)
          ) where
 
 import           Control.Applicative                as A
@@ -371,7 +377,8 @@ import           Control.Monad.State
 import           Control.Monad.Writer
 import           Data.Aeson
 import           Data.Aeson.Types                   (Pair, Parser, emptyObject,
-                                                     parseEither, parseMaybe)
+                                                     parseEither, parseMaybe,
+                                                     typeMismatch)
 import qualified Data.ByteString.Lazy.Char8         as L
 import           Data.Char
 import           Data.Hashable                      (Hashable)
@@ -720,7 +727,9 @@ sure that your mappings are correct, then this error may be an indication of an
 incompatibility between Bloodhound and ElasticSearch. Please open a bug report
 and be sure to include the exception body.
 -}
-data EsProtocolException = EsProtocolException { esProtoExBody :: L.ByteString }
+data EsProtocolException = EsProtocolException { esProtoExBody :: L.ByteString
+                                               , esProtoExDesc :: String
+                                               }
                                                deriving (Eq, Read, Show, Generic, Typeable)
 
 instance Exception EsProtocolException
@@ -1665,6 +1674,71 @@ data ShardResult =
               , shardsFailed     :: Int } deriving (Eq, Read, Show, Generic, Typeable)
 
 type HitHighlight = M.Map Text [Text]
+
+data BulkResponse =
+  BulkResponse { bulkResponseTook   :: Int
+               , bulkResponseErrors :: Bool
+               , bulkResponseItems  :: [BulkResponseItem] } deriving (Eq, Read, Show, Generic, Typeable)
+
+data BulkResponseItem =
+  BulkResponseItem { bulkResponseItemType   :: OperationType
+                   , bulkResponseItemResult :: BulkItemResult } deriving (Eq, Read, Show, Generic, Typeable)
+
+data OperationType = OperationIndex
+                   | OperationCreate
+                   | OperationDelete
+                   | OperationUpdate
+                   deriving (Eq, Read, Show, Generic, Typeable, Enum, Bounded)
+
+data BulkItemResult =
+  BulkItemResult { bulkItemResultIndex  :: IndexName
+                 , bulkItemResultType   :: MappingName
+                 , bulkItemResultDocId  :: DocId
+                 , bulkItemResultResult :: Either BulkItemError ShardResult
+                 } deriving (Eq, Read, Show, Generic, Typeable)
+
+data BulkItemError =
+  BulkItemError { bulkItemErrorIndex  :: IndexName
+                , bulkItemErrorReason :: Text
+                , bulkItemErrorType   :: Text
+                , bulkItemErrorShard  :: Text
+                } deriving (Eq, Read, Show, Generic, Typeable)
+
+instance FromJSON BulkResponse where
+  parseJSON = withObject "BulkResponse" parse
+    where parse o = BulkResponse
+                    <$> o .: "took"
+                    <*> o .: "errors"
+                    <*> o .: "items"
+
+instance FromJSON BulkResponseItem where
+  parseJSON = withObject "BulkResponseItem" parse
+    where parse o = case HM.toList o of
+                      [("index",  itemdetails)] -> BulkResponseItem OperationIndex  <$> parseJSON itemdetails
+                      [("delete", itemdetails)] -> BulkResponseItem OperationDelete <$> parseJSON itemdetails
+                      [("update", itemdetails)] -> BulkResponseItem OperationUpdate <$> parseJSON itemdetails
+                      [("create", itemdetails)] -> BulkResponseItem OperationCreate <$> parseJSON itemdetails
+                      _ -> typeMismatch "Expected a singleton object, with a key having one of the following values: index, delete, update, create." (Object o)
+
+instance FromJSON BulkItemResult where
+  parseJSON = withObject "BulkItemResult" parse
+    where parse o = do
+            st <- o .: "status" :: Parser Int
+            let content = if st >= 400
+                            then Left <$> o .: "error"
+                            else Right <$> o .: "_shards"
+            BulkItemResult <$> o .: "_index"
+                           <*> o .: "_type"
+                           <*> o .: "_id"
+                           <*> content
+
+instance FromJSON BulkItemError where
+  parseJSON = withObject "BulkItemError" parse
+    where parse o = BulkItemError
+                    <$> o .: "index"
+                    <*> o .: "reason"
+                    <*> o .: "type"
+                    <*> o .: "shard"
 
 showText :: Show a => a -> Text
 showText = T.pack . show
