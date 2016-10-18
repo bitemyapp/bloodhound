@@ -1,9 +1,11 @@
 cabal.sandbox.config
 .cabal-sandbox/
 dist/
+dist-newstyle/
 .project
 .dist-buildwrapper/
 .DS_Store
+TAGS
 *.hi
 *.o
 bloodhound-*-docs/

@@ -140,10 +140,9 @@ import           Database.Bloodhound.Types
 -- >>> :{
 --instance ToJSON TweetMapping where
 --          toJSON TweetMapping =
---            object ["tweet" .=
---              object ["properties" .=
---                object ["location" .=
---                  object ["type" .= ("geo_point" :: Text)]]]]
+--            object ["properties" .=
+--              object ["location" .=
+--                object ["type" .= ("geo_point" :: Text)]]]
 --data Location = Location { lat :: Double
 --                         , lon :: Double } deriving (Eq, Generic, Show)
 --data Tweet = Tweet { user     :: Text

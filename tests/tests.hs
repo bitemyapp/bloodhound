@@ -177,47 +177,44 @@ data ParentMapping = ParentMapping deriving (Eq, Show)
 
 instance ToJSON ParentMapping where
   toJSON ParentMapping =
-    object ["parent" .=
-              object ["properties" .=
-                object [ "user"     .= object ["type"    .= ("string" :: Text)]
-                      -- Serializing the date as a date is breaking other tests, mysteriously.
-                      -- , "postDate" .= object [ "type"   .= ("date" :: Text)
-                      --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
-                      , "message"  .= object ["type" .= ("string" :: Text)]
-                      , "age"      .= object ["type" .= ("integer" :: Text)]
-                      , "location" .= object ["type" .= ("geo_point" :: Text)]
-                      ]]]
+    object ["properties" .=
+      object [ "user"     .= object ["type"    .= ("string" :: Text)]
+            -- Serializing the date as a date is breaking other tests, mysteriously.
+            -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+            --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+            , "message"  .= object ["type" .= ("string" :: Text)]
+            , "age"      .= object ["type" .= ("integer" :: Text)]
+            , "location" .= object ["type" .= ("geo_point" :: Text)]
+            ]]
 
 data ChildMapping = ChildMapping deriving (Eq, Show)
 
 instance ToJSON ChildMapping where
   toJSON ChildMapping =
-    object ["child" .=
-      object ["_parent" .= object ["type" .= ("parent" :: Text)]
-             , "properties" .=
-                  object [ "user"     .= object ["type"    .= ("string" :: Text)]
-                    -- Serializing the date as a date is breaking other tests, mysteriously.
-                    -- , "postDate" .= object [ "type"   .= ("date" :: Text)
-                    --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
-                    , "message"  .= object ["type" .= ("string" :: Text)]
-                    , "age"      .= object ["type" .= ("integer" :: Text)]
-                    , "location" .= object ["type" .= ("geo_point" :: Text)]
-                    ]]]
+    object ["_parent" .= object ["type" .= ("parent" :: Text)]
+           , "properties" .=
+                object [ "user"     .= object ["type"    .= ("string" :: Text)]
+                  -- Serializing the date as a date is breaking other tests, mysteriously.
+                  -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+                  --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+                  , "message"  .= object ["type" .= ("string" :: Text)]
+                  , "age"      .= object ["type" .= ("integer" :: Text)]
+                  , "location" .= object ["type" .= ("geo_point" :: Text)]
+                  ]]
 
 data TweetMapping = TweetMapping deriving (Eq, Show)
 
 instance ToJSON TweetMapping where
   toJSON TweetMapping =
-    object ["tweet" .=
-      object ["properties" .=
-        object [ "user"     .= object ["type"    .= ("string" :: Text)]
-               -- Serializing the date as a date is breaking other tests, mysteriously.
-               -- , "postDate" .= object [ "type"   .= ("date" :: Text)
-               --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
-               , "message"  .= object ["type" .= ("string" :: Text)]
-               , "age"      .= object ["type" .= ("integer" :: Text)]
-               , "location" .= object ["type" .= ("geo_point" :: Text)]
-               ]]]
+    object ["properties" .=
+      object [ "user"     .= object ["type"    .= ("string" :: Text)]
+             -- Serializing the date as a date is breaking other tests, mysteriously.
+             -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+             --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+             , "message"  .= object ["type" .= ("string" :: Text)]
+             , "age"      .= object ["type" .= ("integer" :: Text)]
+             , "location" .= object ["type" .= ("geo_point" :: Text)]
+             ]]
 
 exampleTweet :: Tweet
 exampleTweet = Tweet { user     = "bitemyapp"
@@ -623,8 +620,10 @@ instance Arbitrary Day where
     arbitrary = ModifiedJulianDay <$> (2000 +) <$> arbitrary
     shrink    = (ModifiedJulianDay <$>) . shrink . toModifiedJulianDay
 
+#if !MIN_VERSION_QuickCheck(2,9,0)
 instance Arbitrary a => Arbitrary (NonEmpty a) where
   arbitrary = liftA2 (:|) arbitrary arbitrary
+#endif
 
 arbitraryScore :: Gen Score
 arbitraryScore = fmap getPositive <$> arbitrary
