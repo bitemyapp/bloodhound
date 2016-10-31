@@ -92,7 +92,6 @@ test-suite doctests
                       bloodhound,
                       directory,
                       doctest >= 0.10.1,
-                      doctest-prop,
                       filepath
   else
     buildable: False
