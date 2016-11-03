@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -143,8 +144,8 @@ is v = getServerVersion >>= \x -> return $ x == Just v
 when' :: Monad m => m Bool -> m () -> m ()
 when' b f = b >>= \x -> when x f
 
-(==~) :: (ApproxEq a, Show a) => a -> a -> Property
-a ==~ b = counterexample (show a ++ " !=~ " ++ show b) (a =~ b)
+(==~) :: (ApproxEq a) => a -> a -> Property
+a ==~ b = counterexample (showApproxEq a ++ " !=~ " ++ showApproxEq b) (a =~ b)
 
 propJSON :: forall a. (Arbitrary a, ToJSON a, FromJSON a, Show a, ApproxEq a, Typeable a) => Proxy a -> Spec
 propJSON _ = prop testName $ \(a :: a) ->
@@ -451,14 +452,18 @@ class ApproxEq a where
   default (=~) :: (Generic a, GApproxEq (Rep a)) => a -> a -> Bool
   a =~ b = gApproxEq (G.from a) (G.from b)
 
+  showApproxEq :: a -> String
+  default showApproxEq :: (Show a) => a -> String
+  showApproxEq = show
+
 instance ApproxEq NominalDiffTime where (=~) = (==)
 instance ApproxEq UTCTime where (=~) = (==)
 instance ApproxEq Text where (=~) = (==)
 instance ApproxEq Bool where (=~) = (==)
 instance ApproxEq Int where (=~) = (==)
 instance ApproxEq Double where (=~) = (==)
-instance ApproxEq a => ApproxEq (NonEmpty a)
-instance ApproxEq a => ApproxEq (Maybe a)
+instance (ApproxEq a, Show a) => ApproxEq (NonEmpty a)
+instance (ApproxEq a, Show a) => ApproxEq (Maybe a)
 instance ApproxEq GeoPoint
 instance ApproxEq Regexp
 instance ApproxEq RangeValue
@@ -575,12 +580,14 @@ instance ApproxEq AllocationPolicy
 instance ApproxEq Char
 instance ApproxEq Vers.Version where
   (=~) = (==)
-instance ApproxEq a => ApproxEq [a] where
+instance (ApproxEq a, Show a) => ApproxEq [a] where
   as =~ bs = and (zipWith (=~) as bs)
-instance (ApproxEq l, ApproxEq r) => ApproxEq (Either l r) where
+instance (ApproxEq l, Show l, ApproxEq r, Show r) => ApproxEq (Either l r) where
   Left a =~ Left b = a =~ b
   Right a =~ Right b = a =~ b
   _ =~ _ = False
+  showApproxEq (Left x)  = "Left " <> showApproxEq x
+  showApproxEq (Right x) = "Right " <> showApproxEq x
 instance ApproxEq NodeAttrFilter
 instance ApproxEq NodeAttrName
 instance ApproxEq BuildHash
@@ -595,6 +602,10 @@ instance ApproxEq UpdatableIndexSetting where
   RoutingAllocationRequire a =~ RoutingAllocationRequire b =
     NE.sort a =~ NE.sort b
   a =~ b = a == b
+  showApproxEq (RoutingAllocationInclude xs) = show (RoutingAllocationInclude (NE.sort xs))
+  showApproxEq (RoutingAllocationExclude xs) = show (RoutingAllocationExclude (NE.sort xs))
+  showApproxEq (RoutingAllocationRequire xs) = show (RoutingAllocationRequire (NE.sort xs))
+  showApproxEq x = show x
 
 
 noDuplicates :: Eq a => [a] -> Bool
@@ -655,8 +666,8 @@ getSource = fmap _source . foundResult
 grabFirst :: Either EsError (SearchResult a) -> Either EsError a
 grabFirst r =
   case fmap (hitSource . head . hits . searchHits) r of
-    (Left e) -> Left e
-    (Right Nothing) -> Left (EsError 500 "Source was missing")
+    (Left e)         -> Left e
+    (Right Nothing)  -> Left (EsError 500 "Source was missing")
     (Right (Just x)) -> Right x
 
 -------------------------------------------------------------------------------
@@ -891,6 +902,21 @@ $(derive makeArbitrary ''FSType)
 $(derive makeArbitrary ''CompoundFormat)
 $(derive makeArbitrary ''FsSnapshotRepo)
 $(derive makeArbitrary ''SnapshotRepoName)
+
+newtype UpdatableIndexSetting' = UpdatableIndexSetting' UpdatableIndexSetting
+                               deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
+
+instance Arbitrary UpdatableIndexSetting' where
+  arbitrary = do
+    settings <- arbitrary
+    return $ UpdatableIndexSetting' $ case settings of
+      RoutingAllocationInclude xs -> RoutingAllocationInclude (dropDuplicateAttrNames xs)
+      RoutingAllocationExclude xs -> RoutingAllocationExclude (dropDuplicateAttrNames xs)
+      RoutingAllocationRequire xs -> RoutingAllocationRequire (dropDuplicateAttrNames xs)
+      x -> x
+    where
+      dropDuplicateAttrNames = NE.fromList . L.nubBy sameAttrName . NE.toList
+      sameAttrName a b = nodeAttrFilterName a == nodeAttrFilterName b
 
 main :: IO ()
 main = hspec $ do
@@ -1808,7 +1834,7 @@ main = hspec $ do
     propJSON (Proxy :: Proxy Term)
     propJSON (Proxy :: Proxy MultiMatchQuery)
     propJSON (Proxy :: Proxy IndexSettings)
-    propJSON (Proxy :: Proxy UpdatableIndexSetting)
+    propJSON (Proxy :: Proxy UpdatableIndexSetting')
     propJSON (Proxy :: Proxy ReplicaBounds)
     propJSON (Proxy :: Proxy Bytes)
     propJSON (Proxy :: Proxy AllocationPolicy)
