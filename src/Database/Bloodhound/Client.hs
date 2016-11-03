@@ -33,6 +33,7 @@ module Database.Bloodhound.Client
        , openIndex
        , closeIndex
        , listIndices
+       , waitForYellowIndex
        -- *** Index Aliases
        , updateIndexAliases
        , getIndexAliases
@@ -632,6 +633,14 @@ refreshIndex :: MonadBH m => IndexName -> m Reply
 refreshIndex (IndexName indexName) =
   bindM2 post url (return Nothing)
   where url = joinPath [indexName, "_refresh"]
+
+-- | Block until the index becomes available for indexing
+--   documents. This is useful for integration tests in which
+--   indices are rapidly created and deleted.
+waitForYellowIndex :: MonadBH m => IndexName -> m Reply
+waitForYellowIndex (IndexName indexName) = get =<< url
+  where url = addQuery q <$> joinPath ["_cluster","health",indexName]
+        q = [("wait_for_status",Just "yellow"),("timeout",Just "10s")]
 
 stringifyOCIndex :: OpenCloseIndex -> Text
 stringifyOCIndex oci = case oci of
