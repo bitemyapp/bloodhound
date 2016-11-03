@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -585,7 +586,7 @@ instance (ApproxEq l, Show l, ApproxEq r, Show r) => ApproxEq (Either l r) where
   Left a =~ Left b = a =~ b
   Right a =~ Right b = a =~ b
   _ =~ _ = False
-  showApproxEq (Left x) = "Left " <> showApproxEq x
+  showApproxEq (Left x)  = "Left " <> showApproxEq x
   showApproxEq (Right x) = "Right " <> showApproxEq x
 instance ApproxEq NodeAttrFilter
 instance ApproxEq NodeAttrName
@@ -665,8 +666,8 @@ getSource = fmap _source . foundResult
 grabFirst :: Either EsError (SearchResult a) -> Either EsError a
 grabFirst r =
   case fmap (hitSource . head . hits . searchHits) r of
-    (Left e) -> Left e
-    (Right Nothing) -> Left (EsError 500 "Source was missing")
+    (Left e)         -> Left e
+    (Right Nothing)  -> Left (EsError 500 "Source was missing")
     (Right (Just x)) -> Right x
 
 -------------------------------------------------------------------------------
@@ -903,7 +904,7 @@ $(derive makeArbitrary ''FsSnapshotRepo)
 $(derive makeArbitrary ''SnapshotRepoName)
 
 newtype UpdatableIndexSetting' = UpdatableIndexSetting' UpdatableIndexSetting
-                               deriving (Show, Eq, ToJSON, FromJSON, ApproxEq)
+                               deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
 
 instance Arbitrary UpdatableIndexSetting' where
   arbitrary = do
