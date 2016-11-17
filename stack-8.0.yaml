@@ -12,4 +12,4 @@ extra-deps:
 # - semigroups-0.18.0.1
 # - uri-bytestring-0.1.9
 # - temporary-resourcet-0.1.0.0
-resolver: nightly-2016-08-20
+resolver: nightly-2016-11-17
