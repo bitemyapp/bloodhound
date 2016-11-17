@@ -9,7 +9,7 @@ author:              Chris Allen
 maintainer:          cma@bitemyapp.com
 copyright:           2015, Chris Allen
 category:            Database, Search
-build-type:          Custom
+build-type:          Simple
 cabal-version:       >=1.10
 
 extra-source-files:
