@@ -7,9 +7,11 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+#if __GLASGOW_HASKELL__ < 800
+{-# OPTIONS_GHC -fcontext-stack=100 #-}
+#endif
 module Main where
 
 import           Control.Applicative
@@ -1853,7 +1855,7 @@ sopArbitrary :: forall a. (Generic a, SOP.GTo a, SOP.All SOP.SListI (SOP.GCode a
 sopArbitrary = fmap SOP.gto sopArbitrary'
 
 sopArbitrary' :: forall xss. (SOP.All SOP.SListI xss, SOP.All2 Arbitrary xss) => Gen (SOP.SOP SOP.I xss)
-sopArbitrary' = oneof (map SOP.hsequence $ SOP.apInjs_POP $ SOP.hcpure p arbitrary)
+sopArbitrary' = SOP.hsequence =<< elements (SOP.apInjs_POP $ SOP.hcpure p arbitrary)
   where
     p :: Proxy Arbitrary
     p = Proxy
