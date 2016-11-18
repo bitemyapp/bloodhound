@@ -72,7 +72,7 @@ test-suite tests
                        unordered-containers >= 0.2.5.0 && <0.3,
                        mtl,
                        quickcheck-properties,
-                       derive,
+                       generics-sop,
                        errors,
                        exceptions,
                        temporary,
