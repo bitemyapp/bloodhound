@@ -56,7 +56,7 @@ import           Test.QuickCheck
 
 
 testServer  :: Server
-testServer  = Server "http://localhost:9200"
+testServer  = Server "http://192.168.56.102:9200"
 testIndex   :: IndexName
 testIndex   = IndexName "bloodhound-tests-twitter-1"
 testMapping :: MappingName
@@ -930,6 +930,60 @@ main = hspec $ do
       liftIO $ do
         validateStatus resp 200
         validateStatus deleteResp 200
+
+  describe "bulk API" $ do
+    let tweets = [ (DocId "testtweet1", tweetWithExtra), (DocId "testtweet2", exampleTweet) ]
+        docids = map fst tweets
+        _type = MappingName "tweet"
+    it "bulk creates documents" $ withTestEnv $ do
+      resetIndex
+      resp@(BulkResponse _ errors items) <- bulk $ V.fromList [ BulkCreate testIndex _type docid (toJSON tweet) | (docid, tweet) <- tweets ]
+      liftIO $ do
+        when errors (expectationFailure ("Error when bulk-creating tweets: " <> show resp))
+        docids' <- forM items $ \(BulkResponseItem resptype (BulkItemResult idx rtype docid res)) -> do
+          unless (resptype == OperationCreate) (expectationFailure ("Invalid operation type: " <> show resp))
+          idx `shouldBe` testIndex
+          rtype `shouldBe` _type
+          case res of
+              Left rr -> expectationFailure ("Invalid item result for docid " <> show docid <> ": " <> show rr)
+              Right _ -> return ()
+          return docid
+        docids' `shouldMatchList` docids
+    it "bulk updates documents" $ withTestEnv $ do
+      let docid = fst (head tweets)
+      resp@(BulkResponse _ errors items) <- bulk $ V.fromList [ BulkUpdate testIndex _type docid (toJSON exampleTweet) ]
+      liftIO $ do
+        when errors (expectationFailure ("Error when bulk-updating tweets: " <> show resp))
+        case items of
+            [BulkResponseItem OperationUpdate (BulkItemResult idx rtype docid' res)] -> do
+              idx `shouldBe` testIndex
+              rtype `shouldBe` _type
+              docid' `shouldBe` docid
+              case res of
+                  Left rr -> expectationFailure ("Invalid item result for docid " <> show docid' <> ": " <> show rr)
+                  Right _ -> return ()
+            _ -> expectationFailure ("Invalid response: " <> show resp)
+    it "fails when creating a document with an existing docid" $ withTestEnv $ do
+      let docid = fst (head tweets)
+      resp@(BulkResponse _ errors items) <- bulk $ V.fromList [ BulkCreate testIndex _type docid (toJSON exampleTweet) ]
+      liftIO $ do
+        unless errors (expectationFailure ("This test should have failed: " <> show resp))
+        case items of
+            [BulkResponseItem OperationCreate (BulkItemResult _ _ _ res)] ->
+              case res of
+                  Left  _ -> return ()
+                  Right _ -> expectationFailure ("This item should have failed: " <> show resp)
+            _ -> expectationFailure ("Invalid response: " <> show resp)
+    it "bulk indexes documents" $ withTestEnv $ do
+      resp@(BulkResponse _ errors items) <- bulk $ V.fromList [ BulkIndex testIndex _type docid (toJSON tweet) | (docid, tweet) <- tweets ]
+      liftIO $ do
+        when errors (expectationFailure ("Error when bulk-indexing tweets: " <> show resp))
+        mapM_ ( (`shouldBe` OperationIndex) . bulkResponseItemType ) items
+    it "bulk deletes documents" $ withTestEnv $ do
+      resp@(BulkResponse _ errors items) <- bulk $ V.fromList [ BulkDelete testIndex _type docid | (docid, _) <- tweets ]
+      liftIO $ do
+        when errors (expectationFailure ("Error when bulk-deleting tweets: " <> show resp))
+        mapM_ ( (`shouldBe` OperationDelete) . bulkResponseItemType ) items
 
   describe "error parsing"  $ do
     it "can parse EsErrors for < 2.0" $ when' (atmost es16) $ withTestEnv $ do
@@ -1841,3 +1895,4 @@ main = hspec $ do
     propJSON (Proxy :: Proxy InitialShardCount)
     propJSON (Proxy :: Proxy FSType)
     propJSON (Proxy :: Proxy CompoundFormat)
+

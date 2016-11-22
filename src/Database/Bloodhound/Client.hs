@@ -612,8 +612,8 @@ parseEsResponse reply
         tryParseError = case eitherDecode body of
                           Right e -> return (Left e)
                           -- this case should not be possible
-                          Left _ -> explode
-        explode = throwM (EsProtocolException body)
+                          Left errdesc -> explode errdesc
+        explode rr = throwM (EsProtocolException body rr)
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
@@ -679,7 +679,7 @@ listIndices =
                         keyedRows = [ HM.fromList (zip ks (T.words row)) | row <- rows ]
                         names = catMaybes (HM.lookup "index" <$> keyedRows)
                     in return (IndexName <$> names)
-      [] -> throwM (EsProtocolException body)
+      [] -> throwM (EsProtocolException body "Could not find any index")
 
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at
@@ -834,10 +834,15 @@ deleteDocument (IndexName indexName)
 -- >>> let stream = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))]
 -- >>> _ <- runBH' $ bulk stream
 -- >>> _ <- runBH' $ refreshIndex testIndex
-bulk :: MonadBH m => V.Vector BulkOperation -> m Reply
-bulk bulkOps = bindM2 post url (return body)
+bulk :: (MonadThrow m, MonadBH m) => V.Vector BulkOperation -> m BulkResponse
+bulk bulkOps = bindM2 post url (return body) >>= parseResponse
   where url = joinPath ["_bulk"]
         body = Just $ encodeBulkOperations bulkOps
+        parseResponse r = case eitherDecode respBody of
+                              Right a -> return a
+                              Left rr -> explode rr
+            where respBody = responseBody r
+                  explode rr = throwM (EsProtocolException respBody rr)
 
 -- | 'encodeBulkOperations' is a convenience function for dumping a vector of 'BulkOperation'
 --   into an 'L.ByteString'
