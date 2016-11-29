@@ -47,7 +47,7 @@ import qualified Network.HTTP.Types.Status       as NHTS
 import qualified Network.URI                     as URI
 import           Prelude                         hiding (filter)
 import           System.IO.Temp
-import           System.Posix.Files
+import           System.PosixCompat.Files
 import           Test.Hspec
 import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 
@@ -99,6 +99,9 @@ es16 = Vers.Version [1, 6, 0] []
 
 es20 :: Vers.Version
 es20 = Vers.Version [2, 0, 0] []
+
+es50 :: Vers.Version
+es50 = Vers.Version [5, 0, 0] []
 
 getServerVersion :: IO (Maybe Vers.Version)
 getServerVersion = fmap extractVersion <$> withTestEnv getStatus
@@ -179,13 +182,16 @@ data ParentMapping = ParentMapping deriving (Eq, Show)
 instance ToJSON ParentMapping where
   toJSON ParentMapping =
     object ["properties" .=
-      object [ "user"     .= object ["type"    .= ("string" :: Text)]
+      object [ "user"     .= object ["type"    .= ("string" :: Text)
+                                    , "fielddata" .= True
+                                    ]
             -- Serializing the date as a date is breaking other tests, mysteriously.
             -- , "postDate" .= object [ "type"   .= ("date" :: Text)
             --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
             , "message"  .= object ["type" .= ("string" :: Text)]
             , "age"      .= object ["type" .= ("integer" :: Text)]
             , "location" .= object ["type" .= ("geo_point" :: Text)]
+            , "extra"    .= object ["type" .= ("keyword" :: Text)]
             ]]
 
 data ChildMapping = ChildMapping deriving (Eq, Show)
@@ -194,28 +200,35 @@ instance ToJSON ChildMapping where
   toJSON ChildMapping =
     object ["_parent" .= object ["type" .= ("parent" :: Text)]
            , "properties" .=
-                object [ "user"     .= object ["type"    .= ("string" :: Text)]
+                object [ "user"     .= object ["type"    .= ("string" :: Text)
+                                              , "fielddata" .= True
+                                              ]
                   -- Serializing the date as a date is breaking other tests, mysteriously.
                   -- , "postDate" .= object [ "type"   .= ("date" :: Text)
                   --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
                   , "message"  .= object ["type" .= ("string" :: Text)]
                   , "age"      .= object ["type" .= ("integer" :: Text)]
                   , "location" .= object ["type" .= ("geo_point" :: Text)]
+                  , "extra"    .= object ["type" .= ("keyword" :: Text)]
                   ]]
 
 data TweetMapping = TweetMapping deriving (Eq, Show)
 
 instance ToJSON TweetMapping where
   toJSON TweetMapping =
-    object ["properties" .=
-      object [ "user"     .= object ["type"    .= ("string" :: Text)]
-             -- Serializing the date as a date is breaking other tests, mysteriously.
-             -- , "postDate" .= object [ "type"   .= ("date" :: Text)
-             --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
-             , "message"  .= object ["type" .= ("string" :: Text)]
-             , "age"      .= object ["type" .= ("integer" :: Text)]
-             , "location" .= object ["type" .= ("geo_point" :: Text)]
-             ]]
+    object ["tweet" .=
+      object ["properties" .=
+        object [ "user"     .= object [ "type"    .= ("string" :: Text)
+                                      , "fielddata" .= True
+                                      ]
+               -- Serializing the date as a date is breaking other tests, mysteriously.
+               -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+               --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+               , "message"  .= object ["type" .= ("string" :: Text)]
+               , "age"      .= object ["type" .= ("integer" :: Text)]
+               , "location" .= object ["type" .= ("geo_point" :: Text)]
+               , "extra"    .= object ["type" .= ("keyword" :: Text)]
+               ]]]
 
 exampleTweet :: Tweet
 exampleTweet = Tweet { user     = "bitemyapp"
@@ -543,7 +556,6 @@ instance ApproxEq HasChildQuery
 instance ApproxEq FuzzyQuery
 instance ApproxEq FuzzyLikeFieldQuery
 instance ApproxEq FuzzyLikeThisQuery
-instance ApproxEq FilteredQuery
 instance ApproxEq DisMaxQuery
 instance ApproxEq CommonTermsQuery
 instance ApproxEq CommonMinimumMatch
@@ -577,7 +589,7 @@ instance ApproxEq BoolMatch
 instance ApproxEq MultiMatchQuery
 instance ApproxEq IndexSettings
 instance ApproxEq AllocationPolicy
-instance ApproxEq Char
+instance ApproxEq Char where (=~) = (==)
 instance ApproxEq Vers.Version where
   (=~) = (==)
 instance (ApproxEq a, Show a) => ApproxEq [a] where
@@ -722,10 +734,8 @@ instance Arbitrary Query where
                                  , QueryBoolQuery <$> arbitrary
                                  , QueryBoostingQuery <$> arbitrary
                                  , QueryCommonTermsQuery <$> arbitrary
-                                 , ConstantScoreFilter <$> arbitrary <*> arbitrary
                                  , ConstantScoreQuery <$> arbitrary <*> arbitrary
                                  , QueryDisMaxQuery <$> arbitrary
-                                 , QueryFilteredQuery <$> arbitrary
                                  , QueryFuzzyLikeThisQuery <$> arbitrary
                                  , QueryFuzzyLikeFieldQuery <$> arbitrary
                                  , QueryFuzzyQuery <$> arbitrary
@@ -746,24 +756,7 @@ instance Arbitrary Query where
   shrink = genericShrink
 
 instance Arbitrary Filter where
-  arbitrary = reduceSize $ oneof [ AndFilter <$> arbitrary <*> arbitrary
-                                 , OrFilter <$> arbitrary <*> arbitrary
-                                 , NotFilter <$> arbitrary <*> arbitrary
-                                 , pure IdentityFilter
-                                 , BoolFilter <$> arbitrary
-                                 , ExistsFilter <$> arbitrary
-                                 , GeoBoundingBoxFilter <$> arbitrary
-                                 , GeoDistanceFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-                                 , GeoDistanceRangeFilter <$> arbitrary <*> arbitrary
-                                 , GeoPolygonFilter <$> arbitrary <*> arbitrary
-                                 , IdsFilter <$> arbitrary <*> arbitrary
-                                 , LimitFilter <$> arbitrary
-                                 , MissingFilter <$> arbitrary <*> arbitrary <*> arbitrary
-                                 , PrefixFilter <$> arbitrary <*> arbitrary <*> arbitrary
-                                 , QueryFilter <$> arbitrary <*> arbitrary
-                                 , RangeFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-                                 , RegexpFilter <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-                                 , TermFilter <$> arbitrary <*> arbitrary]
+  arbitrary = Filter <$> arbitrary 
   shrink = genericShrink
 
 instance Arbitrary ReplicaBounds where
@@ -855,7 +848,6 @@ $(derive makeArbitrary ''HasChildQuery)
 $(derive makeArbitrary ''FuzzyQuery)
 $(derive makeArbitrary ''FuzzyLikeFieldQuery)
 $(derive makeArbitrary ''FuzzyLikeThisQuery)
-$(derive makeArbitrary ''FilteredQuery)
 $(derive makeArbitrary ''DisMaxQuery)
 $(derive makeArbitrary ''CommonTermsQuery)
 $(derive makeArbitrary ''DistanceRange)
@@ -1028,7 +1020,7 @@ main = hspec $ do
     it "returns document for term query and identity filter" $ withTestEnv $ do
       _ <- insertData
       let query = TermQuery (Term "user" "bitemyapp") Nothing
-      let filter = IdentityFilter <&&> IdentityFilter
+      let filter = Filter $ MatchAllQuery Nothing
       let search = mkSearch (Just query) (Just filter)
       myTweet <- searchTweet search
       liftIO $
@@ -1038,26 +1030,16 @@ main = hspec $ do
       _ <- insertData
       let query = TermsQuery "user" ("bitemyapp" :| [])
       let cfQuery = ConstantScoreQuery query (Boost 1.0)
-      let filter = IdentityFilter
+      let filter = Filter $ MatchAllQuery Nothing
       let search = mkSearch (Just cfQuery) (Just filter)
       myTweet <- searchTweet search
       liftIO $
         myTweet `shouldBe` Right exampleTweet
-    it "handles constant score filters" $ withTestEnv $ do
-      _ <- insertData
-      let query = TermsQuery "user" ("bitemyapp" :| [])
-      let cfFilter = ConstantScoreFilter IdentityFilter (Boost 1.0)
-      let boolQuery = mkBoolQuery [query, cfFilter] [] []
-      let search = mkSearch (Just (QueryBoolQuery boolQuery)) Nothing
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
 
     it "returns document for terms query and identity filter" $ withTestEnv $ do
       _ <- insertData
       let query = TermsQuery "user" ("bitemyapp" :| [])
-      let filter = IdentityFilter <&&> IdentityFilter
+      let filter = Filter $ MatchAllQuery Nothing
       let search = mkSearch (Just query) (Just filter)
       myTweet <- searchTweet search
       liftIO $
@@ -1085,7 +1067,7 @@ main = hspec $ do
       let innerQuery = QueryMatchQuery $
                        mkMatchQuery (FieldName "user") (QueryString "bitemyapp")
       let query = QueryBoolQuery $
-                  mkBoolQuery [innerQuery] [] []
+                  mkBoolQuery [innerQuery] [] [] []
       let search = mkSearch (Just query) Nothing
       myTweet <- searchTweet search
       liftIO $
@@ -1120,172 +1102,12 @@ main = hspec $ do
       _ <- insertOther
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
       let search = Search Nothing
-                   (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
+                   Nothing (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $
         myTweet `shouldBe` Right otherTweet
-
-
-  describe "filtering API" $ do
-    it "returns document for composed boolmatch and identity" $ withTestEnv $ do
-      _ <- insertData
-      let queryFilter = BoolFilter (MustMatch (Term "user" "bitemyapp") False)
-                        <&&> IdentityFilter
-      let search = mkSearch Nothing (Just queryFilter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "returns document for term filter" $ withTestEnv $ do
-      _ <- insertData
-      let termFilter = TermFilter (Term "user" "bitemyapp") False
-      let search = mkSearch Nothing (Just termFilter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "returns document for existential filter" $ withTestEnv $ do
-      _ <- insertData
-      let search = mkSearch Nothing (Just (ExistsFilter (FieldName "user")))
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "returns document for geo boundingbox filter" $ withTestEnv $ do
-      _ <- insertData
-      let box = GeoBoundingBox (LatLon 40.73 (-74.1)) (LatLon 40.10 (-71.12))
-      let bbConstraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False GeoFilterMemory
-      let geoFilter = GeoBoundingBoxFilter bbConstraint
-      let search = mkSearch Nothing (Just geoFilter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "doesn't return document for nonsensical boundingbox filter" $ withTestEnv $ do
-      _ <- insertData
-      let box          = GeoBoundingBox (LatLon 0.73 (-4.1)) (LatLon 0.10 (-1.12))
-      let bbConstraint = GeoBoundingBoxConstraint (FieldName "tweet.location") box False GeoFilterMemory
-      let geoFilter    = GeoBoundingBoxFilter bbConstraint
-      let search       = mkSearch Nothing (Just geoFilter)
-      searchExpectNoResults search
-
-    it "returns document for geo distance filter" $ withTestEnv $ do
-      _ <- insertData
-      let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
-      let distance = Distance 10.0 Miles
-      let optimizeBbox = OptimizeGeoFilterType GeoFilterMemory
-      let geoFilter = GeoDistanceFilter geoPoint distance SloppyArc optimizeBbox False
-      let search = mkSearch Nothing (Just geoFilter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "returns document for geo distance range filter" $ withTestEnv $ do
-      _ <- insertData
-      let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
-      let distanceRange = DistanceRange (Distance 0.0 Miles) (Distance 10.0 Miles)
-      let geoFilter = GeoDistanceRangeFilter geoPoint distanceRange
-      let search = mkSearch Nothing (Just geoFilter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "doesn't return document for wild geo distance range filter" $ withTestEnv $ do
-      _ <- insertData
-      let geoPoint = GeoPoint (FieldName "tweet.location") (LatLon 40.12 (-71.34))
-      let distanceRange = DistanceRange (Distance 100.0 Miles) (Distance 1000.0 Miles)
-      let geoFilter = GeoDistanceRangeFilter geoPoint distanceRange
-      let search = mkSearch Nothing (Just geoFilter)
-      searchExpectNoResults search
-
-    it "returns document for geo polygon filter" $ withTestEnv $ do
-      _ <- insertData
-      let points = [LatLon 40.0 (-70.00),
-                    LatLon 40.0 (-72.00),
-                    LatLon 41.0 (-70.00),
-                    LatLon 41.0 (-72.00)]
-      let geoFilter = GeoPolygonFilter (FieldName "tweet.location") points
-      let search = mkSearch Nothing (Just geoFilter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "doesn't return document for bad geo polygon filter" $ withTestEnv $ do
-      _ <- insertData
-      let points = [LatLon 40.0 (-70.00),
-                    LatLon 40.0 (-71.00),
-                    LatLon 41.0 (-70.00),
-                    LatLon 41.0 (-71.00)]
-      let geoFilter = GeoPolygonFilter (FieldName "tweet.location") points
-      let search = mkSearch Nothing (Just geoFilter)
-      searchExpectNoResults search
-
-    it "returns document for ids filter" $ withTestEnv $ do
-      _ <- insertData
-      let filter = IdsFilter (MappingName "tweet") [DocId "1"]
-      let search = mkSearch Nothing (Just filter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "returns document for Double range filter" $ withTestEnv $ do
-      _ <- insertData
-      let filter = RangeFilter (FieldName "age")
-                   (RangeDoubleGtLt (GreaterThan 1000.0) (LessThan 100000.0))
-                   RangeExecutionIndex False
-      let search = mkSearch Nothing (Just filter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "returns document for UTCTime date filter" $ withTestEnv $ do
-      _ <- insertData
-      let filter = RangeFilter (FieldName "postDate")
-                   (RangeDateGtLt
-                    (GreaterThanD (UTCTime
-                                (ModifiedJulianDay 54000)
-                                (secondsToDiffTime 0)))
-                    (LessThanD (UTCTime
-                                (ModifiedJulianDay 55000)
-                                (secondsToDiffTime 11))))
-                   RangeExecutionIndex False
-      let search = mkSearch Nothing (Just filter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "returns document for regexp filter" $ withTestEnv $ do
-      _ <- insertData
-      let filter = RegexpFilter (FieldName "user") (Regexp "bite.*app")
-                   AllRegexpFlags (CacheName "test") False (CacheKey "key")
-      let search = mkSearch Nothing (Just filter)
-      myTweet <- searchTweet search
-      liftIO $
-        myTweet `shouldBe` Right exampleTweet
-
-    it "doesn't return document for non-matching regexp filter" $ withTestEnv $ do
-      _ <- insertData
-      let filter = RegexpFilter (FieldName "user")
-                   (Regexp "boy") AllRegexpFlags
-                   (CacheName "test") False (CacheKey "key")
-      let search = mkSearch Nothing (Just filter)
-      searchExpectNoResults search
-
-    it "returns document for query filter, uncached" $ withTestEnv $ do
-      _ <- insertData
-      let filter = QueryFilter (TermQuery (Term "user" "bitemyapp") Nothing) True
-          search = mkSearch Nothing (Just filter)
-      myTweet <- searchTweet search
-      liftIO $ myTweet `shouldBe` Right exampleTweet
-
-    it "returns document for query filter, cached" $ withTestEnv $ do
-      _ <- insertData
-      let filter = QueryFilter (TermQuery (Term "user" "bitemyapp") Nothing) False
-          search = mkSearch Nothing (Just filter)
-      myTweet <- searchTweet search
-      liftIO $ myTweet `shouldBe` Right exampleTweet
 
   describe "Aggregation API" $ do
     it "returns term aggregation results" $ withTestEnv $ do
@@ -1340,18 +1162,6 @@ main = hspec $ do
                                                                  , docCountPair "bogus_count" 0
                                                                  ]))
 
-    it "can execute filter aggregations" $ withTestEnv $ do
-      _ <- insertData
-      _ <- insertOther
-      let ags = mkAggregations "bitemyapps" (FilterAgg (FilterAggregation (TermFilter (Term "user" "bitemyapp") defaultCache) Nothing)) <>
-                mkAggregations "notmyapps" (FilterAgg (FilterAggregation (TermFilter (Term "user" "notmyapp") defaultCache) Nothing))
-      let search = mkAggregateSearch Nothing ags
-      let docCountPair k n = (k, object ["doc_count" .= Number n])
-      res <- searchTweets search
-      liftIO $
-        fmap aggregations res `shouldBe` Right (Just (M.fromList [ docCountPair "bitemyapps" 1
-                                                                 , docCountPair "notmyapps" 1
-                                                                 ]))
     it "can execute date_range aggregations" $ withTestEnv $ do
       let now = fromGregorian 2015 3 14
       let ltAMonthAgo = UTCTime (fromGregorian 2015 3 1) 0
@@ -1397,18 +1207,6 @@ main = hspec $ do
       searchExpectAggs search
       searchValidBucketAgg search "byDate" toDateHistogram
 
-    it "returns date histogram using fractional date" $ withTestEnv $ do
-      _ <- insertData
-      let periods            = [Year, Quarter, Month, Week, Day, Hour, Minute, Second]
-      let fractionals        = map (FractionalInterval 1.5) [Weeks, Days, Hours, Minutes, Seconds]
-      let intervals          = periods ++ fractionals
-      let histogram          = mkDateHistogram (FieldName "postDate")
-      let search interval    = mkAggregateSearch Nothing $ mkAggregations "byDate" $ DateHistogramAgg (histogram interval)
-      let expect interval    = searchExpectAggs (search interval)
-      let valid interval     = searchValidBucketAgg (search interval) "byDate" toDateHistogram
-      forM_ intervals expect
-      forM_ intervals valid
-
     it "can execute missing aggregations" $ withTestEnv $ do
       _ <- insertData
       _ <- insertExtra
@@ -1424,7 +1222,7 @@ main = hspec $ do
     it "returns highlight from query when there should be one" $ withTestEnv $ do
       _ <- insertData
       _ <- insertOther
-      let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+      let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
       let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 
       let search = mkHighlightSearch (Just query) testHighlight
@@ -1435,7 +1233,7 @@ main = hspec $ do
     it "doesn't return highlight from a query when it shouldn't" $ withTestEnv $ do
       _ <- insertData
       _ <- insertOther
-      let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+      let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
       let testHighlight = Highlights Nothing [FieldHighlight (FieldName "user") Nothing]
 
       let search = mkHighlightSearch (Just query) testHighlight
@@ -1691,27 +1489,6 @@ main = hspec $ do
               L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
             Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)) `finally` cleanup
 
-    it "handles an alias with routing and a filter" $ do
-      let alias = IndexAlias (testIndex) (IndexAliasName (IndexName "bloodhound-tests-twitter-1-alias"))
-      let sar = SearchAliasRouting (RoutingValue "search val" :| [])
-      let iar = IndexAliasRouting (RoutingValue "index val")
-      let routing = GranularAliasRouting (Just sar) (Just iar)
-      let filter = LimitFilter 42
-      let create = IndexAliasCreate (Just routing) (Just filter)
-      let action = AddAlias alias create
-
-      withTestEnv $ do
-        resetIndex
-        resp <- updateIndexAliases (action :| [])
-        liftIO $ validateStatus resp 200
-      let cleanup = withTestEnv (updateIndexAliases (RemoveAlias alias :| []))
-      (do aliases <- withTestEnv getIndexAliases
-          let expected = IndexAliasSummary alias create
-          case aliases of
-            Right (IndexAliasesSummary summs) ->
-              L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
-            Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)) `finally` cleanup
-
   describe "Index Listing" $ do
     it "returns a list of index names" $ withTestEnv $ do
       _ <- createExampleIndex
@@ -1735,7 +1512,7 @@ main = hspec $ do
   describe "Index Optimization" $ do
     it "returns a successful response upon completion" $ withTestEnv $ do
       _ <- createExampleIndex
-      resp <- optimizeIndex (IndexList (testIndex :| [])) defaultIndexOptimizationSettings
+      resp <- forceMergeIndex (IndexList (testIndex :| [])) defaultForceMergeIndexSettings
       liftIO $ validateStatus resp 200
 
   describe "JSON instances" $ do
@@ -1801,7 +1578,6 @@ main = hspec $ do
     propJSON (Proxy :: Proxy FuzzyQuery)
     propJSON (Proxy :: Proxy FuzzyLikeFieldQuery)
     propJSON (Proxy :: Proxy FuzzyLikeThisQuery)
-    propJSON (Proxy :: Proxy FilteredQuery)
     propJSON (Proxy :: Proxy DisMaxQuery)
     propJSON (Proxy :: Proxy CommonTermsQuery)
     propJSON (Proxy :: Proxy CommonMinimumMatch)

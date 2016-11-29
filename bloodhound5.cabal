@@ -1,4 +1,4 @@
-name:                bloodhound
+name:                bloodhound5
 version:             0.12.0.0
 synopsis:            ElasticSearch client library for Haskell
 description:         ElasticSearch made awesome for Haskell hackers
@@ -57,7 +57,7 @@ test-suite tests
   main-is: tests.hs
   hs-source-dirs: tests
   build-depends:       base,
-                       bloodhound,
+                       bloodhound5,
                        bytestring,
                        http-client,
                        http-types,
@@ -76,7 +76,7 @@ test-suite tests
                        errors,
                        exceptions,
                        temporary,
-                       unix,
+                       unix-compat,
                        network-uri
   default-language:    Haskell2010
 
@@ -89,7 +89,7 @@ test-suite doctests
   if impl(ghc >= 7.8)
     build-depends:    base,
                       aeson,
-                      bloodhound,
+                      bloodhound5,
                       directory,
                       doctest >= 0.10.1,
                       filepath
