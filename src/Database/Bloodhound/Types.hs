@@ -3955,9 +3955,9 @@ data NodeInfo = NodeInfo {
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodePluginInfo = NodePluginInfo {
-      nodePluginSite        :: Bool
+      nodePluginSite        :: Maybe Bool
     -- ^ Is this a site plugin?
-    , nodePluginJVM         :: Bool
+    , nodePluginJVM         :: Maybe Bool
     -- ^ Is this plugin running on the JVM
     , nodePluginDescription :: Text
     , nodePluginVersion     :: MaybeNA VersionNumber
@@ -4803,11 +4803,11 @@ parseNodeInfo nid o =
 instance FromJSON NodePluginInfo where
   parseJSON = withObject "NodePluginInfo" parse
     where
-      parse o = NodePluginInfo <$> o .:  "site"
-                               <*> o .:  "jvm"
-                               <*> o .:  "description"
-                               <*> o .: "version"
-                               <*> o .:  "name"
+      parse o = NodePluginInfo <$> o .:?  "site"
+                               <*> o .:?  "jvm"
+                               <*> o .:   "description"
+                               <*> o .:   "version"
+                               <*> o .:   "name"
 
 instance FromJSON NodeHTTPInfo where
   parseJSON = withObject "NodeHTTPInfo" parse
