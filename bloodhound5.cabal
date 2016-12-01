@@ -9,7 +9,7 @@ author:              Chris Allen
 maintainer:          cma@bitemyapp.com
 copyright:           2015, Chris Allen
 category:            Database, Search
-build-type:          Custom
+build-type:          Simple
 cabal-version:       >=1.10
 
 extra-source-files:
@@ -32,7 +32,7 @@ library
   build-depends:       base             >= 4.3     && <5,
                        bytestring       >= 0.10.0  && <0.11,
                        containers       >= 0.5.0.0 && <0.6,
-                       aeson            >= 0.11.1  && <0.12,
+                       aeson            >= 0.11.1  && <1.1,
                        http-client      >= 0.4.30  && <0.6,
                        network-uri      >= 2.6     && <2.7,
                        semigroups       >= 0.15    && <0.19,
@@ -62,7 +62,7 @@ test-suite tests
                        http-client,
                        http-types,
                        containers,
-                       hspec                >= 1.8 && <2.3,
+                       hspec                >= 1.8 && <2.4,
                        text,
                        time,
                        aeson,
@@ -72,7 +72,7 @@ test-suite tests
                        unordered-containers >= 0.2.5.0 && <0.3,
                        mtl,
                        quickcheck-properties,
-                       derive,
+                       generics-sop         >=0.2 && <0.3,
                        errors,
                        exceptions,
                        temporary,
