@@ -17,6 +17,8 @@ env:
  - GHCVER=7.10 ESVER=1.6.0
  - GHCVER=7.10 ESVER=1.7.2
  - GHCVER=8.0  ESVER=1.7.2
+ # Give ES 2 a spin even though we don't officially support it yet
+ - GHCVER=8.0  ESVER=2.4.2
 
 install:
   # stack
