@@ -4,7 +4,7 @@ addons:
   apt:
     packages:
       - libgmp-dev
-      - openjdk-6-jre
+      - openjdk-8-jre
 
 env:
  # - GHCVER=7.6.3  ESVER=1.6.0 # Deprecated
