@@ -402,7 +402,7 @@ import           Database.V5.Bloodhound.Types.Internal
 -- $setup
 -- >>> :set -XOverloadedStrings
 -- >>> import Data.Aeson
--- >>> import Database.Bloodhound
+-- >>> import Database.V5.Bloodhound
 -- >>> let testServer = (Server "http://localhost:9200")
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let testMapping = MappingName "tweet"
