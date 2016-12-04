@@ -40,7 +40,7 @@ import           Data.Time.Clock                 (NominalDiffTime, UTCTime (..),
 import           Data.Typeable
 import qualified Data.Vector                     as V
 import qualified Data.Version                    as Vers
-import           Database.Bloodhound
+import           Database.V5.Bloodhound
 import           GHC.Generics                    as G
 import           Network.HTTP.Client             hiding (Proxy)
 import qualified Network.HTTP.Types.Method       as NHTM
@@ -1125,7 +1125,7 @@ main = hspec $ do
       _ <- insertData
       let cardinality = CardinalityAgg $ mkCardinalityAggregation $ FieldName "user"
       let search = mkAggregateSearch Nothing $ mkAggregations "users" cardinality
-      let search' = search { Database.Bloodhound.from = From 0, size = Size 0 }
+      let search' = search { Database.V5.Bloodhound.from = From 0, size = Size 0 }
       searchExpectAggs search'
       let docCountPair k n = (k, object ["value" .= Number n])
       res <- searchTweets search'

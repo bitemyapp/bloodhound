@@ -29,7 +29,7 @@
 
 
 
-module Database.Bloodhound.Types
+module Database.V1.Bloodhound.Types
        ( defaultCache
        , defaultIndexSettings
        , defaultIndexDocumentSettings
@@ -152,8 +152,8 @@ module Database.Bloodhound.Types
        , IndexSelection(..)
        , NodeSelection(..)
        , NodeSelector(..)
-       , ForceMergeIndexSettings(..)
-       , defaultForceMergeIndexSettings
+       , IndexOptimizationSettings(..)
+       , defaultIndexOptimizationSettings
        , TemplateName(..)
        , TemplatePattern(..)
        , MappingName(..)
@@ -178,6 +178,7 @@ module Database.Bloodhound.Types
        , BoostingQuery(..)
        , CommonTermsQuery(..)
        , DisMaxQuery(..)
+       , FilteredQuery(..)
        , FuzzyLikeThisQuery(..)
        , FuzzyLikeFieldQuery(..)
        , FuzzyQuery(..)
@@ -396,8 +397,8 @@ import qualified Network.HTTP.Types.Method          as NHTM
 import qualified Text.ParserCombinators.ReadP       as RP
 import qualified Text.Read                          as TR
 
-import           Database.Bloodhound.Types.Class
-import           Database.Bloodhound.Types.Internal
+import           Database.V1.Bloodhound.Types.Class
+import           Database.V1.Bloodhound.Types.Internal
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -451,7 +452,7 @@ runBH e f = runReaderT (unBH f) e
 {-| 'Version' is embedded in 'Status' -}
 data Version = Version { number          :: VersionNumber
                        , build_hash      :: BuildHash
-                       , build_date      :: UTCTime
+                       , build_timestamp :: UTCTime
                        , build_snapshot  :: Bool
                        , lucene_version  :: VersionNumber } deriving (Eq, Read, Show, Generic, Typeable)
 
@@ -465,11 +466,11 @@ newtype VersionNumber = VersionNumber { versionNumber :: Vers.Version
    <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-status.html#indices-status>
 -}
 
-data Status = Status { name         :: Text
-                     , cluster_name :: Text
-                     , cluster_uuid :: Text
-                     , version      :: Version
-                     , tagline      :: Text } deriving (Eq, Read, Show, Generic)
+data Status = Status { ok      :: Maybe Bool
+                     , status  :: Int
+                     , name    :: Text
+                     , version :: Version
+                     , tagline :: Text } deriving (Eq, Read, Show, Generic)
 
 {-| 'IndexSettings' is used to configure the shards and replicas when you create
    an Elasticsearch Index.
@@ -486,12 +487,12 @@ defaultIndexSettings :: IndexSettings
 defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2)
 
 
-{-| 'ForceMergeIndexSettings' is used to configure index optimization. See
-    <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-forcemerge.html>
+{-| 'IndexOptimizationSettings' is used to configure index optimization. See
+    <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-optimize.html>
     for more info.
 -}
-data ForceMergeIndexSettings =
-  ForceMergeIndexSettings { maxNumSegments     :: Maybe Int
+data IndexOptimizationSettings =
+  IndexOptimizationSettings { maxNumSegments     :: Maybe Int
                             -- ^ Number of segments to optimize to. 1 will fully optimize the index. If omitted, the default behavior is to only optimize if the server deems it necessary.
                             , onlyExpungeDeletes :: Bool
                             -- ^ Should the optimize process only expunge segments with deletes in them? If the purpose of the optimization is to free disk space, this should be set to True.
@@ -500,12 +501,12 @@ data ForceMergeIndexSettings =
                             } deriving (Eq, Show, Generic, Typeable)
 
 
-{-| 'defaultForceMergeIndexSettings' implements the default settings that
+{-| 'defaultIndexOptimizationSettings' implements the default settings that
     ElasticSearch uses for index optimization. 'maxNumSegments' is Nothing,
     'onlyExpungeDeletes' is False, and flushAfterOptimize is True.
 -}
-defaultForceMergeIndexSettings :: ForceMergeIndexSettings
-defaultForceMergeIndexSettings = ForceMergeIndexSettings Nothing False True
+defaultIndexOptimizationSettings :: IndexOptimizationSettings
+defaultIndexOptimizationSettings = IndexOptimizationSettings Nothing False True
 
 {-| 'UpdatableIndexSetting' are settings which may be updated after an index is created.
 
@@ -844,8 +845,6 @@ data SortSpec = DefaultSortSpec DefaultSort
 {-| 'DefaultSort' is usually the kind of 'SortSpec' you'll want. There's a
     'mkSort' convenience function for when you want to specify only the most
     common parameters.
-    
-    The `ignoreUnmapped`, when `Just` field is used to set the elastic 'unmapped_type' 
 
 <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 -}
@@ -853,7 +852,7 @@ data DefaultSort =
   DefaultSort { sortFieldName  :: FieldName
               , sortOrder      :: SortOrder
                                   -- default False
-              , ignoreUnmapped :: Maybe Text
+              , ignoreUnmapped :: Bool
               , sortMode       :: Maybe SortMode
               , missingSort    :: Maybe Missing
               , nestedFilter   :: Maybe Filter } deriving (Eq, Read, Show, Generic, Typeable)
@@ -888,7 +887,7 @@ data SortMode = SortMin
     that you can concisely describe the usual kind of 'SortSpec's you want.
 -}
 mkSort :: FieldName -> SortOrder -> DefaultSort
-mkSort fieldName sOrder = DefaultSort fieldName sOrder Nothing Nothing Nothing Nothing
+mkSort fieldName sOrder = DefaultSort fieldName sOrder False Nothing Nothing Nothing
 
 {-| 'Cache' is for telling ES whether it should cache a 'Filter' not.
     'Query's cannot be cached.
@@ -1101,6 +1100,10 @@ data Search = Search { queryBody       :: Maybe Query
 
 data SearchType = SearchTypeQueryThenFetch
                 | SearchTypeDfsQueryThenFetch
+                | SearchTypeCount
+                | SearchTypeScan
+                | SearchTypeQueryAndFetch
+                | SearchTypeDfsQueryAndFetch
   deriving (Eq, Read, Show, Generic, Typeable)
 
 data Source =
@@ -1180,8 +1183,10 @@ data Query =
   | QueryBoolQuery              BoolQuery
   | QueryBoostingQuery          BoostingQuery
   | QueryCommonTermsQuery       CommonTermsQuery
+  | ConstantScoreFilter         Filter Boost
   | ConstantScoreQuery          Query Boost
   | QueryDisMaxQuery            DisMaxQuery
+  | QueryFilteredQuery          FilteredQuery
   | QueryFuzzyLikeThisQuery     FuzzyLikeThisQuery
   | QueryFuzzyLikeFieldQuery    FuzzyLikeFieldQuery
   | QueryFuzzyQuery             FuzzyQuery
@@ -1198,20 +1203,7 @@ data Query =
   | QuerySimpleQueryStringQuery SimpleQueryStringQuery
   | QueryRangeQuery             RangeQuery
   | QueryRegexpQuery            RegexpQuery
-  | QueryExistsQuery            FieldName
-  | QueryMatchNoneQuery
   deriving (Eq, Read, Show, Generic, Typeable)
-
--- | As of Elastic 2.0, 'Filters' are just 'Queries' housed in a Bool Query, and
--- flagged in a different context. 
-newtype Filter = Filter { unFilter :: Query }
-  deriving (Eq, Read, Show, Generic, Typeable)
-
-instance ToJSON Filter where
-  toJSON = toJSON . unFilter
-
-instance FromJSON Filter where
-  parseJSON v = Filter <$> parseJSON v
 
 data RegexpQuery =
   RegexpQuery { regexpQueryField :: FieldName
@@ -1393,6 +1385,11 @@ data FuzzyLikeThisQuery =
   , fuzzyLikeAnalyzer            :: Maybe Analyzer
   } deriving (Eq, Read, Show, Generic, Typeable)
 
+data FilteredQuery =
+  FilteredQuery
+  { filteredQuery  :: Query
+  , filteredFilter :: Filter } deriving (Eq, Read, Show, Generic, Typeable)
+
 data DisMaxQuery =
   DisMaxQuery { disMaxQueries    :: [Query]
                 -- default 0.0
@@ -1453,7 +1450,6 @@ data MultiMatchQueryType =
 
 data BoolQuery =
   BoolQuery { boolQueryMustMatch          :: [Query]
-            , boolQueryFilter             :: [Filter]
             , boolQueryMustNotMatch       :: [Query]
             , boolQueryShouldMatch        :: [Query]
             , boolQueryMinimumShouldMatch :: Maybe MinimumMatch
@@ -1461,9 +1457,9 @@ data BoolQuery =
             , boolQueryDisableCoord       :: Maybe DisableCoord
             } deriving (Eq, Read, Show, Generic, Typeable)
 
-mkBoolQuery :: [Query] -> [Filter] -> [Query] -> [Query] -> BoolQuery
-mkBoolQuery must filter mustNot should =
-  BoolQuery must filter mustNot should Nothing Nothing Nothing
+mkBoolQuery :: [Query] -> [Query] -> [Query] -> BoolQuery
+mkBoolQuery must mustNot should =
+  BoolQuery must mustNot should Nothing Nothing Nothing
 
 data BoostingQuery =
   BoostingQuery { positiveQuery :: Query
@@ -1490,6 +1486,26 @@ data CommonMinimumMatch =
 data MinimumMatchHighLow =
   MinimumMatchHighLow { lowFreq  :: MinimumMatch
                       , highFreq :: MinimumMatch } deriving (Eq, Read, Show, Generic, Typeable)
+
+data Filter = AndFilter [Filter] Cache
+            | OrFilter  [Filter] Cache
+            | NotFilter  Filter  Cache
+            | IdentityFilter
+            | BoolFilter BoolMatch
+            | ExistsFilter FieldName -- always cached
+            | GeoBoundingBoxFilter GeoBoundingBoxConstraint
+            | GeoDistanceFilter GeoPoint Distance DistanceType OptimizeBbox Cache
+            | GeoDistanceRangeFilter GeoPoint DistanceRange
+            | GeoPolygonFilter FieldName [LatLon]
+            | IdsFilter MappingName [DocId]
+            | LimitFilter Int
+            | MissingFilter FieldName Existence NullValue
+            | PrefixFilter  FieldName PrefixValue Cache
+            | QueryFilter   Query Cache
+            | RangeFilter   FieldName RangeValue RangeExecution Cache
+            | RegexpFilter  FieldName Regexp RegexpFlags CacheName Cache CacheKey
+            | TermFilter    Term Cache
+              deriving (Eq, Read, Show, Generic, Typeable)
 
 data ZeroTermsQuery = ZeroTermsNone
                     | ZeroTermsAll deriving (Eq, Read, Show, Generic, Typeable)
@@ -1697,7 +1713,8 @@ data Interval = Year
               | Day
               | Hour
               | Minute
-              | Second deriving (Eq, Read, Show, Generic, Typeable)
+              | Second
+              | FractionalInterval Float TimeInterval deriving (Eq, Read, Show, Generic, Typeable)
 
 data Aggregation = TermsAgg TermsAggregation
                  | CardinalityAgg CardinalityAggregation
@@ -1791,7 +1808,7 @@ mkCardinalityAggregation t = CardinalityAggregation t Nothing
 instance ToJSON Version where
   toJSON Version {..} = object ["number" .= number
                                ,"build_hash" .= build_hash
-                               ,"build_date" .= build_date
+                               ,"build_timestamp" .= build_timestamp
                                ,"build_snapshot" .= build_snapshot
                                ,"lucene_version" .= lucene_version]
 
@@ -1800,7 +1817,7 @@ instance FromJSON Version where
     where parse o = Version
                     <$> o .: "number"
                     <*> o .: "build_hash"
-                    <*> o .: "build_date"
+                    <*> o .: "build_timestamp"
                     <*> o .: "build_snapshot"
                     <*> o .: "lucene_version"
 
@@ -1843,6 +1860,7 @@ instance ToJSON Interval where
   toJSON Hour = "hour"
   toJSON Minute = "minute"
   toJSON Second = "second"
+  toJSON (FractionalInterval fraction interval) = toJSON $ show fraction ++ show interval
 
 instance Show TimeInterval where
   show Weeks    = "w"
@@ -2040,6 +2058,193 @@ instance FromJSON POSIXMS where
     where parse n = let n' = truncate n :: Integer
                     in POSIXMS (posixSecondsToUTCTime (fromInteger (n' `div` 1000)))
 
+instance Monoid Filter where
+  mempty = IdentityFilter
+  mappend a b = AndFilter [a, b] defaultCache
+
+instance Seminearring Filter where
+  a <||> b = OrFilter [a, b] defaultCache
+
+instance ToJSON Filter where
+  toJSON (AndFilter filters cache) =
+    object ["and" .=
+            object [ "filters" .= fmap toJSON filters
+                   , "_cache"  .= cache]]
+
+  toJSON (OrFilter filters cache) =
+    object ["or" .=
+            object [ "filters" .= fmap toJSON filters
+                   , "_cache"  .= cache]]
+
+  toJSON (NotFilter notFilter cache) =
+    object ["not" .=
+            object ["filter"  .= notFilter
+                   , "_cache" .= cache]]
+
+  toJSON (IdentityFilter) =
+    object ["match_all" .= object []]
+
+  toJSON (TermFilter (Term termFilterField termFilterValue) cache) =
+    object ["term" .= object base]
+    where base = [termFilterField .= termFilterValue,
+                  "_cache"        .= cache]
+
+  toJSON (ExistsFilter (FieldName fieldName)) =
+    object ["exists"  .= object
+            ["field"  .= fieldName]]
+
+  toJSON (BoolFilter boolMatch) =
+    object ["bool"    .= boolMatch]
+
+  toJSON (GeoBoundingBoxFilter bbConstraint) =
+    object ["geo_bounding_box" .= bbConstraint]
+
+  toJSON (GeoDistanceFilter (GeoPoint (FieldName distanceGeoField) geoDistLatLon)
+          distance distanceType optimizeBbox cache) =
+    object ["geo_distance" .=
+            object ["distance" .= distance
+                   , "distance_type" .= distanceType
+                   , "optimize_bbox" .= optimizeBbox
+                   , distanceGeoField .= geoDistLatLon
+                   , "_cache" .= cache]]
+
+  toJSON (GeoDistanceRangeFilter (GeoPoint (FieldName gddrField) drLatLon)
+          (DistanceRange geoDistRangeDistFrom drDistanceTo)) =
+    object ["geo_distance_range" .=
+            object ["from" .= geoDistRangeDistFrom
+                   , "to"  .= drDistanceTo
+                   , gddrField .= drLatLon]]
+
+  toJSON (GeoPolygonFilter (FieldName geoPolygonFilterField) latLons) =
+    object ["geo_polygon" .=
+            object [geoPolygonFilterField .=
+                    object ["points" .= fmap toJSON latLons]]]
+
+  toJSON (IdsFilter (MappingName mappingName) values) =
+    object ["ids" .=
+            object ["type" .= mappingName
+                   , "values" .= fmap unpackId values]]
+
+  toJSON (LimitFilter limit) =
+    object ["limit" .= object ["value" .= limit]]
+
+  toJSON (MissingFilter (FieldName fieldName) (Existence existence) (NullValue nullValue)) =
+    object ["missing" .=
+            object ["field"       .= fieldName
+                   , "existence"  .= existence
+                   , "null_value" .= nullValue]]
+
+  toJSON (PrefixFilter (FieldName fieldName) fieldValue cache) =
+    object ["prefix" .=
+            object [fieldName .= fieldValue
+                   , "_cache" .= cache]]
+
+  toJSON (QueryFilter query False) =
+    object ["query" .= toJSON query ]
+  toJSON (QueryFilter query True) =
+    object ["fquery" .=
+            object [ "query"  .= toJSON query
+                   , "_cache" .= True ]]
+
+  toJSON (RangeFilter (FieldName fieldName) rangeValue rangeExecution cache) =
+    object ["range" .=
+            object [ fieldName .= object (rangeValueToPair rangeValue)
+                   , "execution" .= rangeExecution
+                   , "_cache" .= cache]]
+
+  toJSON (RegexpFilter (FieldName fieldName)
+          (Regexp regexText) flags (CacheName cacheName) cache (CacheKey cacheKey)) =
+    object ["regexp" .=
+            object [fieldName .=
+                    object ["value"  .= regexText
+                           , "flags" .= flags]
+                   , "_name"      .= cacheName
+                   , "_cache"     .= cache
+                   , "_cache_key" .= cacheKey]]
+
+instance FromJSON Filter where
+  parseJSON = withObject "Filter" parse
+    where parse o = andFilter `taggedWith` "and"
+                <|> orFilter `taggedWith` "or"
+                <|> notFilter `taggedWith` "not"
+                <|> identityFilter `taggedWith` "match_all"
+                <|> boolFilter `taggedWith` "bool"
+                <|> existsFilter `taggedWith` "exists"
+                <|> geoBoundingBoxFilter `taggedWith` "geo_bounding_box"
+                <|> geoDistanceFilter `taggedWith` "geo_distance"
+                <|> geoDistanceRangeFilter `taggedWith` "geo_distance_range"
+                <|> geoPolygonFilter `taggedWith` "geo_polygon"
+                <|> idsFilter `taggedWith` "ids"
+                <|> limitFilter `taggedWith` "limit"
+                <|> missingFilter `taggedWith` "missing"
+                <|> prefixFilter `taggedWith` "prefix"
+                <|> queryFilter `taggedWith` "query"
+                <|> fqueryFilter `taggedWith` "fquery"
+                <|> rangeFilter `taggedWith` "range"
+                <|> regexpFilter `taggedWith` "regexp"
+                <|> termFilter `taggedWith` "term"
+            where taggedWith parser k = parser =<< o .: k
+          andFilter o = AndFilter <$> o .: "filters"
+                                  <*> o .:? "_cache" .!= defaultCache
+          orFilter o = OrFilter <$> o .: "filters"
+                                <*> o .:? "_cache" .!= defaultCache
+          notFilter o = NotFilter <$> o .: "filter"
+                                  <*> o .: "_cache" .!= defaultCache
+          identityFilter :: Object -> Parser Filter
+          identityFilter m
+            | HM.null m = pure IdentityFilter
+            | otherwise = fail ("Identityfilter expected empty object but got " <> show m)
+          boolFilter = pure . BoolFilter
+          existsFilter o = ExistsFilter <$> o .: "field"
+          geoBoundingBoxFilter = pure . GeoBoundingBoxFilter
+          geoDistanceFilter o = do
+            case HM.toList (deleteSeveral ["distance", "distance_type", "optimize_bbox", "_cache"] o) of
+              [(fn, v)] -> do
+                gp <- GeoPoint (FieldName fn) <$> parseJSON v
+                GeoDistanceFilter gp <$> o .: "distance"
+                                     <*> o .: "distance_type"
+                                     <*> o .: "optimize_bbox"
+                                     <*> o .:? "_cache" .!= defaultCache
+              _ -> fail "Could not find GeoDistanceFilter field name"
+          geoDistanceRangeFilter o = do
+            case HM.toList (deleteSeveral ["from", "to"] o) of
+              [(fn, v)] -> do
+                gp <- GeoPoint (FieldName fn) <$> parseJSON v
+                rng <- DistanceRange <$> o .: "from" <*> o .: "to"
+                return (GeoDistanceRangeFilter gp rng)
+              _ -> fail "Could not find GeoDistanceRangeFilter field name"
+          geoPolygonFilter = fieldTagged $ \fn o -> GeoPolygonFilter fn <$> o .: "points"
+          idsFilter o = IdsFilter <$> o .: "type"
+                                  <*> o .: "values"
+          limitFilter o = LimitFilter <$> o .: "value"
+          missingFilter o = MissingFilter <$> o .: "field"
+                                          <*> o .: "existence"
+                                          <*> o .: "null_value"
+          prefixFilter o = case HM.toList (HM.delete "_cache" o) of
+                             [(fn, String v)] -> PrefixFilter (FieldName fn) v <$> o .:? "_cache" .!= defaultCache
+                             _ -> fail "Could not parse PrefixFilter"
+
+          queryFilter q = pure (QueryFilter q False)
+          fqueryFilter o = QueryFilter <$> o .: "query" <*> pure True
+          rangeFilter o = case HM.toList (deleteSeveral ["execution", "_cache"] o) of
+                            [(fn, v)] -> RangeFilter (FieldName fn)
+                                         <$> parseJSON v
+                                         <*> o .: "execution"
+                                         <*> o .:? "_cache" .!= defaultCache
+                            _ -> fail "Could not find field name for RangeFilter"
+          regexpFilter o = case HM.toList (deleteSeveral ["_name", "_cache", "_cache_key"] o) of
+                              [(fn, Object o')] -> RegexpFilter (FieldName fn)
+                                                   <$> o' .: "value"
+                                                   <*> o' .: "flags"
+                                                   <*> o .: "_name"
+                                                   <*> o .:? "_cache" .!= defaultCache
+                                                   <*> o .: "_cache_key"
+                              _ -> fail "Could not find field name for RegexpFilter"
+          termFilter o = case HM.toList (HM.delete "_cache" o) of
+                         [(termField, String termVal)] -> TermFilter (Term termField termVal)
+                                                          <$> o .:? "_cache" .!= defaultCache
+                         _ -> fail "Could not find term field for TermFilter"
+
 fieldTagged :: Monad m => (FieldName -> Object -> m a) -> Object -> m a
 fieldTagged f o = case HM.toList o of
                     [(k, Object o')] -> f (FieldName k) o'
@@ -2086,12 +2291,19 @@ instance ToJSON Query where
   toJSON (QueryCommonTermsQuery commonTermsQuery) =
     object [ "common" .= commonTermsQuery ]
 
+  toJSON (ConstantScoreFilter csFilter boost) =
+    object ["constant_score" .= object ["filter" .= csFilter
+                                       , "boost" .= boost]]
+
   toJSON (ConstantScoreQuery query boost) =
     object ["constant_score" .= object ["query" .= query
                                        , "boost" .= boost]]
 
   toJSON (QueryDisMaxQuery disMaxQuery) =
     object [ "dis_max" .= disMaxQuery ]
+
+  toJSON (QueryFilteredQuery qFilteredQuery) =
+    object [ "filtered" .= qFilteredQuery ]
 
   toJSON (QueryFuzzyLikeThisQuery fuzzyQuery) =
     object [ "fuzzy_like_this" .= fuzzyQuery ]
@@ -2135,13 +2347,6 @@ instance ToJSON Query where
   toJSON (QuerySimpleQueryStringQuery query) =
     object [ "simple_query_string" .= query ]
 
-  toJSON (QueryExistsQuery (FieldName fieldName)) =
-    object ["exists"  .= object
-             ["field"  .= fieldName]
-           ]
-  toJSON QueryMatchNoneQuery = 
-    object ["match_none" .= object []]
-
 instance FromJSON Query where
   parseJSON v = withObject "Query" parse v
     where parse o = termQuery `taggedWith` "term"
@@ -2153,8 +2358,10 @@ instance FromJSON Query where
                 <|> queryBoolQuery `taggedWith` "bool"
                 <|> queryBoostingQuery `taggedWith` "boosting"
                 <|> queryCommonTermsQuery `taggedWith` "common"
+                <|> constantScoreFilter `taggedWith` "constant_score"
                 <|> constantScoreQuery `taggedWith` "constant_score"
                 <|> queryDisMaxQuery `taggedWith` "dis_max"
+                <|> queryFilteredQuery `taggedWith` "filtered"
                 <|> queryFuzzyLikeThisQuery `taggedWith` "fuzzy_like_this"
                 <|> queryFuzzyLikeFieldQuery `taggedWith` "fuzzy_like_this_field"
                 <|> queryFuzzyQuery `taggedWith` "fuzzy"
@@ -2186,11 +2393,16 @@ instance FromJSON Query where
           queryBoolQuery = pure . QueryBoolQuery
           queryBoostingQuery = pure . QueryBoostingQuery
           queryCommonTermsQuery = pure . QueryCommonTermsQuery
+          constantScoreFilter o = case HM.lookup "filter" o of
+            Just x -> ConstantScoreFilter <$> parseJSON x
+                                          <*> o .: "boost"
+            _ -> fail "Does not appear to be a ConstantScoreFilter"
           constantScoreQuery o = case HM.lookup "query" o of
             Just x -> ConstantScoreQuery <$> parseJSON x
                                          <*> o .: "boost"
             _ -> fail "Does not appear to be a ConstantScoreQuery"
           queryDisMaxQuery = pure . QueryDisMaxQuery
+          queryFilteredQuery = pure . QueryFilteredQuery
           queryFuzzyLikeThisQuery = pure . QueryFuzzyLikeThisQuery
           queryFuzzyLikeFieldQuery = pure . QueryFuzzyLikeFieldQuery
           queryFuzzyQuery = pure . QueryFuzzyQuery
@@ -2205,7 +2417,6 @@ instance FromJSON Query where
           queryRangeQuery = pure . QueryRangeQuery
           queryRegexpQuery = pure . QueryRegexpQuery
           querySimpleQueryStringQuery = pure . QuerySimpleQueryStringQuery
-          queryExistsQuery o = QueryExistsQuery <$> o .: "field"
 
 
 omitNulls :: [(Text, Value)] -> Value
@@ -2213,6 +2424,7 @@ omitNulls = object . filter notNull where
   notNull (_, Null)      = False
   notNull (_, Array a) = (not . V.null) a
   notNull _              = True
+
 
 instance ToJSON SimpleQueryStringQuery where
   toJSON SimpleQueryStringQuery {..} =
@@ -2602,6 +2814,17 @@ instance FromJSON FuzzyLikeThisQuery where
                     <*> o .: "boost"
                     <*> o .:? "analyzer"
 
+instance ToJSON FilteredQuery where
+  toJSON (FilteredQuery query fFilter) =
+    object [ "query"  .= query
+           , "filter" .= fFilter ]
+
+instance FromJSON FilteredQuery where
+  parseJSON = withObject "FilteredQuery" parse
+    where parse o = FilteredQuery
+                    <$> o .: "query"
+                    <*> o .: "filter"
+
 instance ToJSON DisMaxQuery where
   toJSON (DisMaxQuery queries tiebreaker boost) =
     omitNulls base
@@ -2673,10 +2896,9 @@ instance FromJSON BoostingQuery where
                     <*> o .: "negative_boost"
 
 instance ToJSON BoolQuery where
-  toJSON (BoolQuery mustM filterM notM shouldM bqMin boost disableCoord) =
+  toJSON (BoolQuery mustM notM shouldM bqMin boost disableCoord) =
     omitNulls base
     where base = [ "must" .= mustM
-                 , "filter" .= filterM
                  , "must_not" .= notM
                  , "should" .= shouldM
                  , "minimum_should_match" .= bqMin
@@ -2687,7 +2909,6 @@ instance FromJSON BoolQuery where
   parseJSON = withObject "BoolQuery" parse
     where parse o = BoolQuery
                     <$> o .:? "must" .!= []
-                    <*> o .:? "filter" .!= []
                     <*> o .:? "must_not" .!= []
                     <*> o .:? "should" .!= []
                     <*> o .:? "minimum_should_match"
@@ -2802,9 +3023,9 @@ instance FromJSON MatchQueryType where
 
 instance FromJSON Status where
   parseJSON (Object v) = Status <$>
+                         v .:? "ok" <*>
+                         (v .:? "status" .!= 200) <*>
                          v .: "name" <*>
-                         v .: "cluster_name" <*>
-                         v .: "cluster_uuid" <*>
                          v .: "version" <*>
                          v .: "tagline"
   parseJSON _          = empty
@@ -3134,8 +3355,9 @@ instance FromJSON SearchAliasRouting where
     where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
-  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource) =
-    omitNulls [ "query"        .= query'
+  toJSON (Search query sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource) =
+    omitNulls [ "query"        .= query
+              , "filter"       .= sFilter
               , "sort"         .= sort
               , "aggregations" .= searchAggs
               , "highlight"    .= highlight
@@ -3144,15 +3366,12 @@ instance ToJSON Search where
               , "track_scores" .= sTrackSortScores
               , "fields"       .= sFields
               , "_source"      .= sSource]
-    
-    where query' = case sFilter of
-                    Nothing -> mquery
-                    Just x -> Just . QueryBoolQuery $ mkBoolQuery (maybeToList mquery) [x] [] []
+
 
 instance ToJSON Source where
     toJSON NoSource                         = toJSON False
     toJSON (SourcePatterns patterns)        = toJSON patterns
-    toJSON (SourceIncludeExclude incl excl) = object [ "includes" .= incl, "excludes" .= excl ]
+    toJSON (SourceIncludeExclude incl excl) = object [ "include" .= incl, "exclude" .= excl ]
 
 instance ToJSON PatternOrPatterns where
   toJSON (PopPattern pattern)   = toJSON pattern
@@ -3261,7 +3480,7 @@ instance ToJSON SortSpec where
            dsSortMode dsMissingSort dsNestedFilter)) =
     object [dsSortFieldName .= omitNulls base] where
       base = [ "order" .= dsSortOrder
-             , "unmapped_type" .= dsIgnoreUnmapped
+             , "ignore_unmapped" .= dsIgnoreUnmapped
              , "mode" .= dsSortMode
              , "missing" .= dsMissingSort
              , "nested_filter" .= dsNestedFilter ]
@@ -3668,7 +3887,7 @@ data NodeStats = NodeStats {
     , nodeStatsHTTP          :: NodeHTTPStats
     , nodeStatsTransport     :: NodeTransportStats
     , nodeStatsFS            :: NodeFSStats
-    , nodeStatsNetwork       :: Maybe NodeNetworkStats
+    , nodeStatsNetwork       :: NodeNetworkStats
     , nodeStatsThreadPool    :: NodeThreadPoolsStats
     , nodeStatsJVM           :: NodeJVMStats
     , nodeStatsProcess       :: NodeProcessStats
@@ -3721,7 +3940,7 @@ data NodeDataPathStats = NodeDataPathStats {
     , nodeDataPathFree            :: Bytes
     , nodeDataPathTotal           :: Bytes
     , nodeDataPathType            :: Maybe Text
-    , nodeDataPathDevice          :: Maybe Text
+    , nodeDataPathDevice          :: Text
     , nodeDataPathMount           :: Text
     , nodeDataPathPath            :: Text
     } deriving (Eq, Show, Generic, Typeable)
@@ -3760,17 +3979,17 @@ data NodeThreadPoolsStats = NodeThreadPoolsStats {
     , nodeThreadPoolsStatsGet               :: NodeThreadPoolStats
     , nodeThreadPoolsStatsManagement        :: NodeThreadPoolStats
     , nodeThreadPoolsStatsFetchShardStore   :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsOptimize          :: Maybe NodeThreadPoolStats
+    , nodeThreadPoolsStatsOptimize          :: NodeThreadPoolStats
     , nodeThreadPoolsStatsFlush             :: NodeThreadPoolStats
     , nodeThreadPoolsStatsSearch            :: NodeThreadPoolStats
     , nodeThreadPoolsStatsWarmer            :: NodeThreadPoolStats
     , nodeThreadPoolsStatsGeneric           :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsSuggest           :: Maybe NodeThreadPoolStats
+    , nodeThreadPoolsStatsSuggest           :: NodeThreadPoolStats
     , nodeThreadPoolsStatsRefresh           :: NodeThreadPoolStats
     , nodeThreadPoolsStatsIndex             :: NodeThreadPoolStats
     , nodeThreadPoolsStatsListener          :: Maybe NodeThreadPoolStats
     , nodeThreadPoolsStatsFetchShardStarted :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsPercolate         :: Maybe NodeThreadPoolStats
+    , nodeThreadPoolsStatsPercolate         :: NodeThreadPoolStats
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodeThreadPoolStats = NodeThreadPoolStats {
@@ -3821,26 +4040,34 @@ data JVMPoolStats = JVMPoolStats {
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodeProcessStats = NodeProcessStats {
-      nodeProcessTimestamp       :: UTCTime
-    , nodeProcessOpenFDs         :: Int
-    , nodeProcessMaxFDs          :: Int
-    , nodeProcessCPUPercent      :: Int
+      nodeProcessMemTotalVirtual :: Bytes
+    , nodeProcessMemShare        :: Bytes
+    , nodeProcessMemResident     :: Bytes
     , nodeProcessCPUTotal        :: NominalDiffTime
-    , nodeProcessMemTotalVirtual :: Bytes
+    , nodeProcessCPUUser         :: NominalDiffTime
+    , nodeProcessCPUSys          :: NominalDiffTime
+    , nodeProcessCPUPercent      :: Int
+    , nodeProcessOpenFDs         :: Int
+    , nodeProcessTimestamp       :: UTCTime
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodeOSStats = NodeOSStats {
-      nodeOSTimestamp      :: UTCTime
-    , nodeOSCPUPercent     :: Int
-    , nodeOSLoad           :: Maybe LoadAvgs
-    , nodeOSMemTotal       :: Bytes
-    , nodeOSMemFree        :: Bytes
+      nodeOSSwapFree       :: Bytes
+    , nodeOSSwapUsed       :: Bytes
+    , nodeOSMemActualUsed  :: Bytes
+    , nodeOSMemActualFree  :: Bytes
+    , nodeOSMemUsedPercent :: Int
     , nodeOSMemFreePercent :: Int
     , nodeOSMemUsed        :: Bytes
-    , nodeOSMemUsedPercent :: Int
-    , nodeOSSwapTotal      :: Bytes
-    , nodeOSSwapFree       :: Bytes
-    , nodeOSSwapUsed       :: Bytes
+    , nodeOSMemFree        :: Bytes
+    , nodeOSCPUStolen      :: Int
+    , nodeOSCPUUsage       :: Int
+    , nodeOSCPUIdle        :: Int
+    , nodeOSCPUUser        :: Int
+    , nodeOSCPUSys         :: Int
+    , nodeOSLoad           :: Maybe LoadAvgs
+    , nodeOSUptime         :: NominalDiffTime
+    , nodeOSTimestamp      :: UTCTime
     } deriving (Eq, Show, Generic, Typeable)
 
 data LoadAvgs = LoadAvgs {
@@ -3857,9 +4084,9 @@ data NodeIndicesStats = NodeIndicesStats {
     , nodeIndicesStatsQueryCacheHits          :: Maybe Int
     , nodeIndicesStatsQueryCacheEvictions     :: Maybe Int
     , nodeIndicesStatsQueryCacheSize          :: Maybe Bytes
-    , nodeIndicesStatsSuggestCurrent          :: Maybe Int
-    , nodeIndicesStatsSuggestTime             :: Maybe NominalDiffTime
-    , nodeIndicesStatsSuggestTotal            :: Maybe Int
+    , nodeIndicesStatsSuggestCurrent          :: Int
+    , nodeIndicesStatsSuggestTime             :: NominalDiffTime
+    , nodeIndicesStatsSuggestTotal            :: Int
     , nodeIndicesStatsTranslogSize            :: Bytes
     , nodeIndicesStatsTranslogOps             :: Int
     , nodeIndicesStatsSegFixedBitSetMemory    :: Maybe Bytes
@@ -3869,13 +4096,16 @@ data NodeIndicesStats = NodeIndicesStats {
     , nodeIndicesStatsSegMemory               :: Bytes
     , nodeIndicesStatsSegCount                :: Int
     , nodeIndicesStatsCompletionSize          :: Bytes
-    , nodeIndicesStatsPercolateQueries        :: Maybe Int
-    , nodeIndicesStatsPercolateMemory         :: Maybe Bytes
-    , nodeIndicesStatsPercolateCurrent        :: Maybe Int
-    , nodeIndicesStatsPercolateTime           :: Maybe NominalDiffTime
-    , nodeIndicesStatsPercolateTotal          :: Maybe Int
+    , nodeIndicesStatsPercolateQueries        :: Int
+    , nodeIndicesStatsPercolateMemory         :: Bytes
+    , nodeIndicesStatsPercolateCurrent        :: Int
+    , nodeIndicesStatsPercolateTime           :: NominalDiffTime
+    , nodeIndicesStatsPercolateTotal          :: Int
     , nodeIndicesStatsFieldDataEvictions      :: Int
     , nodeIndicesStatsFieldDataMemory         :: Bytes
+    , nodeIndicesStatsIDCacheMemory           :: Bytes
+    , nodeIndicesStatsFilterCacheEvictions    :: Int
+    , nodeIndicesStatsFilterCacheMemory       :: Bytes
     , nodeIndicesStatsWarmerTotalTime         :: NominalDiffTime
     , nodeIndicesStatsWarmerTotal             :: Int
     , nodeIndicesStatsWarmerCurrent           :: Int
@@ -3933,7 +4163,7 @@ newtype PluginName = PluginName { pluginName :: Text }
                  deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
 
 data NodeInfo = NodeInfo {
-      nodeInfoHTTPAddress      :: Maybe EsAddress
+      nodeInfoHTTPAddress      :: EsAddress
     , nodeInfoBuild            :: BuildHash
     , nodeInfoESVersion        :: VersionNumber
     , nodeInfoIP               :: Server
@@ -3944,7 +4174,7 @@ data NodeInfo = NodeInfo {
     , nodeInfoPlugins          :: [NodePluginInfo]
     , nodeInfoHTTP             :: NodeHTTPInfo
     , nodeInfoTransport        :: NodeTransportInfo
-    , nodeInfoNetwork          :: Maybe NodeNetworkInfo
+    , nodeInfoNetwork          :: NodeNetworkInfo
     , nodeInfoThreadPool       :: NodeThreadPoolsInfo
     , nodeInfoJVM              :: NodeJVMInfo
     , nodeInfoProcess          :: NodeProcessInfo
@@ -3955,9 +4185,9 @@ data NodeInfo = NodeInfo {
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodePluginInfo = NodePluginInfo {
-      nodePluginSite        :: Maybe Bool
+      nodePluginSite        :: Bool
     -- ^ Is this a site plugin?
-    , nodePluginJVM         :: Maybe Bool
+    , nodePluginJVM         :: Bool
     -- ^ Is this plugin running on the JVM
     , nodePluginDescription :: Text
     , nodePluginVersion     :: MaybeNA VersionNumber
@@ -3976,7 +4206,7 @@ data NodeTransportInfo = NodeTransportInfo {
 
 data BoundTransportAddress = BoundTransportAddress {
       publishAddress :: EsAddress
-    , boundAddress   :: [EsAddress]
+    , boundAddress   :: EsAddress
     } deriving (Eq, Show, Generic, Typeable)
 
 data NodeNetworkInfo = NodeNetworkInfo {
@@ -3999,15 +4229,15 @@ data NodeNetworkInterface = NodeNetworkInterface {
 data NodeThreadPoolsInfo = NodeThreadPoolsInfo {
       nodeThreadPoolsRefresh           :: NodeThreadPoolInfo
     , nodeThreadPoolsManagement        :: NodeThreadPoolInfo
-    , nodeThreadPoolsPercolate         :: Maybe NodeThreadPoolInfo
+    , nodeThreadPoolsPercolate         :: NodeThreadPoolInfo
     , nodeThreadPoolsListener          :: Maybe NodeThreadPoolInfo
     , nodeThreadPoolsFetchShardStarted :: Maybe NodeThreadPoolInfo
     , nodeThreadPoolsSearch            :: NodeThreadPoolInfo
     , nodeThreadPoolsFlush             :: NodeThreadPoolInfo
     , nodeThreadPoolsWarmer            :: NodeThreadPoolInfo
-    , nodeThreadPoolsOptimize          :: Maybe NodeThreadPoolInfo
+    , nodeThreadPoolsOptimize          :: NodeThreadPoolInfo
     , nodeThreadPoolsBulk              :: NodeThreadPoolInfo
-    , nodeThreadPoolsSuggest           :: Maybe NodeThreadPoolInfo
+    , nodeThreadPoolsSuggest           :: NodeThreadPoolInfo
     , nodeThreadPoolsMerge             :: NodeThreadPoolInfo
     , nodeThreadPoolsSnapshot          :: NodeThreadPoolInfo
     , nodeThreadPoolsGet               :: NodeThreadPoolInfo
@@ -4070,12 +4300,11 @@ newtype PID = PID {
     } deriving (Eq, Show, Generic, Typeable, FromJSON)
 
 data NodeOSInfo = NodeOSInfo {
-      nodeOSRefreshInterval     :: NominalDiffTime
-    , nodeOSName                :: Text
-    , nodeOSArch                :: Text
-    , nodeOSVersion             :: VersionNumber
+      nodeOSSwap                :: Bytes
+    , nodeOSMem                 :: Bytes
+    , nodeOSCPUInfo             :: CPUInfo
     , nodeOSAvailableProcessors :: Int
-    , nodeOSAllocatedProcessors :: Int
+    , nodeOSRefreshInterval     :: NominalDiffTime
     } deriving (Eq, Show, Generic, Typeable)
 
 data CPUInfo = CPUInfo {
@@ -4091,7 +4320,7 @@ data CPUInfo = CPUInfo {
 data NodeProcessInfo = NodeProcessInfo {
       nodeProcessMLockAll           :: Bool
     -- ^ See <https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.html>
-    , nodeProcessMaxFileDescriptors :: Maybe Int
+    , nodeProcessMaxFileDescriptors :: Int
     , nodeProcessId                 :: PID
     , nodeProcessRefreshInterval    :: NominalDiffTime
     } deriving (Eq, Show, Generic, Typeable)
@@ -4496,7 +4725,7 @@ instance FromJSON NodeDataPathStats where
                           <*> o .: "free_in_bytes"
                           <*> o .: "total_in_bytes"
                           <*> o .:? "type"
-                          <*> o .:? "dev"
+                          <*> o .: "dev"
                           <*> o .: "mount"
                           <*> o .: "path"
 
@@ -4543,21 +4772,21 @@ instance FromJSON NodeThreadPoolsStats where
     where
       parse o = NodeThreadPoolsStats <$> o .: "snapshot"
                                      <*> o .: "bulk"
-                                     <*> o .: "force_merge"
+                                     <*> o .: "merge"
                                      <*> o .: "get"
                                      <*> o .: "management"
                                      <*> o .:? "fetch_shard_store"
-                                     <*> o .:? "optimize"
+                                     <*> o .: "optimize"
                                      <*> o .: "flush"
                                      <*> o .: "search"
                                      <*> o .: "warmer"
                                      <*> o .: "generic"
-                                     <*> o .:? "suggest"
+                                     <*> o .: "suggest"
                                      <*> o .: "refresh"
                                      <*> o .: "index"
                                      <*> o .:? "listener"
                                      <*> o .:? "fetch_shard_started"
-                                     <*> o .:? "percolate"
+                                     <*> o .: "percolate"
 instance FromJSON NodeThreadPoolStats where
     parseJSON = withObject "NodeThreadPoolStats" parse
       where
@@ -4630,12 +4859,15 @@ instance FromJSON NodeProcessStats where
       parse o = do
         mem <- o .: "mem"
         cpu <- o .: "cpu"
-        NodeProcessStats <$> (posixMS <$> o .: "timestamp")
-                         <*> o .: "open_file_descriptors"
-                         <*> o .: "max_file_descriptors"
+        NodeProcessStats <$> mem .: "total_virtual_in_bytes"
+                         <*> mem .: "share_in_bytes"
+                         <*> mem .: "resident_in_bytes"
+                         <*> (unMS <$> cpu .: "total_in_millis")
+                         <*> (unMS <$> cpu .: "user_in_millis")
+                         <*> (unMS <$> cpu .: "sys_in_millis")
                          <*> cpu .: "percent"
-                         <*> (unMS <$> cpu .: "total_in_millis")                         
-                         <*> mem .: "total_virtual_in_bytes"
+                         <*> o .: "open_file_descriptors"
+                         <*> (posixMS <$> o .: "timestamp")
 
 instance FromJSON NodeOSStats where
   parseJSON = withObject "NodeOSStats" parse
@@ -4645,17 +4877,22 @@ instance FromJSON NodeOSStats where
         mem <- o .: "mem"
         cpu <- o .: "cpu"
         load <- o .:? "load_average"
-        NodeOSStats <$> (posixMS <$> o .: "timestamp")
-                    <*> cpu .: "percent"
-                    <*> pure load
-                    <*> mem .: "total_in_bytes"
-                    <*> mem .: "free_in_bytes"
+        NodeOSStats <$> swap .: "free_in_bytes"
+                    <*> swap .: "used_in_bytes"
+                    <*> mem .: "actual_used_in_bytes"
+                    <*> mem .: "actual_free_in_bytes"
+                    <*> mem .: "used_percent"
                     <*> mem .: "free_percent"
                     <*> mem .: "used_in_bytes"
-                    <*> mem .: "used_percent"
-                    <*> swap .: "total_in_bytes"
-                    <*> swap .: "free_in_bytes"
-                    <*> swap .: "used_in_bytes"
+                    <*> mem .: "free_in_bytes"
+                    <*> cpu .: "stolen"
+                    <*> cpu .: "usage"
+                    <*> cpu .: "idle"
+                    <*> cpu .: "user"
+                    <*> cpu .: "sys"
+                    <*> pure load
+                    <*> (unMS <$> o .: "uptime_in_millis")
+                    <*> (posixMS <$> o .: "timestamp")
 
 instance FromJSON LoadAvgs where
   parseJSON = withArray "LoadAvgs" parse
@@ -4675,12 +4912,14 @@ instance FromJSON NodeIndicesStats where
               Nothing -> pure Nothing
         mRecovery <- o .:? "recovery"
         mQueryCache <- o .:? "query_cache"
-        mSuggest <- o .:? "suggest"
+        suggest <- o .: "suggest"
         translog <- o .: "translog"
         segments <- o .: "segments"
         completion <- o .: "completion"
-        mPercolate <- o .:? "percolate"
+        percolate <- o .: "percolate"
         fielddata <- o .: "fielddata"
+        idCache <- o .: "id_cache"
+        filterCache <- o .: "filter_cache"
         warmer <- o .: "warmer"
         flush <- o .: "flush"
         refresh <- o .: "refresh"
@@ -4697,9 +4936,9 @@ instance FromJSON NodeIndicesStats where
                          <*> mQueryCache .:: "hit_count"
                          <*> mQueryCache .:: "evictions"
                          <*> mQueryCache .:: "memory_size_in_bytes"
-                         <*> mSuggest .:: "current"
-                         <*> (fmap unMS <$> mSuggest .:: "time_in_millis")
-                         <*> mSuggest .:: "total"
+                         <*> suggest .: "current"
+                         <*> (unMS <$> suggest .: "time_in_millis")
+                         <*> suggest .: "total"
                          <*> translog .: "size_in_bytes"
                          <*> translog .: "operations"
                          <*> segments .:? "fixed_bit_set_memory_in_bytes"
@@ -4709,13 +4948,16 @@ instance FromJSON NodeIndicesStats where
                          <*> segments .: "memory_in_bytes"
                          <*> segments .: "count"
                          <*> completion .: "size_in_bytes"
-                         <*> mPercolate .:: "queries"
-                         <*> mPercolate .:: "memory_size_in_bytes"
-                         <*> mPercolate .:: "current"
-                         <*> (fmap unMS <$> mPercolate .:: "time_in_millis")
-                         <*> mPercolate .:: "total"
+                         <*> percolate .: "queries"
+                         <*> percolate .: "memory_size_in_bytes"
+                         <*> percolate .: "current"
+                         <*> (unMS <$> percolate .: "time_in_millis")
+                         <*> percolate .: "total"
                          <*> fielddata .: "evictions"
                          <*> fielddata .: "memory_size_in_bytes"
+                         <*> idCache .: "memory_size_in_bytes"
+                         <*> filterCache .: "evictions"
+                         <*> filterCache .: "memory_size_in_bytes"
                          <*> (unMS <$> warmer .: "total_time_in_millis")
                          <*> warmer .: "total"
                          <*> warmer .: "current"
@@ -4773,7 +5015,7 @@ parseNodeStats fnid o = do
             <*> o .: "http"
             <*> o .: "transport"
             <*> o .: "fs"
-            <*> o .:? "network"
+            <*> o .: "network"
             <*> o .: "thread_pool"
             <*> o .: "jvm"
             <*> o .: "process"
@@ -4782,8 +5024,8 @@ parseNodeStats fnid o = do
 
 parseNodeInfo :: FullNodeId -> Object -> Parser NodeInfo
 parseNodeInfo nid o =
-  NodeInfo <$> o .:? "http_address"
-           <*> o .: "build_hash"
+  NodeInfo <$> o .: "http_address"
+           <*> o .: "build"
            <*> o .: "version"
            <*> o .: "ip"
            <*> o .: "host"
@@ -4793,7 +5035,7 @@ parseNodeInfo nid o =
            <*> o .: "plugins"
            <*> o .: "http"
            <*> o .: "transport"
-           <*> o .:? "network"
+           <*> o .: "network"
            <*> o .: "thread_pool"
            <*> o .: "jvm"
            <*> o .: "process"
@@ -4803,11 +5045,11 @@ parseNodeInfo nid o =
 instance FromJSON NodePluginInfo where
   parseJSON = withObject "NodePluginInfo" parse
     where
-      parse o = NodePluginInfo <$> o .:?  "site"
-                               <*> o .:?  "jvm"
-                               <*> o .:   "description"
-                               <*> o .:   "version"
-                               <*> o .:   "name"
+      parse o = NodePluginInfo <$> o .:  "site"
+                               <*> o .:  "jvm"
+                               <*> o .:  "description"
+                               <*> o .: "version"
+                               <*> o .:  "name"
 
 instance FromJSON NodeHTTPInfo where
   parseJSON = withObject "NodeHTTPInfo" parse
@@ -4825,12 +5067,13 @@ instance FromJSON NodeOSInfo where
   parseJSON = withObject "NodeOSInfo" parse
     where
       parse o = do
-        NodeOSInfo <$> (unMS <$> o .: "refresh_interval_in_millis")
-                   <*> o .: "name"
-                   <*> o .: "arch"
-                   <*> o .: "version"
+        swap <- o .: "swap"
+        mem <- o .: "mem"
+        NodeOSInfo <$> swap .: "total_in_bytes"
+                   <*> mem .: "total_in_bytes"
+                   <*> o .: "cpu"
                    <*> o .: "available_processors"
-                   <*> o .: "allocated_processors"
+                   <*> (unMS <$> o .: "refresh_interval_in_millis")
 
 
 instance FromJSON CPUInfo where
@@ -4848,7 +5091,7 @@ instance FromJSON NodeProcessInfo where
   parseJSON = withObject "NodeProcessInfo" parse
     where
       parse o = NodeProcessInfo <$> o .: "mlockall"
-                                <*> o .:? "max_file_descriptors"
+                                <*> o .: "max_file_descriptors"
                                 <*> o .: "id"
                                 <*> (unMS <$> o .: "refresh_interval_in_millis")
 
@@ -4884,16 +5127,16 @@ instance FromJSON NodeThreadPoolsInfo where
     where
       parse o = NodeThreadPoolsInfo <$> o .: "refresh"
                                     <*> o .: "management"
-                                    <*> o .:? "percolate"
+                                    <*> o .: "percolate"
                                     <*> o .:? "listener"
                                     <*> o .:? "fetch_shard_started"
                                     <*> o .: "search"
                                     <*> o .: "flush"
                                     <*> o .: "warmer"
-                                    <*> o .:? "optimize"
+                                    <*> o .: "optimize"
                                     <*> o .: "bulk"
-                                    <*> o .:? "suggest"
-                                    <*> o .: "force_merge"
+                                    <*> o .: "suggest"
+                                    <*> o .: "merge"
                                     <*> o .: "snapshot"
                                     <*> o .: "get"
                                     <*> o .:? "fetch_shard_store"
