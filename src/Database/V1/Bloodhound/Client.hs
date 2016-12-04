@@ -126,7 +126,7 @@ import           Database.V1.Bloodhound.Types
 -- $setup
 -- >>> :set -XOverloadedStrings
 -- >>> :set -XDeriveGeneric
--- >>> import Database.Bloodhound
+-- >>> import Database.V1.Bloodhound
 -- >>> let testServer = (Server "http://localhost:9200")
 -- >>> let runBH' = withBH defaultManagerSettings testServer
 -- >>> let testIndex = IndexName "twitter"
