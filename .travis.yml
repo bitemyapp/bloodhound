@@ -5,6 +5,7 @@ addons:
     packages:
       - libgmp-dev
       - oracle-java8-installer
+      - oracle-java8-set-default
 
 env:
  # - GHCVER=7.6.3  ESVER=1.6.0 # Deprecated
