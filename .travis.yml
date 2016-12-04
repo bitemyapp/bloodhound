@@ -4,7 +4,7 @@ addons:
   apt:
     packages:
       - libgmp-dev
-      - openjdk-8-jre
+      - oracle-java8-installer
 
 env:
  # - GHCVER=7.6.3  ESVER=1.6.0 # Deprecated
