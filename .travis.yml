@@ -6,7 +6,7 @@ addons:
       - libgmp-dev
       - oracle-java8-installer
 
-#env:
+env:
  global:
   - JAVA_HOME=/usr/lib/jvm/java-8-oracle
  matrix:
