@@ -36,7 +36,7 @@ install:
 script:
   - stack setup
   - stack update
-  - stack build
+  - stack build -j1
   - stack test --flag bloodhound:$ESFLAG
 
 cache:
