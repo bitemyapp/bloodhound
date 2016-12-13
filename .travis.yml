@@ -32,7 +32,6 @@ install:
   # set up a repo for snapshot testing. Required in ES >= 1.6
   - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVER/elasticsearch.yml
   - ./elasticsearch-$ESVER/bin/elasticsearch &
-  - sysctl -w vm.max_map_count=262144
 
 script:
   - stack setup
