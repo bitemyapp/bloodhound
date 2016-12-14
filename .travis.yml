@@ -16,7 +16,7 @@ env:
    # - GHCVER=7.10 ESVER=1.6.0 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    # - GHCVER=7.10 ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    # - GHCVER=8.0  ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   - GHCVER=8.0  ESVER=5.0.2 ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch
+   - GHCVER=8.0  ESVER=5.0.2 ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_HEAP_SIZE=750M
 
 install:
   # stack
@@ -31,6 +31,7 @@ install:
   - tar xzf elasticsearch-$ESVER.tar.gz
   # set up a repo for snapshot testing. Required in ES >= 1.6
   - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVER/elasticsearch.yml
+  - echo $ES_HEAP_SIZE
   - ./elasticsearch-$ESVER/bin/elasticsearch &
 
 script:
