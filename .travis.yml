@@ -16,7 +16,7 @@ env:
    # - GHCVER=7.10 ESVER=1.6.0 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    # - GHCVER=7.10 ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    # - GHCVER=8.0  ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   - GHCVER=8.0  ESVER=5.0.2 ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_HEAP_SIZE=750M
+   - GHCVER=8.0  ESVER=5.0.2 ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch JAVA_OPTS="-Xmx256m":$JAVA_OPTS
 
 install:
   # stack
