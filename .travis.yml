@@ -10,12 +10,12 @@ env:
  global:
   - JAVA_HOME=/usr/lib/jvm/java-8-oracle
  matrix:
-   # - GHCVER=7.8  ESVER=1.3.6 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   # - GHCVER=7.8  ESVER=1.4.1 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   # - GHCVER=7.10 ESVER=1.5.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   # - GHCVER=7.10 ESVER=1.6.0 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   # - GHCVER=7.10 ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   # - GHCVER=8.0  ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=7.8  ESVER=1.3.6 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=7.8  ESVER=1.4.1 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=7.10 ESVER=1.5.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=7.10 ESVER=1.6.0 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=7.10 ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=8.0  ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    - GHCVER=8.0  ESVER=5.0.2 ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
 
 install:
