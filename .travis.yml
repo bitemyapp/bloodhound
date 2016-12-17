@@ -37,7 +37,8 @@ script:
   - stack setup
   - stack update
   - stack build
-  - stack test
+  - stack test bloodhound:doctests
+  - stack test bloodhound:tests --test-arguments="--qc-max-successes 2000"
 
 cache:
   directories:
