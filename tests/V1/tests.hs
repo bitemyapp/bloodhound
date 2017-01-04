@@ -872,7 +872,14 @@ instance Arbitrary LessThan where arbitrary = sopArbitrary; shrink = genericShri
 instance Arbitrary LessThanEq where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary GreaterThan where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary GreaterThanEq where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GeoPoint where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary GeoPoint where
+  arbitrary = GeoPoint <$> (arbitrary `suchThat` reasonableFieldName) <*> arbitrary
+    where
+      -- These are problematic for geopoint for obvious reasons
+      reasonableFieldName (FieldName "from") = False
+      reasonableFieldName (FieldName "to") = False
+      reasonableFieldName _ = True
+  shrink = genericShrink
 instance Arbitrary NullValue where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary MinimumMatchHighLow where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary CommonMinimumMatch where arbitrary = sopArbitrary; shrink = genericShrink
