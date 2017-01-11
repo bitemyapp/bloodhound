@@ -586,7 +586,7 @@ instance ApproxEq Vers.Version where
   (=~) = (==)
 instance (ApproxEq a, Show a) => ApproxEq [a] where
   as =~ bs = and (zipWith (=~) as bs)
-instance (ApproxEq l, Show l, ApproxEq r, Show r) => ApproxEq (Either l r) where
+instance (ApproxEq l, ApproxEq r) => ApproxEq (Either l r) where
   Left a =~ Left b = a =~ b
   Right a =~ Right b = a =~ b
   _ =~ _ = False
@@ -643,7 +643,7 @@ instance Arbitrary a => Arbitrary (NonEmpty a) where
 arbitraryScore :: Gen Score
 arbitraryScore = fmap getPositive <$> arbitrary
 
-instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
+instance (Arbitrary a) => Arbitrary (Hit a) where
   arbitrary = Hit <$> arbitrary
                   <*> arbitrary
                   <*> arbitrary
@@ -653,7 +653,7 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
   shrink = genericShrink
 
 
-instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
+instance (Arbitrary a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
     tot <- getPositive <$> arbitrary
     score <- arbitraryScore
