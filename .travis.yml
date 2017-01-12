@@ -16,14 +16,14 @@ env:
    - GHCVER=7.10 ESVER=1.6.0 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    - GHCVER=7.10 ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    - GHCVER=8.0  ESVER=1.7.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   - GHCVER=8.0  ESVER=2.4.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.2/elasticsearch
-   - GHCVER=8.0  ESVER=2.4.2 ESFLAG=ES5 DLINK=https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.2/elasticsearch
+   # - GHCVER=8.0  ESVER=2.4.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.2/elasticsearch
+   # - GHCVER=8.0  ESVER=2.4.2 ESFLAG=ES5 DLINK=https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.2/elasticsearch
    - GHCVER=8.0  ESVER=5.0.2 ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
 
-matrix:
-  allow_failures:
-    - env: GHCVER=8.0 ESVER=2.4.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.2/elasticsearch
-    - env: GHCVER=8.0 ESVER=2.4.2 ESFLAG=ES5 DLINK=https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.2/elasticsearch
+# matrix:
+#   allow_failures:
+#     - env: GHCVER=8.0 ESVER=2.4.2 ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.2/elasticsearch
+#     - env: GHCVER=8.0 ESVER=2.4.2 ESFLAG=ES5 DLINK=https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.2/elasticsearch
 
 install:
   # stack
