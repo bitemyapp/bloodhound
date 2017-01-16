@@ -1,3 +1,10 @@
+0.12.1.0
+===================
+* @michaelxavier
+  - #162 Allow Aeson 1.1
+* @bermanjosh
+  - #159 Fix bug with tie breaker json instance for MultiMatchQuery
+
 0.12.0.0
 ===================
 This release contains several new APIs, documentation fixes, and some minor type updates, and steps towards ES 2.0 support. Thanks to all of our contributors!

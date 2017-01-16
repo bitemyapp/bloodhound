@@ -586,7 +586,7 @@ instance ApproxEq Vers.Version where
   (=~) = (==)
 instance (ApproxEq a, Show a) => ApproxEq [a] where
   as =~ bs = and (zipWith (=~) as bs)
-instance (ApproxEq l, Show l, ApproxEq r, Show r) => ApproxEq (Either l r) where
+instance (ApproxEq l, ApproxEq r) => ApproxEq (Either l r) where
   Left a =~ Left b = a =~ b
   Right a =~ Right b = a =~ b
   _ =~ _ = False

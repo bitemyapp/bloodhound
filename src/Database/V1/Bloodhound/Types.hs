@@ -2012,7 +2012,7 @@ instance BucketAggregation DateRangeResult where
   docCount = dateRangeDocCount
   aggs = dateRangeAggs
 
-instance (FromJSON a, BucketAggregation a) => FromJSON (Bucket a) where
+instance (FromJSON a) => FromJSON (Bucket a) where
   parseJSON (Object v) = Bucket <$>
                          v .: "buckets"
   parseJSON _ = mempty
