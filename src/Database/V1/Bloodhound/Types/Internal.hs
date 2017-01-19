@@ -15,7 +15,7 @@
 -- Internal data types for Bloodhound. These types may change without
 -- notice so import at your own risk.
 -------------------------------------------------------------------------------
-module Database.Bloodhound.Types.Internal
+module Database.V1.Bloodhound.Types.Internal
     ( BHEnv(..)
     , Server(..)
     , MonadBH(..)

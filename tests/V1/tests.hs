@@ -40,7 +40,7 @@ import           Data.Time.Clock                 (NominalDiffTime, UTCTime (..),
 import           Data.Typeable
 import qualified Data.Vector                     as V
 import qualified Data.Version                    as Vers
-import           Database.Bloodhound
+import           Database.V1.Bloodhound
 import           GHC.Generics                    as G
 import           Network.HTTP.Client             hiding (Proxy)
 import qualified Network.HTTP.Types.Method       as NHTM
@@ -48,7 +48,7 @@ import qualified Network.HTTP.Types.Status       as NHTS
 import qualified Network.URI                     as URI
 import           Prelude                         hiding (filter)
 import           System.IO.Temp
-import           System.Posix.Files
+import           System.PosixCompat.Files
 import           Test.Hspec
 import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 
@@ -1310,7 +1310,7 @@ main = hspec $ do
       _ <- insertData
       let cardinality = CardinalityAgg $ mkCardinalityAggregation $ FieldName "user"
       let search = mkAggregateSearch Nothing $ mkAggregations "users" cardinality
-      let search' = search { Database.Bloodhound.from = From 0, size = Size 0 }
+      let search' = search { Database.V1.Bloodhound.from = From 0, size = Size 0 }
       searchExpectAggs search'
       let docCountPair k n = (k, object ["value" .= Number n])
       res <- searchTweets search'
