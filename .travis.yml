@@ -45,7 +45,7 @@ script:
   - stack update
   - stack build -j1
   - stack test bloodhound:doctests --flag bloodhound:$ESFLAG
-  - stack test bloodhound:tests --test-arguments="--qc-max-success 2000" --flag bloodhound:$ESFLAG
+  - stack test bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:$ESFLAG
 
 cache:
   directories:
