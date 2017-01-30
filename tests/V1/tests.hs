@@ -1314,8 +1314,9 @@ main = hspec $ do
       reply <- searchByIndex testIndex search
       let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
           usersAggResults = result >>= aggregations >>= toTerms "users"
-          subAddResultsExists = maybe (Left False) Right $ ((isJust . termsAggs . head . buckets) <$> usersAggResults)
-      liftIO $ (subAddResultsExists) `shouldBe` Right True
+          subAggResults = usersAggResults >>= (listToMaybe . buckets) >>= termsAggs >>= toTerms "age_agg"
+          subAddResultsExists = isJust subAggResults
+      liftIO $ (subAddResultsExists) `shouldBe` True
 
     it "returns cardinality aggregation results" $ withTestEnv $ do
       _ <- insertData
