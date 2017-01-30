@@ -1121,6 +1121,18 @@ main = hspec $ do
       searchExpectAggs search
       searchValidBucketAgg search "users" toTerms
 
+    it "return sub-aggregation results" $ withTestEnv $ do
+      _ <- insertData
+      let subaggs = mkAggregations "age_agg" . TermsAgg $ mkTermsAggregation "age"
+          agg = TermsAgg $ (mkTermsAggregation "user") { termAggs = Just subaggs}
+          search = mkAggregateSearch Nothing $ mkAggregations "users" agg
+      reply <- searchByIndex testIndex search
+      let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
+          usersAggResults = result >>= aggregations >>= toTerms "users"
+          subAggResults = usersAggResults >>= (listToMaybe . buckets) >>= termsAggs >>= toTerms "age_agg"
+          subAddResultsExists = isJust subAggResults
+      liftIO $ (subAddResultsExists) `shouldBe` True
+
     it "returns cardinality aggregation results" $ withTestEnv $ do
       _ <- insertData
       let cardinality = CardinalityAgg $ mkCardinalityAggregation $ FieldName "user"

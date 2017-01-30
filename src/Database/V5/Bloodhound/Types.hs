@@ -51,6 +51,7 @@ module Database.V5.Bloodhound.Types
        , toMissing
        , toTerms
        , toDateHistogram
+       , toTopHits
        , omitNulls
        , BH(..)
        , runBH
@@ -339,6 +340,7 @@ module Database.V5.Bloodhound.Types
        , DateMathAnchor(..)
        , DateMathModifier(..)
        , DateMathUnit(..)
+       , TopHitsAggregation(..)
 
        , Highlights(..)
        , FieldHighlight(..)
@@ -356,6 +358,7 @@ module Database.V5.Bloodhound.Types
        , TermsResult(..)
        , DateHistogramResult(..)
        , DateRangeResult(..)
+       , TopHitResult(..)
 
        , EsUsername(..)
        , EsPassword(..)
@@ -1705,7 +1708,15 @@ data Aggregation = TermsAgg TermsAggregation
                  | ValueCountAgg ValueCountAggregation
                  | FilterAgg FilterAggregation
                  | DateRangeAgg DateRangeAggregation
-                 | MissingAgg MissingAggregation deriving (Eq, Read, Show, Generic, Typeable)
+                 | MissingAgg MissingAggregation 
+                 | TopHitsAgg TopHitsAggregation 
+  deriving (Eq, Read, Show, Generic, Typeable)
+
+data TopHitsAggregation = TopHitsAggregation
+  { taFrom :: Maybe From
+  , taSize :: Maybe Size
+  , taSort :: Maybe Sort
+  } deriving (Eq, Read, Show)
 
 data MissingAggregation = MissingAggregation
   { maField :: Text
@@ -1905,6 +1916,13 @@ instance ToJSON Aggregation where
   toJSON (MissingAgg (MissingAggregation{..})) =
     object ["missing" .= object ["field" .= maField]]
 
+  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort)) = 
+    omitNulls ["top_hits" .= omitNulls [ "size" .= msize
+                                       , "from" .= mfrom
+                                       , "sort" .= msort
+                                       ]
+              ]
+
 instance ToJSON DateRangeAggregation where
   toJSON DateRangeAggregation {..} =
     omitNulls [ "field" .= draField
@@ -1949,6 +1967,9 @@ data BucketValue = TextValue Text
 
 data MissingResult = MissingResult { missingDocCount :: Int } deriving (Show)
 
+data TopHitResult a = TopHitResult { tarHits :: (SearchHits a)
+                                   } deriving Show
+
 data TermsResult = TermsResult { termKey       :: BucketValue
                                , termsDocCount :: Int
                                , termsAggs     :: Maybe AggregationResults } deriving (Read, Show)
@@ -1974,6 +1995,9 @@ toDateHistogram = toAggResult
 
 toMissing :: Text -> AggregationResults -> Maybe MissingResult
 toMissing = toAggResult
+
+toTopHits :: (FromJSON a) => Text -> AggregationResults -> Maybe (TopHitResult a)
+toTopHits = toAggResult
 
 toAggResult :: (FromJSON a) => Text -> AggregationResults -> Maybe a
 toAggResult t a = M.lookup t a >>= deserialize
@@ -2010,10 +2034,10 @@ instance FromJSON MissingResult where
     where parse v = MissingResult <$> v .: "doc_count"
 
 instance FromJSON TermsResult where
-  parseJSON (Object v) = TermsResult <$>
+  parseJSON (Object v) = TermsResult        <$>
                          v .:   "key"       <*>
                          v .:   "doc_count" <*>
-                         v .:?  "aggregations"
+                         (pure $ getNamedSubAgg v ["key", "doc_count"])
   parseJSON _ = mempty
 
 instance FromJSON DateHistogramResult where
@@ -2021,7 +2045,11 @@ instance FromJSON DateHistogramResult where
                          v .:  "key"           <*>
                          v .:? "key_as_string" <*>
                          v .:  "doc_count"     <*>
-                         v .:? "aggregations"
+                         (pure $ getNamedSubAgg v [ "key"
+                                                  , "doc_count"
+                                                  , "key_as_string"
+                                                  ]
+                         )
   parseJSON _ = mempty
 
 instance FromJSON DateRangeResult where
@@ -2033,17 +2061,38 @@ instance FromJSON DateRangeResult where
                     (fmap posixMS <$> v .:? "to")   <*>
                     v .:? "to_as_string"            <*>
                     v .:  "doc_count"               <*>
-                    v .:? "aggregations"
+                    (pure $ getNamedSubAgg v [ "key"
+                                             , "from"
+                                             , "from_as_string"
+                                             , "to"
+                                             , "to_as_string"
+                                             , "doc_count"
+                                             ]
+                    )
 
 instance FromJSON POSIXMS where
   parseJSON = withScientific "POSIXMS" (return . parse)
     where parse n = let n' = truncate n :: Integer
                     in POSIXMS (posixSecondsToUTCTime (fromInteger (n' `div` 1000)))
 
+instance (FromJSON a) => FromJSON (TopHitResult a) where
+  parseJSON (Object v) = TopHitResult <$>
+                         v .: "hits"
+  parseJSON _          = fail "Failure in FromJSON (TopHitResult a)"
+
 fieldTagged :: Monad m => (FieldName -> Object -> m a) -> Object -> m a
 fieldTagged f o = case HM.toList o of
                     [(k, Object o')] -> f (FieldName k) o'
                     _ -> fail "Expected object with 1 field-named key"
+
+-- Try to get an AggregationResults when we don't know the
+-- field name. We filter out the known keys to try to minimize the noise. 
+getNamedSubAgg :: Object -> [Text] -> Maybe AggregationResults
+getNamedSubAgg o knownKeys = maggRes
+  where unknownKeys = HM.filterWithKey (\k _ -> k `notElem` knownKeys) o
+        maggRes 
+          | HM.null unknownKeys = Nothing
+          | otherwise           = Just . M.fromList $ HM.toList unknownKeys
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
