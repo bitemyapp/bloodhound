@@ -3,4 +3,5 @@ packages:
 - '.'
 extra-deps:
 - quickcheck-properties-0.1
+- vector-0.12.0.0
 resolver: nightly-2017-01-30

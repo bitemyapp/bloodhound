@@ -29,7 +29,7 @@ Flag ES5
   Default:     False
 
 library
-  ghc-options: -Wall
+  ghc-options:         -Wall
   exposed-modules:     Database.V1.Bloodhound
                        Database.V1.Bloodhound.Client
                        Database.V1.Bloodhound.Types
@@ -53,7 +53,7 @@ library
                        mtl              >= 1.0     && <2.3,
                        transformers     >= 0.2     && <0.6,
                        http-types       >= 0.8     && <0.10,
-                       vector           >= 0.10.9  && <0.12,
+                       vector           >= 0.10.9  && <0.13,
                        scientific       >= 0.3.0.0 && <0.4.0.0,
                        exceptions,
                        data-default-class,
