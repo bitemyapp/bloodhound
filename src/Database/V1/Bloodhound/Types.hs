@@ -365,40 +365,44 @@ module Database.V1.Bloodhound.Types
        , EsPassword(..)
          ) where
 
-import           Control.Applicative                as A
-import           Control.Arrow                      (first)
+import           Control.Applicative                   as A
+import           Control.Arrow                         (first)
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
-import           Control.Monad.Writer
+import           Control.Monad.Writer                  (MonadWriter)
 import           Data.Aeson
-import           Data.Aeson.Types                   (Pair, Parser, emptyObject,
-                                                     parseEither, parseMaybe)
-import qualified Data.ByteString.Lazy.Char8         as L
+import           Data.Aeson.Types                      (Pair, Parser,
+                                                        emptyObject,
+                                                        parseEither, parseMaybe)
+import qualified Data.ByteString.Lazy.Char8            as L
 import           Data.Char
-import           Data.Hashable                      (Hashable)
-import qualified Data.HashMap.Strict                as HM
-import           Data.List                          (foldl', intercalate, nub)
-import           Data.List.NonEmpty                 (NonEmpty (..), toList)
-import qualified Data.Map.Strict                    as M
+import           Data.Hashable                         (Hashable)
+import qualified Data.HashMap.Strict                   as HM
+import           Data.List                             (foldl', intercalate,
+                                                        nub)
+import           Data.List.NonEmpty                    (NonEmpty (..), toList)
+import qualified Data.Map.Strict                       as M
 import           Data.Maybe
-import           Data.Scientific                    (Scientific)
-import           Data.Text                          (Text)
-import qualified Data.Text                          as T
+import           Data.Scientific                       (Scientific)
+import           Data.Semigroup
+import           Data.Text                             (Text)
+import qualified Data.Text                             as T
 import           Data.Time.Calendar
-import           Data.Time.Clock                    (NominalDiffTime, UTCTime)
+import           Data.Time.Clock                       (NominalDiffTime,
+                                                        UTCTime)
 import           Data.Time.Clock.POSIX
-import qualified Data.Traversable                   as DT
-import           Data.Typeable                      (Typeable)
-import qualified Data.Vector                        as V
-import qualified Data.Version                       as Vers
+import qualified Data.Traversable                      as DT
+import           Data.Typeable                         (Typeable)
+import qualified Data.Vector                           as V
+import qualified Data.Version                          as Vers
 import           GHC.Enum
-import           GHC.Generics                       (Generic)
+import           GHC.Generics                          (Generic)
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method          as NHTM
-import qualified Text.ParserCombinators.ReadP       as RP
-import qualified Text.Read                          as TR
+import qualified Network.HTTP.Types.Method             as NHTM
+import qualified Text.ParserCombinators.ReadP          as RP
+import qualified Text.Read                             as TR
 
 import           Database.V1.Bloodhound.Types.Class
 import           Database.V1.Bloodhound.Types.Internal
@@ -1647,12 +1651,12 @@ data SearchHits a =
              , maxScore  :: Score
              , hits      :: [Hit a] } deriving (Eq, Read, Show, Generic, Typeable)
 
+instance Semigroup (SearchHits a) where
+  (SearchHits ta ma ha) <> (SearchHits tb mb hb) = SearchHits (ta + tb) (max ma mb) (ha <> hb)
 
 instance Monoid (SearchHits a) where
   mempty = SearchHits 0 Nothing mempty
-  mappend (SearchHits ta ma ha) (SearchHits tb mb hb) =
-    SearchHits (ta + tb) (max ma mb) (ha <> hb)
-
+  mappend = (<>)
 
 data Hit a =
   Hit { hitIndex     :: IndexName
@@ -1675,7 +1679,7 @@ showText = T.pack . show
 readMay :: Read a => String -> Maybe a
 readMay s = case reads s of
               (a, ""):_ -> Just a
-              _ -> Nothing
+              _         -> Nothing
 
 parseReadText :: Read a => Text -> Parser a
 parseReadText = maybe mzero return . readMay . T.unpack
@@ -1725,8 +1729,8 @@ data Aggregation = TermsAgg TermsAggregation
                  | ValueCountAgg ValueCountAggregation
                  | FilterAgg FilterAggregation
                  | DateRangeAgg DateRangeAggregation
-                 | MissingAgg MissingAggregation 
-                 | TopHitsAgg TopHitsAggregation 
+                 | MissingAgg MissingAggregation
+                 | TopHitsAgg TopHitsAggregation
   deriving (Eq, Read, Show, Generic, Typeable)
 
 data TopHitsAggregation = TopHitsAggregation
@@ -1874,11 +1878,11 @@ instance ToJSON Interval where
   toJSON (FractionalInterval fraction interval) = toJSON $ show fraction ++ show interval
 
 instance Show TimeInterval where
-  show Weeks    = "w"
-  show Days     = "d"
-  show Hours    = "h"
-  show Minutes  = "m"
-  show Seconds  = "s"
+  show Weeks   = "w"
+  show Days    = "d"
+  show Hours   = "h"
+  show Minutes = "m"
+  show Seconds = "s"
 
 instance Read TimeInterval where
   readPrec = f =<< TR.get
@@ -1934,7 +1938,7 @@ instance ToJSON Aggregation where
   toJSON (MissingAgg (MissingAggregation{..})) =
     object ["missing" .= object ["field" .= maField]]
 
-  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort)) = 
+  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort)) =
     omitNulls ["top_hits" .= omitNulls [ "size" .= msize
                                        , "from" .= mfrom
                                        , "sort" .= msort
@@ -1949,22 +1953,22 @@ instance ToJSON DateRangeAggregation where
               ]
 
 instance ToJSON DateRangeAggRange where
-  toJSON (DateRangeFrom e) = object [ "from" .= e ]
-  toJSON (DateRangeTo e) = object [ "to" .= e ]
+  toJSON (DateRangeFrom e)        = object [ "from" .= e ]
+  toJSON (DateRangeTo e)          = object [ "to" .= e ]
   toJSON (DateRangeFromAndTo f t) = object [ "from" .= f, "to" .= t ]
 
 instance ToJSON DateMathExpr where
   toJSON (DateMathExpr a mods) = String (fmtA a <> mconcat (fmtMod <$> mods))
-    where fmtA DMNow = "now"
+    where fmtA DMNow         = "now"
           fmtA (DMDate date) = (T.pack $ showGregorian date) <> "||"
-          fmtMod (AddTime n u) = "+" <> showText n <> fmtU u
+          fmtMod (AddTime n u)      = "+" <> showText n <> fmtU u
           fmtMod (SubtractTime n u) = "-" <> showText n <> fmtU u
-          fmtMod (RoundDownTo u) = "/" <> fmtU u
-          fmtU DMYear = "y"
-          fmtU DMMonth = "M"
-          fmtU DMWeek = "w"
-          fmtU DMDay = "d"
-          fmtU DMHour = "h"
+          fmtMod (RoundDownTo u)    = "/" <> fmtU u
+          fmtU DMYear   = "y"
+          fmtU DMMonth  = "M"
+          fmtU DMWeek   = "w"
+          fmtU DMDay    = "d"
+          fmtU DMHour   = "h"
           fmtU DMMinute = "m"
           fmtU DMSecond = "s"
 
@@ -2044,8 +2048,8 @@ instance (FromJSON a) => FromJSON (Bucket a) where
 instance FromJSON BucketValue where
   parseJSON (String t) = return $ TextValue t
   parseJSON (Number s) = return $ ScientificValue s
-  parseJSON (Bool b) = return $ BoolValue b
-  parseJSON _ = mempty
+  parseJSON (Bool b)   = return $ BoolValue b
+  parseJSON _          = mempty
 
 instance FromJSON MissingResult where
   parseJSON = withObject "MissingResult" parse
@@ -2098,9 +2102,12 @@ instance (FromJSON a) => FromJSON (TopHitResult a) where
                          v .: "hits"
   parseJSON _          = fail "Failure in FromJSON (TopHitResult a)"
 
+instance Semigroup Filter where
+  a <> b = AndFilter [a, b] defaultCache
+
 instance Monoid Filter where
   mempty = IdentityFilter
-  mappend a b = AndFilter [a, b] defaultCache
+  mappend = (<>)
 
 instance Seminearring Filter where
   a <||> b = OrFilter [a, b] defaultCache
@@ -2291,11 +2298,11 @@ fieldTagged f o = case HM.toList o of
                     _ -> fail "Expected object with 1 field-named key"
 
 -- Try to get an AggregationResults when we don't know the
--- field name. We filter out the known keys to try to minimize the noise. 
+-- field name. We filter out the known keys to try to minimize the noise.
 getNamedSubAgg :: Object -> [Text] -> Maybe AggregationResults
 getNamedSubAgg o knownKeys = maggRes
   where unknownKeys = HM.filterWithKey (\k _ -> k `notElem` knownKeys) o
-        maggRes 
+        maggRes
           | HM.null unknownKeys = Nothing
           | otherwise           = Just . M.fromList $ HM.toList unknownKeys
 
@@ -2470,9 +2477,9 @@ instance FromJSON Query where
 
 omitNulls :: [(Text, Value)] -> Value
 omitNulls = object . filter notNull where
-  notNull (_, Null)      = False
+  notNull (_, Null)    = False
   notNull (_, Array a) = (not . V.null) a
-  notNull _              = True
+  notNull _            = True
 
 
 instance ToJSON SimpleQueryStringQuery where
@@ -3025,10 +3032,10 @@ instance FromJSON MultiMatchQuery where
                            <*> o .:? "lenient"
 
 instance ToJSON MultiMatchQueryType where
-  toJSON MultiMatchBestFields = "best_fields"
-  toJSON MultiMatchMostFields = "most_fields"
-  toJSON MultiMatchCrossFields = "cross_fields"
-  toJSON MultiMatchPhrase = "phrase"
+  toJSON MultiMatchBestFields   = "best_fields"
+  toJSON MultiMatchMostFields   = "most_fields"
+  toJSON MultiMatchCrossFields  = "cross_fields"
+  toJSON MultiMatchPhrase       = "phrase"
   toJSON MultiMatchPhrasePrefix = "phrase_prefix"
 
 instance FromJSON MultiMatchQueryType where
@@ -3042,7 +3049,7 @@ instance FromJSON MultiMatchQueryType where
 
 instance ToJSON BooleanOperator where
   toJSON And = String "and"
-  toJSON Or = String "or"
+  toJSON Or  = String "or"
 
 instance FromJSON BooleanOperator where
   parseJSON = withText "BooleanOperator" parse
@@ -3061,7 +3068,7 @@ instance FromJSON ZeroTermsQuery where
           parse q      = fail ("Unexpected ZeroTermsQuery: " <> show q)
 
 instance ToJSON MatchQueryType where
-  toJSON MatchPhrase = "phrase"
+  toJSON MatchPhrase       = "phrase"
   toJSON MatchPhrasePrefix = "phrase_prefix"
 
 instance FromJSON MatchQueryType where
@@ -3195,7 +3202,7 @@ instance FromJSON IndexSettingsSummary where
                                                 <*> (fmap (filter (not . redundant)) . parseSettings =<< o' .: "settings")
                       _ -> fail "Expected single-key object with index name"
           redundant (NumberOfReplicas _) = True
-          redundant _ = False
+          redundant _                    = False
 
 -- | For some reason in several settings APIs, all leaf values get returned
 -- as strings. This function attepmts to recover from this for all
@@ -3205,7 +3212,7 @@ unStringlyTypeJSON (String "true") = Bool True
 unStringlyTypeJSON (String "false") = Bool False
 unStringlyTypeJSON (String "null") = Null
 unStringlyTypeJSON v@(String t) = case readMay (T.unpack t) of
-                                  Just n -> Number n
+                                  Just n  -> Number n
                                   Nothing -> v
 unStringlyTypeJSON v = v
 
@@ -3222,7 +3229,7 @@ parseSettings o = do
   return (catMaybes parses)
 
 oPath :: ToJSON a => NonEmpty Text -> a -> Value
-oPath (k :| []) v = object [k .= v]
+oPath (k :| []) v   = object [k .= v]
 oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
 
 attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
@@ -3232,12 +3239,12 @@ attrFilterJSON fs = object [ n .= T.intercalate "," (toList vs)
 parseAttrFilter :: Value -> Parser (NonEmpty NodeAttrFilter)
 parseAttrFilter = withObject "NonEmpty NodeAttrFilter" parse
   where parse o = case HM.toList o of
-                    [] -> fail "Expected non-empty list of NodeAttrFilters"
+                    []   -> fail "Expected non-empty list of NodeAttrFilters"
                     x:xs -> DT.mapM (uncurry parse') (x :| xs)
         parse' n = withText "Text" $ \t ->
           case T.splitOn "," t of
             fv:fvs -> return (NodeAttrFilter (NodeAttrName n) (fv :| fvs))
-            [] -> fail "Expected non-empty list of filter values"
+            []     -> fail "Expected non-empty list of filter values"
 
 instance ToJSON ReplicaBounds where
   toJSON (ReplicasBounded a b)    = String (showText a <> "-" <> showText b)
@@ -3291,12 +3298,12 @@ instance ToJSON FSType where
 
 instance FromJSON FSType where
   parseJSON = withText "FSType" parse
-    where parse "simple" = pure FSSimple
+    where parse "simple"   = pure FSSimple
           parse "buffered" = pure FSBuffered
-          parse t = fail ("Invalid FSType: " <> show t)
+          parse t          = fail ("Invalid FSType: " <> show t)
 
 instance ToJSON CompoundFormat where
-  toJSON (CompoundFileFormat x) = Bool x
+  toJSON (CompoundFileFormat x)       = Bool x
   toJSON (MergeSegmentVsTotalIndex x) = toJSON x
 
 instance FromJSON CompoundFormat where
@@ -3553,8 +3560,8 @@ instance ToJSON SortMode where
 
 
 instance ToJSON Missing where
-  toJSON LastMissing = String "_last"
-  toJSON FirstMissing = String "_first"
+  toJSON LastMissing         = String "_last"
+  toJSON FirstMissing        = String "_first"
   toJSON (CustomMissing txt) = String txt
 
 
@@ -3570,7 +3577,7 @@ instance FromJSON ScoreType where
           parse "avg"  = pure ScoreTypeAvg
           parse "sum"  = pure ScoreTypeSum
           parse "none" = pure ScoreTypeNone
-          parse t = fail ("Unexpected ScoreType: " <> show t)
+          parse t      = fail ("Unexpected ScoreType: " <> show t)
 
 instance ToJSON Distance where
   toJSON (Distance dCoefficient dUnit) =
@@ -3588,7 +3595,7 @@ instance FromJSON Distance where
                   validForNumber '-' = True
                   validForNumber '.' = True
                   validForNumber 'e' = True
-                  validForNumber c = isNumber c
+                  validForNumber c   = isNumber c
                   parseCoeff "" = fail "Empty string cannot be parsed as number"
                   parseCoeff s = return (read (T.unpack s))
 
@@ -3615,7 +3622,7 @@ instance FromJSON DistanceUnit where
           parse "cm"  = pure Centimeters
           parse "mm"  = pure Millimeters
           parse "nmi" = pure NauticalMiles
-          parse u = fail ("Unrecognized DistanceUnit: " <> show u)
+          parse u     = fail ("Unrecognized DistanceUnit: " <> show u)
 
 instance ToJSON DistanceType where
   toJSON Arc       = String "arc"
@@ -3624,21 +3631,21 @@ instance ToJSON DistanceType where
 
 instance FromJSON DistanceType where
   parseJSON = withText "DistanceType" parse
-    where parse "arc" = pure Arc
+    where parse "arc"        = pure Arc
           parse "sloppy_arc" = pure SloppyArc
-          parse "plane" = pure Plane
-          parse t = fail ("Unrecognized DistanceType: " <> show t)
+          parse "plane"      = pure Plane
+          parse t            = fail ("Unrecognized DistanceType: " <> show t)
 
 
 instance ToJSON OptimizeBbox where
-  toJSON NoOptimizeBbox = String "none"
+  toJSON NoOptimizeBbox              = String "none"
   toJSON (OptimizeGeoFilterType gft) = toJSON gft
 
 instance FromJSON OptimizeBbox where
   parseJSON v = withText "NoOptimizeBbox" parseNoOptimize v
             <|> parseOptimize v
     where parseNoOptimize "none" = pure NoOptimizeBbox
-          parseNoOptimize _ = mzero
+          parseNoOptimize _      = mzero
           parseOptimize = fmap OptimizeGeoFilterType . parseJSON
 
 instance ToJSON GeoBoundingBoxConstraint where
@@ -4431,7 +4438,7 @@ instance SnapshotRepo FsSnapshotRepo where
 
 parseRepo :: Parser a -> Either SnapshotRepoConversionError a
 parseRepo parser = case parseEither (const parser) () of
-  Left e -> Left (OtherRepoConversionError (T.pack e))
+  Left e  -> Left (OtherRepoConversionError (T.pack e))
   Right a -> Right a
 
 
@@ -4957,7 +4964,7 @@ instance FromJSON NodeIndicesStats where
     where
       parse o = do
         let (.::) mv k = case mv of
-              Just v -> Just <$> v .: k
+              Just v  -> Just <$> v .: k
               Nothing -> pure Nothing
         mRecovery <- o .:? "recovery"
         mQueryCache <- o .:? "query_cache"
@@ -5208,8 +5215,8 @@ parseStringInterval s = case span isNumber s of
   ("", _) -> fail "Invalid interval"
   (nS, unitS) -> case (readMay nS, readMay unitS) of
     (Just n, Just unit) -> return (fromInteger (n * unitNDT unit))
-    (Nothing, _) -> fail "Invalid interval number"
-    (_, Nothing) -> fail "Invalid interval unit"
+    (Nothing, _)        -> fail "Invalid interval number"
+    (_, Nothing)        -> fail "Invalid interval unit"
   where
     unitNDT Seconds = 1
     unitNDT Minutes = 60
@@ -5228,8 +5235,8 @@ instance FromJSON ThreadPoolSize where
       parseAsString = withText "ThreadPoolSize" $ \t ->
         case first (readMay . T.unpack) (T.span isNumber t) of
           (Just n, "k") -> return (ThreadPoolBounded (n * 1000))
-          (Just n, "") -> return (ThreadPoolBounded n)
-          _ -> fail ("Invalid thread pool size " <> T.unpack t)
+          (Just n, "")  -> return (ThreadPoolBounded n)
+          _             -> fail ("Invalid thread pool size " <> T.unpack t)
 
 instance FromJSON ThreadPoolType where
   parseJSON = withText "ThreadPoolType" parse
@@ -5244,10 +5251,10 @@ instance FromJSON NodeTransportInfo where
     where
       parse o = NodeTransportInfo <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
                                   <*> parseJSON (Object o)
-      parseProfiles (Object o) | HM.null o = return []
+      parseProfiles (Object o)  | HM.null o = return []
       parseProfiles v@(Array _) = parseJSON v
-      parseProfiles Null = return []
-      parseProfiles _ = fail "Could not parse profiles"
+      parseProfiles Null        = return []
+      parseProfiles _           = fail "Could not parse profiles"
 
 instance FromJSON NodeNetworkInfo where
   parseJSON = withObject "NodeNetworkInfo" parse
@@ -5268,4 +5275,4 @@ newtype MaybeNA a = MaybeNA { unMaybeNA :: Maybe a }
 
 instance FromJSON a => FromJSON (MaybeNA a) where
   parseJSON (String "NA") = pure $ MaybeNA Nothing
-  parseJSON o = MaybeNA . Just <$> parseJSON o
+  parseJSON o             = MaybeNA . Just <$> parseJSON o
