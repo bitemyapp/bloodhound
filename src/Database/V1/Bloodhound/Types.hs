@@ -369,8 +369,9 @@ import           Control.Applicative                   as A
 import           Control.Arrow                         (first)
 import           Control.Monad.Catch
 import           Control.Monad.Except
-import           Control.Monad.Reader
-import           Control.Monad.State
+import           Control.Monad.Reader                  (MonadReader (..),
+                                                        ReaderT (..))
+import           Control.Monad.State                   (MonadState)
 import           Control.Monad.Writer                  (MonadWriter)
 import           Data.Aeson
 import           Data.Aeson.Types                      (Pair, Parser,

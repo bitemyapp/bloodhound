@@ -368,9 +368,10 @@ import           Control.Applicative                   as A
 import           Control.Arrow                         (first)
 import           Control.Monad.Catch
 import           Control.Monad.Except
-import           Control.Monad.Reader
-import           Control.Monad.State
-import           Control.Monad.Writer
+import           Control.Monad.Reader                  (MonadReader (..),
+                                                        ReaderT (..))
+import           Control.Monad.State                   (MonadState)
+import           Control.Monad.Writer                  (MonadWriter)
 import           Data.Aeson
 import           Data.Aeson.Types                      (Pair, Parser,
                                                         emptyObject,
@@ -1469,8 +1470,8 @@ data BoolQuery =
             } deriving (Eq, Read, Show, Generic, Typeable)
 
 mkBoolQuery :: [Query] -> [Filter] -> [Query] -> [Query] -> BoolQuery
-mkBoolQuery must filter mustNot should =
-  BoolQuery must filter mustNot should Nothing Nothing Nothing
+mkBoolQuery must filt mustNot should =
+  BoolQuery must filt mustNot should Nothing Nothing Nothing
 
 data BoostingQuery =
   BoostingQuery { positiveQuery :: Query
