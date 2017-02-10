@@ -7,7 +7,6 @@ extra-deps:
 - fail-4.9.0.0
 - http-types-0.9
 - attoparsec-0.13.0.1
-- doctest-0.10.1
 - quickcheck-properties-0.1
 - semigroups-0.18.0.1
 - uri-bytestring-0.1.9
