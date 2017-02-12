@@ -1,8 +1,11 @@
 flags:
   aeson:
     old-locale: true
+  bloodhound-examples:
+    werror: true
 packages:
 - '.'
+- './examples'
 extra-deps:
 - aeson-0.11.1.0
 - fail-4.9.0.0
