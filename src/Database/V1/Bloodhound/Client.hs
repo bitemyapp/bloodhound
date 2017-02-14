@@ -123,60 +123,8 @@ import           Prelude                      hiding (filter, head)
 
 import           Database.V1.Bloodhound.Types
 
--- $setup
--- >>> :set -XOverloadedStrings
--- >>> :set -XDeriveGeneric
--- >>> import Database.V1.Bloodhound
--- >>> let testServer = (Server "http://localhost:9200")
--- >>> let runBH' = withBH defaultManagerSettings testServer
--- >>> let testIndex = IndexName "twitter"
--- >>> let testMapping = MappingName "tweet"
--- >>> let defaultIndexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0)
--- >>> data TweetMapping = TweetMapping deriving (Eq, Show)
--- >>> _ <- runBH' $ deleteIndex testIndex >> deleteMapping testIndex testMapping
--- >>> import GHC.Generics
--- >>> import           Data.Time.Calendar        (Day (..))
--- >>> import Data.Time.Clock (UTCTime (..), secondsToDiffTime)
--- >>> :{
---instance ToJSON TweetMapping where
---          toJSON TweetMapping =
---            object ["properties" .=
---              object ["location" .=
---                object ["type" .= ("geo_point" :: Text)]]]
---data Location = Location { lat :: Double
---                         , lon :: Double } deriving (Eq, Generic, Show)
---data Tweet = Tweet { user     :: Text
---                    , postDate :: UTCTime
---                    , message  :: Text
---                    , age      :: Int
---                    , location :: Location } deriving (Eq, Generic, Show)
---exampleTweet = Tweet { user     = "bitemyapp"
---                      , postDate = UTCTime
---                                   (ModifiedJulianDay 55000)
---                                   (secondsToDiffTime 10)
---                      , message  = "Use haskell!"
---                      , age      = 10000
---                      , location = Location 40.12 (-71.34) }
---instance ToJSON   Tweet where
---  toJSON = genericToJSON defaultOptions
---instance FromJSON Tweet where
---  parseJSON = genericParseJSON defaultOptions
---instance ToJSON   Location where
---  toJSON = genericToJSON defaultOptions
---instance FromJSON Location where
---  parseJSON = genericParseJSON defaultOptions
---data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
---instance FromJSON BulkTest where
---  parseJSON = genericParseJSON defaultOptions
---instance ToJSON BulkTest where
---  toJSON = genericToJSON defaultOptions
--- :}
-
 -- | 'mkShardCount' is a straight-forward smart constructor for 'ShardCount'
 --   which rejects 'Int' values below 1 and above 1000.
---
--- >>> mkShardCount 10
--- Just (ShardCount 10)
 mkShardCount :: Int -> Maybe ShardCount
 mkShardCount n
   | n < 1 = Nothing
@@ -185,9 +133,6 @@ mkShardCount n
 
 -- | 'mkReplicaCount' is a straight-forward smart constructor for 'ReplicaCount'
 --   which rejects 'Int' values below 0 and above 1000.
---
--- >>> mkReplicaCount 10
--- Just (ReplicaCount 10)
 mkReplicaCount :: Int -> Maybe ReplicaCount
 mkReplicaCount n
   | n < 0 = Nothing
@@ -271,10 +216,6 @@ post   = dispatch NHTM.methodPost
 -- https://github.com/supki/libjenkins/blob/master/src/Jenkins/Rest/Internal.hs
 
 -- | 'getStatus' fetches the 'Status' of a 'Server'
---
--- >>> serverStatus <- runBH' getStatus
--- >>> fmap status (serverStatus)
--- Just 200
 getStatus :: MonadBH m => m (Maybe Status)
 getStatus = do
   response <- get =<< url
@@ -494,12 +435,6 @@ getNodesStats sel = parseEsResponse =<< get =<< url
     selToSeg (NodeByAttribute (NodeAttrName a) v) = a <> ":" <> v
 
 -- | 'createIndex' will create an index given a 'Server', 'IndexSettings', and an 'IndexName'.
---
--- >>> response <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
--- >>> respIsTwoHunna response
--- True
--- >>> runBH' $ indexExists (IndexName "didimakeanindex")
--- True
 createIndex :: MonadBH m => IndexSettings -> IndexName -> m Reply
 createIndex indexSettings (IndexName indexName) =
   bindM2 put url (return body)
@@ -508,23 +443,11 @@ createIndex indexSettings (IndexName indexName) =
 
 
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
---
--- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
--- >>> response <- runBH' $ deleteIndex (IndexName "didimakeanindex")
--- >>> respIsTwoHunna response
--- True
--- >>> runBH' $ indexExists testIndex
--- False
 deleteIndex :: MonadBH m => IndexName -> m Reply
 deleteIndex (IndexName indexName) =
   delete =<< joinPath [indexName]
 
 -- | 'updateIndexSettings' will apply a non-empty list of setting updates to an index
---
--- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "unconfiguredindex")
--- >>> response <- runBH' $ updateIndexSettings (BlocksWrite False :| []) (IndexName "unconfiguredindex")
--- >>> respIsTwoHunna response
--- True
 updateIndexSettings :: MonadBH m => NonEmpty UpdatableIndexSetting -> IndexName -> m Reply
 updateIndexSettings updates (IndexName indexName) =
   bindM2 put url (return body)
@@ -557,12 +480,6 @@ getIndexSettings (IndexName indexName) = do
 -- almost completely identical forcemerge API. Adding support to that
 -- API would be trivial but due to the significant breaking changes,
 -- this library cannot currently be used with >= 2.0, so that feature was omitted.
---
--- >>> let ixn = IndexName "unoptimizedindex"
--- >>> _ <- runBH' $ deleteIndex ixn >> createIndex defaultIndexSettings ixn
--- >>> response <- runBH' $ optimizeIndex (IndexList (ixn :| [])) (defaultIndexOptimizationSettings { maxNumSegments = Just 1, onlyExpungeDeletes = True })
--- >>> respIsTwoHunna response
--- True
 optimizeIndex :: MonadBH m => IndexSelection -> IndexOptimizationSettings -> m Reply
 optimizeIndex ixs IndexOptimizationSettings {..} =
     bindM2 post url (return body)
@@ -617,8 +534,6 @@ parseEsResponse reply
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
---
--- >>> exists <- runBH' $ indexExists testIndex
 indexExists :: MonadBH m => IndexName -> m Bool
 indexExists (IndexName indexName) = do
   (_, exists) <- existentialQuery =<< joinPath [indexName]
@@ -626,9 +541,6 @@ indexExists (IndexName indexName) = do
 
 -- | 'refreshIndex' will force a refresh on an index. You must
 -- do this if you want to read what you wrote.
---
--- >>> _ <- runBH' $ createIndex defaultIndexSettings testIndex
--- >>> _ <- runBH' $ refreshIndex testIndex
 refreshIndex :: MonadBH m => IndexName -> m Reply
 refreshIndex (IndexName indexName) =
   bindM2 post url (return Nothing)
@@ -655,15 +567,11 @@ openOrCloseIndexes oci (IndexName indexName) =
 
 -- | 'openIndex' opens an index given a 'Server' and an 'IndexName'. Explained in further detail at
 --   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
---
--- >>> reply <- runBH' $ openIndex testIndex
 openIndex :: MonadBH m => IndexName -> m Reply
 openIndex = openOrCloseIndexes OpenIndex
 
 -- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at
 --   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
---
--- >>> reply <- runBH' $ closeIndex testIndex
 closeIndex :: MonadBH m => IndexName -> m Reply
 closeIndex = openOrCloseIndexes CloseIndex
 
@@ -684,20 +592,6 @@ listIndices =
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-aliases.html>
---
--- >>> let src = IndexName "a-real-index"
--- >>> let aliasName = IndexName "an-alias"
--- >>> let iAlias = IndexAlias src (IndexAliasName aliasName)
--- >>> let aliasCreate = IndexAliasCreate Nothing Nothing
--- >>> _ <- runBH' $ deleteIndex src
--- >>> respIsTwoHunna <$> runBH' (createIndex defaultIndexSettings src)
--- True
--- >>> runBH' $ indexExists src
--- True
--- >>> respIsTwoHunna <$> runBH' (updateIndexAliases (AddAlias iAlias aliasCreate :| []))
--- True
--- >>> runBH' $ indexExists aliasName
--- True
 updateIndexAliases :: MonadBH m => NonEmpty IndexAliasAction -> m Reply
 updateIndexAliases actions = bindM2 post url (return body)
   where url = joinPath ["_aliases"]
@@ -713,9 +607,6 @@ getIndexAliases = parseEsResponse =<< get =<< url
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
 --   Explained in further detail at
 --   <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html>
---
---   >>> let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
---   >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
 putTemplate :: MonadBH m => IndexTemplate -> TemplateName -> m Reply
 putTemplate indexTemplate (TemplateName templateName) =
   bindM2 put url (return body)
@@ -723,29 +614,18 @@ putTemplate indexTemplate (TemplateName templateName) =
         body = Just $ encode indexTemplate
 
 -- | 'templateExists' checks to see if a template exists.
---
---   >>> exists <- runBH' $ templateExists (TemplateName "tweet-tpl")
 templateExists :: MonadBH m => TemplateName -> m Bool
 templateExists (TemplateName templateName) = do
   (_, exists) <- existentialQuery =<< joinPath ["_template", templateName]
   return exists
 
 -- | 'deleteTemplate' is an HTTP DELETE and deletes a template.
---
---   >>> let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
---   >>> _ <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
---   >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
 deleteTemplate :: MonadBH m => TemplateName -> m Reply
 deleteTemplate (TemplateName templateName) =
   delete =<< joinPath ["_template", templateName]
 
 -- | 'putMapping' is an HTTP PUT and has upsert semantics. Mappings are schemas
 -- for documents in indexes.
---
--- >>> _ <- runBH' $ createIndex defaultIndexSettings testIndex
--- >>> resp <- runBH' $ putMapping testIndex testMapping TweetMapping
--- >>> print resp
--- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 putMapping :: (MonadBH m, ToJSON a) => IndexName
                  -> MappingName -> a -> m Reply
 putMapping (IndexName indexName) (MappingName mappingName) mapping =
@@ -757,12 +637,6 @@ putMapping (IndexName indexName) (MappingName mappingName) mapping =
 
 -- | 'deleteMapping' is an HTTP DELETE and deletes a mapping for a given index.
 -- Mappings are schemas for documents in indexes.
---
--- >>> _ <- runBH' $ createIndex defaultIndexSettings testIndex
--- >>> _ <- runBH' $ putMapping testIndex testMapping TweetMapping
--- >>> resp <- runBH' $ deleteMapping testIndex testMapping
--- >>> print resp
--- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","21")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 deleteMapping :: MonadBH m => IndexName -> MappingName -> m Reply
 deleteMapping (IndexName indexName)
   (MappingName mappingName) =
@@ -788,10 +662,6 @@ versionCtlParams cfg =
 --   Elasticsearch. The document itself is simply something we can
 --   convert into a JSON 'Value'. The 'DocId' will function as the
 --   primary key for the document.
---
--- >>> resp <- runBH' $ indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
--- >>> print resp
--- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 indexDocument :: (ToJSON doc, MonadBH m) => IndexName -> MappingName
                  -> IndexDocumentSettings -> doc -> DocId -> m Reply
 indexDocument (IndexName indexName)
@@ -816,8 +686,6 @@ updateDocument (IndexName indexName)
         body = Just (encode $ object ["doc" .= toJSON patch])
 
 -- | 'deleteDocument' is the primary way to delete a single document.
---
--- >>> _ <- runBH' $ deleteDocument testIndex testMapping (DocId "1")
 deleteDocument :: MonadBH m => IndexName -> MappingName
                   -> DocId -> m Reply
 deleteDocument (IndexName indexName)
@@ -830,10 +698,6 @@ deleteDocument (IndexName indexName)
 --    index\/update\/delete\/create operations. You pass a 'V.Vector' of 'BulkOperation's
 --    and a 'Server' to 'bulk' in order to send those operations up to your Elasticsearch
 --    server to be performed. I changed from [BulkOperation] to a Vector due to memory overhead.
---
--- >>> let stream = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))]
--- >>> _ <- runBH' $ bulk stream
--- >>> _ <- runBH' $ refreshIndex testIndex
 bulk :: MonadBH m => V.Vector BulkOperation -> m Reply
 bulk bulkOps = bindM2 post url (return body)
   where url = joinPath ["_bulk"]
@@ -841,10 +705,6 @@ bulk bulkOps = bindM2 post url (return body)
 
 -- | 'encodeBulkOperations' is a convenience function for dumping a vector of 'BulkOperation'
 --   into an 'L.ByteString'
---
--- >>> let bulkOps = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))]
--- >>> encodeBulkOperations bulkOps
--- "\n{\"index\":{\"_type\":\"tweet\",\"_id\":\"2\",\"_index\":\"twitter\"}}\n{\"name\":\"blah\"}\n"
 encodeBulkOperations :: V.Vector BulkOperation -> L.ByteString
 encodeBulkOperations stream = collapsed where
   blobs = fmap encodeBulkOperation stream
@@ -863,10 +723,6 @@ mkBulkStreamValue operation indexName mappingName docId =
 
 -- | 'encodeBulkOperation' is a convenience function for dumping a single 'BulkOperation'
 --   into an 'L.ByteString'
---
--- >>> let bulkOp = BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))
--- >>> encodeBulkOperation bulkOp
--- "{\"index\":{\"_type\":\"tweet\",\"_id\":\"2\",\"_index\":\"twitter\"}}\n{\"name\":\"blah\"}"
 encodeBulkOperation :: BulkOperation -> L.ByteString
 encodeBulkOperation (BulkIndex (IndexName indexName)
                 (MappingName mappingName)
@@ -896,8 +752,6 @@ encodeBulkOperation (BulkUpdate (IndexName indexName)
 -- | 'getDocument' is a straight-forward way to fetch a single document from
 --   Elasticsearch using a 'Server', 'IndexName', 'MappingName', and a 'DocId'.
 --   The 'DocId' is the primary key for your Elasticsearch document.
---
--- >>> yourDoc <- runBH' $ getDocument testIndex testMapping (DocId "1")
 getDocument :: MonadBH m => IndexName -> MappingName
                -> DocId -> m Reply
 getDocument (IndexName indexName)
@@ -906,8 +760,6 @@ getDocument (IndexName indexName)
 
 -- | 'documentExists' enables you to check if a document exists. Returns 'Bool'
 --   in IO
---
--- >>> exists <- runBH' $ documentExists testIndex testMapping Nothing (DocId "1")
 documentExists :: MonadBH m => IndexName -> MappingName
                -> Maybe DocumentParent -> DocId -> m Bool
 documentExists (IndexName indexName) (MappingName mappingName)
@@ -924,30 +776,18 @@ dispatchSearch url search = post url' (Just (encode search))
 
 -- | 'searchAll', given a 'Search', will perform that search against all indexes
 --   on an Elasticsearch server. Try to avoid doing this if it can be helped.
---
--- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
--- >>> let search = mkSearch (Just query) Nothing
--- >>> reply <- runBH' $ searchAll search
 searchAll :: MonadBH m => Search -> m Reply
 searchAll = bindM2 dispatchSearch url . return
   where url = joinPath ["_search"]
 
 -- | 'searchByIndex', given a 'Search' and an 'IndexName', will perform that search
 --   against all mappings within an index on an Elasticsearch server.
---
--- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
--- >>> let search = mkSearch (Just query) Nothing
--- >>> reply <- runBH' $ searchByIndex testIndex search
 searchByIndex :: MonadBH m => IndexName -> Search -> m Reply
 searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, "_search"]
 
 -- | 'searchByType', given a 'Search', 'IndexName', and 'MappingName', will perform that
 --   search against a specific mapping within an index on an Elasticsearch server.
---
--- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
--- >>> let search = mkSearch (Just query) Nothing
--- >>> reply <- runBH' $ searchByType testIndex testMapping search
 searchByType :: MonadBH m => IndexName -> MappingName -> Search
                 -> m Reply
 searchByType (IndexName indexName)
@@ -1020,29 +860,16 @@ scanSearch indexName mappingName search = do
 --   to Nothing in case you only care about your 'Query' and 'Filter'. Use record update
 --   syntax if you want to add things like aggregations or highlights while still using
 --   this helper function.
---
--- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
--- >>> mkSearch (Just query) Nothing
--- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, searchType = SearchTypeQueryThenFetch, fields = Nothing, source = Nothing}
 mkSearch :: Maybe Query -> Maybe Filter -> Search
 mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
 
 -- | 'mkAggregateSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
---
--- >>> let terms = TermsAgg $ (mkTermsAggregation "user") { termCollectMode = Just BreadthFirst }
--- >>> terms
--- TermsAgg (TermsAggregation {term = Left "user", termInclude = Nothing, termExclude = Nothing, termOrder = Nothing, termMinDocCount = Nothing, termSize = Nothing, termShardSize = Nothing, termCollectMode = Just BreadthFirst, termExecutionHint = Nothing, termAggs = Nothing})
--- >>> let myAggregation = mkAggregateSearch Nothing $ mkAggregations "users" terms
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
 mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) SearchTypeQueryThenFetch Nothing Nothing
 
 -- | 'mkHighlightSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
---
--- >>> let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
--- >>> let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
--- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
 mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
 
@@ -1050,13 +877,6 @@ mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing 
 --    and size fields for the search. The from parameter defines the offset
 --    from the first result you want to fetch. The size parameter allows you to
 --    configure the maximum amount of hits to be returned.
---
--- >>> let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
--- >>> let search = mkSearch (Just query) Nothing
--- >>> search
--- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing, matchQueryBoost = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, searchType = SearchTypeQueryThenFetch, fields = Nothing, source = Nothing}
--- >>> pageSearch (From 10) (Size 100) search
--- Search {queryBody = Just (QueryMatchQuery (MatchQuery {matchQueryField = FieldName "_all", matchQueryQueryString = QueryString "haskell", matchQueryOperator = Or, matchQueryZeroTerms = ZeroTermsNone, matchQueryCutoffFrequency = Nothing, matchQueryMatchType = Nothing, matchQueryAnalyzer = Nothing, matchQueryMaxExpansions = Nothing, matchQueryLenient = Nothing, matchQueryBoost = Nothing})), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 10, size = Size 100, searchType = SearchTypeQueryThenFetch, fields = Nothing, source = Nothing}
 pageSearch :: From     -- ^ The result offset
            -> Size     -- ^ The number of results to return
            -> Search  -- ^ The current seach

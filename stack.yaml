@@ -1,6 +1,9 @@
-flags: {}
+flags:
+  bloodhound-examples:
+    werror: true
 packages:
 - '.'
+- './examples'
 extra-deps:
 - quickcheck-properties-0.1
 - vector-0.12.0.0
