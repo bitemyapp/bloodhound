@@ -78,7 +78,7 @@ test-suite tests
                        http-client,
                        http-types,
                        containers,
-                       hspec                >= 1.8 && <2.4,
+                       hspec                >= 1.8,
                        text,
                        time,
                        aeson,
