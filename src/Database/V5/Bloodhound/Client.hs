@@ -55,6 +55,7 @@ module Database.V5.Bloodhound.Client
        , searchByType
        , scanSearch
        , getInitialScroll
+       , getInitialSortedScroll
        , advanceScroll
        , refreshIndex
        , mkSearch
@@ -952,6 +953,21 @@ getInitialScroll (IndexName indexName) (MappingName mappingName) search' = do
         params = [("scroll", Just "1m")]
         sorting = Just [DefaultSortSpec $ mkSort (FieldName "_doc") Descending]
         search = search' { sortBody = sorting }
+    resp' <- bindM2 dispatchSearch url (return search)
+    parseEsResponse resp'
+
+-- | For a given scearch, request a scroll for efficient streaming of
+-- search results. Combine this with 'advanceScroll' to efficiently
+-- stream through the full result set. Note that this search respects
+-- sorting and may be less efficient than 'getInitialScroll'.
+getInitialSortedScroll ::
+  (FromJSON a, MonadThrow m, MonadBH m) => IndexName ->
+                                           MappingName ->
+                                           Search ->
+                                           m (Either EsError (SearchResult a))
+getInitialSortedScroll (IndexName indexName) (MappingName mappingName) search = do
+    let url = addQuery params <$> joinPath [indexName, mappingName, "_search"]
+        params = [("scroll", Just "1m")]
     resp' <- bindM2 dispatchSearch url (return search)
     parseEsResponse resp'
 
