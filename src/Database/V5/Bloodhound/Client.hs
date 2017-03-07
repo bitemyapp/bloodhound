@@ -939,7 +939,7 @@ searchByType (IndexName indexName)
   (MappingName mappingName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, mappingName, "_search"]
 
--- | For a given scearch, request a scroll for efficient streaming of
+-- | For a given search, request a scroll for efficient streaming of
 -- search results. Note that the search is put into 'SearchTypeScan'
 -- mode and thus results will not be sorted. Combine this with
 -- 'advanceScroll' to efficiently stream through the full result set
@@ -956,7 +956,7 @@ getInitialScroll (IndexName indexName) (MappingName mappingName) search' = do
     resp' <- bindM2 dispatchSearch url (return search)
     parseEsResponse resp'
 
--- | For a given scearch, request a scroll for efficient streaming of
+-- | For a given search, request a scroll for efficient streaming of
 -- search results. Combine this with 'advanceScroll' to efficiently
 -- stream through the full result set. Note that this search respects
 -- sorting and may be less efficient than 'getInitialScroll'.
