@@ -47,6 +47,8 @@ module Database.V5.Bloodhound.Types
        , mkDateHistogram
        , mkCardinalityAggregation
        , mkDocVersion
+       , mkStatsAggregation
+       , mkExtendedStatsAggregation
        , docVersionNumber
        , toMissing
        , toTerms
@@ -341,6 +343,7 @@ module Database.V5.Bloodhound.Types
        , DateMathModifier(..)
        , DateMathUnit(..)
        , TopHitsAggregation(..)
+       , StatisticsAggregation(..)
 
        , Highlights(..)
        , FieldHighlight(..)
@@ -1715,6 +1718,7 @@ data Aggregation = TermsAgg TermsAggregation
                  | DateRangeAgg DateRangeAggregation
                  | MissingAgg MissingAggregation
                  | TopHitsAgg TopHitsAggregation
+                 | StatsAgg StatisticsAggregation
   deriving (Eq, Read, Show, Generic, Typeable)
 
 data TopHitsAggregation = TopHitsAggregation
@@ -1792,6 +1796,14 @@ data ValueCountAggregation = FieldValueCount FieldName
 data FilterAggregation = FilterAggregation { faFilter :: Filter
                                            , faAggs   :: Maybe Aggregations} deriving (Eq, Read, Show, Generic, Typeable)
 
+data StatisticsAggregation = StatisticsAggregation { statsType :: StatsType
+                                                   , statsField :: FieldName } deriving (Eq, Read, Show, Generic, Typeable)
+
+data StatsType
+  = Basic
+  | Extended
+  deriving (Eq, Read, Show, Generic, Typeable)
+
 mkTermsAggregation :: Text -> TermsAggregation
 mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
@@ -1803,6 +1815,12 @@ mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothi
 
 mkCardinalityAggregation :: FieldName -> CardinalityAggregation
 mkCardinalityAggregation t = CardinalityAggregation t Nothing
+
+mkStatsAggregation :: FieldName -> StatisticsAggregation
+mkStatsAggregation = StatisticsAggregation Basic
+
+mkExtendedStatsAggregation :: FieldName -> StatisticsAggregation
+mkExtendedStatsAggregation = StatisticsAggregation Extended
 
 instance ToJSON Version where
   toJSON Version {..} = object ["number" .= number
@@ -1927,6 +1945,12 @@ instance ToJSON Aggregation where
                                        , "sort" .= msort
                                        ]
               ]
+
+  toJSON (StatsAgg (StatisticsAggregation typ field)) =
+    object [stType .= omitNulls [ "field" .= field ]]
+    where
+      stType | typ == Basic = "stats"
+             | otherwise = "extended_stats"
 
 instance ToJSON DateRangeAggregation where
   toJSON DateRangeAggregation {..} =

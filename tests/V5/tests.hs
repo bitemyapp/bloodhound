@@ -1144,6 +1144,21 @@ main = hspec $ do
       liftIO $
         fmap aggregations res `shouldBe` Right (Just (M.fromList [ docCountPair "users" 1]))
 
+    it "returns stats aggregation results" $ withTestEnv $ do
+      _ <- insertData
+      let stats = StatsAgg $ mkStatsAggregation $ FieldName "age"
+      let search = mkAggregateSearch Nothing $ mkAggregations "users" stats
+      let search' = search { Database.V5.Bloodhound.from = From 0, size = Size 0 }
+      searchExpectAggs search'
+      let statsAggRes k n = (k, object [ "max" .= Number n
+                                       , "avg" .= Number n
+                                       , "count" .= Number 1
+                                       , "min" .= Number n
+                                       , "sum" .= Number n])
+      res <- searchTweets search'
+      liftIO $
+        fmap aggregations res `shouldBe` Right (Just (M.fromList [ statsAggRes "users" 10000]))
+
     it "can give collection hint parameters to term aggregations" $ when' (atleast es13) $ withTestEnv $ do
       _ <- insertData
       let terms = TermsAgg $ (mkTermsAggregation "user") { termCollectMode = Just BreadthFirst }
