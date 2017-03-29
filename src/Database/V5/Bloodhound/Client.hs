@@ -773,7 +773,7 @@ versionCtlParams cfg =
 --   Elasticsearch. The document itself is simply something we can
 --   convert into a JSON 'Value'. The 'DocId' will function as the
 --   primary key for the document. You are encouraged to generate
---   your own id's and not rely on ElasticSearch's automatid id
+--   your own id's and not rely on ElasticSearch's automatic id
 --   generation. Read more about it here:
 --   https://github.com/bitemyapp/bloodhound/issues/107
 --
