@@ -325,6 +325,11 @@ module Database.V5.Bloodhound.Types
        , rrGroupRefNum
        , mkRRGroupRefNum
        , RestoreIndexSettings(..)
+       , Suggest(..)
+       , SuggestType(..)
+       , PhraseSuggester(..)
+       , PhraseSuggesterHighlighter(..)
+       , PhraseSuggesterCollate(..)
 
        , Aggregation(..)
        , Aggregations
@@ -380,7 +385,8 @@ import           Control.Monad.Writer                  (MonadWriter)
 import           Data.Aeson
 import           Data.Aeson.Types                      (Pair, Parser,
                                                         emptyObject,
-                                                        parseEither, parseMaybe)
+                                                        parseEither, parseMaybe,
+                                                        typeMismatch)
 import qualified Data.ByteString.Lazy.Char8            as L
 import           Data.Char
 import           Data.Hashable                         (Hashable)
@@ -1097,7 +1103,7 @@ unpackId (DocId docId) = docId
 
 type TrackSortScores = Bool
 newtype From = From Int deriving (Eq, Read, Show, Generic, ToJSON)
-newtype Size = Size Int deriving (Eq, Read, Show, Generic, ToJSON)
+newtype Size = Size Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON)
 
 data Search = Search { queryBody       :: Maybe Query
                      , filterBody      :: Maybe Filter
@@ -5095,3 +5101,122 @@ newtype MaybeNA a = MaybeNA { unMaybeNA :: Maybe a }
 instance FromJSON a => FromJSON (MaybeNA a) where
   parseJSON (String "NA") = pure $ MaybeNA Nothing
   parseJSON o             = MaybeNA . Just <$> parseJSON o
+
+data Suggest = Suggest { suggestText :: Text
+                       , suggestName :: Text
+                       , suggestType :: SuggestType
+                       }
+ deriving (Show, Generic)
+
+instance ToJSON Suggest where
+  toJSON Suggest{..} = object [ "text" .= suggestText
+                              , suggestName .= suggestType
+                              ]
+
+instance FromJSON Suggest where
+  parseJSON (Object o) = do
+    suggestText' <- o .: "text"
+    let dropTextList = HM.toList $ HM.filterWithKey (\x _ -> x /= "text") o
+    suggestName' <- case dropTextList of
+                        [(x, _)] -> return x
+                        _ -> fail "error parsing Suggest field name"
+    suggestType' <- o .: suggestName'
+    return $ Suggest suggestText' suggestName' suggestType'
+  parseJSON x = typeMismatch "Suggest" x
+
+data SuggestType = SuggestTypePhraseSuggester PhraseSuggester
+  deriving (Show, Generic)
+
+instance ToJSON SuggestType where
+  toJSON (SuggestTypePhraseSuggester x) = object ["phrase" .= x]
+
+instance FromJSON SuggestType where
+  parseJSON = withObject "SuggestType" parse
+    where parse o = phraseSuggester `taggedWith` "phrase"
+           where taggedWith parser k = parser =<< o .: k
+                 phraseSuggester = pure . SuggestTypePhraseSuggester
+
+data PhraseSuggester =
+  PhraseSuggester { phraseSuggesterField :: FieldName
+                  , phraseSuggesterGramSize :: Maybe Int
+                  , phraseSuggesterRealWordErrorLikelihood :: Maybe Int
+                  , phraseSuggesterConfidence :: Maybe Int
+                  , phraseSuggesterMaxErrors :: Maybe Int
+                  , phraseSuggesterSeparator :: Maybe Text
+                  , phraseSuggesterSize :: Maybe Size
+                  , phraseSuggesterAnalyzer :: Maybe Analyzer
+                  , phraseSuggesterShardSize :: Maybe Int
+                  , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
+                  , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
+                  }
+  deriving (Show, Generic)
+
+instance ToJSON PhraseSuggester where
+  toJSON PhraseSuggester{..} = omitNulls [ "field" .= phraseSuggesterField
+                                         , "gram_size" .= phraseSuggesterGramSize
+                                         , "real_word_error_likelihood" .= phraseSuggesterRealWordErrorLikelihood
+                                         , "confidence" .= phraseSuggesterConfidence
+                                         , "max_errors" .= phraseSuggesterMaxErrors
+                                         , "separator" .= phraseSuggesterSeparator
+                                         , "size" .= phraseSuggesterSize
+                                         , "analyzer" .= phraseSuggesterAnalyzer
+                                         , "shard_size" .= phraseSuggesterShardSize
+                                         , "highlight" .= phraseSuggesterHighlight
+                                         , "collate" .= phraseSuggesterCollate
+                                        ]
+
+instance FromJSON PhraseSuggester where
+  parseJSON = withObject "PhraseSuggester" parse
+    where parse o = PhraseSuggester
+                      <$> o .: "field"
+                      <*> o .:? "gram_size"
+                      <*> o .:? "real_word_error_likelihood"
+                      <*> o .:? "confidence"
+                      <*> o .:? "max_errors"
+                      <*> o .:? "separator"
+                      <*> o .:? "size"
+                      <*> o .:? "analyzer"
+                      <*> o .:? "shard_size"
+                      <*> o .:? "highlight"
+                      <*> o .:? "collate"
+
+data PhraseSuggesterHighlighter =
+  PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
+                             , phraseSuggesterHighlighterPostTag :: Text
+                             }
+  deriving (Show, Generic)
+
+instance ToJSON PhraseSuggesterHighlighter where
+  toJSON PhraseSuggesterHighlighter{..} =
+            object [ "pre_tag" .= phraseSuggesterHighlighterPreTag
+                   , "post_tag" .= phraseSuggesterHighlighterPostTag
+                   ]
+
+instance FromJSON PhraseSuggesterHighlighter where
+  parseJSON = withObject "PhraseSuggesterHighlighter" parse
+    where parse o = PhraseSuggesterHighlighter
+                      <$> o .: "pre_tag"
+                      <*> o .: "post_tag"
+
+data PhraseSuggesterCollate =
+  PhraseSuggesterCollate { phraseSuggesterCollateTemplateQuery :: TemplateQueryInline
+                         , phraseSuggesterCollatePrune :: Bool
+                         }
+  deriving (Show, Generic)
+
+instance ToJSON PhraseSuggesterCollate where
+  toJSON PhraseSuggesterCollate{..} = object [ "query" .= object
+                                              [ "inline" .= (inline phraseSuggesterCollateTemplateQuery)
+                                              ]
+                                             , "params" .= (params phraseSuggesterCollateTemplateQuery)
+                                             , "prune" .= phraseSuggesterCollatePrune
+                                             ]
+
+instance FromJSON PhraseSuggesterCollate where
+  parseJSON (Object o) = do
+    query' <- o .: "query"
+    inline' <- query' .: "inline"
+    params' <- o .: "params"
+    prune' <- o .:? "prune" .!= False
+    return $ PhraseSuggesterCollate (TemplateQueryInline inline' params') prune'
+  parseJSON x = typeMismatch "PhraseSuggesterCollate" x

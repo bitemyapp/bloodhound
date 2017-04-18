@@ -610,6 +610,12 @@ instance ApproxEq BuildHash
 instance ApproxEq TemplateQueryKeyValuePairs where
   (=~) = (==)
 instance ApproxEq TemplateQueryInline
+instance ApproxEq Size
+instance ApproxEq PhraseSuggesterHighlighter
+instance ApproxEq PhraseSuggesterCollate
+instance ApproxEq PhraseSuggester
+instance ApproxEq SuggestType
+instance ApproxEq Suggest
 
 -- | Due to the way nodeattrfilters get serialized here, they may come
 -- out in a different order, but they are morally equivalent
@@ -907,6 +913,12 @@ instance Arbitrary CompoundFormat where arbitrary = sopArbitrary; shrink = gener
 instance Arbitrary FsSnapshotRepo where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary SnapshotRepoName where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary TemplateQueryInline where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PhraseSuggesterCollate where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PhraseSuggesterHighlighter where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Size where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PhraseSuggester where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary SuggestType where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Suggest where arbitrary = sopArbitrary; shrink = genericShrink
 
 newtype UpdatableIndexSetting' = UpdatableIndexSetting' UpdatableIndexSetting
                                deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
@@ -1673,6 +1685,7 @@ main = hspec $ do
     propJSON (Proxy :: Proxy FSType)
     propJSON (Proxy :: Proxy CompoundFormat)
     propJSON (Proxy :: Proxy TemplateQueryInline)
+    propJSON (Proxy :: Proxy Suggest)
 
 -- Temporary solution for lacking of generic derivation of Arbitrary
 -- We use generics-sop, as it's much more concise than directly using GHC.Generics
