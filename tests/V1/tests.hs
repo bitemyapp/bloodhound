@@ -595,6 +595,9 @@ instance (ApproxEq l, ApproxEq r) => ApproxEq (Either l r) where
 instance ApproxEq NodeAttrFilter
 instance ApproxEq NodeAttrName
 instance ApproxEq BuildHash
+instance ApproxEq TemplateQueryKeyValuePairs where 
+  (=~) = (==)
+instance ApproxEq TemplateQueryInline
 
 -- | Due to the way nodeattrfilters get serialized here, they may come
 -- out in a different order, but they are morally equivalent
@@ -746,6 +749,7 @@ instance Arbitrary Query where
                                  , QuerySimpleQueryStringQuery <$> arbitrary
                                  , QueryRangeQuery <$> arbitrary
                                  , QueryRegexpQuery <$> arbitrary
+                                 , QueryTemplateQueryInline <$> arbitrary
                                  ]
   shrink = genericShrink
 
@@ -797,6 +801,10 @@ instance Arbitrary VersionNumber where
   arbitrary = mk . fmap getPositive . getNonEmpty <$> arbitrary
     where
       mk versions = VersionNumber (Vers.Version versions [])
+
+instance Arbitrary TemplateQueryKeyValuePairs where
+  arbitrary = TemplateQueryKeyValuePairs . HM.fromList <$> arbitrary
+  shrink (TemplateQueryKeyValuePairs x) = map (TemplateQueryKeyValuePairs . HM.fromList) . shrink $ HM.toList x
 
 instance Arbitrary IndexName where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary MappingName where arbitrary = sopArbitrary; shrink = genericShrink
@@ -913,6 +921,7 @@ instance Arbitrary FSType where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary CompoundFormat where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FsSnapshotRepo where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary SnapshotRepoName where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary TemplateQueryInline where arbitrary = sopArbitrary; shrink = genericShrink
 
 newtype UpdatableIndexSetting' = UpdatableIndexSetting' UpdatableIndexSetting
                                deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
@@ -1123,6 +1132,21 @@ main = hspec $ do
       myTweet <- searchTweet search
       liftIO $
         myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for for inline template query" $ withTestEnv $ do
+      _ <- insertData
+      let innerQuery = QueryMatchQuery $
+                         mkMatchQuery (FieldName "{{userKey}}")
+                                      (QueryString "{{bitemyappKey}}")
+          templateParams = TemplateQueryKeyValuePairs $ HM.fromList
+                            [ ("userKey", "user")
+                            , ("bitemyappKey", "bitemyapp")
+                            ]
+          templateQuery = QueryTemplateQueryInline $
+                            TemplateQueryInline innerQuery templateParams
+          search = mkSearch (Just templateQuery) Nothing
+      myTweet <- searchTweet search
+      liftIO $ myTweet `shouldBe` Right exampleTweet
 
 
   describe "sorting" $ do
@@ -1864,6 +1888,7 @@ main = hspec $ do
     propJSON (Proxy :: Proxy InitialShardCount)
     propJSON (Proxy :: Proxy FSType)
     propJSON (Proxy :: Proxy CompoundFormat)
+    propJSON (Proxy :: Proxy TemplateQueryInline)
 
 -- Temporary solution for lacking of generic derivation of Arbitrary
 -- We use generics-sop, as it's much more concise than directly using GHC.Generics

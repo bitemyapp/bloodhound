@@ -196,6 +196,8 @@ module Database.V5.Bloodhound.Types
        , RangeQuery(..)
        , RegexpQuery(..)
        , QueryString(..)
+       , TemplateQueryInline(..)
+       , TemplateQueryKeyValuePairs(..)
        , BooleanOperator(..)
        , ZeroTermsQuery(..)
        , CutoffFrequency(..)
@@ -1211,6 +1213,7 @@ data Query =
   | QueryRegexpQuery            RegexpQuery
   | QueryExistsQuery            FieldName
   | QueryMatchNoneQuery
+  | QueryTemplateQueryInline    TemplateQueryInline
   deriving (Eq, Read, Show, Generic, Typeable)
 
 -- | As of Elastic 2.0, 'Filters' are just 'Queries' housed in a Bool Query, and
@@ -1621,6 +1624,38 @@ data Distance =
 data DistanceRange =
   DistanceRange { distanceFrom :: Distance
                 , distanceTo   :: Distance } deriving (Eq, Read, Show, Generic, Typeable)
+
+type TemplateQueryKey = Text
+type TemplateQueryValue = Text
+
+newtype TemplateQueryKeyValuePairs = TemplateQueryKeyValuePairs (HM.HashMap TemplateQueryKey TemplateQueryValue)
+  deriving (Eq, Read, Show, Generic)
+
+instance ToJSON TemplateQueryKeyValuePairs where
+  toJSON (TemplateQueryKeyValuePairs x) = Object $ HM.map toJSON x
+
+instance FromJSON TemplateQueryKeyValuePairs where
+  parseJSON (Object o) = pure . TemplateQueryKeyValuePairs $ HM.mapMaybe getValue o
+    where getValue (String x) = Just x
+          getValue _          = Nothing
+  parseJSON _          = fail "error parsing TemplateQueryKeyValuePairs"
+
+data TemplateQueryInline =
+  TemplateQueryInline { inline :: Query
+                      , params :: TemplateQueryKeyValuePairs
+                      }
+  deriving (Eq, Read, Show, Generic, Typeable)
+
+instance ToJSON TemplateQueryInline where
+  toJSON TemplateQueryInline{..} = object [ "inline" .= inline
+                                          , "params" .= params
+                                          ]
+
+instance FromJSON TemplateQueryInline where
+  parseJSON = withObject "TemplateQueryInline" parse
+    where parse o = TemplateQueryInline
+                    <$> o .: "inline"
+                    <*> o .: "params"
 
 data SearchResult a =
   SearchResult { took         :: Int
@@ -2220,6 +2255,9 @@ instance ToJSON Query where
   toJSON QueryMatchNoneQuery =
     object ["match_none" .= object []]
 
+  toJSON (QueryTemplateQueryInline templateQuery) =
+    object [ "template" .= templateQuery ]
+
 instance FromJSON Query where
   parseJSON v = withObject "Query" parse v
     where parse o = termQuery `taggedWith` "term"
@@ -2247,6 +2285,7 @@ instance FromJSON Query where
                 <|> queryRangeQuery `taggedWith` "range"
                 <|> queryRegexpQuery `taggedWith` "regexp"
                 <|> querySimpleQueryStringQuery `taggedWith` "simple_query_string"
+                <|> queryTemplateQueryInline `taggedWith` "template"
             where taggedWith parser k = parser =<< o .: k
           termQuery = fieldTagged $ \(FieldName fn) o ->
                         TermQuery <$> (Term fn <$> o .: "value") <*> o .:? "boost"
@@ -2284,6 +2323,7 @@ instance FromJSON Query where
           queryRegexpQuery = pure . QueryRegexpQuery
           querySimpleQueryStringQuery = pure . QuerySimpleQueryStringQuery
           queryExistsQuery o = QueryExistsQuery <$> o .: "field"
+          queryTemplateQueryInline = pure . QueryTemplateQueryInline
 
 
 omitNulls :: [(Text, Value)] -> Value
