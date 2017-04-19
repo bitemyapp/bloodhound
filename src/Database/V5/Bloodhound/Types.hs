@@ -330,6 +330,10 @@ module Database.V5.Bloodhound.Types
        , PhraseSuggester(..)
        , PhraseSuggesterHighlighter(..)
        , PhraseSuggesterCollate(..)
+       , mkPhraseSuggester
+       , SuggestOptions(..)
+       , SuggestResponse(..)
+       , NamedSuggestionResponse(..)
 
        , Aggregation(..)
        , Aggregations
@@ -1116,7 +1120,9 @@ data Search = Search { queryBody       :: Maybe Query
                      , size            :: Size
                      , searchType      :: SearchType
                      , fields          :: Maybe [FieldName]
-                     , source          :: Maybe Source } deriving (Eq, Read, Show, Generic, Typeable)
+                     , source          :: Maybe Source
+                     , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
+                     } deriving (Eq, Read, Show, Generic, Typeable)
 
 data SearchType = SearchTypeQueryThenFetch
                 | SearchTypeDfsQueryThenFetch
@@ -1663,13 +1669,17 @@ instance FromJSON TemplateQueryInline where
                     <$> o .: "inline"
                     <*> o .: "params"
 
+
 data SearchResult a =
   SearchResult { took         :: Int
                , timedOut     :: Bool
                , shards       :: ShardResult
                , searchHits   :: SearchHits a
                , aggregations :: Maybe AggregationResults
-               , scrollId     :: Maybe ScrollId } deriving (Eq, Read, Show, Generic, Typeable)
+               , scrollId     :: Maybe ScrollId
+               , suggest      :: Maybe NamedSuggestionResponse -- ^ Only one Suggestion request / response per Search is supported.
+               }
+  deriving (Eq, Read, Show, Generic, Typeable)
 
 newtype ScrollId = ScrollId Text deriving (Eq, Read, Show, Generic, Ord, ToJSON, FromJSON)
 
@@ -3258,7 +3268,7 @@ instance FromJSON SearchAliasRouting where
     where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
-  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource) =
+  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource sSuggest) =
     omitNulls [ "query"        .= query'
               , "sort"         .= sort
               , "aggregations" .= searchAggs
@@ -3267,7 +3277,8 @@ instance ToJSON Search where
               , "size"         .= sSize
               , "track_scores" .= sTrackSortScores
               , "fields"       .= sFields
-              , "_source"      .= sSource]
+              , "_source"      .= sSource
+              , "suggest"      .= sSuggest]
 
     where query' = case sFilter of
                     Nothing -> mquery
@@ -3620,7 +3631,8 @@ instance (FromJSON a) => FromJSON (SearchResult a) where
                          v .:  "_shards"      <*>
                          v .:  "hits"         <*>
                          v .:? "aggregations" <*>
-                         v .:? "_scroll_id"
+                         v .:? "_scroll_id"   <*>
+                         v .:? "suggest"
   parseJSON _          = empty
 
 instance (FromJSON a) => FromJSON (SearchHits a) where
@@ -5106,7 +5118,7 @@ data Suggest = Suggest { suggestText :: Text
                        , suggestName :: Text
                        , suggestType :: SuggestType
                        }
- deriving (Show, Generic)
+ deriving (Show, Generic, Eq, Read)
 
 instance ToJSON Suggest where
   toJSON Suggest{..} = object [ "text" .= suggestText
@@ -5125,7 +5137,7 @@ instance FromJSON Suggest where
   parseJSON x = typeMismatch "Suggest" x
 
 data SuggestType = SuggestTypePhraseSuggester PhraseSuggester
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq, Read)
 
 instance ToJSON SuggestType where
   toJSON (SuggestTypePhraseSuggester x) = object ["phrase" .= x]
@@ -5149,7 +5161,7 @@ data PhraseSuggester =
                   , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
                   , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
                   }
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq, Read)
 
 instance ToJSON PhraseSuggester where
   toJSON PhraseSuggester{..} = omitNulls [ "field" .= phraseSuggesterField
@@ -5180,11 +5192,16 @@ instance FromJSON PhraseSuggester where
                       <*> o .:? "highlight"
                       <*> o .:? "collate"
 
+mkPhraseSuggester :: FieldName -> PhraseSuggester
+mkPhraseSuggester fName =
+  PhraseSuggester fName Nothing Nothing Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing
+
 data PhraseSuggesterHighlighter =
   PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
                              , phraseSuggesterHighlighterPostTag :: Text
                              }
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq, Read)
 
 instance ToJSON PhraseSuggesterHighlighter where
   toJSON PhraseSuggesterHighlighter{..} =
@@ -5202,7 +5219,7 @@ data PhraseSuggesterCollate =
   PhraseSuggesterCollate { phraseSuggesterCollateTemplateQuery :: TemplateQueryInline
                          , phraseSuggesterCollatePrune :: Bool
                          }
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq, Read)
 
 instance ToJSON PhraseSuggesterCollate where
   toJSON PhraseSuggesterCollate{..} = object [ "query" .= object
@@ -5220,3 +5237,51 @@ instance FromJSON PhraseSuggesterCollate where
     prune' <- o .:? "prune" .!= False
     return $ PhraseSuggesterCollate (TemplateQueryInline inline' params') prune'
   parseJSON x = typeMismatch "PhraseSuggesterCollate" x
+
+data SuggestOptions =
+  SuggestOptions { suggestOptionsText :: Text
+                 , suggestOptionsScore :: Double
+                 , suggestOptionsFreq :: Maybe Int
+                 , suggestOptionsHighlighted :: Maybe Text
+                 }
+  deriving (Eq, Read, Show)
+
+instance FromJSON SuggestOptions where
+  parseJSON = withObject "SuggestOptions" parse
+    where parse o = SuggestOptions
+                    <$> o .: "text"
+                    <*> o .: "score"
+                    <*> o .:? "freq"
+                    <*> o .:? "highlighted"
+
+data SuggestResponse =
+  SuggestResponse { suggestResponseText :: Text
+                  , suggestResponseOffset :: Int
+                  , suggestResponseLength :: Int
+                  , suggestResponseOptions :: [SuggestOptions]
+                  }
+  deriving (Eq, Read, Show)
+
+instance FromJSON SuggestResponse where
+  parseJSON = withObject "SuggestResponse" parse
+    where parse o = SuggestResponse
+                    <$> o .: "text"
+                    <*> o .: "offset"
+                    <*> o .: "length"
+                    <*> o .: "options"
+
+data NamedSuggestionResponse =
+  NamedSuggestionResponse { nsrName :: Text
+                          , nsrResponses :: [SuggestResponse]
+                          }
+  deriving (Eq, Read, Show)
+
+instance FromJSON NamedSuggestionResponse where
+  parseJSON (Object o) = do
+    suggestionName' <- case HM.toList o of
+                        [(x, _)] -> return x
+                        _ -> fail "error parsing NamedSuggestionResponse name"
+    suggestionResponses' <- o .: suggestionName'
+    return $ NamedSuggestionResponse suggestionName' suggestionResponses'
+
+  parseJSON x = typeMismatch "NamedSuggestionResponse" x

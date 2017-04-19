@@ -1144,6 +1144,7 @@ main = hspec $ do
       let search = Search Nothing
                    Nothing (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
+                   Nothing
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $
@@ -1581,6 +1582,21 @@ main = hspec $ do
       _ <- createExampleIndex
       resp <- forceMergeIndex (IndexList (testIndex :| [])) defaultForceMergeIndexSettings
       liftIO $ validateStatus resp 200
+
+  describe "Suggest" $ do
+    it "returns a search suggestion using the phrase suggester" $ withTestEnv $ do
+      _ <- insertData
+      let query = QueryMatchNoneQuery
+          phraseSuggester = mkPhraseSuggester (FieldName "message")
+          namedSuggester = Suggest "Use haskel" "suggest_name" (SuggestTypePhraseSuggester phraseSuggester)
+          search' = mkSearch (Just query) Nothing
+          search = search' { suggestBody = Just namedSuggester }
+          expectedText = Just "use haskell"
+      resp <- searchByIndex testIndex search
+      parsed <- parseEsResponse resp :: BH IO (Either EsError (SearchResult Tweet))
+      case parsed of
+        Left e -> liftIO $ expectationFailure ("Expected an search suggestion but got " <> show e)
+        Right sr -> liftIO $ (suggestOptionsText . head . suggestResponseOptions . head . nsrResponses  <$> suggest sr) `shouldBe` expectedText
 
   describe "JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
