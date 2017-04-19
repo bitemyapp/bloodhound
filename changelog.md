@@ -1,3 +1,30 @@
+0.14.0.0
+===================
+
+- @bitemyapp
+  - Aeson 1.2
+
+- @shmish111
+  - #177 Added stats aggregation
+
+- @justinwhite
+  - #176 Fixed typo
+
+- @WraithM
+  - #175 Sorted version of getInitialScroll for V5 client
+
+0.13.0.0
+===================
+
+- @michaelxavier
+  - #174 doctests are bad
+  - #171 Added Semigroup instances
+  - #165 Aeson 1.1
+
+- @bermanjosh
+  - #168 Sub-aggregation support
+  - #167 Limit QuickCheck to 500 checks
+
 0.12.1.0
 ===================
 * @michaelxavier
