@@ -1103,7 +1103,7 @@ unpackId (DocId docId) = docId
 
 type TrackSortScores = Bool
 newtype From = From Int deriving (Eq, Read, Show, Generic, ToJSON)
-newtype Size = Size Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON)
+newtype Size = Size Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
 data Search = Search { queryBody       :: Maybe Query
                      , filterBody      :: Maybe Filter
@@ -1654,7 +1654,7 @@ type TemplateQueryKey = Text
 type TemplateQueryValue = Text
 
 newtype TemplateQueryKeyValuePairs = TemplateQueryKeyValuePairs (HM.HashMap TemplateQueryKey TemplateQueryValue)
-  deriving (Eq, Read, Show, Generic)
+  deriving (Eq, Read, Show, Generic, Typeable)
 
 instance ToJSON TemplateQueryKeyValuePairs where
   toJSON (TemplateQueryKeyValuePairs x) = Object $ HM.map toJSON x
@@ -5340,7 +5340,7 @@ data Suggest = Suggest { suggestText :: Text
                        , suggestName :: Text
                        , suggestType :: SuggestType
                        }
- deriving (Show, Generic, Eq, Read)
+ deriving (Show, Generic, Eq, Read, Typeable)
 
 instance ToJSON Suggest where
   toJSON Suggest{..} = object [ "text" .= suggestText
@@ -5359,7 +5359,7 @@ instance FromJSON Suggest where
   parseJSON x = typeMismatch "Suggest" x
 
 data SuggestType = SuggestTypePhraseSuggester PhraseSuggester
-  deriving (Show, Generic, Eq, Read)
+  deriving (Show, Generic, Eq, Read, Typeable)
 
 instance ToJSON SuggestType where
   toJSON (SuggestTypePhraseSuggester x) = object ["phrase" .= x]
@@ -5383,7 +5383,7 @@ data PhraseSuggester =
                   , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
                   , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
                   }
-  deriving (Show, Generic, Eq, Read)
+  deriving (Show, Generic, Eq, Read, Typeable)
 
 instance ToJSON PhraseSuggester where
   toJSON PhraseSuggester{..} = omitNulls [ "field" .= phraseSuggesterField
@@ -5423,7 +5423,7 @@ data PhraseSuggesterHighlighter =
   PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
                              , phraseSuggesterHighlighterPostTag :: Text
                              }
-  deriving (Show, Generic, Eq, Read)
+  deriving (Show, Generic, Eq, Read, Typeable)
 
 instance ToJSON PhraseSuggesterHighlighter where
   toJSON PhraseSuggesterHighlighter{..} =
@@ -5441,7 +5441,7 @@ data PhraseSuggesterCollate =
   PhraseSuggesterCollate { phraseSuggesterCollateTemplateQuery :: TemplateQueryInline
                          , phraseSuggesterCollatePrune :: Bool
                          }
-  deriving (Show, Generic, Eq, Read)
+  deriving (Show, Generic, Eq, Read, Typeable)
 
 instance ToJSON PhraseSuggesterCollate where
   toJSON PhraseSuggesterCollate{..} = object [ "query" .= object
