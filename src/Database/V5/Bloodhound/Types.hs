@@ -2866,7 +2866,7 @@ instance ToJSON MultiMatchQuery where
                  , "query" .= query
                  , "operator" .= boolOp
                  , "zero_terms_query" .= ztQ
-                 , "tiebreaker" .= tb
+                 , "tie_breaker" .= tb
                  , "type" .= mmqt
                  , "cutoff_frequency" .= cf
                  , "analyzer" .= analyzer
@@ -2881,7 +2881,7 @@ instance FromJSON MultiMatchQuery where
                            <*> o .: "query"
                            <*> o .: "operator"
                            <*> o .: "zero_terms_query"
-                           <*> o .:? "tiebreaker"
+                           <*> o .:? "tie_breaker"
                            <*> o .:? "type"
                            <*> o .:? "cutoff_frequency"
                            <*> o .:? "analyzer"
