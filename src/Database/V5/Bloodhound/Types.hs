@@ -344,6 +344,7 @@ module Database.V5.Bloodhound.Types
        , DateMathUnit(..)
        , TopHitsAggregation(..)
        , StatisticsAggregation(..)
+       , NestedAggregation(..)
 
        , Highlights(..)
        , FieldHighlight(..)
@@ -1719,6 +1720,7 @@ data Aggregation = TermsAgg TermsAggregation
                  | MissingAgg MissingAggregation
                  | TopHitsAgg TopHitsAggregation
                  | StatsAgg StatisticsAggregation
+                 | NestedAgg NestedAggregation
   deriving (Eq, Read, Show, Generic, Typeable)
 
 data TopHitsAggregation = TopHitsAggregation
@@ -1798,6 +1800,9 @@ data FilterAggregation = FilterAggregation { faFilter :: Filter
 
 data StatisticsAggregation = StatisticsAggregation { statsType :: StatsType
                                                    , statsField :: FieldName } deriving (Eq, Read, Show, Generic, Typeable)
+
+data NestedAggregation = NestedAggregation { nestedPath :: QueryPath
+                                           , nestedAggregation :: Aggregations } deriving (Eq, Read, Show, Generic, Typeable)
 
 data StatsType
   = Basic
@@ -1951,6 +1956,10 @@ instance ToJSON Aggregation where
     where
       stType | typ == Basic = "stats"
              | otherwise = "extended_stats"
+  toJSON (NestedAgg (NestedAggregation (QueryPath nestedPath) nestedAggregations)) =
+    object [ "nested" .= object [ "path" .= nestedPath ]
+           , "aggs" .= toJSON nestedAggregations
+           ]
 
 instance ToJSON DateRangeAggregation where
   toJSON DateRangeAggregation {..} =
