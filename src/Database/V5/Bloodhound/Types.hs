@@ -910,7 +910,7 @@ defaultCache = False
 
 {-| 'PrefixValue' is used in 'PrefixQuery' as the main query component.
 -}
-type PrefixValue = Text
+-- type PrefixValue = Text
 
 {-| 'BooleanOperator' is the usual And/Or operators with an ES compatible
     JSON encoding baked in. Used all over the place.
@@ -2283,7 +2283,7 @@ instance FromJSON Query where
           queryRangeQuery = pure . QueryRangeQuery
           queryRegexpQuery = pure . QueryRegexpQuery
           querySimpleQueryStringQuery = pure . QuerySimpleQueryStringQuery
-          queryExistsQuery o = QueryExistsQuery <$> o .: "field"
+          -- queryExistsQuery o = QueryExistsQuery <$> o .: "field"
 
 
 omitNulls :: [(Text, Value)] -> Value
@@ -2751,10 +2751,10 @@ instance FromJSON BoostingQuery where
                     <*> o .: "negative_boost"
 
 instance ToJSON BoolQuery where
-  toJSON (BoolQuery mustM filterM notM shouldM bqMin boost disableCoord) =
+  toJSON (BoolQuery mustM filterM' notM shouldM bqMin boost disableCoord) =
     omitNulls base
     where base = [ "must" .= mustM
-                 , "filter" .= filterM
+                 , "filter" .= filterM'
                  , "must_not" .= notM
                  , "should" .= shouldM
                  , "minimum_should_match" .= bqMin
