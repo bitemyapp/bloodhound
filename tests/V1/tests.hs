@@ -1112,6 +1112,17 @@ main = hspec $ do
       liftIO $
         myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for multi-match query with a custom tiebreaker" $ withTestEnv $ do
+      _ <- insertData
+      let tiebreaker = Just $ Tiebreaker 0.3
+          flds = [FieldName "user", FieldName "message"]
+          multiQuery' = mkMultiMatchQuery flds (QueryString "bitemyapp")
+          query =  QueryMultiMatchQuery $ multiQuery' { multiMatchQueryTiebreaker = tiebreaker }
+          search = mkSearch (Just query) Nothing
+      myTweet <- searchTweet search
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
+
     it "returns document for bool query" $ withTestEnv $ do
       _ <- insertData
       let innerQuery = QueryMatchQuery $
