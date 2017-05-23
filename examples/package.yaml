@@ -1,0 +1,38 @@
+name: bloodhound-examples
+version: '0.0.0.0'
+category: Web
+author: Chris Allen
+maintainer: cma@bitemyapp.com
+copyright: 2017, Chris Allen
+license: BSD3
+github: bitemyapp/bloodhound
+extra-source-files:
+- README.md
+dependencies:
+- base
+- bloodhound
+- time
+- aeson
+- text
+- http-client
+- vector
+- semigroups
+- transformers
+ghc-options:
+- -Wall
+- -threaded
+- -rtsopts
+- -with-rtsopts=-N
+when:
+- condition: flag(werror)
+  ghc-options: -Werror
+
+executables:
+  tweet-example:
+    main: Tweet.hs
+
+flags:
+  werror:
+    description: "Treat warnings as errors"
+    manual: true
+    default: false

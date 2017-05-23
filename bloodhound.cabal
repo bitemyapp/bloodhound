@@ -1,5 +1,5 @@
 name:                bloodhound
-version:             0.12.0.0
+version:             0.14.0.0
 synopsis:            ElasticSearch client library for Haskell
 description:         ElasticSearch made awesome for Haskell hackers
 homepage:            https://github.com/bitemyapp/bloodhound
@@ -16,23 +16,35 @@ extra-source-files:
   README.md
   changelog.md
 
-
 source-repository head
   type:     git
   location: https://github.com/bitemyapp/bloodhound.git
 
+Flag ES1
+  Description: Run the test suite against an Elasticsearch 1.x server
+  Default:     True
+
+Flag ES5
+  Description: Run the test suite against an Elasticsearch 5.x server
+  Default:     False
+
 library
-  ghc-options: -Wall
-  exposed-modules:     Database.Bloodhound
-                       Database.Bloodhound.Client
-                       Database.Bloodhound.Types
-                       Database.Bloodhound.Types.Class
-                       Database.Bloodhound.Types.Internal
+  ghc-options:         -Wall
+  exposed-modules:     Database.V1.Bloodhound
+                       Database.V1.Bloodhound.Client
+                       Database.V1.Bloodhound.Types
+                       Database.V1.Bloodhound.Types.Class
+                       Database.V1.Bloodhound.Types.Internal
+                       Database.V5.Bloodhound
+                       Database.V5.Bloodhound.Client
+                       Database.V5.Bloodhound.Types
+                       Database.V5.Bloodhound.Types.Class
+                       Database.V5.Bloodhound.Types.Internal
   hs-source-dirs:      src
   build-depends:       base             >= 4.3     && <5,
                        bytestring       >= 0.10.0  && <0.11,
                        containers       >= 0.5.0.0 && <0.6,
-                       aeson            >= 0.11.1  && <1.1,
+                       aeson            >= 0.11.1  && <1.3,
                        http-client      >= 0.4.30  && <0.6,
                        network-uri      >= 2.6     && <2.7,
                        semigroups       >= 0.15    && <0.19,
@@ -41,7 +53,7 @@ library
                        mtl              >= 1.0     && <2.3,
                        transformers     >= 0.2     && <0.6,
                        http-types       >= 0.8     && <0.10,
-                       vector           >= 0.10.9  && <0.12,
+                       vector           >= 0.10.9  && <0.13,
                        scientific       >= 0.3.0.0 && <0.4.0.0,
                        exceptions,
                        data-default-class,
@@ -55,14 +67,18 @@ test-suite tests
   ghc-options: -Wall -fno-warn-orphans
   type: exitcode-stdio-1.0
   main-is: tests.hs
-  hs-source-dirs: tests
+  if flag(ES5)
+    hs-source-dirs:     tests/V5
+  else
+    hs-source-dirs:     tests/V1
+  
   build-depends:       base,
                        bloodhound,
                        bytestring,
                        http-client,
                        http-types,
                        containers,
-                       hspec                >= 1.8 && <2.4,
+                       hspec                >= 1.8,
                        text,
                        time,
                        aeson,
@@ -76,26 +92,6 @@ test-suite tests
                        errors,
                        exceptions,
                        temporary,
-                       unix,
+                       unix-compat,
                        network-uri
   default-language:    Haskell2010
-
-test-suite doctests
-  ghc-options:      -threaded -Wall
-  default-language: Haskell2010
-  type:             exitcode-stdio-1.0
-  main-is:          doctests.hs
-  hs-source-dirs:   tests, src
-  if impl(ghc >= 7.8)
-    build-depends:    base,
-                      aeson,
-                      bloodhound,
-                      directory,
-                      doctest >= 0.10.1,
-                      filepath
-  else
-    buildable: False
-
-Source-Repository head
-  Type:     git
-  Location: git://github.com/bitemyapp/bloodhound.git

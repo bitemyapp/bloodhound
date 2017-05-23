@@ -13,3 +13,7 @@ bloodhound-*-docs.tar.gz
 bloodhound.iml
 .idea/
 .stack-work/
+.hg/00changelog.i
+.hg
+.hgignore
+examples/bloodhound-examples.cabal

@@ -40,7 +40,7 @@ import           Data.Time.Clock                 (NominalDiffTime, UTCTime (..),
 import           Data.Typeable
 import qualified Data.Vector                     as V
 import qualified Data.Version                    as Vers
-import           Database.Bloodhound
+import           Database.V1.Bloodhound
 import           GHC.Generics                    as G
 import           Network.HTTP.Client             hiding (Proxy)
 import qualified Network.HTTP.Types.Method       as NHTM
@@ -48,7 +48,7 @@ import qualified Network.HTTP.Types.Status       as NHTS
 import qualified Network.URI                     as URI
 import           Prelude                         hiding (filter)
 import           System.IO.Temp
-import           System.Posix.Files
+import           System.PosixCompat.Files
 import           Test.Hspec
 import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 
@@ -586,7 +586,7 @@ instance ApproxEq Vers.Version where
   (=~) = (==)
 instance (ApproxEq a, Show a) => ApproxEq [a] where
   as =~ bs = and (zipWith (=~) as bs)
-instance (ApproxEq l, Show l, ApproxEq r, Show r) => ApproxEq (Either l r) where
+instance (ApproxEq l, ApproxEq r) => ApproxEq (Either l r) where
   Left a =~ Left b = a =~ b
   Right a =~ Right b = a =~ b
   _ =~ _ = False
@@ -1306,11 +1306,23 @@ main = hspec $ do
       searchExpectAggs search
       searchValidBucketAgg search "users" toTerms
 
+    it "return sub-aggregation results" $ withTestEnv $ do
+      _ <- insertData
+      let subaggs = mkAggregations "age_agg" . TermsAgg $ mkTermsAggregation "age"
+          agg = TermsAgg $ (mkTermsAggregation "user") { termAggs = Just subaggs}
+          search = mkAggregateSearch Nothing $ mkAggregations "users" agg
+      reply <- searchByIndex testIndex search
+      let result = decode (responseBody reply) :: Maybe (SearchResult Tweet)
+          usersAggResults = result >>= aggregations >>= toTerms "users"
+          subAggResults = usersAggResults >>= (listToMaybe . buckets) >>= termsAggs >>= toTerms "age_agg"
+          subAddResultsExists = isJust subAggResults
+      liftIO $ (subAddResultsExists) `shouldBe` True
+
     it "returns cardinality aggregation results" $ withTestEnv $ do
       _ <- insertData
       let cardinality = CardinalityAgg $ mkCardinalityAggregation $ FieldName "user"
       let search = mkAggregateSearch Nothing $ mkAggregations "users" cardinality
-      let search' = search { Database.Bloodhound.from = From 0, size = Size 0 }
+      let search' = search { Database.V1.Bloodhound.from = From 0, size = Size 0 }
       searchExpectAggs search'
       let docCountPair k n = (k, object ["value" .= Number n])
       res <- searchTweets search'

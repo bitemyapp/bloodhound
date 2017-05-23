@@ -1,0 +1,44 @@
+compiler: ghc-8.2.0.20170507
+compiler-check: match-exact
+resolver: lts-8.13
+setup-info:
+  ghc:
+    linux64:
+      8.2.0.20170507:
+        url: https://downloads.haskell.org/~ghc/8.2.1-rc2/ghc-8.2.0.20170507-x86_64-deb8-linux.tar.xz
+        content-length: 141011788
+        sha1: ff886437c1d2ddfa5686d6c9efb0819a957c3dde
+    macosx:
+      8.2.0.20170507:
+        url: https://downloads.haskell.org/~ghc/8.2.1-rc2/ghc-8.2.0.20170507-x86_64-apple-darwin.tar.xz
+        content-length: 126192308
+        sha1: f059fe6f8a898d5619ab03e06e0ff0912a5f3340
+    windows64:
+      8.2.0.20170507:
+        url: https://downloads.haskell.org/~ghc/8.2.1-rc2/ghc-8.2.0.20170507-x86_64-unknown-mingw32.tar.xz
+        content-length: 177295548
+        sha1: 87646ca3a89278775ceb7be429faafac3cf738d8
+
+ghc-options: { "*":  -XTypeSynonymInstances }
+
+flags:
+  bloodhound-examples:
+    werror: false
+
+allow-newer: true
+
+packages:
+- '.'
+- './examples'
+
+extra-deps:
+- http-client-0.5.0
+- aeson-1.2.0.0
+- fail-4.9.0.0
+- http-types-0.9
+- attoparsec-0.13.0.1
+- quickcheck-properties-0.1
+- semigroups-0.18.3
+- uri-bytestring-0.1.9
+- temporary-resourcet-0.1.0.0
+- transformers-compat-0.5.1.4
