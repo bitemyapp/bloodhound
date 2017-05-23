@@ -2130,7 +2130,7 @@ instance ToJSON Filter where
 
   toJSON (MissingFilter (FieldName fieldName) (Existence existence) (NullValue nullValue)) =
     object ["missing" .=
-            object ["field"       .= fieldName
+            object [ "field"      .= fieldName
                    , "existence"  .= existence
                    , "null_value" .= nullValue]]
 
