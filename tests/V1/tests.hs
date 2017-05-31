@@ -595,6 +595,15 @@ instance (ApproxEq l, ApproxEq r) => ApproxEq (Either l r) where
 instance ApproxEq NodeAttrFilter
 instance ApproxEq NodeAttrName
 instance ApproxEq BuildHash
+instance ApproxEq TemplateQueryKeyValuePairs where 
+  (=~) = (==)
+instance ApproxEq TemplateQueryInline
+instance ApproxEq Size
+instance ApproxEq PhraseSuggesterHighlighter
+instance ApproxEq PhraseSuggesterCollate
+instance ApproxEq PhraseSuggester
+instance ApproxEq SuggestType
+instance ApproxEq Suggest
 
 -- | Due to the way nodeattrfilters get serialized here, they may come
 -- out in a different order, but they are morally equivalent
@@ -746,6 +755,7 @@ instance Arbitrary Query where
                                  , QuerySimpleQueryStringQuery <$> arbitrary
                                  , QueryRangeQuery <$> arbitrary
                                  , QueryRegexpQuery <$> arbitrary
+                                 , QueryTemplateQueryInline <$> arbitrary
                                  ]
   shrink = genericShrink
 
@@ -797,6 +807,10 @@ instance Arbitrary VersionNumber where
   arbitrary = mk . fmap getPositive . getNonEmpty <$> arbitrary
     where
       mk versions = VersionNumber (Vers.Version versions [])
+
+instance Arbitrary TemplateQueryKeyValuePairs where
+  arbitrary = TemplateQueryKeyValuePairs . HM.fromList <$> arbitrary
+  shrink (TemplateQueryKeyValuePairs x) = map (TemplateQueryKeyValuePairs . HM.fromList) . shrink $ HM.toList x
 
 instance Arbitrary IndexName where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary MappingName where arbitrary = sopArbitrary; shrink = genericShrink
@@ -913,6 +927,13 @@ instance Arbitrary FSType where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary CompoundFormat where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FsSnapshotRepo where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary SnapshotRepoName where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary TemplateQueryInline where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PhraseSuggesterCollate where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PhraseSuggesterHighlighter where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Size where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PhraseSuggester where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary SuggestType where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Suggest where arbitrary = sopArbitrary; shrink = genericShrink
 
 newtype UpdatableIndexSetting' = UpdatableIndexSetting' UpdatableIndexSetting
                                deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
@@ -1091,6 +1112,17 @@ main = hspec $ do
       liftIO $
         myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for multi-match query with a custom tiebreaker" $ withTestEnv $ do
+      _ <- insertData
+      let tiebreaker = Just $ Tiebreaker 0.3
+          flds = [FieldName "user", FieldName "message"]
+          multiQuery' = mkMultiMatchQuery flds (QueryString "bitemyapp")
+          query =  QueryMultiMatchQuery $ multiQuery' { multiMatchQueryTiebreaker = tiebreaker }
+          search = mkSearch (Just query) Nothing
+      myTweet <- searchTweet search
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
+
     it "returns document for bool query" $ withTestEnv $ do
       _ <- insertData
       let innerQuery = QueryMatchQuery $
@@ -1124,6 +1156,21 @@ main = hspec $ do
       liftIO $
         myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for for inline template query" $ withTestEnv $ do
+      _ <- insertData
+      let innerQuery = QueryMatchQuery $
+                         mkMatchQuery (FieldName "{{userKey}}")
+                                      (QueryString "{{bitemyappKey}}")
+          templateParams = TemplateQueryKeyValuePairs $ HM.fromList
+                            [ ("userKey", "user")
+                            , ("bitemyappKey", "bitemyapp")
+                            ]
+          templateQuery = QueryTemplateQueryInline $
+                            TemplateQueryInline innerQuery templateParams
+          search = mkSearch (Just templateQuery) Nothing
+      myTweet <- searchTweet search
+      liftIO $ myTweet `shouldBe` Right exampleTweet
+
 
   describe "sorting" $ do
     it "returns documents in the right order" $ withTestEnv $ do
@@ -1133,6 +1180,7 @@ main = hspec $ do
       let search = Search Nothing
                    (Just IdentityFilter) (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
+                   Nothing
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $
@@ -1761,6 +1809,22 @@ main = hspec $ do
       resp <- optimizeIndex (IndexList (testIndex :| [])) defaultIndexOptimizationSettings
       liftIO $ validateStatus resp 200
 
+  describe "Suggest" $ do
+    it "returns a search suggestion using the phrase suggester" $ withTestEnv $ do
+      _ <- insertData
+      let {- query = QueryMatchNoneQuery
+          query = TermQuery (Term "user" "bitemyapp") Nothing -}
+      let phraseSuggester = mkPhraseSuggester (FieldName "message")
+          namedSuggester = Suggest "Use haskel" "suggest_name" (SuggestTypePhraseSuggester phraseSuggester)
+          search' = mkSearch Nothing Nothing
+          search = search' { suggestBody = Just namedSuggester }
+          expectedText = Just "use haskell"
+      resp <- searchByIndex testIndex search
+      parsed <- parseEsResponse resp :: BH IO (Either EsError (SearchResult Tweet))
+      case parsed of
+        Left e -> liftIO $ expectationFailure ("Expected an search suggestion but got " <> show e)
+        Right sr -> liftIO $ (suggestOptionsText . head . suggestResponseOptions . head . nsrResponses  <$> suggest sr) `shouldBe` expectedText
+
   describe "JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
     propJSON (Proxy :: Proxy IndexName)
@@ -1864,6 +1928,8 @@ main = hspec $ do
     propJSON (Proxy :: Proxy InitialShardCount)
     propJSON (Proxy :: Proxy FSType)
     propJSON (Proxy :: Proxy CompoundFormat)
+    propJSON (Proxy :: Proxy TemplateQueryInline)
+    propJSON (Proxy :: Proxy Suggest)
 
 -- Temporary solution for lacking of generic derivation of Arbitrary
 -- We use generics-sop, as it's much more concise than directly using GHC.Generics

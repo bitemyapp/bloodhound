@@ -18,4 +18,5 @@ extra-deps:
 - uri-bytestring-0.1.9
 - void-0.7.1
 - generics-sop-0.2.2.0
+- unordered-containers-0.2.6.0
 resolver: lts-2.18
