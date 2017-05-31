@@ -37,6 +37,7 @@ module Database.V5.Bloodhound.Client
        -- *** Index Aliases
        , updateIndexAliases
        , getIndexAliases
+       , deleteIndexAlias
        -- *** Index Templates
        , putTemplate
        , templateExists
@@ -709,6 +710,12 @@ getIndexAliases :: (MonadBH m, MonadThrow m)
                 => m (Either EsError IndexAliasesSummary)
 getIndexAliases = parseEsResponse =<< get =<< url
   where url = joinPath ["_aliases"]
+
+-- | Delete a single alias, removing it from all indices it
+--   is currently associated with.
+deleteIndexAlias :: MonadBH m => IndexAliasName -> m Reply
+deleteIndexAlias (IndexAliasName (IndexName name)) = delete =<< url
+  where url = joinPath ["_all","_alias",name]
 
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
 --   Explained in further detail at
