@@ -5460,9 +5460,6 @@ instance FromJSON PhraseSuggesterCollate where
     return $ PhraseSuggesterCollate (TemplateQueryInline inline' params') prune'
   parseJSON x = typeMismatch "PhraseSuggesterCollate" x
 
-mkPhraseSuggesterCollate :: TemplateQueryInline -> PhraseSuggesterCollate
-mkPhraseSuggesterCollate tQuery = PhraseSuggesterCollate tQuery False
-
 data SuggestOptions =
   SuggestOptions { suggestOptionsText :: Text
                  , suggestOptionsScore :: Double
