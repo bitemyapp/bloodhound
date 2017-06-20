@@ -559,6 +559,21 @@ instance ApproxEq HasChildQuery
 instance ApproxEq FuzzyQuery
 instance ApproxEq FuzzyLikeFieldQuery
 instance ApproxEq FuzzyLikeThisQuery
+instance ApproxEq FunctionScoreQuery
+instance ApproxEq BoostMode
+instance ApproxEq ScoreMode
+instance ApproxEq FunctionScoreFunctions
+instance ApproxEq ComponentFunctionScoreFunction
+instance ApproxEq FunctionScoreFunction
+instance ApproxEq FunctionScoreScript
+instance ApproxEq FunctionScoreScriptInline
+instance ApproxEq FunctionScoreScriptParams where (=~) = (==)
+instance ApproxEq Weight where (=~) = (==)
+instance ApproxEq Seed where (=~) = (==)
+instance ApproxEq FieldValueFactor
+instance ApproxEq Factor where (=~) = (==)
+instance ApproxEq FactorModifier
+instance ApproxEq FactorMissingFieldValue where (=~) = (==)
 instance ApproxEq DisMaxQuery
 instance ApproxEq CommonTermsQuery
 instance ApproxEq CommonMinimumMatch
@@ -770,7 +785,7 @@ instance Arbitrary Query where
   shrink = genericShrink
 
 instance Arbitrary Filter where
-  arbitrary = Filter <$> arbitrary 
+  arbitrary = Filter <$> arbitrary
   shrink = genericShrink
 
 instance Arbitrary ReplicaBounds where
@@ -866,6 +881,28 @@ instance Arbitrary HasChildQuery where arbitrary = sopArbitrary; shrink = generi
 instance Arbitrary FuzzyQuery where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FuzzyLikeFieldQuery where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FuzzyLikeThisQuery where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FunctionScoreQuery where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary BoostMode where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ScoreMode where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FunctionScoreFunctions where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ComponentFunctionScoreFunction where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FunctionScoreFunction where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FunctionScoreScript where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FunctionScoreScriptInline where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FunctionScoreScriptParams where
+  arbitrary =
+    pure $ FunctionScoreScriptParams $
+      HM.fromList [ ("a", Number 42)
+                  , ("b", String "forty two")
+                  ]
+
+  shrink = const []
+instance Arbitrary Weight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Seed where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FieldValueFactor where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Factor where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FactorModifier where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FactorMissingFieldValue where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary DisMaxQuery where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary CommonTermsQuery where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary DistanceRange where arbitrary = sopArbitrary; shrink = genericShrink
@@ -1672,6 +1709,13 @@ main = hspec $ do
     propJSON (Proxy :: Proxy FuzzyQuery)
     propJSON (Proxy :: Proxy FuzzyLikeFieldQuery)
     propJSON (Proxy :: Proxy FuzzyLikeThisQuery)
+    propJSON (Proxy :: Proxy FunctionScoreQuery)
+    propJSON (Proxy :: Proxy BoostMode)
+    propJSON (Proxy :: Proxy ScoreMode)
+    propJSON (Proxy :: Proxy ComponentFunctionScoreFunction)
+    propJSON (Proxy :: Proxy FunctionScoreScript)
+    propJSON (Proxy :: Proxy FieldValueFactor)
+    propJSON (Proxy :: Proxy FactorModifier)
     propJSON (Proxy :: Proxy DisMaxQuery)
     propJSON (Proxy :: Proxy CommonTermsQuery)
     propJSON (Proxy :: Proxy CommonMinimumMatch)
