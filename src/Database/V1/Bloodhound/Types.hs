@@ -1421,22 +1421,23 @@ data DisMaxQuery =
               } deriving (Eq, Read, Show, Generic, Typeable)
 
 data MatchQuery =
-  MatchQuery { matchQueryField           :: FieldName
-             , matchQueryQueryString     :: QueryString
-             , matchQueryOperator        :: BooleanOperator
-             , matchQueryZeroTerms       :: ZeroTermsQuery
-             , matchQueryCutoffFrequency :: Maybe CutoffFrequency
-             , matchQueryMatchType       :: Maybe MatchQueryType
-             , matchQueryAnalyzer        :: Maybe Analyzer
-             , matchQueryMaxExpansions   :: Maybe MaxExpansions
-             , matchQueryLenient         :: Maybe Lenient
-             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Read, Show, Generic, Typeable)
+  MatchQuery { matchQueryField              :: FieldName
+             , matchQueryQueryString        :: QueryString
+             , matchQueryOperator           :: BooleanOperator
+             , matchQueryZeroTerms          :: ZeroTermsQuery
+             , matchQueryMinimumShouldMatch :: Maybe MinimumMatch
+             , matchQueryCutoffFrequency    :: Maybe CutoffFrequency
+             , matchQueryMatchType          :: Maybe MatchQueryType
+             , matchQueryAnalyzer           :: Maybe Analyzer
+             , matchQueryMaxExpansions      :: Maybe MaxExpansions
+             , matchQueryLenient            :: Maybe Lenient
+             , matchQueryBoost              :: Maybe Boost } deriving (Eq, Read, Show, Generic, Typeable)
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
 -}
 mkMatchQuery :: FieldName -> QueryString -> MatchQuery
-mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing
+mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 data MatchQueryType =
   MatchPhrase
@@ -3029,12 +3030,20 @@ instance FromJSON BoolQuery where
 
 instance ToJSON MatchQuery where
   toJSON (MatchQuery (FieldName fieldName)
-          (QueryString mqQueryString) booleanOperator
-          zeroTermsQuery cutoffFrequency matchQueryType
-          analyzer maxExpansions lenient boost) =
+                     (QueryString mqQueryString)
+                     booleanOperator
+                     zeroTermsQuery
+                     minimumMatch
+                     cutoffFrequency
+                     matchQueryType
+                     analyzer
+                     maxExpansions
+                     lenient
+                     boost) =
     object [ fieldName .= omitNulls base ]
     where base = [ "query" .= mqQueryString
                  , "operator" .= booleanOperator
+                 , "minimum_should_match" .= minimumMatch
                  , "zero_terms_query" .= zeroTermsQuery
                  , "cutoff_frequency" .= cutoffFrequency
                  , "type" .= matchQueryType
@@ -3050,6 +3059,7 @@ instance FromJSON MatchQuery where
                     <$> o .:  "query"
                     <*> o .:  "operator"
                     <*> o .:  "zero_terms_query"
+                    <*> o .:? "minimum_should_match"
                     <*> o .:? "cutoff_frequency"
                     <*> o .:? "type"
                     <*> o .:? "analyzer"
