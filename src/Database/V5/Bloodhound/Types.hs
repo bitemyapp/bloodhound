@@ -188,6 +188,7 @@ module Database.V5.Bloodhound.Types
        , FunctionScoreFunction(..)
        , FunctionScoreScript(..)
        , FunctionScoreScriptInline(..)
+       , FunctionScoreScriptId(..)
        , FunctionScoreScriptParams(..)
        , FunctionScoreScriptParamName
        , FunctionScoreScriptParamValue
@@ -1480,12 +1481,16 @@ data FunctionScoreFunction =
   deriving (Eq, Read, Show, Generic, Typeable)
 
 data FunctionScoreScript =
-  FunctionScoreScript { functionScoreScriptInline :: FunctionScoreScriptInline
+  FunctionScoreScript { functionScoreScriptInline :: Maybe FunctionScoreScriptInline
+                      , functionScoreScriptStored :: Maybe FunctionScoreScriptId
                       , functionScoreScriptParams :: Maybe FunctionScoreScriptParams
                       } deriving (Eq, Read, Show, Generic, Typeable)
 
 newtype FunctionScoreScriptInline =
   FunctionScoreScriptInline Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+newtype FunctionScoreScriptId =
+  FunctionScoreScriptId Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
 
 newtype FunctionScoreScriptParams =
   FunctionScoreScriptParams (HM.HashMap FunctionScoreScriptParamName FunctionScoreScriptParamValue)
@@ -2951,16 +2956,18 @@ parseFunctionScoreFunction o =
         singleFieldValueFactor = pure . FunctionScoreFunctionFieldValueFactor
 
 instance ToJSON FunctionScoreScript where
-  toJSON (FunctionScoreScript inline params) =
+  toJSON (FunctionScoreScript inline stored params) =
     object [ "script" .= omitNulls base ]
     where base = [ "inline" .= inline
+                 , "stored" .= stored
                  , "params" .= params ]
 
 instance FromJSON FunctionScoreScript where
   parseJSON = withObject "FunctionScoreScript" parse
     where parse o = o .: "script" >>= \o' ->
                       FunctionScoreScript
-                      <$> o' .: "inline"
+                      <$> o' .:? "inline"
+                      <*> o' .:? "stored"
                       <*> o' .:? "params"
 
 instance ToJSON FunctionScoreScriptParams where
