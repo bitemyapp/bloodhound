@@ -20,6 +20,10 @@ source-repository head
   type:     git
   location: https://github.com/bitemyapp/bloodhound.git
 
+flag Validate
+  default: False
+  manual: True
+
 Flag ES1
   Description: Run the test suite against an Elasticsearch 1.x server
   Default:     True
@@ -30,6 +34,8 @@ Flag ES5
 
 library
   ghc-options:         -Wall
+  if flag(Validate)
+    ghc-options: -Werror
   exposed-modules:     Database.V1.Bloodhound
                        Database.V1.Bloodhound.Client
                        Database.V1.Bloodhound.Types
@@ -65,13 +71,14 @@ library
 
 test-suite tests
   ghc-options: -Wall -fno-warn-orphans
+  if flag(Validate)
+    ghc-options: -Werror
   type: exitcode-stdio-1.0
   main-is: tests.hs
   if flag(ES5)
     hs-source-dirs:     tests/V5
   else
     hs-source-dirs:     tests/V1
-  
   build-depends:       base,
                        bloodhound,
                        bytestring,
