@@ -151,6 +151,12 @@ module Database.V5.Bloodhound.Types
        , RegexpFlag(..)
        , FieldName(..)
        , Script(..)
+       , ScriptLanguage(..)
+       , ScriptInline(..)
+       , ScriptId(..)
+       , ScriptParams(..)
+       , ScriptParamName
+       , ScriptParamValue
        , IndexName(..)
        , IndexSelection(..)
        , NodeSelection(..)
@@ -186,12 +192,6 @@ module Database.V5.Bloodhound.Types
        , FunctionScoreFunctions(..)
        , ComponentFunctionScoreFunction(..)
        , FunctionScoreFunction(..)
-       , FunctionScoreScript(..)
-       , FunctionScoreScriptInline(..)
-       , FunctionScoreScriptId(..)
-       , FunctionScoreScriptParams(..)
-       , FunctionScoreScriptParamName
-       , FunctionScoreScriptParamValue
        , Weight(..)
        , Seed(..)
        , FieldValueFactor(..)
@@ -1013,11 +1013,30 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Read, Show, ToJSON
 -}
 newtype FieldName = FieldName Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
+type ScriptFieldName = Text
 
-{-| 'Script' is often used in place of 'FieldName' to specify more
-complex ways of extracting a value from a document.
--}
-newtype Script = Script { scriptText :: Text } deriving (Eq, Read, Show, Generic, Typeable)
+data Script =
+  Script { scriptLanguage :: Maybe ScriptLanguage
+         , scriptInline   :: Maybe ScriptInline
+         , scriptStored   :: Maybe ScriptId
+         , scriptParams   :: Maybe ScriptParams
+         } deriving (Eq, Read, Show, Generic, Typeable)
+
+newtype ScriptLanguage =
+  ScriptLanguage Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+newtype ScriptInline =
+  ScriptInline Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+newtype ScriptId =
+  ScriptId Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+newtype ScriptParams =
+  ScriptParams (HM.HashMap ScriptParamName ScriptParamValue)
+  deriving (Eq, Read, Show, Generic, Typeable)
+
+type ScriptParamName = Text
+type ScriptParamValue = Value
 
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
@@ -1138,6 +1157,7 @@ data Search = Search { queryBody       :: Maybe Query
                      , size            :: Size
                      , searchType      :: SearchType
                      , fields          :: Maybe [FieldName]
+                     , scriptFields    :: Maybe (HM.HashMap ScriptFieldName Script)
                      , source          :: Maybe Source
                      , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
                      } deriving (Eq, Read, Show, Generic, Typeable)
@@ -1475,29 +1495,10 @@ data ComponentFunctionScoreFunction =
                                  } deriving (Eq, Read, Show, Generic, Typeable)
 
 data FunctionScoreFunction =
-  FunctionScoreFunctionScript FunctionScoreScript
+  FunctionScoreFunctionScript Script
   | FunctionScoreFunctionRandom Seed
   | FunctionScoreFunctionFieldValueFactor FieldValueFactor
   deriving (Eq, Read, Show, Generic, Typeable)
-
-data FunctionScoreScript =
-  FunctionScoreScript { functionScoreScriptInline :: Maybe FunctionScoreScriptInline
-                      , functionScoreScriptStored :: Maybe FunctionScoreScriptId
-                      , functionScoreScriptParams :: Maybe FunctionScoreScriptParams
-                      } deriving (Eq, Read, Show, Generic, Typeable)
-
-newtype FunctionScoreScriptInline =
-  FunctionScoreScriptInline Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
-
-newtype FunctionScoreScriptId =
-  FunctionScoreScriptId Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
-
-newtype FunctionScoreScriptParams =
-  FunctionScoreScriptParams (HM.HashMap FunctionScoreScriptParamName FunctionScoreScriptParamValue)
-  deriving (Eq, Read, Show, Generic, Typeable)
-
-type FunctionScoreScriptParamName = Text
-type FunctionScoreScriptParamValue = Value
 
 newtype Weight =
   Weight Float deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
@@ -1814,6 +1815,7 @@ data Hit a =
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
+      , hitFields    :: Maybe (HM.HashMap Text [Value])
       , hitHighlight :: Maybe HitHighlight } deriving (Eq, Read, Show, Generic, Typeable)
 
 data ShardResult =
@@ -2092,7 +2094,7 @@ instance ToJSON Aggregation where
   toJSON (ValueCountAgg a) = object ["value_count" .= v]
     where v = case a of
                 (FieldValueCount (FieldName n)) -> object ["field" .= n]
-                (ScriptValueCount (Script s))   -> object ["script" .= s]
+                (ScriptValueCount s)   -> object ["script" .= s]
   toJSON (FilterAgg (FilterAggregation filt ags)) =
     omitNulls [ "filter" .= filt
               , "aggs" .= ags]
@@ -2955,27 +2957,29 @@ parseFunctionScoreFunction o =
         singleRandom o' = FunctionScoreFunctionRandom <$> o' .: "seed"
         singleFieldValueFactor = pure . FunctionScoreFunctionFieldValueFactor
 
-instance ToJSON FunctionScoreScript where
-  toJSON (FunctionScoreScript inline stored params) =
+instance ToJSON Script where
+  toJSON (Script lang inline stored params) =
     object [ "script" .= omitNulls base ]
-    where base = [ "inline" .= inline
+    where base = [ "lang"   .= lang
+                 , "inline" .= inline
                  , "stored" .= stored
                  , "params" .= params ]
 
-instance FromJSON FunctionScoreScript where
-  parseJSON = withObject "FunctionScoreScript" parse
+instance FromJSON Script where
+  parseJSON = withObject "Script" parse
     where parse o = o .: "script" >>= \o' ->
-                      FunctionScoreScript
-                      <$> o' .:? "inline"
+                      Script
+                      <$> o' .:? "lang"
+                      <*> o' .:? "inline"
                       <*> o' .:? "stored"
                       <*> o' .:? "params"
 
-instance ToJSON FunctionScoreScriptParams where
-  toJSON (FunctionScoreScriptParams x) = Object x
+instance ToJSON ScriptParams where
+  toJSON (ScriptParams x) = Object x
 
-instance FromJSON FunctionScoreScriptParams where
-  parseJSON (Object o) = pure (FunctionScoreScriptParams o)
-  parseJSON _          = fail "error parsing FunctionScoreScriptParams"
+instance FromJSON ScriptParams where
+  parseJSON (Object o) = pure (ScriptParams o)
+  parseJSON _          = fail "error parsing ScriptParams"
 
 instance ToJSON FieldValueFactor where
   toJSON (FieldValueFactor field factor modifier missing) =
@@ -3551,17 +3555,18 @@ instance FromJSON SearchAliasRouting where
     where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
-  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource sSuggest) =
-    omitNulls [ "query"        .= query'
-              , "sort"         .= sort
-              , "aggregations" .= searchAggs
-              , "highlight"    .= highlight
-              , "from"         .= sFrom
-              , "size"         .= sSize
-              , "track_scores" .= sTrackSortScores
-              , "fields"       .= sFields
-              , "_source"      .= sSource
-              , "suggest"      .= sSuggest]
+  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sScriptFields sSource sSuggest) =
+    omitNulls [ "query"         .= query'
+              , "sort"          .= sort
+              , "aggregations"  .= searchAggs
+              , "highlight"     .= highlight
+              , "from"          .= sFrom
+              , "size"          .= sSize
+              , "track_scores"  .= sTrackSortScores
+              , "fields"        .= sFields
+              , "script_fields" .= sScriptFields
+              , "_source"       .= sSource
+              , "suggest"       .= sSuggest]
 
     where query' = case sFilter of
                     Nothing -> mquery
@@ -3931,7 +3936,8 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:  "_type"    <*>
                          v .:  "_id"      <*>
                          v .:  "_score"   <*>
-                         v .:?  "_source" <*>
+                         v .:? "_source"  <*>
+                         v .:? "fields"   <*>
                          v .:? "highlight"
   parseJSON _          = empty
 
