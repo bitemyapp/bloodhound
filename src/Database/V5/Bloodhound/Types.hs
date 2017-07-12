@@ -122,6 +122,7 @@ module Database.V5.Bloodhound.Types
        , Pattern(..)
        , ShardResult(..)
        , Hit(..)
+       , HitFields(..)
        , Filter(..)
        , Seminearring(..)
        , BoolMatch(..)
@@ -150,6 +151,9 @@ module Database.V5.Bloodhound.Types
        , RegexpFlags(..)
        , RegexpFlag(..)
        , FieldName(..)
+       , ScriptFields(..)
+       , ScriptFieldName
+       , ScriptFieldValue
        , Script(..)
        , ScriptLanguage(..)
        , ScriptInline(..)
@@ -1013,7 +1017,12 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Read, Show, ToJSON
 -}
 newtype FieldName = FieldName Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
+newtype ScriptFields =
+  ScriptFields (HM.HashMap ScriptFieldName ScriptFieldValue)
+  deriving (Eq, Read, Show, Generic, Typeable)
+
 type ScriptFieldName = Text
+type ScriptFieldValue = Value
 
 data Script =
   Script { scriptLanguage :: Maybe ScriptLanguage
@@ -1157,7 +1166,7 @@ data Search = Search { queryBody       :: Maybe Query
                      , size            :: Size
                      , searchType      :: SearchType
                      , fields          :: Maybe [FieldName]
-                     , scriptFields    :: Maybe (HM.HashMap ScriptFieldName Script)
+                     , scriptFields    :: Maybe ScriptFields
                      , source          :: Maybe Source
                      , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
                      } deriving (Eq, Read, Show, Generic, Typeable)
@@ -1815,13 +1824,17 @@ data Hit a =
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
-      , hitFields    :: Maybe (HM.HashMap Text [Value])
+      , hitFields    :: Maybe HitFields
       , hitHighlight :: Maybe HitHighlight } deriving (Eq, Read, Show, Generic, Typeable)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
               , shardsSuccessful :: Int
               , shardsFailed     :: Int } deriving (Eq, Read, Show, Generic, Typeable)
+
+newtype HitFields =
+  HitFields (M.Map Text [Value])
+  deriving (Eq, Read, Show, Generic, Typeable)
 
 type HitHighlight = M.Map Text [Text]
 
@@ -2957,6 +2970,13 @@ parseFunctionScoreFunction o =
         singleRandom o' = FunctionScoreFunctionRandom <$> o' .: "seed"
         singleFieldValueFactor = pure . FunctionScoreFunctionFieldValueFactor
 
+instance ToJSON ScriptFields where
+  toJSON (ScriptFields x) = Object x
+
+instance FromJSON ScriptFields where
+  parseJSON (Object o) = pure (ScriptFields o)
+  parseJSON _          = fail "error parsing ScriptFields"
+
 instance ToJSON Script where
   toJSON (Script lang inline stored params) =
     object [ "script" .= omitNulls base ]
@@ -3948,6 +3968,9 @@ instance FromJSON ShardResult where
                          v .: "failed"
   parseJSON _          = empty
 
+instance FromJSON HitFields where
+  parseJSON x
+    = HitFields <$> parseJSON x
 
 instance FromJSON DocVersion where
   parseJSON v = do

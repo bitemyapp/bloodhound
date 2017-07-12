@@ -15,7 +15,7 @@
 module Main where
 
 import           Control.Applicative
-import           Control.Error
+import           Control.Error                   hiding (Script)
 import           Control.Exception               (evaluate)
 import           Control.Monad
 import           Control.Monad.Catch
@@ -509,6 +509,11 @@ instance ApproxEq TemplateName
 instance ApproxEq TemplatePattern
 instance ApproxEq QueryString
 instance ApproxEq FieldName
+instance ApproxEq Script
+instance ApproxEq ScriptLanguage
+instance ApproxEq ScriptInline
+instance ApproxEq ScriptId
+instance ApproxEq ScriptParams where (=~) = (==)
 instance ApproxEq CacheName
 instance ApproxEq CacheKey
 instance ApproxEq Existence
@@ -563,11 +568,8 @@ instance ApproxEq FunctionScoreQuery
 instance ApproxEq BoostMode
 instance ApproxEq ScoreMode
 instance ApproxEq FunctionScoreFunctions
-instance ApproxEq ComponentFunctionScoreFunction
 instance ApproxEq FunctionScoreFunction
-instance ApproxEq FunctionScoreScript
-instance ApproxEq FunctionScoreScriptInline
-instance ApproxEq FunctionScoreScriptParams where (=~) = (==)
+instance ApproxEq ComponentFunctionScoreFunction
 instance ApproxEq Weight where (=~) = (==)
 instance ApproxEq Seed where (=~) = (==)
 instance ApproxEq FieldValueFactor
@@ -686,8 +688,12 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> arbitraryScore
                   <*> arbitrary
                   <*> arbitrary
+                  <*> arbitrary
   shrink = genericShrink
 
+instance Arbitrary HitFields where
+  arbitrary = pure (HitFields M.empty)
+  shrink = const []
 
 instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
@@ -739,6 +745,27 @@ instance Arbitrary AliasRouting where
 instance Arbitrary FieldName where
   arbitrary = FieldName . T.pack <$> listOf1 arbitraryAlphaNum
   shrink = genericShrink
+
+instance Arbitrary ScriptFields where
+  arbitrary =
+    pure $ ScriptFields $
+      HM.fromList []
+
+  shrink = const []
+
+instance Arbitrary Script where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ScriptLanguage where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ScriptInline where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ScriptId where arbitrary = sopArbitrary; shrink = genericShrink
+
+instance Arbitrary ScriptParams where
+  arbitrary =
+    pure $ ScriptParams $
+      HM.fromList [ ("a", Number 42)
+                  , ("b", String "forty two")
+                  ]
+
+  shrink = const []
 
 
 instance Arbitrary RegexpFlags where
@@ -885,18 +912,8 @@ instance Arbitrary FunctionScoreQuery where arbitrary = sopArbitrary; shrink = g
 instance Arbitrary BoostMode where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary ScoreMode where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FunctionScoreFunctions where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary ComponentFunctionScoreFunction where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FunctionScoreFunction where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary FunctionScoreScript where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary FunctionScoreScriptInline where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary FunctionScoreScriptParams where
-  arbitrary =
-    pure $ FunctionScoreScriptParams $
-      HM.fromList [ ("a", Number 42)
-                  , ("b", String "forty two")
-                  ]
-
-  shrink = const []
+instance Arbitrary ComponentFunctionScoreFunction where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Weight where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Seed where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FieldValueFactor where arbitrary = sopArbitrary; shrink = genericShrink
@@ -1192,7 +1209,7 @@ main = hspec $ do
       let search = Search Nothing
                    Nothing (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
-                   Nothing
+                   Nothing Nothing
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $
@@ -1659,6 +1676,11 @@ main = hspec $ do
     propJSON (Proxy :: Proxy TemplatePattern)
     propJSON (Proxy :: Proxy QueryString)
     propJSON (Proxy :: Proxy FieldName)
+    propJSON (Proxy :: Proxy Script)
+    propJSON (Proxy :: Proxy ScriptLanguage)
+    propJSON (Proxy :: Proxy ScriptInline)
+    propJSON (Proxy :: Proxy ScriptId)
+    propJSON (Proxy :: Proxy ScriptParams)
     propJSON (Proxy :: Proxy CacheName)
     propJSON (Proxy :: Proxy CacheKey)
     propJSON (Proxy :: Proxy Existence)
@@ -1713,7 +1735,6 @@ main = hspec $ do
     propJSON (Proxy :: Proxy BoostMode)
     propJSON (Proxy :: Proxy ScoreMode)
     propJSON (Proxy :: Proxy ComponentFunctionScoreFunction)
-    propJSON (Proxy :: Proxy FunctionScoreScript)
     propJSON (Proxy :: Proxy FieldValueFactor)
     propJSON (Proxy :: Proxy FactorModifier)
     propJSON (Proxy :: Proxy DisMaxQuery)
