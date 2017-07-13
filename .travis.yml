@@ -24,7 +24,7 @@ install:
   - mkdir -p ~/.local/bin
   - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v1.4.0/stack-1.4.0-linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
   - export PATH=~/.local/bin:$PATH
-  - stack --version
+  - stack --no-terminal --version
 
   # elasticsearch
   - wget --no-check-certificate $DLINK-$ESVER.tar.gz
@@ -34,13 +34,16 @@ install:
   - ./elasticsearch-$ESVER/bin/elasticsearch &
 
 script:
-  - stack setup
-  - stack update
-  - stack build -j2 --fast
-  - travis_wait 45 stack test --fast bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:$ESFLAG
+  - stack setup --no-terminal
+  - stack update --no-terminal
+  - stack build -j2 --fast --no-terminal
+  - travis_wait 45 stack test --fast --no-terminal bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:$ESFLAG
 
 cache:
+  timeout: 2000
   directories:
   - $HOME/.cabal
   - $HOME/.ghc
   - $HOME/.stack
+  - .stack-work/
+  apt: true
