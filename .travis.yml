@@ -31,6 +31,8 @@ install:
   # set up a repo for snapshot testing. Required in ES >= 1.6
   - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVER/elasticsearch.yml
   - ./elasticsearch-$ESVER/bin/elasticsearch &
+  # Ensure constant output so we don't sometimes get killed for taking too long to compile without output
+  - while true; do echo "travis pls"; sleep 30; done &
 
 script:
   - stack setup
