@@ -1,4 +1,5 @@
 sudo: false
+language: generic
 
 addons:
   apt:
@@ -40,4 +41,6 @@ script:
 
 cache:
   directories:
+  - $HOME/.cabal
+  - $HOME/.ghc
   - $HOME/.stack
