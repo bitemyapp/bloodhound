@@ -21,7 +21,7 @@ env:
 install:
   # stack
   - mkdir -p ~/.local/bin
-  - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v1.2.0/stack-1.2.0-linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+  - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v1.4.0/stack-1.4.0-linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
   - export PATH=~/.local/bin:$PATH
   - stack --version
 
@@ -31,14 +31,12 @@ install:
   # set up a repo for snapshot testing. Required in ES >= 1.6
   - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVER/elasticsearch.yml
   - ./elasticsearch-$ESVER/bin/elasticsearch &
-  # Ensure constant output so we don't sometimes get killed for taking too long to compile without output
-  - while true; do echo "travis pls"; sleep 30; done &
 
 script:
   - stack setup
   - stack update
-  - stack build -j1
-  - stack test bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:$ESFLAG
+  - stack build -j2 --fast
+  - travis_wait 45 stack test --fast bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:$ESFLAG
 
 cache:
   directories:
