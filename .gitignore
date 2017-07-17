@@ -17,3 +17,4 @@ bloodhound.iml
 .hg
 .hgignore
 examples/bloodhound-examples.cabal
+/.ghc.environment.*
