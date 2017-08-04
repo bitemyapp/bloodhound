@@ -1,6 +1,9 @@
 build:
 	stack build
 
+mod-build:
+	stack build --ghc-options '+RTS -A128M -RTS'
+
 echo-warn:
 	echo "Make certain you have an elasticsearch instance on localhost:9200 !"
 
