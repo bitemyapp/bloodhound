@@ -15,7 +15,7 @@ import           Data.Text              (Text)
 import           Data.Time.Calendar     (Day (..))
 import           Data.Time.Clock        (UTCTime (..), secondsToDiffTime)
 import qualified Data.Vector            as V
-import           Database.V1.Bloodhound
+import           Database.V5.Bloodhound
 import           GHC.Generics           (Generic)
 import           Network.HTTP.Client    (defaultManagerSettings)
 -------------------------------------------------------------------------------
@@ -71,7 +71,6 @@ instance FromJSON Location where
   parseJSON = genericParseJSON defaultOptions
 
 
--------------------------------------------------------------------------------
 main :: IO ()
 main = runBH' $ do
   -- set up index

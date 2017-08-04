@@ -15,8 +15,8 @@ env:
    - GHCVER=7.8  ESVER=1.4.1 STACK_YAML=stack-7.8.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    - GHCVER=7.10 ESVER=1.5.2 STACK_YAML=stack-7.10.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    - GHCVER=7.10 ESVER=1.6.0 STACK_YAML=stack-7.10.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   - GHCVER=7.10 ESVER=1.7.2 STACK_YAML=stack-7.10.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   - GHCVER=8.0  ESVER=1.7.2 STACK_YAML=stack.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=7.10 ESVER=1.7.6 STACK_YAML=stack-7.10.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=8.0  ESVER=1.7.6 STACK_YAML=stack.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    - GHCVER=8.0  ESVER=5.0.2 STACK_YAML=stack.yaml ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
 
 install:

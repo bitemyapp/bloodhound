@@ -1,0 +1,20 @@
+flags:
+  bloodhound-examples:
+    werror: false
+
+packages:
+- '.'
+- '..'
+# extra-deps:
+# - http-client-0.5.0
+# - aeson-1.2.0.0
+# - fail-4.9.0.0
+# - http-types-0.9
+# - attoparsec-0.13.0.1
+# - quickcheck-properties-0.1
+# - semigroups-0.18.3
+# - uri-bytestring-0.1.9
+# - temporary-resourcet-0.1.0.0
+# - transformers-compat-0.5.1.4
+
+resolver: lts-8.14
