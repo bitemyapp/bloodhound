@@ -32,19 +32,12 @@ instance ToJSON TweetMapping where
 
 
 -------------------------------------------------------------------------------
-data Location = Location
-  { locLat :: Double
-  , locLon :: Double
-  } deriving (Eq, Generic, Show)
-
-
--------------------------------------------------------------------------------
 data Tweet = Tweet
   { user     :: Text
   , postDate :: UTCTime
   , message  :: Text
   , age      :: Int
-  , location :: Location
+  , location :: LatLon
   } deriving (Eq, Generic, Show)
 
 
@@ -59,17 +52,12 @@ exampleTweet =
   , location = loc
   }
   where
-    loc = Location {locLat = 40.12, locLon = (-71.34)}
+    loc = LatLon {lat = 40.12, lon = -71.34}
 
 instance ToJSON Tweet where
   toJSON = genericToJSON defaultOptions
 instance FromJSON Tweet where
   parseJSON = genericParseJSON defaultOptions
-instance ToJSON Location where
-  toJSON = genericToJSON defaultOptions
-instance FromJSON Location where
-  parseJSON = genericParseJSON defaultOptions
-
 
 main :: IO ()
 main = runBH' $ do
