@@ -11,6 +11,7 @@ import           Data.Aeson             (FromJSON (..), defaultOptions,
                                          genericParseJSON, genericToJSON,
                                          object, (.=))
 import           Data.List.NonEmpty     (NonEmpty (..))
+import           Data.Maybe             (maybeToList)
 import           Data.Text              (Text)
 import           Data.Time.Calendar     (Day (..))
 import           Data.Time.Clock        (UTCTime (..), secondsToDiffTime)
@@ -96,7 +97,10 @@ main = runBH' $ do
   let boost = Nothing
   let query = TermQuery (Term "user" "bitemyapp") boost
   let search = mkSearch (Just query) boost
-  _ <- searchByType testIndex testMapping search
+  reply <- searchByType testIndex testMapping search
+  Right searchResult <- parseEsResponse reply :: BH IO (Either EsError (SearchResult Tweet))
+  let tweets = fmap hitSource (hits $ searchHits searchResult) >>= maybeToList
+  liftIO (print tweets)
 
   -- clean up
   _ <- deleteTemplate templateName
