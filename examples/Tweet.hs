@@ -11,6 +11,7 @@ import           Data.Aeson             (FromJSON (..), defaultOptions,
                                          genericParseJSON, genericToJSON,
                                          object, (.=))
 import           Data.List.NonEmpty     (NonEmpty (..))
+import           Data.Maybe             (maybeToList)
 import           Data.Text              (Text)
 import           Data.Time.Calendar     (Day (..))
 import           Data.Time.Clock        (UTCTime (..), secondsToDiffTime)
@@ -32,19 +33,12 @@ instance ToJSON TweetMapping where
 
 
 -------------------------------------------------------------------------------
-data Location = Location
-  { locLat :: Double
-  , locLon :: Double
-  } deriving (Eq, Generic, Show)
-
-
--------------------------------------------------------------------------------
 data Tweet = Tweet
   { user     :: Text
   , postDate :: UTCTime
   , message  :: Text
   , age      :: Int
-  , location :: Location
+  , location :: LatLon
   } deriving (Eq, Generic, Show)
 
 
@@ -59,17 +53,12 @@ exampleTweet =
   , location = loc
   }
   where
-    loc = Location {locLat = 40.12, locLon = (-71.34)}
+    loc = LatLon {lat = 40.12, lon = -71.34}
 
 instance ToJSON Tweet where
   toJSON = genericToJSON defaultOptions
 instance FromJSON Tweet where
   parseJSON = genericParseJSON defaultOptions
-instance ToJSON Location where
-  toJSON = genericToJSON defaultOptions
-instance FromJSON Location where
-  parseJSON = genericParseJSON defaultOptions
-
 
 main :: IO ()
 main = runBH' $ do
@@ -108,7 +97,10 @@ main = runBH' $ do
   let boost = Nothing
   let query = TermQuery (Term "user" "bitemyapp") boost
   let search = mkSearch (Just query) boost
-  _ <- searchByType testIndex testMapping search
+  reply <- searchByType testIndex testMapping search
+  Right searchResult <- parseEsResponse reply :: BH IO (Either EsError (SearchResult Tweet))
+  let tweets = fmap hitSource (hits $ searchHits searchResult) >>= maybeToList
+  liftIO (print tweets)
 
   -- clean up
   _ <- deleteTemplate templateName
