@@ -29,22 +29,13 @@ instance ToJSON TweetMapping where
       [ "properties" .=
         object ["location" .= object ["type" .= ("geo_point" :: Text)]]
       ]
-
-
--------------------------------------------------------------------------------
-data Location = Location
-  { locLat :: Double
-  , locLon :: Double
-  } deriving (Eq, Generic, Show)
-
-
 -------------------------------------------------------------------------------
 data Tweet = Tweet
   { user     :: Text
   , postDate :: UTCTime
   , message  :: Text
   , age      :: Int
-  , location :: Location
+  , location :: LatLon
   } deriving (Eq, Generic, Show)
 
 
@@ -59,15 +50,11 @@ exampleTweet =
   , location = loc
   }
   where
-    loc = Location {locLat = 40.12, locLon = (-71.34)}
+    loc = LatLon {lat = 40.12, lon = -71.3}
 
 instance ToJSON Tweet where
   toJSON = genericToJSON defaultOptions
 instance FromJSON Tweet where
-  parseJSON = genericParseJSON defaultOptions
-instance ToJSON Location where
-  toJSON = genericToJSON defaultOptions
-instance FromJSON Location where
   parseJSON = genericParseJSON defaultOptions
 
 
@@ -117,7 +104,7 @@ main = runBH' $ do
 
   return ()
   where
-    testServer = (Server "http://localhost:9200")
+    testServer = Server "http://localhost:9200"
     runBH' = withBH defaultManagerSettings testServer
     testIndex = IndexName "twitter"
     testMapping = MappingName "tweet"
