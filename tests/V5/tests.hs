@@ -1028,20 +1028,26 @@ main = hspec $ do
       _ <- insertData
       let firstTest = BulkTest "blah"
       let secondTest = BulkTest "bloo"
+      let thirdTest = BulkTest "graffle"
       let firstDoc = BulkIndex testIndex
                      testMapping (DocId "2") (toJSON firstTest)
       let secondDoc = BulkCreate testIndex
                      testMapping (DocId "3") (toJSON secondTest)
-      let stream = V.fromList [firstDoc, secondDoc]
+      let thirdDoc = BulkCreateEncoding testIndex
+                     testMapping (DocId "4") (toEncoding thirdTest)
+      let stream = V.fromList [firstDoc, secondDoc, thirdDoc]
       _ <- bulk stream
       _ <- refreshIndex testIndex
       fDoc <- getDocument testIndex testMapping (DocId "2")
       sDoc <- getDocument testIndex testMapping (DocId "3")
+      tDoc <- getDocument testIndex testMapping (DocId "4")
       let maybeFirst  = eitherDecode $ responseBody fDoc :: Either String (EsResult BulkTest)
       let maybeSecond = eitherDecode $ responseBody sDoc :: Either String (EsResult BulkTest)
+      let maybeThird = eitherDecode $ responseBody tDoc :: Either String (EsResult BulkTest)
       liftIO $ do
         fmap getSource maybeFirst `shouldBe` Right (Just firstTest)
         fmap getSource maybeSecond `shouldBe` Right (Just secondTest)
+        fmap getSource maybeThird `shouldBe` Right (Just thirdTest)
 
 
   describe "query API" $ do
