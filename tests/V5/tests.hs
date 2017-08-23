@@ -1591,6 +1591,19 @@ main = hspec $ do
                                     (IndexSettings (ShardCount 1) (ReplicaCount 0))
                                     (NE.toList updates))
 
+    it "allows total fields to be set" $ when' (atleast es50) $ withTestEnv $ do
+      _ <- deleteExampleIndex
+      _ <- createExampleIndex
+      let updates = MappingTotalFieldsLimit 2500 :| []
+      updateResp <- updateIndexSettings updates testIndex
+      liftIO $ validateStatus updateResp 200
+      getResp <- getIndexSettings testIndex
+      liftIO $
+        getResp `shouldBe` Right (IndexSettingsSummary
+                                    testIndex
+                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
+                                    (NE.toList updates))
+
   describe "Index Optimization" $ do
     it "returns a successful response upon completion" $ withTestEnv $ do
       _ <- createExampleIndex
