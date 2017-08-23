@@ -1551,11 +1551,11 @@ main = hspec $ do
         scan_search `shouldMatchList` [Just exampleTweet, Just otherTweet]
 
   describe "index aliases" $ do
+    let aname = IndexAliasName (IndexName "bloodhound-tests-twitter-1-alias")
+    let alias = IndexAlias (testIndex) aname
+    let create = IndexAliasCreate Nothing Nothing
+    let action = AddAlias alias create
     it "handles the simple case of aliasing an existing index" $ do
-      let alias = IndexAlias (testIndex) (IndexAliasName (IndexName "bloodhound-tests-twitter-1-alias"))
-      let create = IndexAliasCreate Nothing Nothing
-      let action = AddAlias alias create
-
       withTestEnv $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
@@ -1567,6 +1567,18 @@ main = hspec $ do
             Right (IndexAliasesSummary summs) ->
               L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
             Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)) `finally` cleanup
+    it "allows alias deletion" $ do
+      aliases <- withTestEnv $ do
+        resetIndex
+        resp <- updateIndexAliases (action :| [])
+        liftIO $ validateStatus resp 200
+        deleteIndexAlias aname
+        getIndexAliases
+      let expected = IndexAliasSummary alias create
+      case aliases of
+        Right (IndexAliasesSummary summs) ->
+          L.find ((== aname) . indexAlias . indexAliasSummaryAlias) summs `shouldBe` Nothing
+        Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)
 
   describe "Index Listing" $ do
     it "returns a list of index names" $ withTestEnv $ do
