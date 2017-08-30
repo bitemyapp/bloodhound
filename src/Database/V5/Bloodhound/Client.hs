@@ -892,6 +892,12 @@ encodeBulkOperation (BulkUpdate (IndexName indexName)
           doc = object ["doc" .= value]
           blob = encode metadata `mappend` "\n" `mappend` encode doc
 
+encodeBulkOperation (BulkCreateEncoding (IndexName indexName)
+                (MappingName mappingName)
+                (DocId docId) encoding) = toLazyByteString blob
+    where metadata = toEncoding (mkBulkStreamValue "create" indexName mappingName docId)
+          blob = fromEncoding metadata <> "\n" <> fromEncoding encoding
+
 -- | 'getDocument' is a straight-forward way to fetch a single document from
 --   Elasticsearch using a 'Server', 'IndexName', 'MappingName', and a 'DocId'.
 --   The 'DocId' is the primary key for your Elasticsearch document.
