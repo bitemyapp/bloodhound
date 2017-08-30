@@ -582,6 +582,7 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            | IndexCompoundFormat CompoundFormat
                            | IndexCompoundOnFlush Bool
                            | WarmerEnabled Bool
+                           | MappingTotalFieldsLimit Int
                            deriving (Eq, Show, Generic, Typeable)
 
 data AllocationPolicy = AllocAll
@@ -2988,6 +2989,7 @@ instance ToJSON UpdatableIndexSetting where
   toJSON (BlocksRead x) = oPath ("blocks" :| ["read"]) x
   toJSON (BlocksWrite x) = oPath ("blocks" :| ["write"]) x
   toJSON (BlocksMetaData x) = oPath ("blocks" :| ["metadata"]) x
+  toJSON (MappingTotalFieldsLimit x) = oPath ("index" :| ["mapping","total_fields","limit"]) x
 
 instance FromJSON UpdatableIndexSetting where
   parseJSON = withObject "UpdatableIndexSetting" parse
@@ -3019,6 +3021,7 @@ instance FromJSON UpdatableIndexSetting where
                 <|> blocksRead `taggedAt` ["blocks", "read"]
                 <|> blocksWrite `taggedAt` ["blocks", "write"]
                 <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
+                <|> mappingTotalFieldsLimit `taggedAt` ["index", "mapping", "total_fields", "limit"]
             where taggedAt f ks = taggedAt' f (Object o) ks
           taggedAt' f v [] = f =<< (parseJSON v <|> (parseJSON (unStringlyTypeJSON v)))
           taggedAt' f v (k:ks) = withObject "Object" (\o -> do v' <- o .: k
@@ -3051,6 +3054,7 @@ instance FromJSON UpdatableIndexSetting where
           blocksRead                     = pure . BlocksRead
           blocksWrite                    = pure . BlocksWrite
           blocksMetaData                 = pure . BlocksMetaData
+          mappingTotalFieldsLimit        = pure . MappingTotalFieldsLimit
 
 instance FromJSON IndexSettingsSummary where
   parseJSON = withObject "IndexSettingsSummary" parse
