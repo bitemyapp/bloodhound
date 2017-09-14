@@ -1,3 +1,31 @@
+0.15.0.0
+===================
+
+- @jagare
+  - #204 Fix bug where Location was used instad of LatLon
+  - #207 Add instructions on how to run example code
+
+- @andrewthad
+  - #200 Add function for deleting alias
+  - #201 Add BulkCreateEncoding, which allows use of aeson's Encoding for faster bulk creates
+  - #203 Add support for total fields limit
+
+- @chrissound
+  - #196 Add missing import to example
+
+- @tmcgilchrist
+  - #186 Fix warnings and drop redundant constraints
+
+- @23Skidoo
+  - #183 Bump dependencies to support GHC 8.2
+
+- @bermanjosh
+  - #182 Support for Suggesters and Template Queries
+
+- @dawei-dev
+  - #181 Fix typo
+
+
 0.14.0.0
 ===================
 
