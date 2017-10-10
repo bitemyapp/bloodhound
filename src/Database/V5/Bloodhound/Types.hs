@@ -1438,13 +1438,15 @@ data MatchQuery =
              , matchQueryAnalyzer        :: Maybe Analyzer
              , matchQueryMaxExpansions   :: Maybe MaxExpansions
              , matchQueryLenient         :: Maybe Lenient
-             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Read, Show, Generic, Typeable)
+             , matchQueryBoost           :: Maybe Boost
+             , matchQueryMinimumShouldMatch :: Maybe Text
+             } deriving (Eq, Read, Show, Generic, Typeable)
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
 -}
 mkMatchQuery :: FieldName -> QueryString -> MatchQuery
-mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing
+mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 data MatchQueryType =
   MatchPhrase
@@ -2834,7 +2836,9 @@ instance ToJSON MatchQuery where
   toJSON (MatchQuery (FieldName fieldName)
           (QueryString mqQueryString) booleanOperator
           zeroTermsQuery cutoffFrequency matchQueryType
-          analyzer maxExpansions lenient boost) =
+          analyzer maxExpansions lenient boost
+          minShouldMatch
+         ) =
     object [ fieldName .= omitNulls base ]
     where base = [ "query" .= mqQueryString
                  , "operator" .= booleanOperator
@@ -2844,7 +2848,9 @@ instance ToJSON MatchQuery where
                  , "analyzer" .= analyzer
                  , "max_expansions" .= maxExpansions
                  , "lenient" .= lenient
-                 , "boost" .= boost ]
+                 , "boost" .= boost
+                 , "minimum_should_match" .= minShouldMatch
+                 ]
 
 instance FromJSON MatchQuery where
   parseJSON = withObject "MatchQuery" parse
@@ -2859,6 +2865,7 @@ instance FromJSON MatchQuery where
                     <*> o .:? "max_expansions"
                     <*> o .:? "lenient"
                     <*> o .:? "boost"
+                    <*> o .:? "minimum_should_match"
 
 instance ToJSON MultiMatchQuery where
   toJSON (MultiMatchQuery fields (QueryString query) boolOp
