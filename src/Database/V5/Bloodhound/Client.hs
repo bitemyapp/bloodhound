@@ -25,6 +25,7 @@ module Database.V5.Bloodhound.Client
          withBH
        -- ** Indices
        , createIndex
+       , createIndexWith
        , deleteIndex
        , updateIndexSettings
        , getIndexSettings
@@ -512,6 +513,28 @@ createIndex indexSettings (IndexName indexName) =
   where url = joinPath [indexName]
         body = Just $ encode indexSettings
 
+-- | Create an index, providing it with any number of settings. This
+--   is more expressive than 'createIndex' but makes is more verbose
+--   for the common case of configuring only the shard count and
+--   replica count.
+createIndexWith :: MonadBH m
+  => [UpdatableIndexSetting]
+  -> Int -- ^ shard count
+  -> IndexName 
+  -> m Reply
+createIndexWith updates shards (IndexName indexName) =
+  bindM2 put url (return (Just body))
+  where url = joinPath [indexName]
+        body = encode $ object
+          ["settings" .= deepMerge 
+            ( HM.singleton "index.number_of_shards" (toJSON shards) :
+              [u | Object u <- toJSON <$> updates]
+            )
+          ]
+
+oPath :: ToJSON a => NonEmpty Text -> a -> Value
+oPath (k :| []) v   = object [k .= v]
+oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
 
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
 --
@@ -544,7 +567,6 @@ getIndexSettings :: (MonadBH m, MonadThrow m) => IndexName
 getIndexSettings (IndexName indexName) = do
   parseEsResponse =<< get =<< url
   where url = joinPath [indexName, "_settings"]
-
 
 -- | 'forceMergeIndex' 
 -- 

@@ -202,6 +202,7 @@ module Database.V5.Bloodhound.Types
        , ZeroTermsQuery(..)
        , CutoffFrequency(..)
        , Analyzer(..)
+       , Tokenizer(..)
        , MaxExpansions(..)
        , Lenient(..)
        , MatchQueryType(..)
@@ -376,6 +377,12 @@ module Database.V5.Bloodhound.Types
 
        , EsUsername(..)
        , EsPassword(..)
+
+       , Analysis(..)
+       , AnalyzerDefinition(..)
+       , TokenizerDefinition(..)
+       , Ngram(..)
+       , TokenChar(..)
          ) where
 
 import           Control.Applicative                   as A
@@ -583,7 +590,88 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            | IndexCompoundOnFlush Bool
                            | WarmerEnabled Bool
                            | MappingTotalFieldsLimit Int
+                           | AnalysisSetting Analysis
+                           -- ^ Analysis is not a dynamic setting and can only be performed on a closed index.
                            deriving (Eq, Show, Generic, Typeable)
+
+data Analysis = Analysis
+  { analysisAnalyzer :: M.Map Text AnalyzerDefinition
+  , analysisTokenizer :: M.Map Text TokenizerDefinition
+  } deriving (Eq,Show,Generic,Typeable)
+
+instance ToJSON Analysis where
+  toJSON (Analysis analyzer tokenizer) = object
+    [ "analyzer" .= analyzer
+    , "tokenizer" .= tokenizer
+    ]
+
+instance FromJSON Analysis where
+  parseJSON = withObject "Analysis" $ \m -> Analysis
+    <$> m .: "analyzer"
+    <*> m .: "tokenizer"
+
+data AnalyzerDefinition = AnalyzerDefinition
+  { analyzerDefinitionTokenizer :: Maybe Tokenizer
+  } deriving (Eq,Show,Generic,Typeable)
+
+instance ToJSON AnalyzerDefinition where
+  toJSON (AnalyzerDefinition tokenizer) = object $ catMaybes
+    [ fmap ("tokenizer" .=) tokenizer
+    ]
+
+instance FromJSON AnalyzerDefinition where
+  parseJSON = withObject "AnalyzerDefinition" $ \m -> AnalyzerDefinition
+    <$> m .:? "tokenizer"
+  
+
+data TokenizerDefinition
+  = TokenizerDefinitionNgram Ngram
+  deriving (Eq,Show,Generic,Typeable)
+
+instance ToJSON TokenizerDefinition where
+  toJSON x = case x of
+    TokenizerDefinitionNgram (Ngram minGram maxGram tokenChars) -> object
+      [ "type" .= ("ngram" :: Text)
+      , "min_gram" .= minGram
+      , "max_gram" .= maxGram
+      , "token_chars" .= tokenChars
+      ]
+
+instance FromJSON TokenizerDefinition where
+  parseJSON = withObject "TokenizerDefinition" $ \m -> do
+    typ <- m .: "type" :: Parser Text
+    case typ of
+      "ngram" -> fmap TokenizerDefinitionNgram $ Ngram
+        <$> (fmap unStringlyTypedInt (m .: "min_gram"))
+        <*> (fmap unStringlyTypedInt (m .: "max_gram"))
+        <*> m .: "token_chars"
+      _ -> fail "invalid TokenizerDefinition"
+
+data Ngram = Ngram
+  { ngramMinGram :: Int
+  , ngramMaxGram :: Int
+  , ngramTokenChars :: [TokenChar]
+  } deriving (Eq,Show,Generic,Typeable)
+
+data TokenChar = TokenLetter | TokenDigit | TokenWhitespace | TokenPunctuation | TokenSymbol
+  deriving (Eq,Read,Show,Generic,Typeable)
+
+instance ToJSON TokenChar where
+  toJSON t = String $ case t of
+    TokenLetter -> "letter"
+    TokenDigit -> "digit"
+    TokenWhitespace -> "whitespace"
+    TokenPunctuation -> "punctuation"
+    TokenSymbol -> "symbol"
+
+instance FromJSON TokenChar where
+  parseJSON = withText "TokenChar" $ \t -> case t of
+    "letter" -> return TokenLetter
+    "digit" -> return TokenDigit
+    "whitespace" -> return TokenWhitespace
+    "punctuation" -> return TokenPunctuation
+    "symbol" -> return TokenSymbol
+    _ -> fail "invalid TokenChar"
 
 data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation for all shards.
@@ -1020,6 +1108,8 @@ newtype CutoffFrequency =
   CutoffFrequency Double deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Analyzer =
   Analyzer Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype Tokenizer =
+  Tokenizer Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MaxExpansions =
   MaxExpansions Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
@@ -2990,6 +3080,7 @@ instance ToJSON UpdatableIndexSetting where
   toJSON (BlocksWrite x) = oPath ("blocks" :| ["write"]) x
   toJSON (BlocksMetaData x) = oPath ("blocks" :| ["metadata"]) x
   toJSON (MappingTotalFieldsLimit x) = oPath ("index" :| ["mapping","total_fields","limit"]) x
+  toJSON (AnalysisSetting x) = oPath ("index" :| ["analysis"]) x
 
 instance FromJSON UpdatableIndexSetting where
   parseJSON = withObject "UpdatableIndexSetting" parse
@@ -3022,6 +3113,7 @@ instance FromJSON UpdatableIndexSetting where
                 <|> blocksWrite `taggedAt` ["blocks", "write"]
                 <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
                 <|> mappingTotalFieldsLimit `taggedAt` ["index", "mapping", "total_fields", "limit"]
+                <|> analysisSetting `taggedAt` ["index", "analysis"]
             where taggedAt f ks = taggedAt' f (Object o) ks
           taggedAt' f v [] = f =<< (parseJSON v <|> (parseJSON (unStringlyTypeJSON v)))
           taggedAt' f v (k:ks) = withObject "Object" (\o -> do v' <- o .: k
@@ -3055,6 +3147,7 @@ instance FromJSON UpdatableIndexSetting where
           blocksWrite                    = pure . BlocksWrite
           blocksMetaData                 = pure . BlocksMetaData
           mappingTotalFieldsLimit        = pure . MappingTotalFieldsLimit
+          analysisSetting                = pure . AnalysisSetting
 
 instance FromJSON IndexSettingsSummary where
   parseJSON = withObject "IndexSettingsSummary" parse
@@ -4643,10 +4736,13 @@ instance FromJSON NodeDataPathStats where
 
 newtype StringlyTypedDouble = StringlyTypedDouble { unStringlyTypedDouble :: Double }
 
-
 instance FromJSON StringlyTypedDouble where
   parseJSON = fmap StringlyTypedDouble . parseJSON . unStringlyTypeJSON
 
+newtype StringlyTypedInt = StringlyTypedInt { unStringlyTypedInt :: Int }
+
+instance FromJSON StringlyTypedInt where
+  parseJSON = fmap StringlyTypedInt . parseJSON . unStringlyTypeJSON
 
 instance FromJSON NodeFSTotalStats where
   parseJSON = withObject "NodeFSTotalStats" parse
