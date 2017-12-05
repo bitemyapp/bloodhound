@@ -809,7 +809,10 @@ versionCtlParams cfg =
 -- | 'indexDocument' is the primary way to save a single document in
 --   Elasticsearch. The document itself is simply something we can
 --   convert into a JSON 'Value'. The 'DocId' will function as the
---   primary key for the document.
+--   primary key for the document. You are encouraged to generate
+--   your own id's and not rely on ElasticSearch's automatic id
+--   generation. Read more about it here:
+--   https://github.com/bitemyapp/bloodhound/issues/107
 --
 -- >>> resp <- runBH' $ indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
