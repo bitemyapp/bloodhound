@@ -74,6 +74,7 @@ module Database.V5.Bloodhound.Types
        , UpdatableIndexSetting(..)
        , IndexSettingsSummary(..)
        , AllocationPolicy(..)
+       , Compression(..)
        , ReplicaBounds(..)
        , Bytes(..)
        , gigabytes
@@ -586,6 +587,7 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            | TTLDisablePurge Bool
                            -- ^ Disables temporarily the purge of expired docs.
                            | TranslogFSType FSType
+                           | CompressionSetting Compression
                            | IndexCompoundFormat CompoundFormat
                            | IndexCompoundOnFlush Bool
                            | WarmerEnabled Bool
@@ -687,6 +689,26 @@ data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasLowerBounded Int
                    | ReplicasUnbounded
                    deriving (Eq, Read, Show, Generic, Typeable)
+
+data Compression
+  = CompressionDefault
+    -- ^ Compress with LZ4
+  | CompressionBest
+    -- ^ Compress with DEFLATE. Elastic
+    --   <https://www.elastic.co/blog/elasticsearch-storage-the-true-story-2.0 blogs>
+    --   that this can reduce disk use by 15%-25%.
+  deriving (Eq,Show,Generic,Typeable)
+
+instance ToJSON Compression where
+  toJSON x = case x of
+    CompressionDefault -> toJSON ("default" :: Text)
+    CompressionBest -> toJSON ("best_compression" :: Text)
+
+instance FromJSON Compression where
+  parseJSON = withText "Compression" $ \t -> case t of
+    "default" -> return CompressionDefault
+    "best_compression" -> return CompressionBest
+    _ -> fail "invalid compression codec"
 
 -- | A measure of bytes used for various configurations. You may want
 -- to use smart constructors like 'gigabytes' for larger values.
@@ -3079,6 +3101,7 @@ instance ToJSON UpdatableIndexSetting where
   toJSON (GCDeletes x) = oPath ("index" :| ["gc_deletes"]) (NominalDiffTimeJSON x)
   toJSON (TTLDisablePurge x) = oPath ("index" :| ["ttl", "disable_purge"]) x
   toJSON (TranslogFSType x) = oPath ("index" :| ["translog", "fs", "type"]) x
+  toJSON (CompressionSetting x) = oPath ("index" :| ["codec"]) x
   toJSON (IndexCompoundFormat x) = oPath ("index" :| ["compound_format"]) x
   toJSON (IndexCompoundOnFlush x) = oPath ("index" :| ["compound_on_flush"]) x
   toJSON (WarmerEnabled x) = oPath ("index" :| ["warmer", "enabled"]) x
@@ -3112,6 +3135,7 @@ instance FromJSON UpdatableIndexSetting where
                 <|> gcDeletes `taggedAt` ["index", "gc_deletes"]
                 <|> ttlDisablePurge `taggedAt` ["index", "ttl", "disable_purge"]
                 <|> translogFSType `taggedAt` ["index", "translog", "fs", "type"]
+                <|> compressionSetting `taggedAt` ["index", "codec"]
                 <|> compoundFormat `taggedAt` ["index", "compound_format"]
                 <|> compoundOnFlush `taggedAt` ["index", "compound_on_flush"]
                 <|> warmerEnabled `taggedAt` ["index", "warmer", "enabled"]
@@ -3146,6 +3170,7 @@ instance FromJSON UpdatableIndexSetting where
           gcDeletes                      = pure . GCDeletes . ndtJSON
           ttlDisablePurge                = pure . TTLDisablePurge
           translogFSType                 = pure . TranslogFSType
+          compressionSetting             = pure . CompressionSetting
           compoundFormat                 = pure . IndexCompoundFormat
           compoundOnFlush                = pure . IndexCompoundOnFlush
           warmerEnabled                  = pure . WarmerEnabled

@@ -914,6 +914,7 @@ instance Arbitrary AnalyzerDefinition where arbitrary = sopArbitrary; shrink = g
 instance Arbitrary Analysis where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Tokenizer where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary UpdatableIndexSetting where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Compression where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Bytes where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary AllocationPolicy where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary InitialShardCount where arbitrary = sopArbitrary; shrink = genericShrink
@@ -1647,6 +1648,25 @@ main = hspec $ do
                                     (IndexSettings (ShardCount 1) (ReplicaCount 0))
                                     updates
                                  )
+
+    it "accepts default compression codec" $ when' (atleast es50) $ withTestEnv $ do
+      _ <- deleteExampleIndex
+      let updates = [CompressionSetting CompressionDefault]
+      createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
+      liftIO $ validateStatus createResp 200
+      getResp <- getIndexSettings testIndex
+      liftIO $ getResp `shouldBe` Right
+        (IndexSettingsSummary testIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) updates)
+
+    it "accepts best compression codec" $ when' (atleast es50) $ withTestEnv $ do
+      _ <- deleteExampleIndex
+      let updates = [CompressionSetting CompressionBest]
+      createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
+      liftIO $ validateStatus createResp 200
+      getResp <- getIndexSettings testIndex
+      liftIO $ getResp `shouldBe` Right
+        (IndexSettingsSummary testIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) updates)
+
 
   describe "Index Optimization" $ do
     it "returns a successful response upon completion" $ withTestEnv $ do
