@@ -5295,7 +5295,7 @@ data PhraseSuggester =
                   , phraseSuggesterShardSize :: Maybe Int
                   , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
                   , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
-                  , phraseSuggesterCandidateGenerators :: Maybe [DirectGenerators]
+                  , phraseSuggesterCandidateGenerators :: [DirectGenerators]
                   }
   deriving (Show, Generic, Eq, Read)
 
@@ -5328,12 +5328,12 @@ instance FromJSON PhraseSuggester where
                       <*> o .:? "shard_size"
                       <*> o .:? "highlight"
                       <*> o .:? "collate"
-                      <*> o .:? "direct_generator"
+                      <*> o .:? "direct_generator" .!= []
 
 mkPhraseSuggester :: FieldName -> PhraseSuggester
 mkPhraseSuggester fName =
   PhraseSuggester fName Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing []
 
 data PhraseSuggesterHighlighter =
   PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
@@ -5442,7 +5442,7 @@ instance FromJSON DirectGeneratorSuggestModeTypes where
           parse f            = fail ("Unexpected DirectGeneratorSuggestModeTypes: " <> show f)
 
 data DirectGenerators = DirectGenerators
-  { directGeneratorsField :: Text
+  { directGeneratorsField :: FieldName
   , directGeneratorsSize :: Maybe Int
   , directGeneratorSuggestMode :: DirectGeneratorSuggestModeTypes
   , directGeneratorMaxEdits :: Maybe Double
@@ -5485,3 +5485,6 @@ instance FromJSON DirectGenerators where
                       <*> o .:? "max_term_freq"
                       <*> o .:? "pre_filter"
                       <*> o .:? "post_filter"
+
+mkDirectGenerators :: FieldName -> DirectGenerators
+mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing 
