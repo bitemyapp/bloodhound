@@ -619,6 +619,8 @@ instance ApproxEq PhraseSuggesterCollate
 instance ApproxEq PhraseSuggester
 instance ApproxEq SuggestType
 instance ApproxEq Suggest
+instance ApproxEq DirectGenerators
+instance ApproxEq DirectGeneratorSuggestModeTypes
 
 -- | Due to the way nodeattrfilters get serialized here, they may come
 -- out in a different order, but they are morally equivalent
@@ -929,6 +931,8 @@ instance Arbitrary Size where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary PhraseSuggester where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary SuggestType where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Suggest where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary DirectGenerators where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary DirectGeneratorSuggestModeTypes where arbitrary = sopArbitrary; shrink = genericShrink
 
 newtype UpdatableIndexSetting' = UpdatableIndexSetting' UpdatableIndexSetting
                                deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
@@ -1793,6 +1797,8 @@ main = hspec $ do
     propJSON (Proxy :: Proxy CompoundFormat)
     propJSON (Proxy :: Proxy TemplateQueryInline)
     propJSON (Proxy :: Proxy Suggest)
+    propJSON (Proxy :: Proxy DirectGenerators)
+    propJSON (Proxy :: Proxy DirectGeneratorSuggestModeTypes)
 
 -- Temporary solution for lacking of generic derivation of Arbitrary
 -- We use generics-sop, as it's much more concise than directly using GHC.Generics
