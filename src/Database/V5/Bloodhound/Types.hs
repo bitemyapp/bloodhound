@@ -337,6 +337,7 @@ module Database.V5.Bloodhound.Types
        , SuggestResponse(..)
        , NamedSuggestionResponse(..)
        , DirectGenerators(..)
+       , mkDirectGenerators
        , DirectGeneratorSuggestModeTypes (..)
 
        , Aggregation(..)
