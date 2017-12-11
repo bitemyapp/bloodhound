@@ -74,6 +74,7 @@ module Database.V5.Bloodhound.Types
        , UpdatableIndexSetting(..)
        , IndexSettingsSummary(..)
        , AllocationPolicy(..)
+       , Compression(..)
        , ReplicaBounds(..)
        , Bytes(..)
        , gigabytes
@@ -202,6 +203,7 @@ module Database.V5.Bloodhound.Types
        , ZeroTermsQuery(..)
        , CutoffFrequency(..)
        , Analyzer(..)
+       , Tokenizer(..)
        , MaxExpansions(..)
        , Lenient(..)
        , MatchQueryType(..)
@@ -376,6 +378,12 @@ module Database.V5.Bloodhound.Types
 
        , EsUsername(..)
        , EsPassword(..)
+
+       , Analysis(..)
+       , AnalyzerDefinition(..)
+       , TokenizerDefinition(..)
+       , Ngram(..)
+       , TokenChar(..)
          ) where
 
 import           Control.Applicative                   as A
@@ -579,11 +587,93 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            | TTLDisablePurge Bool
                            -- ^ Disables temporarily the purge of expired docs.
                            | TranslogFSType FSType
+                           | CompressionSetting Compression
                            | IndexCompoundFormat CompoundFormat
                            | IndexCompoundOnFlush Bool
                            | WarmerEnabled Bool
                            | MappingTotalFieldsLimit Int
+                           | AnalysisSetting Analysis
+                           -- ^ Analysis is not a dynamic setting and can only be performed on a closed index.
                            deriving (Eq, Show, Generic, Typeable)
+
+data Analysis = Analysis
+  { analysisAnalyzer :: M.Map Text AnalyzerDefinition
+  , analysisTokenizer :: M.Map Text TokenizerDefinition
+  } deriving (Eq,Show,Generic,Typeable)
+
+instance ToJSON Analysis where
+  toJSON (Analysis analyzer tokenizer) = object
+    [ "analyzer" .= analyzer
+    , "tokenizer" .= tokenizer
+    ]
+
+instance FromJSON Analysis where
+  parseJSON = withObject "Analysis" $ \m -> Analysis
+    <$> m .: "analyzer"
+    <*> m .: "tokenizer"
+
+data AnalyzerDefinition = AnalyzerDefinition
+  { analyzerDefinitionTokenizer :: Maybe Tokenizer
+  } deriving (Eq,Show,Generic,Typeable)
+
+instance ToJSON AnalyzerDefinition where
+  toJSON (AnalyzerDefinition tokenizer) = object $ catMaybes
+    [ fmap ("tokenizer" .=) tokenizer
+    ]
+
+instance FromJSON AnalyzerDefinition where
+  parseJSON = withObject "AnalyzerDefinition" $ \m -> AnalyzerDefinition
+    <$> m .:? "tokenizer"
+  
+
+data TokenizerDefinition
+  = TokenizerDefinitionNgram Ngram
+  deriving (Eq,Show,Generic,Typeable)
+
+instance ToJSON TokenizerDefinition where
+  toJSON x = case x of
+    TokenizerDefinitionNgram (Ngram minGram maxGram tokenChars) -> object
+      [ "type" .= ("ngram" :: Text)
+      , "min_gram" .= minGram
+      , "max_gram" .= maxGram
+      , "token_chars" .= tokenChars
+      ]
+
+instance FromJSON TokenizerDefinition where
+  parseJSON = withObject "TokenizerDefinition" $ \m -> do
+    typ <- m .: "type" :: Parser Text
+    case typ of
+      "ngram" -> fmap TokenizerDefinitionNgram $ Ngram
+        <$> (fmap unStringlyTypedInt (m .: "min_gram"))
+        <*> (fmap unStringlyTypedInt (m .: "max_gram"))
+        <*> m .: "token_chars"
+      _ -> fail "invalid TokenizerDefinition"
+
+data Ngram = Ngram
+  { ngramMinGram :: Int
+  , ngramMaxGram :: Int
+  , ngramTokenChars :: [TokenChar]
+  } deriving (Eq,Show,Generic,Typeable)
+
+data TokenChar = TokenLetter | TokenDigit | TokenWhitespace | TokenPunctuation | TokenSymbol
+  deriving (Eq,Read,Show,Generic,Typeable)
+
+instance ToJSON TokenChar where
+  toJSON t = String $ case t of
+    TokenLetter -> "letter"
+    TokenDigit -> "digit"
+    TokenWhitespace -> "whitespace"
+    TokenPunctuation -> "punctuation"
+    TokenSymbol -> "symbol"
+
+instance FromJSON TokenChar where
+  parseJSON = withText "TokenChar" $ \t -> case t of
+    "letter" -> return TokenLetter
+    "digit" -> return TokenDigit
+    "whitespace" -> return TokenWhitespace
+    "punctuation" -> return TokenPunctuation
+    "symbol" -> return TokenSymbol
+    _ -> fail "invalid TokenChar"
 
 data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation for all shards.
@@ -599,6 +689,26 @@ data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasLowerBounded Int
                    | ReplicasUnbounded
                    deriving (Eq, Read, Show, Generic, Typeable)
+
+data Compression
+  = CompressionDefault
+    -- ^ Compress with LZ4
+  | CompressionBest
+    -- ^ Compress with DEFLATE. Elastic
+    --   <https://www.elastic.co/blog/elasticsearch-storage-the-true-story-2.0 blogs>
+    --   that this can reduce disk use by 15%-25%.
+  deriving (Eq,Show,Generic,Typeable)
+
+instance ToJSON Compression where
+  toJSON x = case x of
+    CompressionDefault -> toJSON ("default" :: Text)
+    CompressionBest -> toJSON ("best_compression" :: Text)
+
+instance FromJSON Compression where
+  parseJSON = withText "Compression" $ \t -> case t of
+    "default" -> return CompressionDefault
+    "best_compression" -> return CompressionBest
+    _ -> fail "invalid compression codec"
 
 -- | A measure of bytes used for various configurations. You may want
 -- to use smart constructors like 'gigabytes' for larger values.
@@ -1020,6 +1130,8 @@ newtype CutoffFrequency =
   CutoffFrequency Double deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Analyzer =
   Analyzer Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype Tokenizer =
+  Tokenizer Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MaxExpansions =
   MaxExpansions Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
@@ -1438,13 +1550,15 @@ data MatchQuery =
              , matchQueryAnalyzer        :: Maybe Analyzer
              , matchQueryMaxExpansions   :: Maybe MaxExpansions
              , matchQueryLenient         :: Maybe Lenient
-             , matchQueryBoost           :: Maybe Boost } deriving (Eq, Read, Show, Generic, Typeable)
+             , matchQueryBoost           :: Maybe Boost
+             , matchQueryMinimumShouldMatch :: Maybe Text
+             } deriving (Eq, Read, Show, Generic, Typeable)
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
 -}
 mkMatchQuery :: FieldName -> QueryString -> MatchQuery
-mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing
+mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 data MatchQueryType =
   MatchPhrase
@@ -2834,7 +2948,9 @@ instance ToJSON MatchQuery where
   toJSON (MatchQuery (FieldName fieldName)
           (QueryString mqQueryString) booleanOperator
           zeroTermsQuery cutoffFrequency matchQueryType
-          analyzer maxExpansions lenient boost) =
+          analyzer maxExpansions lenient boost
+          minShouldMatch
+         ) =
     object [ fieldName .= omitNulls base ]
     where base = [ "query" .= mqQueryString
                  , "operator" .= booleanOperator
@@ -2844,7 +2960,9 @@ instance ToJSON MatchQuery where
                  , "analyzer" .= analyzer
                  , "max_expansions" .= maxExpansions
                  , "lenient" .= lenient
-                 , "boost" .= boost ]
+                 , "boost" .= boost
+                 , "minimum_should_match" .= minShouldMatch
+                 ]
 
 instance FromJSON MatchQuery where
   parseJSON = withObject "MatchQuery" parse
@@ -2859,6 +2977,7 @@ instance FromJSON MatchQuery where
                     <*> o .:? "max_expansions"
                     <*> o .:? "lenient"
                     <*> o .:? "boost"
+                    <*> o .:? "minimum_should_match"
 
 instance ToJSON MultiMatchQuery where
   toJSON (MultiMatchQuery fields (QueryString query) boolOp
@@ -2982,6 +3101,7 @@ instance ToJSON UpdatableIndexSetting where
   toJSON (GCDeletes x) = oPath ("index" :| ["gc_deletes"]) (NominalDiffTimeJSON x)
   toJSON (TTLDisablePurge x) = oPath ("index" :| ["ttl", "disable_purge"]) x
   toJSON (TranslogFSType x) = oPath ("index" :| ["translog", "fs", "type"]) x
+  toJSON (CompressionSetting x) = oPath ("index" :| ["codec"]) x
   toJSON (IndexCompoundFormat x) = oPath ("index" :| ["compound_format"]) x
   toJSON (IndexCompoundOnFlush x) = oPath ("index" :| ["compound_on_flush"]) x
   toJSON (WarmerEnabled x) = oPath ("index" :| ["warmer", "enabled"]) x
@@ -2990,6 +3110,7 @@ instance ToJSON UpdatableIndexSetting where
   toJSON (BlocksWrite x) = oPath ("blocks" :| ["write"]) x
   toJSON (BlocksMetaData x) = oPath ("blocks" :| ["metadata"]) x
   toJSON (MappingTotalFieldsLimit x) = oPath ("index" :| ["mapping","total_fields","limit"]) x
+  toJSON (AnalysisSetting x) = oPath ("index" :| ["analysis"]) x
 
 instance FromJSON UpdatableIndexSetting where
   parseJSON = withObject "UpdatableIndexSetting" parse
@@ -3014,6 +3135,7 @@ instance FromJSON UpdatableIndexSetting where
                 <|> gcDeletes `taggedAt` ["index", "gc_deletes"]
                 <|> ttlDisablePurge `taggedAt` ["index", "ttl", "disable_purge"]
                 <|> translogFSType `taggedAt` ["index", "translog", "fs", "type"]
+                <|> compressionSetting `taggedAt` ["index", "codec"]
                 <|> compoundFormat `taggedAt` ["index", "compound_format"]
                 <|> compoundOnFlush `taggedAt` ["index", "compound_on_flush"]
                 <|> warmerEnabled `taggedAt` ["index", "warmer", "enabled"]
@@ -3022,6 +3144,7 @@ instance FromJSON UpdatableIndexSetting where
                 <|> blocksWrite `taggedAt` ["blocks", "write"]
                 <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
                 <|> mappingTotalFieldsLimit `taggedAt` ["index", "mapping", "total_fields", "limit"]
+                <|> analysisSetting `taggedAt` ["index", "analysis"]
             where taggedAt f ks = taggedAt' f (Object o) ks
           taggedAt' f v [] = f =<< (parseJSON v <|> (parseJSON (unStringlyTypeJSON v)))
           taggedAt' f v (k:ks) = withObject "Object" (\o -> do v' <- o .: k
@@ -3047,6 +3170,7 @@ instance FromJSON UpdatableIndexSetting where
           gcDeletes                      = pure . GCDeletes . ndtJSON
           ttlDisablePurge                = pure . TTLDisablePurge
           translogFSType                 = pure . TranslogFSType
+          compressionSetting             = pure . CompressionSetting
           compoundFormat                 = pure . IndexCompoundFormat
           compoundOnFlush                = pure . IndexCompoundOnFlush
           warmerEnabled                  = pure . WarmerEnabled
@@ -3055,6 +3179,7 @@ instance FromJSON UpdatableIndexSetting where
           blocksWrite                    = pure . BlocksWrite
           blocksMetaData                 = pure . BlocksMetaData
           mappingTotalFieldsLimit        = pure . MappingTotalFieldsLimit
+          analysisSetting                = pure . AnalysisSetting
 
 instance FromJSON IndexSettingsSummary where
   parseJSON = withObject "IndexSettingsSummary" parse
@@ -4643,10 +4768,13 @@ instance FromJSON NodeDataPathStats where
 
 newtype StringlyTypedDouble = StringlyTypedDouble { unStringlyTypedDouble :: Double }
 
-
 instance FromJSON StringlyTypedDouble where
   parseJSON = fmap StringlyTypedDouble . parseJSON . unStringlyTypeJSON
 
+newtype StringlyTypedInt = StringlyTypedInt { unStringlyTypedInt :: Int }
+
+instance FromJSON StringlyTypedInt where
+  parseJSON = fmap StringlyTypedInt . parseJSON . unStringlyTypeJSON
 
 instance FromJSON NodeFSTotalStats where
   parseJSON = withObject "NodeFSTotalStats" parse

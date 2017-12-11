@@ -25,6 +25,7 @@ module Database.V5.Bloodhound.Client
          withBH
        -- ** Indices
        , createIndex
+       , createIndexWith
        , deleteIndex
        , updateIndexSettings
        , getIndexSettings
@@ -512,6 +513,28 @@ createIndex indexSettings (IndexName indexName) =
   where url = joinPath [indexName]
         body = Just $ encode indexSettings
 
+-- | Create an index, providing it with any number of settings. This
+--   is more expressive than 'createIndex' but makes is more verbose
+--   for the common case of configuring only the shard count and
+--   replica count.
+createIndexWith :: MonadBH m
+  => [UpdatableIndexSetting]
+  -> Int -- ^ shard count
+  -> IndexName 
+  -> m Reply
+createIndexWith updates shards (IndexName indexName) =
+  bindM2 put url (return (Just body))
+  where url = joinPath [indexName]
+        body = encode $ object
+          ["settings" .= deepMerge 
+            ( HM.singleton "index.number_of_shards" (toJSON shards) :
+              [u | Object u <- toJSON <$> updates]
+            )
+          ]
+
+oPath :: ToJSON a => NonEmpty Text -> a -> Value
+oPath (k :| []) v   = object [k .= v]
+oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
 
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
 --
@@ -544,7 +567,6 @@ getIndexSettings :: (MonadBH m, MonadThrow m) => IndexName
 getIndexSettings (IndexName indexName) = do
   parseEsResponse =<< get =<< url
   where url = joinPath [indexName, "_settings"]
-
 
 -- | 'forceMergeIndex' 
 -- 
@@ -787,7 +809,10 @@ versionCtlParams cfg =
 -- | 'indexDocument' is the primary way to save a single document in
 --   Elasticsearch. The document itself is simply something we can
 --   convert into a JSON 'Value'. The 'DocId' will function as the
---   primary key for the document.
+--   primary key for the document. You are encouraged to generate
+--   your own id's and not rely on ElasticSearch's automatic id
+--   generation. Read more about it here:
+--   https://github.com/bitemyapp/bloodhound/issues/107
 --
 -- >>> resp <- runBH' $ indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
