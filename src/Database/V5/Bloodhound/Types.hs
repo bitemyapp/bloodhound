@@ -635,8 +635,8 @@ instance FromJSON AnalyzerDefinition where
   
 -- | Token filters are used to create custom analyzers.
 data TokenFilterDefinition
-  = TokenFilterDefinitionLowercase Language
-  | TokenFilterDefinitionUppercase Language
+  = TokenFilterDefinitionLowercase (Maybe Language)
+  | TokenFilterDefinitionUppercase (Maybe Language)
   | TokenFilterDefinitionApostrophe
   | TokenFilterDefinitionReverse
   | TokenFilterDefinitionSnowball Language
@@ -645,13 +645,13 @@ data TokenFilterDefinition
 
 instance ToJSON TokenFilterDefinition where
   toJSON x = case x of
-    TokenFilterDefinitionLowercase lang -> object
-      [ "type" .= ("lowercase" :: Text)
-      , "language" .= languageToText lang
+    TokenFilterDefinitionLowercase mlang -> object $ catMaybes
+      [ Just $ "type" .= ("lowercase" :: Text)
+      , fmap (\lang -> "language" .= languageToText lang) mlang
       ]
-    TokenFilterDefinitionUppercase lang -> object
-      [ "type" .= ("uppercase" :: Text)
-      , "language" .= languageToText lang
+    TokenFilterDefinitionUppercase mlang -> object $ catMaybes
+      [ Just $ "type" .= ("uppercase" :: Text)
+      , fmap (\lang -> "language" .= languageToText lang) mlang
       ]
     TokenFilterDefinitionApostrophe -> object
       [ "type" .= ("apostrophe" :: Text)
@@ -680,11 +680,11 @@ instance FromJSON TokenFilterDefinition where
       "reverse" -> return TokenFilterDefinitionReverse
       "apostrophe" -> return TokenFilterDefinitionApostrophe
       "lowercase" -> TokenFilterDefinitionLowercase
-        <$> m .:? "language" .!= English
+        <$> m .:? "language"
       "uppercase" -> TokenFilterDefinitionUppercase
-        <$> m .:? "language" .!= English
+        <$> m .:? "language"
       "snowball" -> TokenFilterDefinitionSnowball
-        <$> m .:? "language" .!= English
+        <$> m .: "language"
       "shingle" -> fmap TokenFilterDefinitionShingle $ Shingle
         <$> (fmap.fmap) unStringlyTypedInt (m .:? "max_shingle_size") .!= 2
         <*> (fmap.fmap) unStringlyTypedInt (m .:? "min_shingle_size") .!= 2

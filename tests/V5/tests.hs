@@ -1653,8 +1653,8 @@ main = hspec $ do
               )
             )
             (M.fromList
-              [ ("ex_filter_lowercase",TokenFilterDefinitionLowercase Greek)
-              , ("ex_filter_uppercase",TokenFilterDefinitionUppercase English)
+              [ ("ex_filter_lowercase",TokenFilterDefinitionLowercase (Just Greek))
+              , ("ex_filter_uppercase",TokenFilterDefinitionUppercase Nothing)
               , ("ex_filter_apostrophe",TokenFilterDefinitionApostrophe)
               , ("ex_filter_reverse",TokenFilterDefinitionReverse)
               , ("ex_filter_snowball",TokenFilterDefinitionSnowball English)
