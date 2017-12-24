@@ -16,13 +16,15 @@ env:
    - GHCVER=7.10 ESVER=1.5.2 STACK_YAML=stack-7.10.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    - GHCVER=7.10 ESVER=1.6.0 STACK_YAML=stack-7.10.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
    - GHCVER=7.10 ESVER=1.7.6 STACK_YAML=stack-7.10.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   - GHCVER=8.0  ESVER=1.7.6 STACK_YAML=stack.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
-   - GHCVER=8.0  ESVER=5.0.2 STACK_YAML=stack.yaml ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
+   - GHCVER=8.0  ESVER=1.7.6 STACK_YAML=stack-8.0.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=8.0  ESVER=5.0.2 STACK_YAML=stack-8.0.yaml ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
+   - GHCVER=8.2  ESVER=1.7.6 STACK_YAML=stack.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
+   - GHCVER=8.2  ESVER=5.0.2 STACK_YAML=stack.yaml ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
 
 install:
   # stack
   - mkdir -p ~/.local/bin
-  - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v1.4.0/stack-1.4.0-linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+  - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v1.6.1/stack-1.6.1-linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
   - export PATH=~/.local/bin:$PATH
   - stack --no-terminal --version
 

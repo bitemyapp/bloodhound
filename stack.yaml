@@ -1,13 +1,1 @@
-flags:
-  bloodhound-examples:
-    werror: true
-packages:
-- '.'
-- './examples'
-extra-deps:
-- hspec-2.4.1
-- hspec-core-2.4.1
-- hspec-discover-2.4.1
-- quickcheck-properties-0.1
-- vector-0.12.0.0
-resolver: nightly-2017-01-30
+stack-8.2.yaml
