@@ -5429,7 +5429,7 @@ data DirectGeneratorSuggestModeTypes = DirectGeneratorSuggestModeMissing
                                 | DirectGeneratorSuggestModePopular
                                 | DirectGeneratorSuggestModeAlways
   deriving (Show, Eq, Read, Generic)
-                                
+
 instance ToJSON DirectGeneratorSuggestModeTypes where
   toJSON DirectGeneratorSuggestModeMissing = "missing"
   toJSON DirectGeneratorSuggestModePopular = "popular"
