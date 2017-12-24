@@ -5517,7 +5517,7 @@ instance FromJSON NamedSuggestionResponse where
 data DirectGeneratorSuggestModeTypes = DirectGeneratorSuggestModeMissing
                                 | DirectGeneratorSuggestModePopular
                                 | DirectGeneratorSuggestModeAlways
-  deriving (Show, Eq, Read, Generic)
+  deriving (Show, Eq, Read, Generic, Typeable)
 
 instance ToJSON DirectGeneratorSuggestModeTypes where
   toJSON DirectGeneratorSuggestModeMissing = "missing"
@@ -5544,7 +5544,7 @@ data DirectGenerators = DirectGenerators
   , directGeneratorPreFilter :: Maybe Text
   , directGeneratorPostFilter :: Maybe Text
   }
-  deriving (Show, Eq, Read, Generic)
+  deriving (Show, Eq, Read, Generic, Typeable)
 
 
 instance ToJSON DirectGenerators where
