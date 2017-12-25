@@ -719,6 +719,17 @@ instance Arbitrary FieldName where
   shrink = genericShrink
 
 
+#if MIN_VERSION_base(4,10,0)
+-- Test.QuickCheck.Modifiers
+
+qcNonEmptyToNonEmpty :: NonEmptyList a -> NonEmpty a
+qcNonEmptyToNonEmpty (NonEmpty (a : xs)) = (a :| xs)
+qcNonEmptyToNonEmpty (NonEmpty []) = error "NonEmpty was empty!"
+
+instance Arbitrary a => Arbitrary (NonEmpty a) where
+  arbitrary = qcNonEmptyToNonEmpty <$> arbitrary
+#endif
+
 instance Arbitrary RegexpFlags where
   arbitrary = oneof [ pure AllRegexpFlags
                     , pure NoRegexpFlags
