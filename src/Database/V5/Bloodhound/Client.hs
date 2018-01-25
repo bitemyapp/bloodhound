@@ -532,10 +532,6 @@ createIndexWith updates shards (IndexName indexName) =
             )
           ]
 
-oPath :: ToJSON a => NonEmpty Text -> a -> Value
-oPath (k :| []) v   = object [k .= v]
-oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
-
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
 --
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
