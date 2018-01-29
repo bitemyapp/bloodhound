@@ -1905,9 +1905,11 @@ data Aggregation = TermsAgg TermsAggregation
   deriving (Eq, Read, Show, Generic, Typeable)
 
 data TopHitsAggregation = TopHitsAggregation
-  { taFrom :: Maybe From
-  , taSize :: Maybe Size
-  , taSort :: Maybe Sort
+  { taFrom      :: Maybe From
+  , taSize      :: Maybe Size
+  , taSort      :: Maybe Sort
+  , taSource    :: Maybe Source
+  , taHighlight :: Maybe Highlights
   } deriving (Eq, Read, Show)
 
 data MissingAggregation = MissingAggregation
@@ -2139,10 +2141,12 @@ instance ToJSON Aggregation where
   toJSON (MissingAgg (MissingAggregation{..})) =
     object ["missing" .= object ["field" .= maField]]
 
-  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort)) =
-    omitNulls ["top_hits" .= omitNulls [ "size" .= msize
-                                       , "from" .= mfrom
-                                       , "sort" .= msort
+  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort msource mhighlight)) =
+    omitNulls ["top_hits" .= omitNulls [ "size"      .= msize
+                                       , "from"      .= mfrom
+                                       , "sort"      .= msort
+                                       , "_source"   .= msource
+                                       , "highlight" .= mhighlight
                                        ]
               ]
 
