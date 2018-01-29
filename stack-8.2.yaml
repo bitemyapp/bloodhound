@@ -6,6 +6,7 @@ packages:
   - '.'
   - './examples'
 
-extra-deps: []
+extra-deps:
+  - http-types-0.12
 
 resolver: lts-10.0
