@@ -152,6 +152,8 @@ module Database.V5.Bloodhound.Types
        , RegexpFlag(..)
        , FieldName(..)
        , Script(..)
+       , ScriptJ(..)
+       , MissingValue(..)
        , IndexName(..)
        , IndexSelection(..)
        , NodeSelection(..)
@@ -360,6 +362,7 @@ module Database.V5.Bloodhound.Types
        , DateMathUnit(..)
        , TopHitsAggregation(..)
        , StatisticsAggregation(..)
+       , MaxAggregation(..)
 
        , Highlights(..)
        , FieldHighlight(..)
@@ -1110,11 +1113,16 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Read, Show, ToJSON
 -}
 newtype FieldName = FieldName Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
+{-| 'MissingValue' is used together with 'FieldName' to specify value for 
+     documents where specified field is empty.
+-}
+newtype MissingValue = MissingValue Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'Script' is often used in place of 'FieldName' to specify more
 complex ways of extracting a value from a document.
 -}
 newtype Script = Script { scriptText :: Text } deriving (Eq, Read, Show, Generic, Typeable)
+newtype ScriptJ = ScriptJ { scriptJson :: Value } deriving (Eq, Read, Show, Generic, Typeable)
 
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
@@ -1893,6 +1901,7 @@ data Aggregation = TermsAgg TermsAggregation
                  | MissingAgg MissingAggregation
                  | TopHitsAgg TopHitsAggregation
                  | StatsAgg StatisticsAggregation
+                 | MaxAgg MaxAggregation
   deriving (Eq, Read, Show, Generic, Typeable)
 
 data TopHitsAggregation = TopHitsAggregation
@@ -1966,6 +1975,12 @@ data DateMathUnit = DMYear
 data ValueCountAggregation = FieldValueCount FieldName
                            | ScriptValueCount Script deriving (Eq, Read, Show, Generic, Typeable)
 
+-- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-max-aggregation.html> for more information.                           
+data MaxAggregation = FieldMax FieldName (Maybe MissingValue)
+                    | ScriptMax ScriptJ
+                    | FieldScriptMax FieldName ScriptJ (Maybe MissingValue)
+                      deriving (Eq, Read, Show, Generic, Typeable)                    
+                      
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
 data FilterAggregation = FilterAggregation { faFilter :: Filter
                                            , faAggs   :: Maybe Aggregations} deriving (Eq, Read, Show, Generic, Typeable)
@@ -2105,6 +2120,17 @@ instance ToJSON Aggregation where
     where v = case a of
                 (FieldValueCount (FieldName n)) -> object ["field" .= n]
                 (ScriptValueCount (Script s))   -> object ["script" .= s]
+  toJSON (MaxAgg a) = object ["max" .= v]
+    where v = case a of
+                (FieldMax (FieldName n) mv) -> omitNulls [ "field"   .= n,
+                                                           "missing" .= mv
+                                                         ]
+                (ScriptMax (ScriptJ s))      -> object   [ "script"  .= s ] 
+                (FieldScriptMax (FieldName n) (ScriptJ s) mv) -> 
+                                               omitNulls [ "field"   .= n
+                                                         , "script"  .= s
+                                                         , "missing" .= mv
+                                                         ]               
   toJSON (FilterAgg (FilterAggregation filt ags)) =
     omitNulls [ "filter" .= filt
               , "aggs" .= ags]
