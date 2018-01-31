@@ -43,10 +43,12 @@ library
                        Database.V5.Bloodhound.Client
                        Database.V5.Bloodhound.Types
                        Database.V5.Bloodhound.Types.Class
-                       Database.V5.Bloodhound.Types.Internal
+  other-modules:       Bloodhound.Import
                        Database.V5.Bloodhound.Types.Internal.Analysis
                        Database.V5.Bloodhound.Types.Internal.Client
+                       Database.V5.Bloodhound.Types.Internal.Newtypes
                        Database.V5.Bloodhound.Types.Internal.Query
+                       Database.V5.Bloodhound.Types.Internal.StringlyTyped
   hs-source-dirs:      src
   build-depends:       base             >= 4.3     && <5,
                        bytestring       >= 0.10.0  && <0.11,
