@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
--- {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -386,580 +385,57 @@ module Database.V5.Bloodhound.Types
        , TokenChar(..)
          ) where
 
-import           Control.Applicative                   as A
-import           Control.Arrow                         (first)
-import           Control.Monad.Catch
-import           Control.Monad.Except
-import           Control.Monad.Reader                  (MonadReader (..),
-                                                        ReaderT (..))
-import           Control.Monad.State                   (MonadState)
-import           Control.Monad.Writer                  (MonadWriter)
-import           Data.Aeson
-import           Data.Aeson.Types                      (Pair, Parser,
-                                                        emptyObject,
-                                                        parseEither, parseMaybe,
-                                                        typeMismatch)
-import qualified Data.ByteString.Lazy.Char8            as L
-import           Data.Char
-import           Data.Hashable                         (Hashable)
-import qualified Data.HashMap.Strict                   as HM
-import           Data.List                             (foldl', intercalate,
-                                                        nub)
-import           Data.List.NonEmpty                    (NonEmpty (..), toList)
-import qualified Data.Map.Strict                       as M
-import           Data.Maybe
-import           Data.Scientific                       (Scientific)
-import           Data.Semigroup
-import           Data.Text                             (Text)
-import qualified Data.Text                             as T
-import           Data.Time.Calendar
-import           Data.Time.Clock                       (NominalDiffTime,
-                                                        UTCTime)
-import           Data.Time.Clock.POSIX
+-- import           Control.Applicative                   as A
+-- import           Control.Arrow                         (first)
+-- import           Control.Monad.Catch
+-- import           Control.Monad.Except
+-- import           Control.Monad.State                   (MonadState)
+-- import           Control.Monad.Writer                  (MonadWriter)
+-- import           Data.Aeson
+-- import           Data.Aeson.Types                      (Pair, Parser,
+--                                                         emptyObject,
+--                                                         parseEither, parseMaybe,
+--                                                         typeMismatch)
+-- import qualified Data.ByteString.Lazy.Char8            as L
+-- import           Data.Char
+-- import           Data.Hashable                         (Hashable)
+-- import qualified Data.HashMap.Strict                   as HM
+-- import           Data.List                             (foldl', intercalate,
+--                                                         nub)
+-- import           Data.List.NonEmpty                    (NonEmpty (..), toList)
+-- import           Data.Maybe
+-- import           Data.Scientific                       (Scientific)
+-- import           Data.Semigroup
+-- import           Data.Text                             (Text)
+-- import qualified Data.Text                             as T
+-- import           Data.Time.Calendar
+-- import           Data.Time.Clock                       (NominalDiffTime,
+--                                                         UTCTime)
+-- import           Data.Time.Clock.POSIX
+-- import qualified Data.Traversable                      as DT
+-- import           Data.Typeable                         (Typeable)
+-- import qualified Data.Vector                           as V
+-- import qualified Data.Version                          as Vers
+-- import           GHC.Enum
+-- import           GHC.Generics                          (Generic)
+-- import           Network.HTTP.Client
+-- import qualified Network.HTTP.Types.Method             as NHTM
+-- import qualified Text.ParserCombinators.ReadP          as RP
+-- import qualified Text.Read                             as TR
+
+import           Bloodhound.Import
+
 import qualified Data.Traversable                      as DT
-import           Data.Typeable                         (Typeable)
-import qualified Data.Vector                           as V
-import qualified Data.Version                          as Vers
-import           GHC.Enum
-import           GHC.Generics                          (Generic)
-import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method             as NHTM
-import qualified Text.ParserCombinators.ReadP          as RP
-import qualified Text.Read                             as TR
+import qualified Data.HashMap.Strict                   as HM
+import qualified Data.Map.Strict                       as M
+import qualified Data.Text                             as T
 
 import           Database.V5.Bloodhound.Types.Class
-import           Database.V5.Bloodhound.Types.Internal
-
--- $setup
--- >>> :set -XOverloadedStrings
--- >>> import Data.Aeson
--- >>> import Database.V5.Bloodhound
--- >>> let testServer = (Server "http://localhost:9200")
--- >>> let testIndex = IndexName "twitter"
--- >>> let testMapping = MappingName "tweet"
--- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
-
--- defaultIndexSettings is exported by Database.Bloodhound as well
--- no trailing slashes in servers, library handles building the path.
-
--- | Create a 'BHEnv' with all optional fields defaulted. HTTP hook
--- will be a noop. You can use the exported fields to customize it further, e.g.:
---
--- >> (mkBHEnv myServer myManager) { bhRequestHook = customHook }
-mkBHEnv :: Server -> Manager -> BHEnv
-mkBHEnv s m = BHEnv s m return
-
-newtype BH m a = BH {
-      unBH :: ReaderT BHEnv m a
-    } deriving ( Functor
-               , A.Applicative
-               , Monad
-               , MonadIO
-               , MonadState s
-               , MonadWriter w
-               , MonadError e
-               , Alternative
-               , MonadPlus
-               , MonadFix
-               , MonadThrow
-               , MonadCatch
-               , MonadMask)
-
-instance MonadTrans BH where
-  lift = BH . lift
-
-instance (MonadReader r m) => MonadReader r (BH m) where
-    ask = lift ask
-    local f (BH (ReaderT m)) = BH $ ReaderT $ \r ->
-      local f (m r)
-
-instance (Functor m, Applicative m, MonadIO m) => MonadBH (BH m) where
-  getBHEnv = BH getBHEnv
-
-runBH :: BHEnv -> BH m a -> m a
-runBH e f = runReaderT (unBH f) e
-
-{-| 'Version' is embedded in 'Status' -}
-data Version = Version { number         :: VersionNumber
-                       , build_hash     :: BuildHash
-                       , build_date     :: UTCTime
-                       , build_snapshot :: Bool
-                       , lucene_version :: VersionNumber } deriving (Eq, Read, Show, Generic, Typeable)
-
--- | Traditional software versioning number
-newtype VersionNumber = VersionNumber { versionNumber :: Vers.Version
-                                      } deriving (Eq, Read, Show, Generic, Typeable, Ord)
-
-{-| 'Status' is a data type for describing the JSON body returned by
-    Elasticsearch when you query its status. This was deprecated in 1.2.0.
-
-   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-status.html#indices-status>
--}
-
-data Status = Status { name         :: Text
-                     , cluster_name :: Text
-                     , cluster_uuid :: Text
-                     , version      :: Version
-                     , tagline      :: Text } deriving (Eq, Read, Show, Generic)
-
-{-| 'IndexSettings' is used to configure the shards and replicas when you create
-   an Elasticsearch Index.
-
-   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-create-index.html>
--}
-
-data IndexSettings =
-  IndexSettings { indexShards   :: ShardCount
-                , indexReplicas :: ReplicaCount } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and 2 replicas. -}
-defaultIndexSettings :: IndexSettings
-defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2)
-
-
-{-| 'ForceMergeIndexSettings' is used to configure index optimization. See
-    <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-forcemerge.html>
-    for more info.
--}
-data ForceMergeIndexSettings =
-  ForceMergeIndexSettings { maxNumSegments       :: Maybe Int
-                            -- ^ Number of segments to optimize to. 1 will fully optimize the index. If omitted, the default behavior is to only optimize if the server deems it necessary.
-                            , onlyExpungeDeletes :: Bool
-                            -- ^ Should the optimize process only expunge segments with deletes in them? If the purpose of the optimization is to free disk space, this should be set to True.
-                            , flushAfterOptimize :: Bool
-                            -- ^ Should a flush be performed after the optimize.
-                            } deriving (Eq, Show, Generic, Typeable)
-
-
-{-| 'defaultForceMergeIndexSettings' implements the default settings that
-    ElasticSearch uses for index optimization. 'maxNumSegments' is Nothing,
-    'onlyExpungeDeletes' is False, and flushAfterOptimize is True.
--}
-defaultForceMergeIndexSettings :: ForceMergeIndexSettings
-defaultForceMergeIndexSettings = ForceMergeIndexSettings Nothing False True
-
-{-| 'UpdatableIndexSetting' are settings which may be updated after an index is created.
-
-   <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-update-settings.html>
--}
-data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
-                           -- ^ The number of replicas each shard has.
-                           | AutoExpandReplicas ReplicaBounds
-                           | BlocksReadOnly Bool
-                           -- ^ Set to True to have the index read only. False to allow writes and metadata changes.
-                           | BlocksRead Bool
-                           -- ^ Set to True to disable read operations against the index.
-                           | BlocksWrite Bool
-                           -- ^ Set to True to disable write operations against the index.
-                           | BlocksMetaData Bool
-                           -- ^ Set to True to disable metadata operations against the index.
-                           | RefreshInterval NominalDiffTime
-                           -- ^ The async refresh interval of a shard
-                           | IndexConcurrency Int
-                           | FailOnMergeFailure Bool
-                           | TranslogFlushThresholdOps Int
-                           -- ^ When to flush on operations.
-                           | TranslogFlushThresholdSize Bytes
-                           -- ^ When to flush based on translog (bytes) size.
-                           | TranslogFlushThresholdPeriod NominalDiffTime
-                           -- ^ When to flush based on a period of not flushing.
-                           | TranslogDisableFlush Bool
-                           -- ^ Disables flushing. Note, should be set for a short interval and then enabled.
-                           | CacheFilterMaxSize (Maybe Bytes)
-                           -- ^ The maximum size of filter cache (per segment in shard).
-                           | CacheFilterExpire (Maybe NominalDiffTime)
-                           -- ^ The expire after access time for filter cache.
-                           | GatewaySnapshotInterval NominalDiffTime
-                           -- ^ The gateway snapshot interval (only applies to shared gateways).
-                           | RoutingAllocationInclude (NonEmpty NodeAttrFilter)
-                           -- ^ A node matching any rule will be allowed to host shards from the index.
-                           | RoutingAllocationExclude (NonEmpty NodeAttrFilter)
-                           -- ^ A node matching any rule will NOT be allowed to host shards from the index.
-                           | RoutingAllocationRequire (NonEmpty NodeAttrFilter)
-                           -- ^ Only nodes matching all rules will be allowed to host shards from the index.
-                           | RoutingAllocationEnable AllocationPolicy
-                           -- ^ Enables shard allocation for a specific index.
-                           | RoutingAllocationShardsPerNode ShardCount
-                           -- ^ Controls the total number of shards (replicas and primaries) allowed to be allocated on a single node.
-                           | RecoveryInitialShards InitialShardCount
-                           -- ^ When using local gateway a particular shard is recovered only if there can be allocated quorum shards in the cluster.
-                           | GCDeletes NominalDiffTime
-                           | TTLDisablePurge Bool
-                           -- ^ Disables temporarily the purge of expired docs.
-                           | TranslogFSType FSType
-                           | CompressionSetting Compression
-                           | IndexCompoundFormat CompoundFormat
-                           | IndexCompoundOnFlush Bool
-                           | WarmerEnabled Bool
-                           | MappingTotalFieldsLimit Int
-                           | AnalysisSetting Analysis
-                           -- ^ Analysis is not a dynamic setting and can only be performed on a closed index.
-                           deriving (Eq, Show, Generic, Typeable)
-
-data Analysis = Analysis
-  { analysisAnalyzer :: M.Map Text AnalyzerDefinition
-  , analysisTokenizer :: M.Map Text TokenizerDefinition
-  } deriving (Eq,Show,Generic,Typeable)
-
-instance ToJSON Analysis where
-  toJSON (Analysis analyzer tokenizer) = object
-    [ "analyzer" .= analyzer
-    , "tokenizer" .= tokenizer
-    ]
-
-instance FromJSON Analysis where
-  parseJSON = withObject "Analysis" $ \m -> Analysis
-    <$> m .: "analyzer"
-    <*> m .: "tokenizer"
-
-data AnalyzerDefinition = AnalyzerDefinition
-  { analyzerDefinitionTokenizer :: Maybe Tokenizer
-  } deriving (Eq,Show,Generic,Typeable)
-
-instance ToJSON AnalyzerDefinition where
-  toJSON (AnalyzerDefinition tokenizer) = object $ catMaybes
-    [ fmap ("tokenizer" .=) tokenizer
-    ]
-
-instance FromJSON AnalyzerDefinition where
-  parseJSON = withObject "AnalyzerDefinition" $ \m -> AnalyzerDefinition
-    <$> m .:? "tokenizer"
-  
-
-data TokenizerDefinition
-  = TokenizerDefinitionNgram Ngram
-  deriving (Eq,Show,Generic,Typeable)
-
-instance ToJSON TokenizerDefinition where
-  toJSON x = case x of
-    TokenizerDefinitionNgram (Ngram minGram maxGram tokenChars) -> object
-      [ "type" .= ("ngram" :: Text)
-      , "min_gram" .= minGram
-      , "max_gram" .= maxGram
-      , "token_chars" .= tokenChars
-      ]
-
-instance FromJSON TokenizerDefinition where
-  parseJSON = withObject "TokenizerDefinition" $ \m -> do
-    typ <- m .: "type" :: Parser Text
-    case typ of
-      "ngram" -> fmap TokenizerDefinitionNgram $ Ngram
-        <$> (fmap unStringlyTypedInt (m .: "min_gram"))
-        <*> (fmap unStringlyTypedInt (m .: "max_gram"))
-        <*> m .: "token_chars"
-      _ -> fail "invalid TokenizerDefinition"
-
-data Ngram = Ngram
-  { ngramMinGram :: Int
-  , ngramMaxGram :: Int
-  , ngramTokenChars :: [TokenChar]
-  } deriving (Eq,Show,Generic,Typeable)
-
-data TokenChar = TokenLetter | TokenDigit | TokenWhitespace | TokenPunctuation | TokenSymbol
-  deriving (Eq,Read,Show,Generic,Typeable)
-
-instance ToJSON TokenChar where
-  toJSON t = String $ case t of
-    TokenLetter -> "letter"
-    TokenDigit -> "digit"
-    TokenWhitespace -> "whitespace"
-    TokenPunctuation -> "punctuation"
-    TokenSymbol -> "symbol"
-
-instance FromJSON TokenChar where
-  parseJSON = withText "TokenChar" $ \t -> case t of
-    "letter" -> return TokenLetter
-    "digit" -> return TokenDigit
-    "whitespace" -> return TokenWhitespace
-    "punctuation" -> return TokenPunctuation
-    "symbol" -> return TokenSymbol
-    _ -> fail "invalid TokenChar"
-
-data AllocationPolicy = AllocAll
-                      -- ^ Allows shard allocation for all shards.
-                      | AllocPrimaries
-                      -- ^ Allows shard allocation only for primary shards.
-                      | AllocNewPrimaries
-                      -- ^ Allows shard allocation only for primary shards for new indices.
-                      | AllocNone
-                      -- ^ No shard allocation is allowed
-                      deriving (Eq, Read, Show, Generic, Typeable)
-
-data ReplicaBounds = ReplicasBounded Int Int
-                   | ReplicasLowerBounded Int
-                   | ReplicasUnbounded
-                   deriving (Eq, Read, Show, Generic, Typeable)
-
-data Compression
-  = CompressionDefault
-    -- ^ Compress with LZ4
-  | CompressionBest
-    -- ^ Compress with DEFLATE. Elastic
-    --   <https://www.elastic.co/blog/elasticsearch-storage-the-true-story-2.0 blogs>
-    --   that this can reduce disk use by 15%-25%.
-  deriving (Eq,Show,Generic,Typeable)
-
-instance ToJSON Compression where
-  toJSON x = case x of
-    CompressionDefault -> toJSON ("default" :: Text)
-    CompressionBest -> toJSON ("best_compression" :: Text)
-
-instance FromJSON Compression where
-  parseJSON = withText "Compression" $ \t -> case t of
-    "default" -> return CompressionDefault
-    "best_compression" -> return CompressionBest
-    _ -> fail "invalid compression codec"
-
--- | A measure of bytes used for various configurations. You may want
--- to use smart constructors like 'gigabytes' for larger values.
---
--- >>> gigabytes 9
--- Bytes 9000000000
---
--- >>> megabytes 9
--- Bytes 9000000
---
--- >>> kilobytes 9
--- Bytes 9000
-newtype Bytes = Bytes Int deriving (Eq, Read, Show, Generic, Typeable, Ord, ToJSON, FromJSON)
-
-gigabytes :: Int -> Bytes
-gigabytes n = megabytes (1000 * n)
-
-
-megabytes :: Int -> Bytes
-megabytes n = kilobytes (1000 * n)
-
-
-kilobytes :: Int -> Bytes
-kilobytes n = Bytes (1000 * n)
-
-
-data FSType = FSSimple
-            | FSBuffered deriving (Eq, Read, Show, Generic, Typeable, Ord)
-
-data InitialShardCount = QuorumShards
-                       | QuorumMinus1Shards
-                       | FullShards
-                       | FullMinus1Shards
-                       | ExplicitShards Int
-                       deriving (Eq, Read, Show, Generic, Typeable)
-
-data NodeAttrFilter = NodeAttrFilter { nodeAttrFilterName   :: NodeAttrName
-                                     , nodeAttrFilterValues :: NonEmpty Text}
-                                     deriving (Eq, Read, Show, Generic, Ord, Typeable)
-
-newtype NodeAttrName = NodeAttrName Text deriving (Eq, Read, Show, Ord, Generic, Typeable)
-
-data CompoundFormat = CompoundFileFormat Bool
-                    | MergeSegmentVsTotalIndex Double
-                    -- ^ percentage between 0 and 1 where 0 is false, 1 is true
-                    deriving (Eq, Read, Show, Generic, Typeable)
-
-newtype NominalDiffTimeJSON = NominalDiffTimeJSON { ndtJSON ::  NominalDiffTime }
-
-data IndexSettingsSummary = IndexSettingsSummary { sSummaryIndexName     :: IndexName
-                                                 , sSummaryFixedSettings :: IndexSettings
-                                                 , sSummaryUpdateable    :: [UpdatableIndexSetting]}
-                                                 deriving (Eq, Show, Generic, Typeable)
-
-{-| 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method.Method' -}
-type Reply = Network.HTTP.Client.Response L.ByteString
-type Method = NHTM.Method
-
-{-| 'OpenCloseIndex' is a sum type for opening and closing indices.
-
-   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
--}
-data OpenCloseIndex = OpenIndex | CloseIndex deriving (Eq, Read, Show, Generic, Typeable)
-
-data FieldType = GeoPointType
-               | GeoShapeType
-               | FloatType
-               | IntegerType
-               | LongType
-               | ShortType
-               | ByteType deriving (Eq, Read, Show, Generic, Typeable)
-
-data FieldDefinition =
-  FieldDefinition { fieldType :: FieldType } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| An 'IndexTemplate' defines a template that will automatically be
-    applied to new indices created. The templates include both
-    'IndexSettings' and mappings, and a simple 'TemplatePattern' that
-    controls if the template will be applied to the index created.
-    Specify mappings as follows: @[toJSON TweetMapping, ...]@
-
-    https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html
--}
-data IndexTemplate =
-  IndexTemplate { templatePattern  :: TemplatePattern
-                , templateSettings :: Maybe IndexSettings
-                , templateMappings :: [Value]
-                }
-
-data MappingField =
-  MappingField   { mappingFieldName :: FieldName
-                 , fieldDefinition  :: FieldDefinition } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| Support for type reification of 'Mapping's is currently incomplete, for
-    now the mapping API verbiage expects a 'ToJSON'able blob.
-
-    Indexes have mappings, mappings are schemas for the documents contained in the
-    index. I'd recommend having only one mapping per index, always having a mapping,
-    and keeping different kinds of documents separated if possible.
--}
-data Mapping = Mapping { typeName      :: TypeName
-                       , mappingFields :: [MappingField] } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'BulkOperation' is a sum type for expressing the four kinds of bulk
-    operation index, create, delete, and update. 'BulkIndex' behaves like an
-    "upsert", 'BulkCreate' will fail if a document already exists at the DocId.
-
-   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html#docs-bulk>
--}
-data BulkOperation =
-    BulkIndex  IndexName MappingName DocId Value
-  | BulkCreate IndexName MappingName DocId Value
-  | BulkCreateEncoding IndexName MappingName DocId Encoding
-  | BulkDelete IndexName MappingName DocId
-  | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Show, Generic, Typeable)
-
-{-| 'EsResult' describes the standard wrapper JSON document that you see in
-    successful Elasticsearch lookups or lookups that couldn't find the document.
--}
-data EsResult a = EsResult { _index      :: Text
-                           , _type       :: Text
-                           , _id         :: Text
-                           , foundResult :: Maybe (EsResultFound a)} deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'EsResultFound' contains the document and its metadata inside of an
-    'EsResult' when the document was successfully found.
--}
-data EsResultFound a = EsResultFound {  _version :: DocVersion
-                                     , _source   :: a } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'EsError' is the generic type that will be returned when there was a
-    problem. If you can't parse the expected response, its a good idea to
-    try parsing this.
--}
-data EsError = EsError { errorStatus  :: Int
-                       , errorMessage :: Text } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'EsProtocolException' will be thrown if Bloodhound cannot parse a response
-returned by the ElasticSearch server. If you encounter this error, please
-verify that your domain data types and FromJSON instances are working properly
-(for example, the 'a' of '[Hit a]' in 'SearchResult.searchHits.hits'). If you're
-sure that your mappings are correct, then this error may be an indication of an
-incompatibility between Bloodhound and ElasticSearch. Please open a bug report
-and be sure to include the exception body.
--}
-data EsProtocolException = EsProtocolException { esProtoExBody :: L.ByteString }
-                                               deriving (Eq, Read, Show, Generic, Typeable)
-
-instance Exception EsProtocolException
-
-data IndexAlias = IndexAlias { srcIndex   :: IndexName
-                             , indexAlias :: IndexAliasName } deriving (Eq, Read, Show, Generic, Typeable)
-
-newtype IndexAliasName = IndexAliasName { indexAliasName :: IndexName } deriving (Eq, Read, Show, Generic, ToJSON)
-
-data IndexAliasAction = AddAlias IndexAlias IndexAliasCreate
-                      | RemoveAlias IndexAlias deriving (Read, Show, Eq, Generic, Typeable)
-
-data IndexAliasCreate = IndexAliasCreate { aliasCreateRouting :: Maybe AliasRouting
-                                         , aliasCreateFilter  :: Maybe Filter}
-                                         deriving (Read, Show, Eq, Generic, Typeable)
-
-data AliasRouting = AllAliasRouting RoutingValue
-                  | GranularAliasRouting (Maybe SearchAliasRouting) (Maybe IndexAliasRouting)
-                  deriving (Read, Show, Eq, Generic, Typeable)
-
-newtype SearchAliasRouting = SearchAliasRouting (NonEmpty RoutingValue) deriving (Read, Show, Eq, Generic, Typeable)
-
-newtype IndexAliasRouting = IndexAliasRouting RoutingValue deriving (Read, Show, Eq, Generic, ToJSON, FromJSON, Typeable)
-
-newtype RoutingValue = RoutingValue { routingValue :: Text } deriving (Read, Show, Eq, Generic, ToJSON, FromJSON, Typeable)
-
-newtype IndexAliasesSummary = IndexAliasesSummary { indexAliasesSummary :: [IndexAliasSummary] } deriving (Read, Show, Eq, Generic, Typeable)
-
-{-| 'IndexAliasSummary' is a summary of an index alias configured for a server. -}
-data IndexAliasSummary = IndexAliasSummary { indexAliasSummaryAlias  :: IndexAlias
-                                           , indexAliasSummaryCreate :: IndexAliasCreate} deriving (Read, Show, Eq, Generic, Typeable)
-
-{-| 'DocVersion' is an integer version number for a document between 1
-and 9.2e+18 used for <<https://www.elastic.co/guide/en/elasticsearch/guide/current/optimistic-concurrency-control.html optimistic concurrency control>>.
--}
-newtype DocVersion = DocVersion {
-      docVersionNumber :: Int
-    } deriving (Eq, Read, Show, Generic, Ord, ToJSON)
-
--- | Smart constructor for in-range doc version
-mkDocVersion :: Int -> Maybe DocVersion
-mkDocVersion i
-  | i >= (docVersionNumber minBound) && i <= (docVersionNumber maxBound) =
-    Just $ DocVersion i
-  | otherwise = Nothing
-
-
-{-| 'ExternalDocVersion' is a convenience wrapper if your code uses its
-own version numbers instead of ones from ES.
--}
-newtype ExternalDocVersion = ExternalDocVersion DocVersion
-    deriving (Eq, Read, Show, Generic, Ord, Bounded, Enum, ToJSON)
-
-{-| 'VersionControl' is specified when indexing documents as a
-optimistic concurrency control.
--}
-data VersionControl = NoVersionControl
-                    -- ^ Don't send a version. This is a pure overwrite.
-                    | InternalVersion DocVersion
-                    -- ^ Use the default ES versioning scheme. Only
-                    -- index the document if the version is the same
-                    -- as the one specified. Only applicable to
-                    -- updates, as you should be getting Version from
-                    -- a search result.
-                    | ExternalGT ExternalDocVersion
-                    -- ^ Use your own version numbering. Only index
-                    -- the document if the version is strictly higher
-                    -- OR the document doesn't exist. The given
-                    -- version will be used as the new version number
-                    -- for the stored document. N.B. All updates must
-                    -- increment this number, meaning there is some
-                    -- global, external ordering of updates.
-                    | ExternalGTE ExternalDocVersion
-                    -- ^ Use your own version numbering. Only index
-                    -- the document if the version is equal or higher
-                    -- than the stored version. Will succeed if there
-                    -- is no existing document. The given version will
-                    -- be used as the new version number for the
-                    -- stored document. Use with care, as this could
-                    -- result in data loss.
-                    | ForceVersion ExternalDocVersion
-                    -- ^ The document will always be indexed and the
-                    -- given version will be the new version. This is
-                    -- typically used for correcting errors. Use with
-                    -- care, as this could result in data loss.
-                    deriving (Read, Show, Eq, Generic, Ord)
-
-{-| 'DocumentParent' is used to specify a parent document.
--}
-newtype DocumentParent = DocumentParent DocId
-  deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'IndexDocumentSettings' are special settings supplied when indexing
-a document. For the best backwards compatiblity when new fields are
-added, you should probably prefer to start with 'defaultIndexDocumentSettings'
--}
-data IndexDocumentSettings =
-  IndexDocumentSettings { idsVersionControl :: VersionControl
-                        , idsParent         :: Maybe DocumentParent
-                        } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| Reasonable default settings. Chooses no version control and no parent.
--}
-defaultIndexDocumentSettings :: IndexDocumentSettings
-defaultIndexDocumentSettings = IndexDocumentSettings NoVersionControl Nothing
+import           Database.V5.Bloodhound.Types.Internal.Analysis
+import           Database.V5.Bloodhound.Types.Internal.Client
+import           Database.V5.Bloodhound.Types.Internal.Newtypes
+import           Database.V5.Bloodhound.Types.Internal.Query
+import           Database.V5.Bloodhound.Types.Internal.StringlyTyped
 
 {-| 'Sort' is a synonym for a list of 'SortSpec's. Sort behavior is order
     dependent with later sorts acting as tie-breakers for earlier sorts.
@@ -974,7 +450,7 @@ type Sort = [SortSpec]
 <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 -}
 data SortSpec = DefaultSortSpec DefaultSort
-              | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Read, Show, Generic, Typeable)
+              | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Show)
 
 {-| 'DefaultSort' is usually the kind of 'SortSpec' you'll want. There's a
     'mkSort' convenience function for when you want to specify only the most
@@ -991,7 +467,7 @@ data DefaultSort =
               , ignoreUnmapped :: Maybe Text
               , sortMode       :: Maybe SortMode
               , missingSort    :: Maybe Missing
-              , nestedFilter   :: Maybe Filter } deriving (Eq, Read, Show, Generic, Typeable)
+              , nestedFilter   :: Maybe Filter } deriving (Eq, Show)
 
 {-| 'SortOrder' is 'Ascending' or 'Descending', as you might expect. These get
     encoded into "asc" or "desc" when turned into JSON.
@@ -999,7 +475,7 @@ data DefaultSort =
 <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 -}
 data SortOrder = Ascending
-               | Descending deriving (Eq, Read, Show, Generic, Typeable)
+               | Descending deriving (Eq, Show)
 
 {-| 'Missing' prescribes how to handle missing fields. A missing field can be
     sorted last, first, or using a custom value as a substitute.
@@ -1008,7 +484,7 @@ data SortOrder = Ascending
 -}
 data Missing = LastMissing
              | FirstMissing
-             | CustomMissing Text deriving (Eq, Read, Show, Generic, Typeable)
+             | CustomMissing Text deriving (Eq, Show)
 
 {-| 'SortMode' prescribes how to handle sorting array/multi-valued fields.
 
@@ -1017,7 +493,7 @@ http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-req
 data SortMode = SortMin
               | SortMax
               | SortSum
-              | SortAvg deriving (Eq, Read, Show, Generic, Typeable)
+              | SortAvg deriving (Eq, Show)
 
 {-| 'mkSort' defaults everything but the 'FieldName' and the 'SortOrder' so
     that you can concisely describe the usual kind of 'SortSpec's you want.
@@ -1025,203 +501,14 @@ data SortMode = SortMin
 mkSort :: FieldName -> SortOrder -> DefaultSort
 mkSort fieldName sOrder = DefaultSort fieldName sOrder Nothing Nothing Nothing Nothing
 
-{-| 'Cache' is for telling ES whether it should cache a 'Filter' not.
-    'Query's cannot be cached.
--}
-type Cache   = Bool -- caching on/off
-defaultCache :: Cache
-defaultCache = False
-
-{-| 'PrefixValue' is used in 'PrefixQuery' as the main query component.
--}
--- type PrefixValue = Text
-
-{-| 'BooleanOperator' is the usual And/Or operators with an ES compatible
-    JSON encoding baked in. Used all over the place.
--}
-data BooleanOperator = And | Or deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'ShardCount' is part of 'IndexSettings'
--}
-newtype ShardCount = ShardCount Int deriving (Eq, Read, Show, Generic, ToJSON, Typeable)
-
-{-| 'ReplicaCount' is part of 'IndexSettings'
--}
-newtype ReplicaCount = ReplicaCount Int deriving (Eq, Read, Show, Generic, ToJSON, Typeable)
-
-{-| 'IndexName' is used to describe which index to query/create/delete
--}
-newtype IndexName = IndexName Text deriving (Eq, Generic, Read, Show, ToJSON, FromJSON, Typeable)
-
-{-| 'IndexSelection' is used for APIs which take a single index, a list of
-    indexes, or the special @_all@ index.
--}
---TODO: this does not fully support <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/multi-index.html multi-index syntax>. It wouldn't be too hard to implement but you'd have to add the optional parameters (ignore_unavailable, allow_no_indices, expand_wildcards) to any APIs using it. Also would be a breaking API.
-data IndexSelection = IndexList (NonEmpty IndexName)
-                    | AllIndexes deriving (Eq, Generic, Show, Typeable)
-
-{-| 'NodeSelection' is used for most cluster APIs. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster.html#cluster-nodes here> for more details.
--}
-data NodeSelection = LocalNode
-                   -- ^ Whatever node receives this request
-                   | NodeList (NonEmpty NodeSelector)
-                   | AllNodes deriving (Eq, Generic, Show, Typeable)
-
-
--- | An exact match or pattern to identify a node. Note that All of
--- these options support wildcarding, so your node name, server, attr
--- name can all contain * characters to be a fuzzy match.
-data NodeSelector = NodeByName NodeName
-                  | NodeByFullNodeId FullNodeId
-                  | NodeByHost Server
-                  -- ^ e.g. 10.0.0.1 or even 10.0.0.*
-                  | NodeByAttribute NodeAttrName Text
-                  -- ^ NodeAttrName can be a pattern, e.g. rack*. The value can too.
-                  deriving (Eq, Generic, Show, Typeable)
-
-{-| 'TemplateName' is used to describe which template to query/create/delete
--}
-newtype TemplateName = TemplateName Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| 'TemplatePattern' represents a pattern which is matched against index names
--}
-newtype TemplatePattern = TemplatePattern Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| 'MappingName' is part of mappings which are how ES describes and schematizes
-    the data in the indices.
--}
-newtype MappingName = MappingName Text deriving (Eq, Generic, Read, Show, ToJSON, FromJSON, Typeable)
-
-{-| 'DocId' is a generic wrapper value for expressing unique Document IDs.
-    Can be set by the user or created by ES itself. Often used in client
-    functions for poking at specific documents.
--}
-newtype DocId = DocId Text deriving (Eq, Generic, Read, Show, ToJSON, FromJSON, Typeable)
-
-{-| 'QueryString' is used to wrap query text bodies, be they human written or not.
--}
-newtype QueryString = QueryString Text deriving (Eq, Generic, Read, Show, ToJSON, FromJSON, Typeable)
-
-{-| 'FieldName' is used all over the place wherever a specific field within
-     a document needs to be specified, usually in 'Query's or 'Filter's.
--}
-newtype FieldName = FieldName Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-
-{-| 'Script' is often used in place of 'FieldName' to specify more
-complex ways of extracting a value from a document.
--}
-newtype Script = Script { scriptText :: Text } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'CacheName' is used in 'RegexpFilter' for describing the
-    'CacheKey' keyed caching behavior.
--}
-newtype CacheName = CacheName Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| 'CacheKey' is used in 'RegexpFilter' to key regex caching.
--}
-newtype CacheKey =
-  CacheKey Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype Existence =
-  Existence Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype NullValue =
-  NullValue Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype CutoffFrequency =
-  CutoffFrequency Double deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype Analyzer =
-  Analyzer Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype Tokenizer =
-  Tokenizer Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype MaxExpansions =
-  MaxExpansions Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| 'Lenient', if set to true, will cause format based failures to be
-    ignored. I don't know what the bloody default is, Elasticsearch
-    documentation didn't say what it was. Let me know if you figure it out.
--}
-newtype Lenient =
-  Lenient Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype Tiebreaker =
-  Tiebreaker Double deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype Boost =
-  Boost Double deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype BoostTerms =
-  BoostTerms Double deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| 'MinimumMatch' controls how many should clauses in the bool query should
-     match. Can be an absolute value (2) or a percentage (30%) or a
-     combination of both.
--}
-newtype MinimumMatch =
-  MinimumMatch Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype DisableCoord =
-  DisableCoord Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype IgnoreTermFrequency =
-  IgnoreTermFrequency Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype MinimumTermFrequency =
-  MinimumTermFrequency Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype MaxQueryTerms =
-  MaxQueryTerms Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype Fuzziness =
-  Fuzziness Double deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| 'PrefixLength' is the prefix length used in queries, defaults to 0. -}
-newtype PrefixLength =
-  PrefixLength Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype TypeName =
-  TypeName Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype PercentMatch =
-  PercentMatch Double deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype StopWord =
-  StopWord Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype QueryPath =
-  QueryPath Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| Allowing a wildcard at the beginning of a word (eg "*ing") is particularly
-    heavy, because all terms in the index need to be examined, just in case
-    they match. Leading wildcards can be disabled by setting
-    'AllowLeadingWildcard' to false. -}
-newtype AllowLeadingWildcard =
-  AllowLeadingWildcard     Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype LowercaseExpanded =
-  LowercaseExpanded        Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype EnablePositionIncrements =
-  EnablePositionIncrements Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| By default, wildcard terms in a query are not analyzed.
-    Setting 'AnalyzeWildcard' to true enables best-effort analysis.
--}
-newtype AnalyzeWildcard = AnalyzeWildcard Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| 'GeneratePhraseQueries' defaults to false.
--}
-newtype GeneratePhraseQueries =
-  GeneratePhraseQueries Bool deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| 'Locale' is used for string conversions - defaults to ROOT.
--}
-newtype Locale        = Locale        Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype MaxWordLength = MaxWordLength Int  deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype MinWordLength = MinWordLength Int  deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
-{-| 'PhraseSlop' sets the default slop for phrases, 0 means exact
-     phrase matches. Default is 0.
--}
-newtype PhraseSlop      = PhraseSlop      Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype MinDocFrequency = MinDocFrequency Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
-
--- | Newtype wrapper to parse ES's concerning tendency to in some APIs return a floating point number of milliseconds since epoch ಠ_ಠ
-newtype POSIXMS = POSIXMS { posixMS :: UTCTime }
-
 {-| 'unpackId' is a silly convenience function that gets used once.
 -}
 unpackId :: DocId -> Text
 unpackId (DocId docId) = docId
 
 type TrackSortScores = Bool
-newtype From = From Int deriving (Eq, Read, Show, Generic, ToJSON)
-newtype Size = Size Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON)
+newtype From = From Int deriving (Eq, Show, ToJSON)
+newtype Size = Size Int deriving (Eq, Show, ToJSON, FromJSON)
 
 data Search = Search { queryBody       :: Maybe Query
                      , filterBody      :: Maybe Filter
@@ -1236,44 +523,51 @@ data Search = Search { queryBody       :: Maybe Query
                      , fields          :: Maybe [FieldName]
                      , source          :: Maybe Source
                      , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
-                     } deriving (Eq, Read, Show, Generic, Typeable)
+                     } deriving (Eq, Show)
 
 data SearchType = SearchTypeQueryThenFetch
                 | SearchTypeDfsQueryThenFetch
-  deriving (Eq, Read, Show, Generic, Typeable)
+  deriving (Eq, Show)
 
 data Source =
     NoSource
   | SourcePatterns PatternOrPatterns
   | SourceIncludeExclude Include Exclude
-    deriving (Read, Show, Eq, Generic, Typeable)
+    deriving (Eq, Show)
 
 data PatternOrPatterns = PopPattern   Pattern
-                       | PopPatterns [Pattern] deriving (Eq, Read, Show, Generic, Typeable)
+                       | PopPatterns [Pattern] deriving (Eq, Read, Show)
 
-data Include = Include [Pattern] deriving (Eq, Read, Show, Generic, Typeable)
-data Exclude = Exclude [Pattern] deriving (Eq, Read, Show, Generic, Typeable)
+data Include = Include [Pattern] deriving (Eq, Read, Show)
+data Exclude = Exclude [Pattern] deriving (Eq, Read, Show)
 
-newtype Pattern = Pattern Text deriving (Eq, Read, Show, Generic, Typeable)
+newtype Pattern = Pattern Text deriving (Eq, Read, Show)
 
-data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
-                             , highlightFields :: [FieldHighlight]
-                             } deriving (Read, Show, Eq, Generic, Typeable)
+data Highlights = Highlights
+  { globalsettings  :: Maybe HighlightSettings
+  , highlightFields :: [FieldHighlight]
+  } deriving (Eq, Show)
 
-data FieldHighlight = FieldHighlight FieldName (Maybe HighlightSettings)
-                      deriving (Read, Show, Eq, Generic, Typeable)
+data FieldHighlight =
+  FieldHighlight FieldName (Maybe HighlightSettings)
+  deriving (Eq, Show)
 
 
-data HighlightSettings = Plain PlainHighlight
-                       | Postings PostingsHighlight
-                       | FastVector FastVectorHighlight
-                         deriving (Read, Show, Eq, Generic, Typeable)
+data HighlightSettings =
+    Plain PlainHighlight
+  | Postings PostingsHighlight
+  | FastVector FastVectorHighlight
+  deriving (Eq, Show)
+
 data PlainHighlight =
-    PlainHighlight { plainCommon  :: Maybe CommonHighlight
-                   , plainNonPost :: Maybe NonPostings } deriving (Read, Show, Eq, Generic, Typeable)
+  PlainHighlight { plainCommon  :: Maybe CommonHighlight
+                 , plainNonPost :: Maybe NonPostings }
+  deriving (Eq, Show)
 
  -- This requires that index_options are set to 'offset' in the mapping.
-data PostingsHighlight = PostingsHighlight (Maybe CommonHighlight) deriving (Read, Show, Eq, Generic, Typeable)
+data PostingsHighlight =
+  PostingsHighlight (Maybe CommonHighlight)
+  deriving (Eq, Show)
 
 -- This requires that term_vector is set to 'with_positions_offsets' in the mapping.
 data FastVectorHighlight =
@@ -1284,7 +578,7 @@ data FastVectorHighlight =
                         , fragmentOffset    :: Maybe Int
                         , matchedFields     :: [Text]
                         , phraseLimit       :: Maybe Int
-                        } deriving (Read, Show, Eq, Generic, Typeable)
+                        } deriving (Eq, Show)
 
 data CommonHighlight =
     CommonHighlight { order             :: Maybe Text
@@ -1294,496 +588,26 @@ data CommonHighlight =
                     , noMatchSize       :: Maybe Int
                     , highlightQuery    :: Maybe Query
                     , requireFieldMatch :: Maybe Bool
-                    } deriving (Read, Show, Eq, Generic, Typeable)
+                    } deriving (Eq, Show)
 
 -- Settings that are only applicable to FastVector and Plain highlighters.
 data NonPostings =
     NonPostings { fragmentSize      :: Maybe Int
-                , numberOfFragments :: Maybe Int} deriving (Read, Show, Eq, Generic, Typeable)
+                , numberOfFragments :: Maybe Int
+                } deriving (Eq, Show)
 
 data HighlightEncoder = DefaultEncoder
                       | HTMLEncoder
-                      deriving (Read, Show, Eq, Generic, Typeable)
+                      deriving (Eq, Show)
 
 -- NOTE: Should the tags use some kind of HTML type, rather than Text?
-data HighlightTag = TagSchema Text
-                  | CustomTags ([Text], [Text]) -- Only uses more than the first value in the lists if fvh
-                  deriving (Read, Show, Eq, Generic, Typeable)
+data HighlightTag =
+    TagSchema Text
+    -- Only uses more than the first value in the lists if fvh
+  | CustomTags ([Text], [Text]) 
+  deriving (Eq, Show)
 
 
-data Query =
-  TermQuery                     Term (Maybe Boost)
-  | TermsQuery                  Text (NonEmpty Text)
-  | QueryMatchQuery             MatchQuery
-  | QueryMultiMatchQuery        MultiMatchQuery
-  | QueryBoolQuery              BoolQuery
-  | QueryBoostingQuery          BoostingQuery
-  | QueryCommonTermsQuery       CommonTermsQuery
-  | ConstantScoreQuery          Query Boost
-  | QueryDisMaxQuery            DisMaxQuery
-  | QueryFuzzyLikeThisQuery     FuzzyLikeThisQuery
-  | QueryFuzzyLikeFieldQuery    FuzzyLikeFieldQuery
-  | QueryFuzzyQuery             FuzzyQuery
-  | QueryHasChildQuery          HasChildQuery
-  | QueryHasParentQuery         HasParentQuery
-  | IdsQuery                    MappingName [DocId]
-  | QueryIndicesQuery           IndicesQuery
-  | MatchAllQuery               (Maybe Boost)
-  | QueryMoreLikeThisQuery      MoreLikeThisQuery
-  | QueryMoreLikeThisFieldQuery MoreLikeThisFieldQuery
-  | QueryNestedQuery            NestedQuery
-  | QueryPrefixQuery            PrefixQuery
-  | QueryQueryStringQuery       QueryStringQuery
-  | QuerySimpleQueryStringQuery SimpleQueryStringQuery
-  | QueryRangeQuery             RangeQuery
-  | QueryRegexpQuery            RegexpQuery
-  | QueryExistsQuery            FieldName
-  | QueryMatchNoneQuery
-  | QueryTemplateQueryInline    TemplateQueryInline
-  deriving (Eq, Read, Show, Generic, Typeable)
-
--- | As of Elastic 2.0, 'Filters' are just 'Queries' housed in a Bool Query, and
--- flagged in a different context.
-newtype Filter = Filter { unFilter :: Query }
-  deriving (Eq, Read, Show, Generic, Typeable)
-
-instance ToJSON Filter where
-  toJSON = toJSON . unFilter
-
-instance FromJSON Filter where
-  parseJSON v = Filter <$> parseJSON v
-
-data RegexpQuery =
-  RegexpQuery { regexpQueryField :: FieldName
-              , regexpQuery      :: Regexp
-              , regexpQueryFlags :: RegexpFlags
-              , regexpQueryBoost :: Maybe Boost
-              } deriving (Eq, Read, Show, Generic, Typeable)
-
-data RangeQuery =
-  RangeQuery { rangeQueryField :: FieldName
-             , rangeQueryRange :: RangeValue
-             , rangeQueryBoost :: Boost } deriving (Eq, Read, Show, Generic, Typeable)
-
-mkRangeQuery :: FieldName -> RangeValue -> RangeQuery
-mkRangeQuery f r = RangeQuery f r (Boost 1.0)
-
-data SimpleQueryStringQuery =
-  SimpleQueryStringQuery
-    { simpleQueryStringQuery             :: QueryString
-    , simpleQueryStringField             :: Maybe FieldOrFields
-    , simpleQueryStringOperator          :: Maybe BooleanOperator
-    , simpleQueryStringAnalyzer          :: Maybe Analyzer
-    , simpleQueryStringFlags             :: Maybe (NonEmpty SimpleQueryFlag)
-    , simpleQueryStringLowercaseExpanded :: Maybe LowercaseExpanded
-    , simpleQueryStringLocale            :: Maybe Locale
-    } deriving (Eq, Read, Show, Generic, Typeable)
-
-data SimpleQueryFlag =
-  SimpleQueryAll
-  | SimpleQueryNone
-  | SimpleQueryAnd
-  | SimpleQueryOr
-  | SimpleQueryPrefix
-  | SimpleQueryPhrase
-  | SimpleQueryPrecedence
-  | SimpleQueryEscape
-  | SimpleQueryWhitespace
-  | SimpleQueryFuzzy
-  | SimpleQueryNear
-  | SimpleQuerySlop deriving (Eq, Read, Show, Generic, Typeable)
-
--- use_dis_max and tie_breaker when fields are plural?
-data QueryStringQuery =
-  QueryStringQuery
-  { queryStringQuery                    :: QueryString
-  , queryStringDefaultField             :: Maybe FieldName
-  , queryStringOperator                 :: Maybe BooleanOperator
-  , queryStringAnalyzer                 :: Maybe Analyzer
-  , queryStringAllowLeadingWildcard     :: Maybe AllowLeadingWildcard
-  , queryStringLowercaseExpanded        :: Maybe LowercaseExpanded
-  , queryStringEnablePositionIncrements :: Maybe EnablePositionIncrements
-  , queryStringFuzzyMaxExpansions       :: Maybe MaxExpansions
-  , queryStringFuzziness                :: Maybe Fuzziness
-  , queryStringFuzzyPrefixLength        :: Maybe PrefixLength
-  , queryStringPhraseSlop               :: Maybe PhraseSlop
-  , queryStringBoost                    :: Maybe Boost
-  , queryStringAnalyzeWildcard          :: Maybe AnalyzeWildcard
-  , queryStringGeneratePhraseQueries    :: Maybe GeneratePhraseQueries
-  , queryStringMinimumShouldMatch       :: Maybe MinimumMatch
-  , queryStringLenient                  :: Maybe Lenient
-  , queryStringLocale                   :: Maybe Locale
-  } deriving (Eq, Read, Show, Generic, Typeable)
-
-mkQueryStringQuery :: QueryString -> QueryStringQuery
-mkQueryStringQuery qs =
-  QueryStringQuery qs Nothing Nothing
-  Nothing Nothing Nothing Nothing
-  Nothing Nothing Nothing Nothing
-  Nothing Nothing Nothing Nothing
-  Nothing Nothing
-
-data FieldOrFields = FofField   FieldName
-                   | FofFields (NonEmpty FieldName) deriving (Eq, Read, Show, Generic, Typeable)
-
-data PrefixQuery =
-  PrefixQuery
-  { prefixQueryField       :: FieldName
-  , prefixQueryPrefixValue :: Text
-  , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Read, Show, Generic, Typeable)
-
-data NestedQuery =
-  NestedQuery
-  { nestedQueryPath      :: QueryPath
-  , nestedQueryScoreType :: ScoreType
-  , nestedQuery          :: Query } deriving (Eq, Read, Show, Generic, Typeable)
-
-data MoreLikeThisFieldQuery =
-  MoreLikeThisFieldQuery
-  { moreLikeThisFieldText            :: Text
-  , moreLikeThisFieldFields          :: FieldName
-                                        -- default 0.3 (30%)
-  , moreLikeThisFieldPercentMatch    :: Maybe PercentMatch
-  , moreLikeThisFieldMinimumTermFreq :: Maybe MinimumTermFrequency
-  , moreLikeThisFieldMaxQueryTerms   :: Maybe MaxQueryTerms
-  , moreLikeThisFieldStopWords       :: Maybe (NonEmpty StopWord)
-  , moreLikeThisFieldMinDocFrequency :: Maybe MinDocFrequency
-  , moreLikeThisFieldMaxDocFrequency :: Maybe MaxDocFrequency
-  , moreLikeThisFieldMinWordLength   :: Maybe MinWordLength
-  , moreLikeThisFieldMaxWordLength   :: Maybe MaxWordLength
-  , moreLikeThisFieldBoostTerms      :: Maybe BoostTerms
-  , moreLikeThisFieldBoost           :: Maybe Boost
-  , moreLikeThisFieldAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Read, Show, Generic, Typeable)
-
-data MoreLikeThisQuery =
-  MoreLikeThisQuery
-  { moreLikeThisText            :: Text
-  , moreLikeThisFields          :: Maybe (NonEmpty FieldName)
-    -- default 0.3 (30%)
-  , moreLikeThisPercentMatch    :: Maybe PercentMatch
-  , moreLikeThisMinimumTermFreq :: Maybe MinimumTermFrequency
-  , moreLikeThisMaxQueryTerms   :: Maybe MaxQueryTerms
-  , moreLikeThisStopWords       :: Maybe (NonEmpty StopWord)
-  , moreLikeThisMinDocFrequency :: Maybe MinDocFrequency
-  , moreLikeThisMaxDocFrequency :: Maybe MaxDocFrequency
-  , moreLikeThisMinWordLength   :: Maybe MinWordLength
-  , moreLikeThisMaxWordLength   :: Maybe MaxWordLength
-  , moreLikeThisBoostTerms      :: Maybe BoostTerms
-  , moreLikeThisBoost           :: Maybe Boost
-  , moreLikeThisAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Read, Show, Generic, Typeable)
-
-data IndicesQuery =
-  IndicesQuery
-  { indicesQueryIndices :: [IndexName]
-  , indicesQuery        :: Query
-    -- default "all"
-  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Read, Show, Generic, Typeable)
-
-data HasParentQuery =
-  HasParentQuery
-  { hasParentQueryType      :: TypeName
-  , hasParentQuery          :: Query
-  , hasParentQueryScoreType :: Maybe ScoreType } deriving (Eq, Read, Show, Generic, Typeable)
-
-data HasChildQuery =
-  HasChildQuery
-  { hasChildQueryType      :: TypeName
-  , hasChildQuery          :: Query
-  , hasChildQueryScoreType :: Maybe ScoreType } deriving (Eq, Read, Show, Generic, Typeable)
-
-data ScoreType =
-  ScoreTypeMax
-  | ScoreTypeSum
-  | ScoreTypeAvg
-  | ScoreTypeNone deriving (Eq, Read, Show, Generic, Typeable)
-
-data FuzzyQuery =
-  FuzzyQuery { fuzzyQueryField         :: FieldName
-             , fuzzyQueryValue         :: Text
-             , fuzzyQueryPrefixLength  :: PrefixLength
-             , fuzzyQueryMaxExpansions :: MaxExpansions
-             , fuzzyQueryFuzziness     :: Fuzziness
-             , fuzzyQueryBoost         :: Maybe Boost
-             } deriving (Eq, Read, Show, Generic, Typeable)
-
-data FuzzyLikeFieldQuery =
-  FuzzyLikeFieldQuery
-  { fuzzyLikeField                    :: FieldName
-    -- anaphora is good for the soul.
-  , fuzzyLikeFieldText                :: Text
-  , fuzzyLikeFieldMaxQueryTerms       :: MaxQueryTerms
-  , fuzzyLikeFieldIgnoreTermFrequency :: IgnoreTermFrequency
-  , fuzzyLikeFieldFuzziness           :: Fuzziness
-  , fuzzyLikeFieldPrefixLength        :: PrefixLength
-  , fuzzyLikeFieldBoost               :: Boost
-  , fuzzyLikeFieldAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Read, Show, Generic, Typeable)
-
-data FuzzyLikeThisQuery =
-  FuzzyLikeThisQuery
-  { fuzzyLikeFields              :: [FieldName]
-  , fuzzyLikeText                :: Text
-  , fuzzyLikeMaxQueryTerms       :: MaxQueryTerms
-  , fuzzyLikeIgnoreTermFrequency :: IgnoreTermFrequency
-  , fuzzyLikeFuzziness           :: Fuzziness
-  , fuzzyLikePrefixLength        :: PrefixLength
-  , fuzzyLikeBoost               :: Boost
-  , fuzzyLikeAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Read, Show, Generic, Typeable)
-
-data DisMaxQuery =
-  DisMaxQuery { disMaxQueries    :: [Query]
-                -- default 0.0
-              , disMaxTiebreaker :: Tiebreaker
-              , disMaxBoost      :: Maybe Boost
-              } deriving (Eq, Read, Show, Generic, Typeable)
-
-data MatchQuery =
-  MatchQuery { matchQueryField           :: FieldName
-             , matchQueryQueryString     :: QueryString
-             , matchQueryOperator        :: BooleanOperator
-             , matchQueryZeroTerms       :: ZeroTermsQuery
-             , matchQueryCutoffFrequency :: Maybe CutoffFrequency
-             , matchQueryMatchType       :: Maybe MatchQueryType
-             , matchQueryAnalyzer        :: Maybe Analyzer
-             , matchQueryMaxExpansions   :: Maybe MaxExpansions
-             , matchQueryLenient         :: Maybe Lenient
-             , matchQueryBoost           :: Maybe Boost
-             , matchQueryMinimumShouldMatch :: Maybe Text
-             } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
-    enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
--}
-mkMatchQuery :: FieldName -> QueryString -> MatchQuery
-mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-
-data MatchQueryType =
-  MatchPhrase
-  | MatchPhrasePrefix deriving (Eq, Read, Show, Generic, Typeable)
-
-data MultiMatchQuery =
-  MultiMatchQuery { multiMatchQueryFields          :: [FieldName]
-                  , multiMatchQueryString          :: QueryString
-                  , multiMatchQueryOperator        :: BooleanOperator
-                  , multiMatchQueryZeroTerms       :: ZeroTermsQuery
-                  , multiMatchQueryTiebreaker      :: Maybe Tiebreaker
-                  , multiMatchQueryType            :: Maybe MultiMatchQueryType
-                  , multiMatchQueryCutoffFrequency :: Maybe CutoffFrequency
-                  , multiMatchQueryAnalyzer        :: Maybe Analyzer
-                  , multiMatchQueryMaxExpansions   :: Maybe MaxExpansions
-                  , multiMatchQueryLenient         :: Maybe Lenient } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'mkMultiMatchQuery' is a convenience function that defaults the less common parameters,
-    enabling you to provide only the list of 'FieldName's and 'QueryString' to
-    make a 'MultiMatchQuery'.
--}
-
-mkMultiMatchQuery :: [FieldName] -> QueryString -> MultiMatchQuery
-mkMultiMatchQuery matchFields query =
-  MultiMatchQuery matchFields query
-  Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing
-
-data MultiMatchQueryType =
-  MultiMatchBestFields
-  | MultiMatchMostFields
-  | MultiMatchCrossFields
-  | MultiMatchPhrase
-  | MultiMatchPhrasePrefix deriving (Eq, Read, Show, Generic, Typeable)
-
-data BoolQuery =
-  BoolQuery { boolQueryMustMatch          :: [Query]
-            , boolQueryFilter             :: [Filter]
-            , boolQueryMustNotMatch       :: [Query]
-            , boolQueryShouldMatch        :: [Query]
-            , boolQueryMinimumShouldMatch :: Maybe MinimumMatch
-            , boolQueryBoost              :: Maybe Boost
-            , boolQueryDisableCoord       :: Maybe DisableCoord
-            } deriving (Eq, Read, Show, Generic, Typeable)
-
-mkBoolQuery :: [Query] -> [Filter] -> [Query] -> [Query] -> BoolQuery
-mkBoolQuery must filt mustNot should =
-  BoolQuery must filt mustNot should Nothing Nothing Nothing
-
-data BoostingQuery =
-  BoostingQuery { positiveQuery :: Query
-                , negativeQuery :: Query
-                , negativeBoost :: Boost } deriving (Eq, Read, Show, Generic, Typeable)
-
-data CommonTermsQuery =
-  CommonTermsQuery { commonField              :: FieldName
-                   , commonQuery              :: QueryString
-                   , commonCutoffFrequency    :: CutoffFrequency
-                   , commonLowFreqOperator    :: BooleanOperator
-                   , commonHighFreqOperator   :: BooleanOperator
-                   , commonMinimumShouldMatch :: Maybe CommonMinimumMatch
-                   , commonBoost              :: Maybe Boost
-                   , commonAnalyzer           :: Maybe Analyzer
-                   , commonDisableCoord       :: Maybe DisableCoord
-                   } deriving (Eq, Read, Show, Generic, Typeable)
-
-data CommonMinimumMatch =
-    CommonMinimumMatchHighLow MinimumMatchHighLow
-  | CommonMinimumMatch        MinimumMatch
-  deriving (Eq, Read, Show, Generic, Typeable)
-
-data MinimumMatchHighLow =
-  MinimumMatchHighLow { lowFreq  :: MinimumMatch
-                      , highFreq :: MinimumMatch } deriving (Eq, Read, Show, Generic, Typeable)
-
-data ZeroTermsQuery = ZeroTermsNone
-                    | ZeroTermsAll deriving (Eq, Read, Show, Generic, Typeable)
-
-data RangeExecution = RangeExecutionIndex
-                    | RangeExecutionFielddata deriving (Eq, Read, Show, Generic, Typeable)
-
-newtype Regexp = Regexp Text deriving (Eq, Read, Show, Generic, Typeable, FromJSON)
-
-data RegexpFlags = AllRegexpFlags
-                 | NoRegexpFlags
-                 | SomeRegexpFlags (NonEmpty RegexpFlag) deriving (Eq, Read, Show, Generic, Typeable)
-
-data RegexpFlag = AnyString
-                | Automaton
-                | Complement
-                | Empty
-                | Intersection
-                | Interval deriving (Eq, Read, Show, Generic, Typeable)
-
-newtype LessThan = LessThan Double deriving (Eq, Read, Show, Generic, Typeable)
-newtype LessThanEq = LessThanEq Double deriving (Eq, Read, Show, Generic, Typeable)
-newtype GreaterThan = GreaterThan Double deriving (Eq, Read, Show, Generic, Typeable)
-newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Read, Show, Generic, Typeable)
-
-newtype LessThanD = LessThanD UTCTime deriving (Eq, Read, Show, Generic, Typeable)
-newtype LessThanEqD = LessThanEqD UTCTime deriving (Eq, Read, Show, Generic, Typeable)
-newtype GreaterThanD = GreaterThanD UTCTime deriving (Eq, Read, Show, Generic, Typeable)
-newtype GreaterThanEqD = GreaterThanEqD UTCTime deriving (Eq, Read, Show, Generic, Typeable)
-
-data RangeValue = RangeDateLte LessThanEqD
-                | RangeDateLt LessThanD
-                | RangeDateGte GreaterThanEqD
-                | RangeDateGt GreaterThanD
-                | RangeDateGtLt GreaterThanD LessThanD
-                | RangeDateGteLte GreaterThanEqD LessThanEqD
-                | RangeDateGteLt GreaterThanEqD LessThanD
-                | RangeDateGtLte GreaterThanD LessThanEqD
-                | RangeDoubleLte LessThanEq
-                | RangeDoubleLt LessThan
-                | RangeDoubleGte GreaterThanEq
-                | RangeDoubleGt GreaterThan
-                | RangeDoubleGtLt GreaterThan LessThan
-                | RangeDoubleGteLte GreaterThanEq LessThanEq
-                | RangeDoubleGteLt GreaterThanEq LessThan
-                | RangeDoubleGtLte GreaterThan LessThanEq
-                deriving (Eq, Read, Show, Generic, Typeable)
-
-rangeValueToPair :: RangeValue -> [Pair]
-rangeValueToPair rv = case rv of
-  RangeDateLte (LessThanEqD t)                       -> ["lte" .= t]
-  RangeDateGte (GreaterThanEqD t)                    -> ["gte" .= t]
-  RangeDateLt (LessThanD t)                          -> ["lt"  .= t]
-  RangeDateGt (GreaterThanD t)                       -> ["gt"  .= t]
-  RangeDateGteLte (GreaterThanEqD l) (LessThanEqD g) -> ["gte" .= l, "lte" .= g]
-  RangeDateGtLte (GreaterThanD l) (LessThanEqD g)    -> ["gt"  .= l, "lte" .= g]
-  RangeDateGteLt (GreaterThanEqD l) (LessThanD g)    -> ["gte" .= l, "lt"  .= g]
-  RangeDateGtLt (GreaterThanD l) (LessThanD g)       -> ["gt"  .= l, "lt"  .= g]
-  RangeDoubleLte (LessThanEq t)                      -> ["lte" .= t]
-  RangeDoubleGte (GreaterThanEq t)                   -> ["gte" .= t]
-  RangeDoubleLt (LessThan t)                         -> ["lt"  .= t]
-  RangeDoubleGt (GreaterThan t)                      -> ["gt"  .= t]
-  RangeDoubleGteLte (GreaterThanEq l) (LessThanEq g) -> ["gte" .= l, "lte" .= g]
-  RangeDoubleGtLte (GreaterThan l) (LessThanEq g)    -> ["gt"  .= l, "lte" .= g]
-  RangeDoubleGteLt (GreaterThanEq l) (LessThan g)    -> ["gte" .= l, "lt"  .= g]
-  RangeDoubleGtLt (GreaterThan l) (LessThan g)       -> ["gt"  .= l, "lt"  .= g]
-
-data Term = Term { termField :: Text
-                 , termValue :: Text } deriving (Eq, Read, Show, Generic, Typeable)
-
-data BoolMatch = MustMatch    Term  Cache
-               | MustNotMatch Term  Cache
-               | ShouldMatch [Term] Cache deriving (Eq, Read, Show, Generic, Typeable)
-
--- "memory" or "indexed"
-data GeoFilterType = GeoFilterMemory
-                   | GeoFilterIndexed deriving (Eq, Read, Show, Generic, Typeable)
-
-data LatLon = LatLon { lat :: Double
-                     , lon :: Double } deriving (Eq, Read, Show, Generic, Typeable)
-
-data GeoBoundingBox =
-  GeoBoundingBox { topLeft     :: LatLon
-                 , bottomRight :: LatLon } deriving (Eq, Read, Show, Generic, Typeable)
-
-data GeoBoundingBoxConstraint =
-  GeoBoundingBoxConstraint { geoBBField        :: FieldName
-                           , constraintBox     :: GeoBoundingBox
-                           , bbConstraintcache :: Cache
-                           , geoType           :: GeoFilterType
-                           } deriving (Eq, Read, Show, Generic, Typeable)
-
-data GeoPoint =
-  GeoPoint { geoField :: FieldName
-           , latLon   :: LatLon} deriving (Eq, Read, Show, Generic, Typeable)
-
-data DistanceUnit = Miles
-                  | Yards
-                  | Feet
-                  | Inches
-                  | Kilometers
-                  | Meters
-                  | Centimeters
-                  | Millimeters
-                  | NauticalMiles deriving (Eq, Read, Show, Generic, Typeable)
-
-data DistanceType = Arc
-                  | SloppyArc -- doesn't exist <1.0
-                  | Plane deriving (Eq, Read, Show, Generic, Typeable)
-
-data OptimizeBbox = OptimizeGeoFilterType GeoFilterType
-                  | NoOptimizeBbox deriving (Eq, Read, Show, Generic, Typeable)
-
-data Distance =
-  Distance { coefficient :: Double
-           , unit        :: DistanceUnit } deriving (Eq, Read, Show, Generic, Typeable)
-
-data DistanceRange =
-  DistanceRange { distanceFrom :: Distance
-                , distanceTo   :: Distance } deriving (Eq, Read, Show, Generic, Typeable)
-
-type TemplateQueryKey = Text
-type TemplateQueryValue = Text
-
-newtype TemplateQueryKeyValuePairs = TemplateQueryKeyValuePairs (HM.HashMap TemplateQueryKey TemplateQueryValue)
-  deriving (Eq, Read, Show, Generic)
-
-instance ToJSON TemplateQueryKeyValuePairs where
-  toJSON (TemplateQueryKeyValuePairs x) = Object $ HM.map toJSON x
-
-instance FromJSON TemplateQueryKeyValuePairs where
-  parseJSON (Object o) = pure . TemplateQueryKeyValuePairs $ HM.mapMaybe getValue o
-    where getValue (String x) = Just x
-          getValue _          = Nothing
-  parseJSON _          = fail "error parsing TemplateQueryKeyValuePairs"
-
-data TemplateQueryInline =
-  TemplateQueryInline { inline :: Query
-                      , params :: TemplateQueryKeyValuePairs
-                      }
-  deriving (Eq, Read, Show, Generic, Typeable)
-
-instance ToJSON TemplateQueryInline where
-  toJSON TemplateQueryInline{..} = object [ "inline" .= inline
-                                          , "params" .= params
-                                          ]
-
-instance FromJSON TemplateQueryInline where
-  parseJSON = withObject "TemplateQueryInline" parse
-    where parse o = TemplateQueryInline
-                    <$> o .: "inline"
-                    <*> o .: "params"
 
 
 data SearchResult a =
@@ -1795,16 +619,18 @@ data SearchResult a =
                , scrollId     :: Maybe ScrollId
                , suggest      :: Maybe NamedSuggestionResponse -- ^ Only one Suggestion request / response per Search is supported.
                }
-  deriving (Eq, Read, Show, Generic, Typeable)
+  deriving (Eq, Show)
 
-newtype ScrollId = ScrollId Text deriving (Eq, Read, Show, Generic, Ord, ToJSON, FromJSON)
+newtype ScrollId =
+  ScrollId Text
+  deriving (Eq, Show, Ord, ToJSON, FromJSON)
 
 type Score = Maybe Double
 
 data SearchHits a =
   SearchHits { hitsTotal :: Int
              , maxScore  :: Score
-             , hits      :: [Hit a] } deriving (Eq, Read, Show, Generic, Typeable)
+             , hits      :: [Hit a] } deriving (Eq, Show)
 
 instance Semigroup (SearchHits a) where
   (SearchHits ta ma ha) <> (SearchHits tb mb hb) = SearchHits (ta + tb) (max ma mb) (ha <> hb)
@@ -1819,25 +645,10 @@ data Hit a =
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
-      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Read, Show, Generic, Typeable)
-
-data ShardResult =
-  ShardResult { shardTotal       :: Int
-              , shardsSuccessful :: Int
-              , shardsFailed     :: Int } deriving (Eq, Read, Show, Generic, Typeable)
+      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
 
 type HitHighlight = M.Map Text [Text]
 
-showText :: Show a => a -> Text
-showText = T.pack . show
-
-readMay :: Read a => String -> Maybe a
-readMay s = case reads s of
-              (a, ""):_ -> Just a
-              _         -> Nothing
-
-parseReadText :: Read a => Text -> Parser a
-parseReadText = maybe mzero return . readMay . T.unpack
 
 type Aggregations = M.Map Text Aggregation
 
@@ -1848,34 +659,19 @@ mkAggregations :: Text -> Aggregation -> Aggregations
 mkAggregations name aggregation = M.insert name aggregation emptyAggregations
 
 data TermOrder = TermOrder{ termSortField :: Text
-                          , termSortOrder :: SortOrder } deriving (Eq, Read, Show, Generic, Typeable)
+                          , termSortOrder :: SortOrder } deriving (Eq, Show)
 
 data TermInclusion = TermInclusion Text
-                   | TermPattern Text Text deriving (Eq, Read, Show, Generic, Typeable)
+                   | TermPattern Text Text deriving (Eq, Show)
 
 data CollectionMode = BreadthFirst
-                    | DepthFirst deriving (Eq, Read, Show, Generic, Typeable)
+                    | DepthFirst deriving (Eq, Show)
 
 data ExecutionHint = Ordinals
                    | GlobalOrdinals
                    | GlobalOrdinalsHash
                    | GlobalOrdinalsLowCardinality
-                   | Map deriving (Eq, Read, Show, Generic, Typeable)
-
-data TimeInterval = Weeks
-                  | Days
-                  | Hours
-                  | Minutes
-                  | Seconds deriving Eq
-
-data Interval = Year
-              | Quarter
-              | Month
-              | Week
-              | Day
-              | Hour
-              | Minute
-              | Second deriving (Eq, Read, Show, Generic, Typeable)
+                   | Map deriving (Eq, Show)
 
 data Aggregation = TermsAgg TermsAggregation
                  | CardinalityAgg CardinalityAggregation
@@ -1886,17 +682,17 @@ data Aggregation = TermsAgg TermsAggregation
                  | MissingAgg MissingAggregation
                  | TopHitsAgg TopHitsAggregation
                  | StatsAgg StatisticsAggregation
-  deriving (Eq, Read, Show, Generic, Typeable)
+  deriving (Eq, Show)
 
 data TopHitsAggregation = TopHitsAggregation
   { taFrom :: Maybe From
   , taSize :: Maybe Size
   , taSort :: Maybe Sort
-  } deriving (Eq, Read, Show)
+  } deriving (Eq, Show)
 
 data MissingAggregation = MissingAggregation
   { maField :: Text
-  } deriving (Eq, Read, Show, Generic, Typeable)
+  } deriving (Eq, Show)
 
 data TermsAggregation = TermsAggregation { term              :: Either Text Text
                                          , termInclude       :: Maybe TermInclusion
@@ -1908,71 +704,91 @@ data TermsAggregation = TermsAggregation { term              :: Either Text Text
                                          , termCollectMode   :: Maybe CollectionMode
                                          , termExecutionHint :: Maybe ExecutionHint
                                          , termAggs          :: Maybe Aggregations
-                                    } deriving (Eq, Read, Show, Generic, Typeable)
+                                    } deriving (Eq, Show)
 
-data CardinalityAggregation = CardinalityAggregation { cardinalityField   :: FieldName,
-                                                       precisionThreshold :: Maybe Int
-                                                     } deriving (Eq, Read, Show, Generic, Typeable)
+data CardinalityAggregation = CardinalityAggregation
+  { cardinalityField   :: FieldName,
+    precisionThreshold :: Maybe Int
+  } deriving (Eq, Show)
 
-data DateHistogramAggregation = DateHistogramAggregation { dateField      :: FieldName
-                                                         , dateInterval   :: Interval
-                                                         , dateFormat     :: Maybe Text
-                                                         -- pre and post deprecated in 1.5
-                                                         , datePreZone    :: Maybe Text
-                                                         , datePostZone   :: Maybe Text
-                                                         , datePreOffset  :: Maybe Text
-                                                         , datePostOffset :: Maybe Text
-                                                         , dateAggs       :: Maybe Aggregations
-                                                         } deriving (Eq, Read, Show, Generic, Typeable)
+data DateHistogramAggregation = DateHistogramAggregation
+  { dateField      :: FieldName
+  , dateInterval   :: Interval
+  , dateFormat     :: Maybe Text
+    -- pre and post deprecated in 1.5
+  , datePreZone    :: Maybe Text
+  , datePostZone   :: Maybe Text
+  , datePreOffset  :: Maybe Text
+  , datePostOffset :: Maybe Text
+  , dateAggs       :: Maybe Aggregations
+  } deriving (Eq, Show)
 
+data DateRangeAggregation = DateRangeAggregation
+  { draField  :: FieldName
+  , draFormat :: Maybe Text
+  , draRanges :: NonEmpty DateRangeAggRange
+  } deriving (Eq, Show)
 
-data DateRangeAggregation = DateRangeAggregation { draField  :: FieldName
-                                                 , draFormat :: Maybe Text
-                                                 , draRanges :: NonEmpty DateRangeAggRange
-                                                 } deriving (Eq, Read, Show, Generic, Typeable)
-
-data DateRangeAggRange = DateRangeFrom DateMathExpr
-                       | DateRangeTo DateMathExpr
-                       | DateRangeFromAndTo DateMathExpr DateMathExpr deriving (Eq, Read, Show, Generic, Typeable)
+data DateRangeAggRange =
+    DateRangeFrom DateMathExpr
+  | DateRangeTo DateMathExpr
+  | DateRangeFromAndTo DateMathExpr DateMathExpr
+  deriving (Eq, Show)
 
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math> for more information.
-data DateMathExpr = DateMathExpr DateMathAnchor [DateMathModifier] deriving (Eq, Read, Show, Generic, Typeable)
+data DateMathExpr =
+  DateMathExpr DateMathAnchor [DateMathModifier]
+  deriving (Eq, Show)
 
 
 -- | Starting point for a date range. This along with the 'DateMathModifiers' gets you the date ES will start from.
-data DateMathAnchor = DMNow
-                    | DMDate Day deriving (Eq, Read, Show, Generic, Typeable)
+data DateMathAnchor =
+    DMNow
+  | DMDate Day
+  deriving (Eq, Show)
 
-data DateMathModifier = AddTime Int DateMathUnit
-                      | SubtractTime Int DateMathUnit
-                      | RoundDownTo DateMathUnit deriving (Eq, Read, Show, Generic, Typeable)
+data DateMathModifier =
+    AddTime Int DateMathUnit
+  | SubtractTime Int DateMathUnit
+  | RoundDownTo DateMathUnit
+  deriving (Eq, Show)
 
-data DateMathUnit = DMYear
-                  | DMMonth
-                  | DMWeek
-                  | DMDay
-                  | DMHour
-                  | DMMinute
-                  | DMSecond deriving (Eq, Read, Show, Generic, Typeable)
+data DateMathUnit =
+    DMYear
+  | DMMonth
+  | DMWeek
+  | DMDay
+  | DMHour
+  | DMMinute
+  | DMSecond
+  deriving (Eq, Show)
 
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-valuecount-aggregation.html> for more information.
-data ValueCountAggregation = FieldValueCount FieldName
-                           | ScriptValueCount Script deriving (Eq, Read, Show, Generic, Typeable)
+data ValueCountAggregation =
+    FieldValueCount FieldName
+  | ScriptValueCount Script
+  deriving (Eq, Show)
 
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
-data FilterAggregation = FilterAggregation { faFilter :: Filter
-                                           , faAggs   :: Maybe Aggregations} deriving (Eq, Read, Show, Generic, Typeable)
+data FilterAggregation = FilterAggregation
+  { faFilter :: Filter
+  , faAggs   :: Maybe Aggregations }
+  deriving (Eq, Show)
 
-data StatisticsAggregation = StatisticsAggregation { statsType :: StatsType
-                                                   , statsField :: FieldName } deriving (Eq, Read, Show, Generic, Typeable)
+data StatisticsAggregation = StatisticsAggregation
+  { statsType :: StatsType
+  , statsField :: FieldName }
+  deriving (Eq, Show)
 
 data StatsType
   = Basic
   | Extended
-  deriving (Eq, Read, Show, Generic, Typeable)
+  deriving (Eq, Show)
 
 mkTermsAggregation :: Text -> TermsAggregation
-mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+mkTermsAggregation t =
+  TermsAggregation (Left t)
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 mkTermsScriptAggregation :: Text -> TermsAggregation
 mkTermsScriptAggregation t = TermsAggregation (Right t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
@@ -1988,33 +804,6 @@ mkStatsAggregation = StatisticsAggregation Basic
 
 mkExtendedStatsAggregation :: FieldName -> StatisticsAggregation
 mkExtendedStatsAggregation = StatisticsAggregation Extended
-
-instance ToJSON Version where
-  toJSON Version {..} = object ["number" .= number
-                               ,"build_hash" .= build_hash
-                               ,"build_date" .= build_date
-                               ,"build_snapshot" .= build_snapshot
-                               ,"lucene_version" .= lucene_version]
-
-instance FromJSON Version where
-  parseJSON = withObject "Version" parse
-    where parse o = Version
-                    <$> o .: "number"
-                    <*> o .: "build_hash"
-                    <*> o .: "build_date"
-                    <*> o .: "build_snapshot"
-                    <*> o .: "lucene_version"
-
-instance ToJSON VersionNumber where
-  toJSON = toJSON . Vers.showVersion . versionNumber
-
-instance FromJSON VersionNumber where
-  parseJSON = withText "VersionNumber" (parse . T.unpack)
-    where
-      parse s = case filter (null . snd)(RP.readP_to_S Vers.parseVersion s) of
-                  [(v, _)] -> pure (VersionNumber v)
-                  [] -> fail ("Invalid version string " ++ s)
-                  xs -> fail ("Ambiguous version string " ++ s ++ " (" ++ intercalate ", " (Vers.showVersion . fst <$> xs) ++ ")")
 
 instance ToJSON TermOrder where
   toJSON (TermOrder termSortField termSortOrder) = object [termSortField .= termSortOrder]
@@ -2044,23 +833,6 @@ instance ToJSON Interval where
   toJSON Hour    = "hour"
   toJSON Minute  = "minute"
   toJSON Second  = "second"
-
-instance Show TimeInterval where
-  show Weeks   = "w"
-  show Days    = "d"
-  show Hours   = "h"
-  show Minutes = "m"
-  show Seconds = "s"
-
-instance Read TimeInterval where
-  readPrec = f =<< TR.get
-    where
-      f 'w' = return Weeks
-      f 'd' = return Days
-      f 'h' = return Hours
-      f 'm' = return Minutes
-      f 's' = return Seconds
-      f  _  = fail "TimeInterval expected one of w, d, h, m, s"
 
 instance ToJSON Aggregation where
   toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
@@ -2175,13 +947,15 @@ data DateHistogramResult = DateHistogramResult { dateKey           :: Int
                                                , dateDocCount      :: Int
                                                , dateHistogramAggs :: Maybe AggregationResults } deriving (Read, Show)
 
-data DateRangeResult = DateRangeResult { dateRangeKey          :: Text
-                                       , dateRangeFrom         :: Maybe UTCTime
-                                       , dateRangeFromAsString :: Maybe Text
-                                       , dateRangeTo           :: Maybe UTCTime
-                                       , dateRangeToAsString   :: Maybe Text
-                                       , dateRangeDocCount     :: Int
-                                       , dateRangeAggs         :: Maybe AggregationResults } deriving (Read, Show, Eq, Generic, Typeable)
+data DateRangeResult =
+  DateRangeResult { dateRangeKey          :: Text
+                  , dateRangeFrom         :: Maybe UTCTime
+                  , dateRangeFromAsString :: Maybe Text
+                  , dateRangeTo           :: Maybe UTCTime
+                  , dateRangeToAsString   :: Maybe Text
+                  , dateRangeDocCount     :: Int
+                  , dateRangeAggs         :: Maybe AggregationResults }
+  deriving (Eq, Show)
 
 toTerms :: Text -> AggregationResults ->  Maybe (Bucket TermsResult)
 toTerms = toAggResult
@@ -2266,20 +1040,10 @@ instance FromJSON DateRangeResult where
                                              ]
                     )
 
-instance FromJSON POSIXMS where
-  parseJSON = withScientific "POSIXMS" (return . parse)
-    where parse n = let n' = truncate n :: Integer
-                    in POSIXMS (posixSecondsToUTCTime (fromInteger (n' `div` 1000)))
-
 instance (FromJSON a) => FromJSON (TopHitResult a) where
   parseJSON (Object v) = TopHitResult <$>
                          v .: "hits"
   parseJSON _          = fail "Failure in FromJSON (TopHitResult a)"
-
-fieldTagged :: Monad m => (FieldName -> Object -> m a) -> Object -> m a
-fieldTagged f o = case HM.toList o of
-                    [(k, Object o')] -> f (FieldName k) o'
-                    _ -> fail "Expected object with 1 field-named key"
 
 -- Try to get an AggregationResults when we don't know the
 -- field name. We filter out the known keys to try to minimize the noise.
@@ -2295,765 +1059,9 @@ instance ToJSON GeoPoint where
     object [ geoPointField  .= geoPointLatLon ]
 
 
-instance ToJSON Query where
-  toJSON (TermQuery (Term termQueryField termQueryValue) boost) =
-    object [ "term" .=
-             object [termQueryField .= object merged]]
-    where
-      base = [ "value" .= termQueryValue ]
-      boosted = maybe [] (return . ("boost" .=)) boost
-      merged = mappend base boosted
 
-  toJSON (TermsQuery fieldName terms) =
-    object [ "terms" .= object conjoined ]
-    where conjoined = [fieldName .= terms]
 
-  toJSON (IdsQuery idsQueryMappingName docIds) =
-    object [ "ids" .= object conjoined ]
-    where conjoined = [ "type"   .= idsQueryMappingName
-                      , "values" .= fmap toJSON docIds ]
 
-  toJSON (QueryQueryStringQuery qQueryStringQuery) =
-    object [ "query_string" .= qQueryStringQuery ]
-
-  toJSON (QueryMatchQuery matchQuery) =
-    object [ "match" .= matchQuery ]
-
-  toJSON (QueryMultiMatchQuery multiMatchQuery) =
-      toJSON multiMatchQuery
-
-  toJSON (QueryBoolQuery boolQuery) =
-    object [ "bool" .= boolQuery ]
-
-  toJSON (QueryBoostingQuery boostingQuery) =
-    object [ "boosting" .= boostingQuery ]
-
-  toJSON (QueryCommonTermsQuery commonTermsQuery) =
-    object [ "common" .= commonTermsQuery ]
-
-  toJSON (ConstantScoreQuery query boost) =
-    object ["constant_score" .= object ["query" .= query
-                                       , "boost" .= boost]]
-
-  toJSON (QueryDisMaxQuery disMaxQuery) =
-    object [ "dis_max" .= disMaxQuery ]
-
-  toJSON (QueryFuzzyLikeThisQuery fuzzyQuery) =
-    object [ "fuzzy_like_this" .= fuzzyQuery ]
-
-  toJSON (QueryFuzzyLikeFieldQuery fuzzyFieldQuery) =
-    object [ "fuzzy_like_this_field" .= fuzzyFieldQuery ]
-
-  toJSON (QueryFuzzyQuery fuzzyQuery) =
-    object [ "fuzzy" .= fuzzyQuery ]
-
-  toJSON (QueryHasChildQuery childQuery) =
-    object [ "has_child" .= childQuery ]
-
-  toJSON (QueryHasParentQuery parentQuery) =
-    object [ "has_parent" .= parentQuery ]
-
-  toJSON (QueryIndicesQuery qIndicesQuery) =
-    object [ "indices" .= qIndicesQuery ]
-
-  toJSON (MatchAllQuery boost) =
-    object [ "match_all" .= omitNulls [ "boost" .= boost ] ]
-
-  toJSON (QueryMoreLikeThisQuery query) =
-    object [ "more_like_this" .= query ]
-
-  toJSON (QueryMoreLikeThisFieldQuery query) =
-    object [ "more_like_this_field" .= query ]
-
-  toJSON (QueryNestedQuery query) =
-    object [ "nested" .= query ]
-
-  toJSON (QueryPrefixQuery query) =
-    object [ "prefix" .= query ]
-
-  toJSON (QueryRangeQuery query) =
-    object [ "range"  .= query ]
-
-  toJSON (QueryRegexpQuery query) =
-    object [ "regexp" .= query ]
-
-  toJSON (QuerySimpleQueryStringQuery query) =
-    object [ "simple_query_string" .= query ]
-
-  toJSON (QueryExistsQuery (FieldName fieldName)) =
-    object ["exists"  .= object
-             ["field"  .= fieldName]
-           ]
-  toJSON QueryMatchNoneQuery =
-    object ["match_none" .= object []]
-
-  toJSON (QueryTemplateQueryInline templateQuery) =
-    object [ "template" .= templateQuery ]
-
-instance FromJSON Query where
-  parseJSON v = withObject "Query" parse v
-    where parse o = termQuery `taggedWith` "term"
-                <|> termsQuery `taggedWith` "terms"
-                <|> idsQuery `taggedWith` "ids"
-                <|> queryQueryStringQuery `taggedWith` "query_string"
-                <|> queryMatchQuery `taggedWith` "match"
-                <|> queryMultiMatchQuery
-                <|> queryBoolQuery `taggedWith` "bool"
-                <|> queryBoostingQuery `taggedWith` "boosting"
-                <|> queryCommonTermsQuery `taggedWith` "common"
-                <|> constantScoreQuery `taggedWith` "constant_score"
-                <|> queryDisMaxQuery `taggedWith` "dis_max"
-                <|> queryFuzzyLikeThisQuery `taggedWith` "fuzzy_like_this"
-                <|> queryFuzzyLikeFieldQuery `taggedWith` "fuzzy_like_this_field"
-                <|> queryFuzzyQuery `taggedWith` "fuzzy"
-                <|> queryHasChildQuery `taggedWith` "has_child"
-                <|> queryHasParentQuery `taggedWith` "has_parent"
-                <|> queryIndicesQuery `taggedWith` "indices"
-                <|> matchAllQuery `taggedWith` "match_all"
-                <|> queryMoreLikeThisQuery `taggedWith` "more_like_this"
-                <|> queryMoreLikeThisFieldQuery `taggedWith` "more_like_this_field"
-                <|> queryNestedQuery `taggedWith` "nested"
-                <|> queryPrefixQuery `taggedWith` "prefix"
-                <|> queryRangeQuery `taggedWith` "range"
-                <|> queryRegexpQuery `taggedWith` "regexp"
-                <|> querySimpleQueryStringQuery `taggedWith` "simple_query_string"
-                <|> queryTemplateQueryInline `taggedWith` "template"
-            where taggedWith parser k = parser =<< o .: k
-          termQuery = fieldTagged $ \(FieldName fn) o ->
-                        TermQuery <$> (Term fn <$> o .: "value") <*> o .:? "boost"
-          termsQuery o = case HM.toList o of
-                           [(fn, vs)] -> do vals <- parseJSON vs
-                                            case vals of
-                                              x:xs -> return (TermsQuery fn (x :| xs))
-                                              _ -> fail "Expected non empty list of values"
-                           _ -> fail "Expected object with 1 field-named key"
-          idsQuery o = IdsQuery <$> o .: "type"
-                                <*> o .: "values"
-          queryQueryStringQuery = pure . QueryQueryStringQuery
-          queryMatchQuery = pure . QueryMatchQuery
-          queryMultiMatchQuery = QueryMultiMatchQuery <$> parseJSON v
-          queryBoolQuery = pure . QueryBoolQuery
-          queryBoostingQuery = pure . QueryBoostingQuery
-          queryCommonTermsQuery = pure . QueryCommonTermsQuery
-          constantScoreQuery o = case HM.lookup "query" o of
-            Just x -> ConstantScoreQuery <$> parseJSON x
-                                         <*> o .: "boost"
-            _ -> fail "Does not appear to be a ConstantScoreQuery"
-          queryDisMaxQuery = pure . QueryDisMaxQuery
-          queryFuzzyLikeThisQuery = pure . QueryFuzzyLikeThisQuery
-          queryFuzzyLikeFieldQuery = pure . QueryFuzzyLikeFieldQuery
-          queryFuzzyQuery = pure . QueryFuzzyQuery
-          queryHasChildQuery = pure . QueryHasChildQuery
-          queryHasParentQuery = pure . QueryHasParentQuery
-          queryIndicesQuery = pure . QueryIndicesQuery
-          matchAllQuery o = MatchAllQuery <$> o .:? "boost"
-          queryMoreLikeThisQuery = pure . QueryMoreLikeThisQuery
-          queryMoreLikeThisFieldQuery = pure . QueryMoreLikeThisFieldQuery
-          queryNestedQuery = pure . QueryNestedQuery
-          queryPrefixQuery = pure . QueryPrefixQuery
-          queryRangeQuery = pure . QueryRangeQuery
-          queryRegexpQuery = pure . QueryRegexpQuery
-          querySimpleQueryStringQuery = pure . QuerySimpleQueryStringQuery
-          -- queryExistsQuery o = QueryExistsQuery <$> o .: "field"
-          queryTemplateQueryInline = pure . QueryTemplateQueryInline
-
-
-omitNulls :: [(Text, Value)] -> Value
-omitNulls = object . filter notNull where
-  notNull (_, Null)    = False
-  notNull (_, Array a) = (not . V.null) a
-  notNull _            = True
-
-instance ToJSON SimpleQueryStringQuery where
-  toJSON SimpleQueryStringQuery {..} =
-    omitNulls (base ++ maybeAdd)
-    where base = [ "query" .= simpleQueryStringQuery ]
-          maybeAdd = [ "fields" .= simpleQueryStringField
-                     , "default_operator" .= simpleQueryStringOperator
-                     , "analyzer" .= simpleQueryStringAnalyzer
-                     , "flags" .= simpleQueryStringFlags
-                     , "lowercase_expanded_terms" .= simpleQueryStringLowercaseExpanded
-                     , "locale" .= simpleQueryStringLocale ]
-
-instance FromJSON SimpleQueryStringQuery where
-  parseJSON = withObject "SimpleQueryStringQuery" parse
-    where parse o = SimpleQueryStringQuery <$> o .: "query"
-                                           <*> o .:? "fields"
-                                           <*> o .:? "default_operator"
-                                           <*> o .:? "analyzer"
-                                           <*> (parseFlags <$> o .:? "flags")
-                                           <*> o .:? "lowercase_expanded_terms"
-                                           <*> o .:? "locale"
-          parseFlags (Just (x:xs)) = Just (x :| xs)
-          parseFlags _             = Nothing
-
-instance ToJSON FieldOrFields where
-  toJSON (FofField fieldName) =
-    toJSON fieldName
-  toJSON (FofFields fieldNames) =
-    toJSON fieldNames
-
-instance FromJSON FieldOrFields where
-  parseJSON v = FofField  <$> parseJSON v
-            <|> FofFields <$> (parseNEJSON =<< parseJSON v)
-
-instance ToJSON SimpleQueryFlag where
-  toJSON SimpleQueryAll        = "ALL"
-  toJSON SimpleQueryNone       = "NONE"
-  toJSON SimpleQueryAnd        = "AND"
-  toJSON SimpleQueryOr         = "OR"
-  toJSON SimpleQueryPrefix     = "PREFIX"
-  toJSON SimpleQueryPhrase     = "PHRASE"
-  toJSON SimpleQueryPrecedence = "PRECEDENCE"
-  toJSON SimpleQueryEscape     = "ESCAPE"
-  toJSON SimpleQueryWhitespace = "WHITESPACE"
-  toJSON SimpleQueryFuzzy      = "FUZZY"
-  toJSON SimpleQueryNear       = "NEAR"
-  toJSON SimpleQuerySlop       = "SLOP"
-
-instance FromJSON SimpleQueryFlag where
-  parseJSON = withText "SimpleQueryFlag" parse
-    where parse "ALL"        = pure SimpleQueryAll
-          parse "NONE"       = pure SimpleQueryNone
-          parse "AND"        = pure SimpleQueryAnd
-          parse "OR"         = pure SimpleQueryOr
-          parse "PREFIX"     = pure SimpleQueryPrefix
-          parse "PHRASE"     = pure SimpleQueryPhrase
-          parse "PRECEDENCE" = pure SimpleQueryPrecedence
-          parse "ESCAPE"     = pure SimpleQueryEscape
-          parse "WHITESPACE" = pure SimpleQueryWhitespace
-          parse "FUZZY"      = pure SimpleQueryFuzzy
-          parse "NEAR"       = pure SimpleQueryNear
-          parse "SLOP"       = pure SimpleQuerySlop
-          parse f            = fail ("Unexpected SimpleQueryFlag: " <> show f)
-
-instance ToJSON RegexpQuery where
-  toJSON (RegexpQuery (FieldName rqQueryField)
-          (Regexp regexpQueryQuery) rqQueryFlags
-          rqQueryBoost) =
-   object [ rqQueryField .= omitNulls base ]
-   where base = [ "value" .= regexpQueryQuery
-                , "flags" .= rqQueryFlags
-                , "boost" .= rqQueryBoost ]
-
-instance FromJSON RegexpQuery where
-  parseJSON = withObject "RegexpQuery" parse
-    where parse = fieldTagged $ \fn o ->
-                    RegexpQuery fn
-                    <$> o .: "value"
-                    <*> o .: "flags"
-                    <*> o .:? "boost"
-
-instance ToJSON QueryStringQuery where
-  toJSON (QueryStringQuery qsQueryString
-          qsDefaultField qsOperator
-          qsAnalyzer qsAllowWildcard
-          qsLowercaseExpanded  qsEnablePositionIncrements
-          qsFuzzyMaxExpansions qsFuzziness
-          qsFuzzyPrefixLength qsPhraseSlop
-          qsBoost qsAnalyzeWildcard
-          qsGeneratePhraseQueries qsMinimumShouldMatch
-          qsLenient qsLocale) =
-    omitNulls base
-    where
-      base = [ "query" .= qsQueryString
-             , "default_field" .= qsDefaultField
-             , "default_operator" .= qsOperator
-             , "analyzer" .= qsAnalyzer
-             , "allow_leading_wildcard" .= qsAllowWildcard
-             , "lowercase_expanded_terms" .= qsLowercaseExpanded
-             , "enable_position_increments" .= qsEnablePositionIncrements
-             , "fuzzy_max_expansions" .= qsFuzzyMaxExpansions
-             , "fuzziness" .= qsFuzziness
-             , "fuzzy_prefix_length" .= qsFuzzyPrefixLength
-             , "phrase_slop" .= qsPhraseSlop
-             , "boost" .= qsBoost
-             , "analyze_wildcard" .= qsAnalyzeWildcard
-             , "auto_generate_phrase_queries" .= qsGeneratePhraseQueries
-             , "minimum_should_match" .= qsMinimumShouldMatch
-             , "lenient" .= qsLenient
-             , "locale" .= qsLocale ]
-
-instance FromJSON QueryStringQuery where
-  parseJSON = withObject "QueryStringQuery" parse
-    where parse o = QueryStringQuery
-                    <$> o .: "query"
-                    <*> o .:? "default_field"
-                    <*> o .:? "default_operator"
-                    <*> o .:? "analyzer"
-                    <*> o .:? "allow_leading_wildcard"
-                    <*> o .:? "lowercase_expanded_terms"
-                    <*> o .:? "enable_position_increments"
-                    <*> o .:? "fuzzy_max_expansions"
-                    <*> o .:? "fuzziness"
-                    <*> o .:? "fuzzy_prefix_length"
-                    <*> o .:? "phrase_slop"
-                    <*> o .:? "boost"
-                    <*> o .:? "analyze_wildcard"
-                    <*> o .:? "auto_generate_phrase_queries"
-                    <*> o .:? "minimum_should_match"
-                    <*> o .:? "lenient"
-                    <*> o .:? "locale"
-
-instance ToJSON RangeQuery where
-  toJSON (RangeQuery (FieldName fieldName) range boost) =
-    object [ fieldName .= object conjoined ]
-    where conjoined = [ "boost" .= boost ] ++ (rangeValueToPair range)
-
-instance FromJSON RangeQuery where
-  parseJSON = withObject "RangeQuery" parse
-    where parse = fieldTagged $ \fn o ->
-                    RangeQuery fn
-                    <$> parseJSON (Object o)
-                    <*> o .: "boost"
-
-instance FromJSON RangeValue where
-  parseJSON = withObject "RangeValue" parse
-    where parse o = parseDate o
-                <|> parseDouble o
-          parseDate o = do lt <- o .:? "lt"
-                           lte <- o .:? "lte"
-                           gt <- o .:? "gt"
-                           gte <- o .:? "gte"
-                           case (lt, lte, gt, gte) of
-                             (Just a, _, Just b, _) -> return (RangeDateGtLt (GreaterThanD b) (LessThanD a))
-                             (Just a, _, _, Just b)-> return (RangeDateGteLt (GreaterThanEqD b) (LessThanD a))
-                             (_, Just a, Just b, _)-> return (RangeDateGtLte (GreaterThanD b) (LessThanEqD a))
-                             (_, Just a, _, Just b)-> return (RangeDateGteLte (GreaterThanEqD b) (LessThanEqD a))
-                             (_, _, Just a, _)-> return (RangeDateGt (GreaterThanD a))
-                             (Just a, _, _, _)-> return (RangeDateLt (LessThanD a))
-                             (_, _, _, Just a)-> return (RangeDateGte (GreaterThanEqD a))
-                             (_, Just a, _, _)-> return (RangeDateLte (LessThanEqD a))
-                             (Nothing, Nothing, Nothing, Nothing) -> mzero
-          parseDouble o = do lt <- o .:? "lt"
-                             lte <- o .:? "lte"
-                             gt <- o .:? "gt"
-                             gte <- o .:? "gte"
-                             case (lt, lte, gt, gte) of
-                               (Just a, _, Just b, _) -> return (RangeDoubleGtLt (GreaterThan b) (LessThan a))
-                               (Just a, _, _, Just b)-> return (RangeDoubleGteLt (GreaterThanEq b) (LessThan a))
-                               (_, Just a, Just b, _)-> return (RangeDoubleGtLte (GreaterThan b) (LessThanEq a))
-                               (_, Just a, _, Just b)-> return (RangeDoubleGteLte (GreaterThanEq b) (LessThanEq a))
-                               (_, _, Just a, _)-> return (RangeDoubleGt (GreaterThan a))
-                               (Just a, _, _, _)-> return (RangeDoubleLt (LessThan a))
-                               (_, _, _, Just a)-> return (RangeDoubleGte (GreaterThanEq a))
-                               (_, Just a, _, _)-> return (RangeDoubleLte (LessThanEq a))
-                               (Nothing, Nothing, Nothing, Nothing) -> mzero
-
-instance ToJSON PrefixQuery where
-  toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =
-    object [ fieldName .= omitNulls base ]
-    where base = [ "value" .= queryValue
-                 , "boost" .= boost ]
-
-instance FromJSON PrefixQuery where
-  parseJSON = withObject "PrefixQuery" parse
-    where parse = fieldTagged $ \fn o ->
-                    PrefixQuery fn
-                    <$> o .: "value"
-                    <*> o .:? "boost"
-
-instance ToJSON NestedQuery where
-  toJSON (NestedQuery nqPath nqScoreType nqQuery) =
-    object [ "path"       .= nqPath
-           , "score_mode" .= nqScoreType
-           , "query"      .= nqQuery ]
-
-instance FromJSON NestedQuery where
-  parseJSON = withObject "NestedQuery" parse
-    where parse o = NestedQuery
-                    <$> o .: "path"
-                    <*> o .: "score_mode"
-                    <*> o .: "query"
-
-instance ToJSON MoreLikeThisFieldQuery where
-  toJSON (MoreLikeThisFieldQuery text (FieldName fieldName)
-          percent mtf mqt stopwords mindf maxdf
-          minwl maxwl boostTerms boost analyzer) =
-    object [ fieldName .= omitNulls base ]
-    where base = [ "like_text" .= text
-                 , "percent_terms_to_match" .= percent
-                 , "min_term_freq" .= mtf
-                 , "max_query_terms" .= mqt
-                 , "stop_words" .= stopwords
-                 , "min_doc_freq" .= mindf
-                 , "max_doc_freq" .= maxdf
-                 , "min_word_length" .= minwl
-                 , "max_word_length" .= maxwl
-                 , "boost_terms" .= boostTerms
-                 , "boost" .= boost
-                 , "analyzer" .= analyzer ]
-
-instance FromJSON MoreLikeThisFieldQuery where
-  parseJSON = withObject "MoreLikeThisFieldQuery" parse
-    where parse = fieldTagged $ \fn o ->
-                    MoreLikeThisFieldQuery
-                    <$> o .: "like_text"
-                    <*> pure fn
-                    <*> o .:? "percent_terms_to_match"
-                    <*> o .:? "min_term_freq"
-                    <*> o .:? "max_query_terms"
-                    -- <*> (optionalNE =<< o .:? "stop_words")
-                    <*> o .:? "stop_words"
-                    <*> o .:? "min_doc_freq"
-                    <*> o .:? "max_doc_freq"
-                    <*> o .:? "min_word_length"
-                    <*> o .:? "max_word_length"
-                    <*> o .:? "boost_terms"
-                    <*> o .:? "boost"
-                    <*> o .:? "analyzer"
-          -- optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
-
-instance ToJSON MoreLikeThisQuery where
-  toJSON (MoreLikeThisQuery text fields percent
-          mtf mqt stopwords mindf maxdf
-          minwl maxwl boostTerms boost analyzer) =
-    omitNulls base
-    where base = [ "like_text" .= text
-                 , "fields" .= fields
-                 , "percent_terms_to_match" .= percent
-                 , "min_term_freq" .= mtf
-                 , "max_query_terms" .= mqt
-                 , "stop_words" .= stopwords
-                 , "min_doc_freq" .= mindf
-                 , "max_doc_freq" .= maxdf
-                 , "min_word_length" .= minwl
-                 , "max_word_length" .= maxwl
-                 , "boost_terms" .= boostTerms
-                 , "boost" .= boost
-                 , "analyzer" .= analyzer ]
-
-instance FromJSON MoreLikeThisQuery where
-  parseJSON = withObject "MoreLikeThisQuery" parse
-    where parse o = MoreLikeThisQuery
-                    <$> o .: "like_text"
-                    -- <*> (optionalNE =<< o .:? "fields")
-                    <*> o .:? "fields"
-                    <*> o .:? "percent_terms_to_match"
-                    <*> o .:? "min_term_freq"
-                    <*> o .:? "max_query_terms"
-                    -- <*> (optionalNE =<< o .:? "stop_words")
-                    <*> o .:? "stop_words"
-                    <*> o .:? "min_doc_freq"
-                    <*> o .:? "max_doc_freq"
-                    <*> o .:? "min_word_length"
-                    <*> o .:? "max_word_length"
-                    <*> o .:? "boost_terms"
-                    <*> o .:? "boost"
-                    <*> o .:? "analyzer"
-          -- optionalNE = maybe (pure Nothing) (fmap Just . parseNEJSON)
-
-instance ToJSON IndicesQuery where
-  toJSON (IndicesQuery indices query noMatch) =
-    omitNulls [ "indices" .= indices
-              , "no_match_query" .= noMatch
-              , "query" .= query ]
-
-instance FromJSON IndicesQuery where
-  parseJSON = withObject "IndicesQuery" parse
-    where parse o = IndicesQuery
-                    <$> o .:? "indices" .!= []
-                    <*> o .: "query"
-                    <*> o .:? "no_match_query"
-
-instance ToJSON HasParentQuery where
-  toJSON (HasParentQuery queryType query scoreType) =
-    omitNulls [ "parent_type" .= queryType
-              , "score_type" .= scoreType
-              , "query" .= query ]
-
-instance FromJSON HasParentQuery where
-  parseJSON = withObject "HasParentQuery" parse
-    where parse o = HasParentQuery
-                    <$> o .: "parent_type"
-                    <*> o .: "query"
-                    <*> o .:? "score_type"
-
-instance ToJSON HasChildQuery where
-  toJSON (HasChildQuery queryType query scoreType) =
-    omitNulls [ "query" .= query
-              , "score_type" .= scoreType
-              , "type"  .= queryType ]
-
-instance FromJSON HasChildQuery where
-  parseJSON = withObject "HasChildQuery" parse
-    where parse o = HasChildQuery
-                    <$> o .: "type"
-                    <*> o .: "query"
-                    <*> o .:? "score_type"
-
-instance ToJSON FuzzyQuery where
-  toJSON (FuzzyQuery (FieldName fieldName) queryText
-          prefixLength maxEx fuzziness boost) =
-    object [ fieldName .= omitNulls base ]
-    where base = [ "value"          .= queryText
-                 , "fuzziness"      .= fuzziness
-                 , "prefix_length"  .= prefixLength
-                 , "boost" .= boost
-                 , "max_expansions" .= maxEx ]
-
-instance FromJSON FuzzyQuery where
-  parseJSON = withObject "FuzzyQuery" parse
-    where parse = fieldTagged $ \fn o ->
-                    FuzzyQuery fn
-                    <$> o .: "value"
-                    <*> o .: "prefix_length"
-                    <*> o .: "max_expansions"
-                    <*> o .: "fuzziness"
-                    <*> o .:? "boost"
-
-instance ToJSON FuzzyLikeFieldQuery where
-  toJSON (FuzzyLikeFieldQuery (FieldName fieldName)
-          fieldText maxTerms ignoreFreq fuzziness prefixLength
-          boost analyzer) =
-    object [ fieldName .=
-             omitNulls [ "like_text"       .= fieldText
-                       , "max_query_terms" .= maxTerms
-                       , "ignore_tf"       .= ignoreFreq
-                       , "fuzziness"       .= fuzziness
-                       , "prefix_length"   .= prefixLength
-                       , "analyzer" .= analyzer
-                       , "boost"           .= boost ]]
-
-instance FromJSON FuzzyLikeFieldQuery where
-  parseJSON = withObject "FuzzyLikeFieldQuery" parse
-    where parse = fieldTagged $ \fn o ->
-                    FuzzyLikeFieldQuery fn
-                    <$> o .: "like_text"
-                    <*> o .: "max_query_terms"
-                    <*> o .: "ignore_tf"
-                    <*> o .: "fuzziness"
-                    <*> o .: "prefix_length"
-                    <*> o .: "boost"
-                    <*> o .:? "analyzer"
-
-instance ToJSON FuzzyLikeThisQuery where
-  toJSON (FuzzyLikeThisQuery fields text maxTerms
-          ignoreFreq fuzziness prefixLength boost analyzer) =
-    omitNulls base
-    where base = [ "fields"          .= fields
-                 , "like_text"       .= text
-                 , "max_query_terms" .= maxTerms
-                 , "ignore_tf"       .= ignoreFreq
-                 , "fuzziness"       .= fuzziness
-                 , "prefix_length"   .= prefixLength
-                 , "analyzer"        .= analyzer
-                 , "boost"           .= boost ]
-
-instance FromJSON FuzzyLikeThisQuery where
-  parseJSON = withObject "FuzzyLikeThisQuery" parse
-    where parse o = FuzzyLikeThisQuery
-                    <$> o .:? "fields" .!= []
-                    <*> o .: "like_text"
-                    <*> o .: "max_query_terms"
-                    <*> o .: "ignore_tf"
-                    <*> o .: "fuzziness"
-                    <*> o .: "prefix_length"
-                    <*> o .: "boost"
-                    <*> o .:? "analyzer"
-
-instance ToJSON DisMaxQuery where
-  toJSON (DisMaxQuery queries tiebreaker boost) =
-    omitNulls base
-    where base = [ "queries"     .= queries
-                 , "boost"       .= boost
-                 , "tie_breaker" .= tiebreaker ]
-
-instance FromJSON DisMaxQuery where
-  parseJSON = withObject "DisMaxQuery" parse
-    where parse o = DisMaxQuery
-                    <$> o .:? "queries" .!= []
-                    <*> o .: "tie_breaker"
-                    <*> o .:? "boost"
-
-instance ToJSON CommonTermsQuery where
-  toJSON (CommonTermsQuery (FieldName fieldName)
-          (QueryString query) cf lfo hfo msm
-          boost analyzer disableCoord) =
-    object [fieldName .= omitNulls base ]
-    where base = [ "query"              .= query
-                 , "cutoff_frequency"   .= cf
-                 , "low_freq_operator"  .= lfo
-                 , "minimum_should_match" .= msm
-                 , "boost" .= boost
-                 , "analyzer" .= analyzer
-                 , "disable_coord" .= disableCoord
-                 , "high_freq_operator" .= hfo ]
-
-instance FromJSON CommonTermsQuery where
-  parseJSON = withObject "CommonTermsQuery" parse
-    where parse = fieldTagged $ \fn o ->
-                    CommonTermsQuery fn
-                    <$> o .: "query"
-                    <*> o .: "cutoff_frequency"
-                    <*> o .: "low_freq_operator"
-                    <*> o .: "high_freq_operator"
-                    <*> o .:? "minimum_should_match"
-                    <*> o .:? "boost"
-                    <*> o .:? "analyzer"
-                    <*> o .:? "disable_coord"
-
-instance ToJSON CommonMinimumMatch where
-  toJSON (CommonMinimumMatch mm) = toJSON mm
-  toJSON (CommonMinimumMatchHighLow (MinimumMatchHighLow lowF highF)) =
-    object [ "low_freq"  .= lowF
-           , "high_freq" .= highF ]
-
-instance FromJSON CommonMinimumMatch where
-  parseJSON v = parseMinimum v
-            <|> parseMinimumHighLow v
-    where parseMinimum = fmap CommonMinimumMatch . parseJSON
-          parseMinimumHighLow = fmap CommonMinimumMatchHighLow . withObject "CommonMinimumMatchHighLow" (\o ->
-                                  MinimumMatchHighLow
-                                  <$> o .: "low_freq"
-                                  <*> o .: "high_freq")
-
-
-instance ToJSON BoostingQuery where
-  toJSON (BoostingQuery bqPositiveQuery bqNegativeQuery bqNegativeBoost) =
-    object [ "positive"       .= bqPositiveQuery
-           , "negative"       .= bqNegativeQuery
-           , "negative_boost" .= bqNegativeBoost ]
-
-instance FromJSON BoostingQuery where
-  parseJSON = withObject "BoostingQuery" parse
-    where parse o = BoostingQuery
-                    <$> o .: "positive"
-                    <*> o .: "negative"
-                    <*> o .: "negative_boost"
-
-instance ToJSON BoolQuery where
-  toJSON (BoolQuery mustM filterM' notM shouldM bqMin boost disableCoord) =
-    omitNulls base
-    where base = [ "must" .= mustM
-                 , "filter" .= filterM'
-                 , "must_not" .= notM
-                 , "should" .= shouldM
-                 , "minimum_should_match" .= bqMin
-                 , "boost" .= boost
-                 , "disable_coord" .= disableCoord ]
-
-instance FromJSON BoolQuery where
-  parseJSON = withObject "BoolQuery" parse
-    where parse o = BoolQuery
-                    <$> o .:? "must" .!= []
-                    <*> o .:? "filter" .!= []
-                    <*> o .:? "must_not" .!= []
-                    <*> o .:? "should" .!= []
-                    <*> o .:? "minimum_should_match"
-                    <*> o .:? "boost"
-                    <*> o .:? "disable_coord"
-
-instance ToJSON MatchQuery where
-  toJSON (MatchQuery (FieldName fieldName)
-          (QueryString mqQueryString) booleanOperator
-          zeroTermsQuery cutoffFrequency matchQueryType
-          analyzer maxExpansions lenient boost
-          minShouldMatch
-         ) =
-    object [ fieldName .= omitNulls base ]
-    where base = [ "query" .= mqQueryString
-                 , "operator" .= booleanOperator
-                 , "zero_terms_query" .= zeroTermsQuery
-                 , "cutoff_frequency" .= cutoffFrequency
-                 , "type" .= matchQueryType
-                 , "analyzer" .= analyzer
-                 , "max_expansions" .= maxExpansions
-                 , "lenient" .= lenient
-                 , "boost" .= boost
-                 , "minimum_should_match" .= minShouldMatch
-                 ]
-
-instance FromJSON MatchQuery where
-  parseJSON = withObject "MatchQuery" parse
-    where parse = fieldTagged $ \fn o ->
-                    MatchQuery fn
-                    <$> o .:  "query"
-                    <*> o .:  "operator"
-                    <*> o .:  "zero_terms_query"
-                    <*> o .:? "cutoff_frequency"
-                    <*> o .:? "type"
-                    <*> o .:? "analyzer"
-                    <*> o .:? "max_expansions"
-                    <*> o .:? "lenient"
-                    <*> o .:? "boost"
-                    <*> o .:? "minimum_should_match"
-
-instance ToJSON MultiMatchQuery where
-  toJSON (MultiMatchQuery fields (QueryString query) boolOp
-          ztQ tb mmqt cf analyzer maxEx lenient) =
-    object ["multi_match" .= omitNulls base]
-    where base = [ "fields" .= fmap toJSON fields
-                 , "query" .= query
-                 , "operator" .= boolOp
-                 , "zero_terms_query" .= ztQ
-                 , "tie_breaker" .= tb
-                 , "type" .= mmqt
-                 , "cutoff_frequency" .= cf
-                 , "analyzer" .= analyzer
-                 , "max_expansions" .= maxEx
-                 , "lenient" .= lenient ]
-
-instance FromJSON MultiMatchQuery where
-  parseJSON = withObject "MultiMatchQuery" parse
-    where parse raw = do o <- raw .: "multi_match"
-                         MultiMatchQuery
-                           <$> o .:? "fields" .!= []
-                           <*> o .: "query"
-                           <*> o .: "operator"
-                           <*> o .: "zero_terms_query"
-                           <*> o .:? "tie_breaker"
-                           <*> o .:? "type"
-                           <*> o .:? "cutoff_frequency"
-                           <*> o .:? "analyzer"
-                           <*> o .:? "max_expansions"
-                           <*> o .:? "lenient"
-
-instance ToJSON MultiMatchQueryType where
-  toJSON MultiMatchBestFields   = "best_fields"
-  toJSON MultiMatchMostFields   = "most_fields"
-  toJSON MultiMatchCrossFields  = "cross_fields"
-  toJSON MultiMatchPhrase       = "phrase"
-  toJSON MultiMatchPhrasePrefix = "phrase_prefix"
-
-instance FromJSON MultiMatchQueryType where
-  parseJSON = withText "MultiMatchPhrasePrefix" parse
-    where parse "best_fields"   = pure MultiMatchBestFields
-          parse "most_fields"   = pure MultiMatchMostFields
-          parse "cross_fields"  = pure MultiMatchCrossFields
-          parse "phrase"        = pure MultiMatchPhrase
-          parse "phrase_prefix" = pure MultiMatchPhrasePrefix
-          parse t = fail ("Unexpected MultiMatchPhrasePrefix: " <> show t)
-
-instance ToJSON BooleanOperator where
-  toJSON And = String "and"
-  toJSON Or  = String "or"
-
-instance FromJSON BooleanOperator where
-  parseJSON = withText "BooleanOperator" parse
-    where parse "and" = pure And
-          parse "or"  = pure Or
-          parse o     = fail ("Unexpected BooleanOperator: " <> show o)
-
-instance ToJSON ZeroTermsQuery where
-  toJSON ZeroTermsNone = String "none"
-  toJSON ZeroTermsAll  = String "all"
-
-instance FromJSON ZeroTermsQuery where
-  parseJSON = withText "ZeroTermsQuery" parse
-    where parse "none" = pure ZeroTermsNone
-          parse "all"  = pure ZeroTermsAll
-          parse q      = fail ("Unexpected ZeroTermsQuery: " <> show q)
-
-instance ToJSON MatchQueryType where
-  toJSON MatchPhrase       = "phrase"
-  toJSON MatchPhrasePrefix = "phrase_prefix"
-
-instance FromJSON MatchQueryType where
-  parseJSON = withText "MatchQueryType" parse
-    where parse "phrase"        = pure MatchPhrase
-          parse "phrase_prefix" = pure MatchPhrasePrefix
-          parse t               = fail ("Unexpected MatchQueryType: " <> show t)
 
 instance FromJSON Status where
   parseJSON (Object v) = Status <$>
@@ -3063,7 +1071,6 @@ instance FromJSON Status where
                          v .: "version" <*>
                          v .: "tagline"
   parseJSON _          = empty
-
 
 instance ToJSON IndexSettings where
   toJSON (IndexSettings s r) = object ["settings" .=
@@ -3190,18 +1197,6 @@ instance FromJSON IndexSettingsSummary where
                       _ -> fail "Expected single-key object with index name"
           redundant (NumberOfReplicas _) = True
           redundant _                    = False
-
--- | For some reason in several settings APIs, all leaf values get returned
--- as strings. This function attepmts to recover from this for all
--- non-recursive JSON types. If nothing can be done, the value is left alone.
-unStringlyTypeJSON :: Value -> Value
-unStringlyTypeJSON (String "true") = Bool True
-unStringlyTypeJSON (String "false") = Bool False
-unStringlyTypeJSON (String "null") = Null
-unStringlyTypeJSON v@(String t) = case readMay (T.unpack t) of
-                                  Just n  -> Number n
-                                  Nothing -> v
-unStringlyTypeJSON v = v
 
 
 parseSettings :: Object -> Parser [UpdatableIndexSetting]
@@ -3482,9 +1477,6 @@ fastVectorHighPairs (Just
                         ++ commonHighlightPairs fvCom
                         ++ nonPostingsToPairs fvNonPostSettings
 
-deleteSeveral :: (Eq k, Hashable k) => [k] -> HM.HashMap k v -> HM.HashMap k v
-deleteSeveral ks hm = foldr HM.delete hm ks
-
 commonHighlightPairs :: Maybe CommonHighlight -> [Pair]
 commonHighlightPairs Nothing = []
 commonHighlightPairs (Just (CommonHighlight chScore chForceSource chTag chEncoder
@@ -3504,10 +1496,6 @@ nonPostingsToPairs Nothing = []
 nonPostingsToPairs (Just (NonPostings npFragSize npNumOfFrags)) =
     [ "fragment_size" .= npFragSize
     , "number_of_fragments" .= npNumOfFrags]
-
-parseNEJSON :: (FromJSON a) => [Value] -> Parser (NonEmpty a)
-parseNEJSON []     = fail "Expected non-empty list"
-parseNEJSON (x:xs) = DT.mapM parseJSON (x :| xs)
 
 
 instance ToJSON HighlightEncoder where
@@ -3555,204 +1543,6 @@ instance ToJSON Missing where
   toJSON (CustomMissing txt) = String txt
 
 
-instance ToJSON ScoreType where
-  toJSON ScoreTypeMax  = "max"
-  toJSON ScoreTypeAvg  = "avg"
-  toJSON ScoreTypeSum  = "sum"
-  toJSON ScoreTypeNone = "none"
-
-instance FromJSON ScoreType where
-  parseJSON = withText "ScoreType" parse
-    where parse "max"  = pure ScoreTypeMax
-          parse "avg"  = pure ScoreTypeAvg
-          parse "sum"  = pure ScoreTypeSum
-          parse "none" = pure ScoreTypeNone
-          parse t      = fail ("Unexpected ScoreType: " <> show t)
-
-instance ToJSON Distance where
-  toJSON (Distance dCoefficient dUnit) =
-    String boltedTogether where
-      coefText = showText dCoefficient
-      (String unitText) = toJSON dUnit
-      boltedTogether = mappend coefText unitText
-
-instance FromJSON Distance where
-  parseJSON = withText "Distance" parse
-    where parse t = Distance <$> parseCoeff nT
-                             <*> parseJSON (String unitT)
-            where (nT, unitT) = T.span validForNumber t
-                  -- may be a better way to do this
-                  validForNumber '-' = True
-                  validForNumber '.' = True
-                  validForNumber 'e' = True
-                  validForNumber c   = isNumber c
-                  parseCoeff "" = fail "Empty string cannot be parsed as number"
-                  parseCoeff s = return (read (T.unpack s))
-
-instance ToJSON DistanceUnit where
-  toJSON Miles         = String "mi"
-  toJSON Yards         = String "yd"
-  toJSON Feet          = String "ft"
-  toJSON Inches        = String "in"
-  toJSON Kilometers    = String "km"
-  toJSON Meters        = String "m"
-  toJSON Centimeters   = String "cm"
-  toJSON Millimeters   = String "mm"
-  toJSON NauticalMiles = String "nmi"
-
-
-instance FromJSON DistanceUnit where
-  parseJSON = withText "DistanceUnit" parse
-    where parse "mi"  = pure Miles
-          parse "yd"  = pure Yards
-          parse "ft"  = pure Feet
-          parse "in"  = pure Inches
-          parse "km"  = pure Kilometers
-          parse "m"   = pure Meters
-          parse "cm"  = pure Centimeters
-          parse "mm"  = pure Millimeters
-          parse "nmi" = pure NauticalMiles
-          parse u     = fail ("Unrecognized DistanceUnit: " <> show u)
-
-instance ToJSON DistanceType where
-  toJSON Arc       = String "arc"
-  toJSON SloppyArc = String "sloppy_arc"
-  toJSON Plane     = String "plane"
-
-instance FromJSON DistanceType where
-  parseJSON = withText "DistanceType" parse
-    where parse "arc"        = pure Arc
-          parse "sloppy_arc" = pure SloppyArc
-          parse "plane"      = pure Plane
-          parse t            = fail ("Unrecognized DistanceType: " <> show t)
-
-
-instance ToJSON OptimizeBbox where
-  toJSON NoOptimizeBbox              = String "none"
-  toJSON (OptimizeGeoFilterType gft) = toJSON gft
-
-instance FromJSON OptimizeBbox where
-  parseJSON v = withText "NoOptimizeBbox" parseNoOptimize v
-            <|> parseOptimize v
-    where parseNoOptimize "none" = pure NoOptimizeBbox
-          parseNoOptimize _      = mzero
-          parseOptimize = fmap OptimizeGeoFilterType . parseJSON
-
-instance ToJSON GeoBoundingBoxConstraint where
-  toJSON (GeoBoundingBoxConstraint
-          (FieldName gbbcGeoBBField) gbbcConstraintBox cache type') =
-    object [gbbcGeoBBField .= gbbcConstraintBox
-           , "_cache"  .= cache
-           , "type" .= type']
-
-instance FromJSON GeoBoundingBoxConstraint where
-  parseJSON = withObject "GeoBoundingBoxConstraint" parse
-    where parse o = case HM.toList (deleteSeveral ["type", "_cache"] o) of
-                      [(fn, v)] -> GeoBoundingBoxConstraint (FieldName fn)
-                                   <$> parseJSON v
-                                   <*> o .:? "_cache" .!= defaultCache
-                                   <*> o .: "type"
-                      _ -> fail "Could not find field name for GeoBoundingBoxConstraint"
-
-instance ToJSON GeoFilterType where
-  toJSON GeoFilterMemory  = String "memory"
-  toJSON GeoFilterIndexed = String "indexed"
-
-instance FromJSON GeoFilterType where
-  parseJSON = withText "GeoFilterType" parse
-    where parse "memory"  = pure GeoFilterMemory
-          parse "indexed" = pure GeoFilterIndexed
-          parse t         = fail ("Unrecognized GeoFilterType: " <> show t)
-
-instance ToJSON GeoBoundingBox where
-  toJSON (GeoBoundingBox gbbTopLeft gbbBottomRight) =
-    object ["top_left"      .= gbbTopLeft
-           , "bottom_right" .= gbbBottomRight]
-
-instance FromJSON GeoBoundingBox where
-  parseJSON = withObject "GeoBoundingBox" parse
-    where parse o = GeoBoundingBox
-                    <$> o .: "top_left"
-                    <*> o .: "bottom_right"
-
-instance ToJSON LatLon where
-  toJSON (LatLon lLat lLon) =
-    object ["lat"  .= lLat
-           , "lon" .= lLon]
-
-instance FromJSON LatLon where
-  parseJSON = withObject "LatLon" parse
-    where parse o = LatLon <$> o .: "lat"
-                           <*> o .: "lon"
-
--- index for smaller ranges, fielddata for longer ranges
-instance ToJSON RangeExecution where
-  toJSON RangeExecutionIndex     = "index"
-  toJSON RangeExecutionFielddata = "fielddata"
-
-
-instance FromJSON RangeExecution where
-  parseJSON = withText "RangeExecution" parse
-    where parse "index"     = pure RangeExecutionIndex
-          parse "fielddata" = pure RangeExecutionFielddata
-          parse t           = error ("Unrecognized RangeExecution " <> show t)
-
-instance ToJSON RegexpFlags where
-  toJSON AllRegexpFlags              = String "ALL"
-  toJSON NoRegexpFlags               = String "NONE"
-  toJSON (SomeRegexpFlags (h :| fs)) = String $ T.intercalate "|" flagStrs
-    where flagStrs             = map flagStr . nub $ h:fs
-          flagStr AnyString    = "ANYSTRING"
-          flagStr Automaton    = "AUTOMATON"
-          flagStr Complement   = "COMPLEMENT"
-          flagStr Empty        = "EMPTY"
-          flagStr Intersection = "INTERSECTION"
-          flagStr Interval     = "INTERVAL"
-
-instance FromJSON RegexpFlags where
-  parseJSON = withText "RegexpFlags" parse
-    where parse "ALL" = pure AllRegexpFlags
-          parse "NONE" = pure NoRegexpFlags
-          parse t = SomeRegexpFlags <$> parseNEJSON (String <$> T.splitOn "|" t)
-
-instance FromJSON RegexpFlag where
-  parseJSON = withText "RegexpFlag" parse
-    where parse "ANYSTRING"    = pure AnyString
-          parse "AUTOMATON"    = pure Automaton
-          parse "COMPLEMENT"   = pure Complement
-          parse "EMPTY"        = pure Empty
-          parse "INTERSECTION" = pure Intersection
-          parse "INTERVAL"     = pure Interval
-          parse f              = fail ("Unknown RegexpFlag: " <> show f)
-
-instance ToJSON Term where
-  toJSON (Term field value) = object ["term" .= object
-                                      [field .= value]]
-
-instance FromJSON Term where
-  parseJSON = withObject "Term" parse
-    where parse o = do termObj <- o .: "term"
-                       case HM.toList termObj of
-                         [(fn, v)] -> Term fn <$> parseJSON v
-                         _ -> fail "Expected object with 1 field-named key"
-
-instance ToJSON BoolMatch where
-  toJSON (MustMatch    term  cache) = object ["must"     .= term,
-                                              "_cache" .= cache]
-  toJSON (MustNotMatch term  cache) = object ["must_not" .= term,
-                                              "_cache" .= cache]
-  toJSON (ShouldMatch  terms cache) = object ["should"   .= fmap toJSON terms,
-                                              "_cache" .= cache]
-
-instance FromJSON BoolMatch where
-  parseJSON = withObject "BoolMatch" parse
-    where parse o = mustMatch `taggedWith` "must"
-                <|> mustNotMatch `taggedWith` "must_not"
-                <|> shouldMatch `taggedWith` "should"
-            where taggedWith parser k = parser =<< o .: k
-                  mustMatch t = MustMatch t <$> o .:? "_cache" .!= defaultCache
-                  mustNotMatch t = MustNotMatch t <$> o .:? "_cache" .!= defaultCache
-                  shouldMatch t = ShouldMatch t <$> o .:? "_cache" .!= defaultCache
 
 instance (FromJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) = SearchResult <$>
@@ -3782,1476 +1572,20 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:? "highlight"
   parseJSON _          = empty
 
-instance FromJSON ShardResult where
-  parseJSON (Object v) = ShardResult       <$>
-                         v .: "total"      <*>
-                         v .: "successful" <*>
-                         v .: "failed"
-  parseJSON _          = empty
-
 
 instance FromJSON DocVersion where
   parseJSON v = do
     i <- parseJSON v
     maybe (fail "DocVersion out of range") return $ mkDocVersion i
 
--- This insanity is because ES *sometimes* returns Replica/Shard counts as strings
-instance FromJSON ReplicaCount where
-  parseJSON v = parseAsInt v
-            <|> parseAsString v
-    where parseAsInt = fmap ReplicaCount . parseJSON
-          parseAsString = withText "ReplicaCount" (fmap ReplicaCount . parseReadText)
 
-instance FromJSON ShardCount where
-  parseJSON v = parseAsInt v
-            <|> parseAsString v
-    where parseAsInt = fmap ShardCount . parseJSON
-          parseAsString = withText "ShardCount" (fmap ShardCount . parseReadText)
 
-instance Bounded DocVersion where
-  minBound = DocVersion 1
-  maxBound = DocVersion 9200000000000000000 -- 9.2e+18
-
-instance Enum DocVersion where
-  succ x
-    | x /= maxBound = DocVersion (succ $ docVersionNumber x)
-    | otherwise     = succError "DocVersion"
-  pred x
-    | x /= minBound = DocVersion (pred $ docVersionNumber x)
-    | otherwise     = predError "DocVersion"
-  toEnum i =
-    fromMaybe (error $ show i ++ " out of DocVersion range") $ mkDocVersion i
-  fromEnum = docVersionNumber
-  enumFrom = boundedEnumFrom
-  enumFromThen = boundedEnumFromThen
-
--- | Username type used for HTTP Basic authentication. See 'basicAuthHook'.
-newtype EsUsername = EsUsername { esUsername :: Text } deriving (Read, Show, Eq)
-
--- | Password type used for HTTP Basic authentication. See 'basicAuthHook'.
-newtype EsPassword = EsPassword { esPassword :: Text } deriving (Read, Show, Eq)
-
-
-data SnapshotRepoSelection = SnapshotRepoList (NonEmpty SnapshotRepoPattern)
-                           | AllSnapshotRepos deriving (Eq, Generic, Show, Typeable)
-
-
--- | Either specifies an exact repo name or one with globs in it,
--- e.g. @RepoPattern "foo*"@ __NOTE__: Patterns are not supported on ES < 1.7
-data SnapshotRepoPattern = ExactRepo SnapshotRepoName
-                         | RepoPattern Text
-                         deriving (Eq, Generic, Show, Typeable)
-
--- | The unique name of a snapshot repository.
-newtype SnapshotRepoName = SnapshotRepoName  { snapshotRepoName :: Text }
-                         deriving (Eq, Ord, Generic, Show, Typeable, ToJSON, FromJSON)
-
-
--- | A generic representation of a snapshot repo. This is what gets
--- sent to and parsed from the server. For repo types enabled by
--- plugins that aren't exported by this library, consider making a
--- custom type which implements 'SnapshotRepo'. If it is a common repo
--- type, consider submitting a pull request to have it included in the
--- library proper
-data GenericSnapshotRepo = GenericSnapshotRepo {
-      gSnapshotRepoName     :: SnapshotRepoName
-    , gSnapshotRepoType     :: SnapshotRepoType
-    , gSnapshotRepoSettings :: GenericSnapshotRepoSettings
-    } deriving (Eq, Generic, Show, Typeable)
-
-
-instance SnapshotRepo GenericSnapshotRepo where
-  toGSnapshotRepo = id
-  fromGSnapshotRepo = Right
-
-
-newtype SnapshotRepoType = SnapshotRepoType { snapshotRepoType :: Text }
-                         deriving (Eq, Ord, Generic, Show, Typeable, ToJSON, FromJSON)
-
-
--- | Opaque representation of snapshot repo settings. Instances of
--- 'SnapshotRepo' will produce this.
-newtype GenericSnapshotRepoSettings = GenericSnapshotRepoSettings { gSnapshotRepoSettingsObject :: Object }
-                                    deriving (Eq, Generic, Show, Typeable, ToJSON)
-
-
- -- Regardless of whether you send strongly typed json, my version of
- -- ES sends back stringly typed json in the settings, e.g. booleans
- -- as strings, so we'll try to convert them.
-instance FromJSON GenericSnapshotRepoSettings where
-  parseJSON = fmap (GenericSnapshotRepoSettings . fmap unStringlyTypeJSON). parseJSON
-
--- | The result of running 'verifySnapshotRepo'.
-newtype SnapshotVerification = SnapshotVerification { snapshotNodeVerifications :: [SnapshotNodeVerification] }
-                             deriving (Eq, Generic, Show, Typeable)
-
-
-instance FromJSON SnapshotVerification where
-  parseJSON = withObject "SnapshotVerification" parse
-    where
-      parse o = do
-        o2 <- o .: "nodes"
-        SnapshotVerification <$> mapM (uncurry parse') (HM.toList o2)
-      parse' rawFullId = withObject "SnapshotNodeVerification" $ \o ->
-        SnapshotNodeVerification (FullNodeId rawFullId) <$> o .: "name"
-
-
--- | A node that has verified a snapshot
-data SnapshotNodeVerification = SnapshotNodeVerification {
-      snvFullId   :: FullNodeId
-    , snvNodeName :: NodeName
-    } deriving (Eq, Generic, Show, Typeable)
-
-
--- | Unique, automatically-generated name assigned to nodes that are
--- usually returned in node-oriented APIs.
-newtype FullNodeId = FullNodeId { fullNodeId :: Text }
-                   deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
-
-
--- | A human-readable node name that is supplied by the user in the
--- node config or automatically generated by ElasticSearch.
-newtype NodeName = NodeName { nodeName :: Text }
-                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
-
-newtype ClusterName = ClusterName { clusterName :: Text }
-                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
-
-data NodesInfo = NodesInfo {
-      nodesInfo        :: [NodeInfo]
-    , nodesClusterName :: ClusterName
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodesStats = NodesStats {
-      nodesStats            :: [NodeStats]
-    , nodesStatsClusterName :: ClusterName
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeStats = NodeStats {
-      nodeStatsName          :: NodeName
-    , nodeStatsFullId        :: FullNodeId
-    , nodeStatsBreakersStats :: Maybe NodeBreakersStats
-    , nodeStatsHTTP          :: NodeHTTPStats
-    , nodeStatsTransport     :: NodeTransportStats
-    , nodeStatsFS            :: NodeFSStats
-    , nodeStatsNetwork       :: Maybe NodeNetworkStats
-    , nodeStatsThreadPool    :: NodeThreadPoolsStats
-    , nodeStatsJVM           :: NodeJVMStats
-    , nodeStatsProcess       :: NodeProcessStats
-    , nodeStatsOS            :: NodeOSStats
-    , nodeStatsIndices       :: NodeIndicesStats
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeBreakersStats = NodeBreakersStats {
-      nodeStatsParentBreaker    :: NodeBreakerStats
-    , nodeStatsRequestBreaker   :: NodeBreakerStats
-    , nodeStatsFieldDataBreaker :: NodeBreakerStats
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeBreakerStats = NodeBreakerStats {
-      nodeBreakersTripped   :: Int
-    , nodeBreakersOverhead  :: Double
-    , nodeBreakersEstSize   :: Bytes
-    , nodeBreakersLimitSize :: Bytes
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeHTTPStats = NodeHTTPStats {
-      nodeHTTPTotalOpened :: Int
-    , nodeHTTPCurrentOpen :: Int
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeTransportStats = NodeTransportStats {
-      nodeTransportTXSize     :: Bytes
-    , nodeTransportCount      :: Int
-    , nodeTransportRXSize     :: Bytes
-    , nodeTransportRXCount    :: Int
-    , nodeTransportServerOpen :: Int
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeFSStats = NodeFSStats {
-      nodeFSDataPaths :: [NodeDataPathStats]
-    , nodeFSTotal     :: NodeFSTotalStats
-    , nodeFSTimestamp :: UTCTime
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeDataPathStats = NodeDataPathStats {
-      nodeDataPathDiskServiceTime :: Maybe Double
-    , nodeDataPathDiskQueue       :: Maybe Double
-    , nodeDataPathIOSize          :: Maybe Bytes
-    , nodeDataPathWriteSize       :: Maybe Bytes
-    , nodeDataPathReadSize        :: Maybe Bytes
-    , nodeDataPathIOOps           :: Maybe Int
-    , nodeDataPathWrites          :: Maybe Int
-    , nodeDataPathReads           :: Maybe Int
-    , nodeDataPathAvailable       :: Bytes
-    , nodeDataPathFree            :: Bytes
-    , nodeDataPathTotal           :: Bytes
-    , nodeDataPathType            :: Maybe Text
-    , nodeDataPathDevice          :: Maybe Text
-    , nodeDataPathMount           :: Text
-    , nodeDataPathPath            :: Text
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeFSTotalStats = NodeFSTotalStats {
-      nodeFSTotalDiskServiceTime :: Maybe Double
-    , nodeFSTotalDiskQueue       :: Maybe Double
-    , nodeFSTotalIOSize          :: Maybe Bytes
-    , nodeFSTotalWriteSize       :: Maybe Bytes
-    , nodeFSTotalReadSize        :: Maybe Bytes
-    , nodeFSTotalIOOps           :: Maybe Int
-    , nodeFSTotalWrites          :: Maybe Int
-    , nodeFSTotalReads           :: Maybe Int
-    , nodeFSTotalAvailable       :: Bytes
-    , nodeFSTotalFree            :: Bytes
-    , nodeFSTotalTotal           :: Bytes
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeNetworkStats = NodeNetworkStats {
-      nodeNetTCPOutRSTs      :: Int
-    , nodeNetTCPInErrs       :: Int
-    , nodeNetTCPAttemptFails :: Int
-    , nodeNetTCPEstabResets  :: Int
-    , nodeNetTCPRetransSegs  :: Int
-    , nodeNetTCPOutSegs      :: Int
-    , nodeNetTCPInSegs       :: Int
-    , nodeNetTCPCurrEstab    :: Int
-    , nodeNetTCPPassiveOpens :: Int
-    , nodeNetTCPActiveOpens  :: Int
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeThreadPoolsStats = NodeThreadPoolsStats {
-      nodeThreadPoolsStatsSnapshot          :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsBulk              :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsMerge             :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsGet               :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsManagement        :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsFetchShardStore   :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsOptimize          :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsFlush             :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsSearch            :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsWarmer            :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsGeneric           :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsSuggest           :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsRefresh           :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsIndex             :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsListener          :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsFetchShardStarted :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsPercolate         :: Maybe NodeThreadPoolStats
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeThreadPoolStats = NodeThreadPoolStats {
-      nodeThreadPoolCompleted :: Int
-    , nodeThreadPoolLargest   :: Int
-    , nodeThreadPoolRejected  :: Int
-    , nodeThreadPoolActive    :: Int
-    , nodeThreadPoolQueue     :: Int
-    , nodeThreadPoolThreads   :: Int
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeJVMStats = NodeJVMStats {
-      nodeJVMStatsMappedBufferPool :: JVMBufferPoolStats
-    , nodeJVMStatsDirectBufferPool :: JVMBufferPoolStats
-    , nodeJVMStatsGCOldCollector   :: JVMGCStats
-    , nodeJVMStatsGCYoungCollector :: JVMGCStats
-    , nodeJVMStatsPeakThreadsCount :: Int
-    , nodeJVMStatsThreadsCount     :: Int
-    , nodeJVMStatsOldPool          :: JVMPoolStats
-    , nodeJVMStatsSurvivorPool     :: JVMPoolStats
-    , nodeJVMStatsYoungPool        :: JVMPoolStats
-    , nodeJVMStatsNonHeapCommitted :: Bytes
-    , nodeJVMStatsNonHeapUsed      :: Bytes
-    , nodeJVMStatsHeapMax          :: Bytes
-    , nodeJVMStatsHeapCommitted    :: Bytes
-    , nodeJVMStatsHeapUsedPercent  :: Int
-    , nodeJVMStatsHeapUsed         :: Bytes
-    , nodeJVMStatsUptime           :: NominalDiffTime
-    , nodeJVMStatsTimestamp        :: UTCTime
-    } deriving (Eq, Show, Generic, Typeable)
-
-data JVMBufferPoolStats = JVMBufferPoolStats {
-      jvmBufferPoolStatsTotalCapacity :: Bytes
-    , jvmBufferPoolStatsUsed          :: Bytes
-    , jvmBufferPoolStatsCount         :: Int
-    } deriving (Eq, Show, Generic, Typeable)
-
-data JVMGCStats = JVMGCStats {
-      jvmGCStatsCollectionTime  :: NominalDiffTime
-    , jvmGCStatsCollectionCount :: Int
-    } deriving (Eq, Show, Generic, Typeable)
-
-data JVMPoolStats = JVMPoolStats {
-      jvmPoolStatsPeakMax  :: Bytes
-    , jvmPoolStatsPeakUsed :: Bytes
-    , jvmPoolStatsMax      :: Bytes
-    , jvmPoolStatsUsed     :: Bytes
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeProcessStats = NodeProcessStats {
-      nodeProcessTimestamp       :: UTCTime
-    , nodeProcessOpenFDs         :: Int
-    , nodeProcessMaxFDs          :: Int
-    , nodeProcessCPUPercent      :: Int
-    , nodeProcessCPUTotal        :: NominalDiffTime
-    , nodeProcessMemTotalVirtual :: Bytes
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeOSStats = NodeOSStats {
-      nodeOSTimestamp      :: UTCTime
-    , nodeOSCPUPercent     :: Int
-    , nodeOSLoad           :: Maybe LoadAvgs
-    , nodeOSMemTotal       :: Bytes
-    , nodeOSMemFree        :: Bytes
-    , nodeOSMemFreePercent :: Int
-    , nodeOSMemUsed        :: Bytes
-    , nodeOSMemUsedPercent :: Int
-    , nodeOSSwapTotal      :: Bytes
-    , nodeOSSwapFree       :: Bytes
-    , nodeOSSwapUsed       :: Bytes
-    } deriving (Eq, Show, Generic, Typeable)
-
-data LoadAvgs = LoadAvgs {
-     loadAvg1Min  :: Double
-   , loadAvg5Min  :: Double
-   , loadAvg15Min :: Double
-   } deriving (Eq, Show, Generic, Typeable)
-
-data NodeIndicesStats = NodeIndicesStats {
-      nodeIndicesStatsRecoveryThrottleTime    :: Maybe NominalDiffTime
-    , nodeIndicesStatsRecoveryCurrentAsTarget :: Maybe Int
-    , nodeIndicesStatsRecoveryCurrentAsSource :: Maybe Int
-    , nodeIndicesStatsQueryCacheMisses        :: Maybe Int
-    , nodeIndicesStatsQueryCacheHits          :: Maybe Int
-    , nodeIndicesStatsQueryCacheEvictions     :: Maybe Int
-    , nodeIndicesStatsQueryCacheSize          :: Maybe Bytes
-    , nodeIndicesStatsSuggestCurrent          :: Maybe Int
-    , nodeIndicesStatsSuggestTime             :: Maybe NominalDiffTime
-    , nodeIndicesStatsSuggestTotal            :: Maybe Int
-    , nodeIndicesStatsTranslogSize            :: Bytes
-    , nodeIndicesStatsTranslogOps             :: Int
-    , nodeIndicesStatsSegFixedBitSetMemory    :: Maybe Bytes
-    , nodeIndicesStatsSegVersionMapMemory     :: Bytes
-    , nodeIndicesStatsSegIndexWriterMaxMemory :: Maybe Bytes
-    , nodeIndicesStatsSegIndexWriterMemory    :: Bytes
-    , nodeIndicesStatsSegMemory               :: Bytes
-    , nodeIndicesStatsSegCount                :: Int
-    , nodeIndicesStatsCompletionSize          :: Bytes
-    , nodeIndicesStatsPercolateQueries        :: Maybe Int
-    , nodeIndicesStatsPercolateMemory         :: Maybe Bytes
-    , nodeIndicesStatsPercolateCurrent        :: Maybe Int
-    , nodeIndicesStatsPercolateTime           :: Maybe NominalDiffTime
-    , nodeIndicesStatsPercolateTotal          :: Maybe Int
-    , nodeIndicesStatsFieldDataEvictions      :: Int
-    , nodeIndicesStatsFieldDataMemory         :: Bytes
-    , nodeIndicesStatsWarmerTotalTime         :: NominalDiffTime
-    , nodeIndicesStatsWarmerTotal             :: Int
-    , nodeIndicesStatsWarmerCurrent           :: Int
-    , nodeIndicesStatsFlushTotalTime          :: NominalDiffTime
-    , nodeIndicesStatsFlushTotal              :: Int
-    , nodeIndicesStatsRefreshTotalTime        :: NominalDiffTime
-    , nodeIndicesStatsRefreshTotal            :: Int
-    , nodeIndicesStatsMergesTotalSize         :: Bytes
-    , nodeIndicesStatsMergesTotalDocs         :: Int
-    , nodeIndicesStatsMergesTotalTime         :: NominalDiffTime
-    , nodeIndicesStatsMergesTotal             :: Int
-    , nodeIndicesStatsMergesCurrentSize       :: Bytes
-    , nodeIndicesStatsMergesCurrentDocs       :: Int
-    , nodeIndicesStatsMergesCurrent           :: Int
-    , nodeIndicesStatsSearchFetchCurrent      :: Int
-    , nodeIndicesStatsSearchFetchTime         :: NominalDiffTime
-    , nodeIndicesStatsSearchFetchTotal        :: Int
-    , nodeIndicesStatsSearchQueryCurrent      :: Int
-    , nodeIndicesStatsSearchQueryTime         :: NominalDiffTime
-    , nodeIndicesStatsSearchQueryTotal        :: Int
-    , nodeIndicesStatsSearchOpenContexts      :: Int
-    , nodeIndicesStatsGetCurrent              :: Int
-    , nodeIndicesStatsGetMissingTime          :: NominalDiffTime
-    , nodeIndicesStatsGetMissingTotal         :: Int
-    , nodeIndicesStatsGetExistsTime           :: NominalDiffTime
-    , nodeIndicesStatsGetExistsTotal          :: Int
-    , nodeIndicesStatsGetTime                 :: NominalDiffTime
-    , nodeIndicesStatsGetTotal                :: Int
-    , nodeIndicesStatsIndexingThrottleTime    :: Maybe NominalDiffTime
-    , nodeIndicesStatsIndexingIsThrottled     :: Maybe Bool
-    , nodeIndicesStatsIndexingNoopUpdateTotal :: Maybe Int
-    , nodeIndicesStatsIndexingDeleteCurrent   :: Int
-    , nodeIndicesStatsIndexingDeleteTime      :: NominalDiffTime
-    , nodeIndicesStatsIndexingDeleteTotal     :: Int
-    , nodeIndicesStatsIndexingIndexCurrent    :: Int
-    , nodeIndicesStatsIndexingIndexTime       :: NominalDiffTime
-    , nodeIndicesStatsIndexingTotal           :: Int
-    , nodeIndicesStatsStoreThrottleTime       :: NominalDiffTime
-    , nodeIndicesStatsStoreSize               :: Bytes
-    , nodeIndicesStatsDocsDeleted             :: Int
-    , nodeIndicesStatsDocsCount               :: Int
-    } deriving (Eq, Show, Generic, Typeable)
-
--- | A quirky address format used throughout ElasticSearch. An example
--- would be inet[/1.1.1.1:9200]. inet may be a placeholder for a
--- <https://en.wikipedia.org/wiki/Fully_qualified_domain_name FQDN>.
-newtype EsAddress = EsAddress { esAddress :: Text }
-                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
-
--- | Typically a 7 character hex string.
-newtype BuildHash = BuildHash { buildHash :: Text }
-                 deriving (Eq, Ord, Generic, Read, Show, Typeable, FromJSON, ToJSON)
-
-newtype PluginName = PluginName { pluginName :: Text }
-                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
-
-data NodeInfo = NodeInfo {
-      nodeInfoHTTPAddress      :: Maybe EsAddress
-    , nodeInfoBuild            :: BuildHash
-    , nodeInfoESVersion        :: VersionNumber
-    , nodeInfoIP               :: Server
-    , nodeInfoHost             :: Server
-    , nodeInfoTransportAddress :: EsAddress
-    , nodeInfoName             :: NodeName
-    , nodeInfoFullId           :: FullNodeId
-    , nodeInfoPlugins          :: [NodePluginInfo]
-    , nodeInfoHTTP             :: NodeHTTPInfo
-    , nodeInfoTransport        :: NodeTransportInfo
-    , nodeInfoNetwork          :: Maybe NodeNetworkInfo
-    , nodeInfoThreadPool       :: NodeThreadPoolsInfo
-    , nodeInfoJVM              :: NodeJVMInfo
-    , nodeInfoProcess          :: NodeProcessInfo
-    , nodeInfoOS               :: NodeOSInfo
-    , nodeInfoSettings         :: Object
-    -- ^ The members of the settings objects are not consistent,
-    -- dependent on plugins, etc.
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodePluginInfo = NodePluginInfo {
-      nodePluginSite        :: Maybe Bool
-    -- ^ Is this a site plugin?
-    , nodePluginJVM         :: Maybe Bool
-    -- ^ Is this plugin running on the JVM
-    , nodePluginDescription :: Text
-    , nodePluginVersion     :: MaybeNA VersionNumber
-    , nodePluginName        :: PluginName
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeHTTPInfo = NodeHTTPInfo {
-      nodeHTTPMaxContentLength :: Bytes
-    , nodeHTTPTransportAddress :: BoundTransportAddress
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeTransportInfo = NodeTransportInfo {
-      nodeTransportProfiles :: [BoundTransportAddress]
-    , nodeTransportAddress  :: BoundTransportAddress
-    } deriving (Eq, Show, Generic, Typeable)
-
-data BoundTransportAddress = BoundTransportAddress {
-      publishAddress :: EsAddress
-    , boundAddress   :: [EsAddress]
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeNetworkInfo = NodeNetworkInfo {
-      nodeNetworkPrimaryInterface :: NodeNetworkInterface
-    , nodeNetworkRefreshInterval  :: NominalDiffTime
-    } deriving (Eq, Show, Generic, Typeable)
-
-newtype MacAddress = MacAddress { macAddress :: Text }
-                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
-
-newtype NetworkInterfaceName = NetworkInterfaceName { networkInterfaceName :: Text }
-                 deriving (Eq, Ord, Generic, Show, Typeable, FromJSON)
-
-data NodeNetworkInterface = NodeNetworkInterface {
-      nodeNetIfaceMacAddress :: MacAddress
-    , nodeNetIfaceName       :: NetworkInterfaceName
-    , nodeNetIfaceAddress    :: Server
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeThreadPoolsInfo = NodeThreadPoolsInfo {
-      nodeThreadPoolsRefresh           :: NodeThreadPoolInfo
-    , nodeThreadPoolsManagement        :: NodeThreadPoolInfo
-    , nodeThreadPoolsPercolate         :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsListener          :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsFetchShardStarted :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsSearch            :: NodeThreadPoolInfo
-    , nodeThreadPoolsFlush             :: NodeThreadPoolInfo
-    , nodeThreadPoolsWarmer            :: NodeThreadPoolInfo
-    , nodeThreadPoolsOptimize          :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsBulk              :: NodeThreadPoolInfo
-    , nodeThreadPoolsSuggest           :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsMerge             :: NodeThreadPoolInfo
-    , nodeThreadPoolsSnapshot          :: NodeThreadPoolInfo
-    , nodeThreadPoolsGet               :: NodeThreadPoolInfo
-    , nodeThreadPoolsFetchShardStore   :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsIndex             :: NodeThreadPoolInfo
-    , nodeThreadPoolsGeneric           :: NodeThreadPoolInfo
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeThreadPoolInfo = NodeThreadPoolInfo {
-      nodeThreadPoolQueueSize :: ThreadPoolSize
-    , nodeThreadPoolKeepalive :: Maybe NominalDiffTime
-    , nodeThreadPoolMin       :: Maybe Int
-    , nodeThreadPoolMax       :: Maybe Int
-    , nodeThreadPoolType      :: ThreadPoolType
-    } deriving (Eq, Show, Generic, Typeable)
-
-data ThreadPoolSize = ThreadPoolBounded Int
-                    | ThreadPoolUnbounded
-                    deriving (Eq, Show, Generic, Typeable)
-
-data ThreadPoolType = ThreadPoolScaling
-                    | ThreadPoolFixed
-                    | ThreadPoolCached
-                    deriving (Eq, Show, Generic, Typeable)
-
-data NodeJVMInfo = NodeJVMInfo {
-      nodeJVMInfoMemoryPools             :: [JVMMemoryPool]
-    , nodeJVMInfoMemoryPoolsGCCollectors :: [JVMGCCollector]
-    , nodeJVMInfoMemoryInfo              :: JVMMemoryInfo
-    , nodeJVMInfoStartTime               :: UTCTime
-    , nodeJVMInfoVMVendor                :: Text
-    , nodeJVMVMVersion                   :: VersionNumber
-    -- ^ JVM doesn't seme to follow normal version conventions
-    , nodeJVMVMName                      :: Text
-    , nodeJVMVersion                     :: VersionNumber
-    , nodeJVMPID                         :: PID
-    } deriving (Eq, Show, Generic, Typeable)
-
--- | Handles quirks in the way JVM versions are rendered (1.7.0_101 -> 1.7.0.101)
-newtype JVMVersion = JVMVersion { unJVMVersion :: VersionNumber }
-
-data JVMMemoryInfo = JVMMemoryInfo {
-      jvmMemoryInfoDirectMax   :: Bytes
-    , jvmMemoryInfoNonHeapMax  :: Bytes
-    , jvmMemoryInfoNonHeapInit :: Bytes
-    , jvmMemoryInfoHeapMax     :: Bytes
-    , jvmMemoryInfoHeapInit    :: Bytes
-    } deriving (Eq, Show, Generic, Typeable)
-
-newtype JVMMemoryPool = JVMMemoryPool {
-      jvmMemoryPool :: Text
-    } deriving (Eq, Show, Generic, Typeable, FromJSON)
-
-newtype JVMGCCollector = JVMGCCollector {
-      jvmGCCollector :: Text
-    } deriving (Eq, Show, Generic, Typeable, FromJSON)
-
-newtype PID = PID {
-      pid :: Int
-    } deriving (Eq, Show, Generic, Typeable, FromJSON)
-
-data NodeOSInfo = NodeOSInfo {
-      nodeOSRefreshInterval     :: NominalDiffTime
-    , nodeOSName                :: Text
-    , nodeOSArch                :: Text
-    , nodeOSVersion             :: VersionNumber
-    , nodeOSAvailableProcessors :: Int
-    , nodeOSAllocatedProcessors :: Int
-    } deriving (Eq, Show, Generic, Typeable)
-
-data CPUInfo = CPUInfo {
-      cpuCacheSize      :: Bytes
-    , cpuCoresPerSocket :: Int
-    , cpuTotalSockets   :: Int
-    , cpuTotalCores     :: Int
-    , cpuMHZ            :: Int
-    , cpuModel          :: Text
-    , cpuVendor         :: Text
-    } deriving (Eq, Show, Generic, Typeable)
-
-data NodeProcessInfo = NodeProcessInfo {
-      nodeProcessMLockAll           :: Bool
-    -- ^ See <https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.html>
-    , nodeProcessMaxFileDescriptors :: Maybe Int
-    , nodeProcessId                 :: PID
-    , nodeProcessRefreshInterval    :: NominalDiffTime
-    } deriving (Eq, Show, Generic, Typeable)
-
-data SnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings {
-     repoUpdateVerify :: Bool
-     -- ^ After creation/update, synchronously check that nodes can
-     -- write to this repo. Defaults to True. You may use False if you
-     -- need a faster response and plan on verifying manually later
-     -- with 'verifySnapshotRepo'.
-    } deriving (Eq, Show, Generic, Typeable)
-
-
--- | Reasonable defaults for repo creation/update
---
--- * repoUpdateVerify True
-defaultSnapshotRepoUpdateSettings :: SnapshotRepoUpdateSettings
-defaultSnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings True
-
-
--- | A filesystem-based snapshot repo that ships with
--- ElasticSearch. This is an instance of 'SnapshotRepo' so it can be
--- used with 'updateSnapshotRepo'
-data FsSnapshotRepo = FsSnapshotRepo {
-      fsrName                   :: SnapshotRepoName
-    , fsrLocation               :: FilePath
-    , fsrCompressMetadata       :: Bool
-    , fsrChunkSize              :: Maybe Bytes
-    -- ^ Size by which to split large files during snapshotting.
-    , fsrMaxRestoreBytesPerSec  :: Maybe Bytes
-    -- ^ Throttle node restore rate. If not supplied, defaults to 40mb/sec
-    , fsrMaxSnapshotBytesPerSec :: Maybe Bytes
-    -- ^ Throttle node snapshot rate. If not supplied, defaults to 40mb/sec
-    } deriving (Eq, Generic, Show, Typeable)
-
-
-instance SnapshotRepo FsSnapshotRepo where
-  toGSnapshotRepo FsSnapshotRepo {..} =
-    GenericSnapshotRepo fsrName fsRepoType (GenericSnapshotRepoSettings settings)
-    where
-      Object settings = object $ [ "location" .= fsrLocation
-                                 , "compress" .= fsrCompressMetadata
-                                 ] ++ optionalPairs
-      optionalPairs = catMaybes [ ("chunk_size" .=) <$> fsrChunkSize
-                                , ("max_restore_bytes_per_sec" .=) <$> fsrMaxRestoreBytesPerSec
-                                , ("max_snapshot_bytes_per_sec" .=) <$> fsrMaxSnapshotBytesPerSec
-                                ]
-  fromGSnapshotRepo GenericSnapshotRepo {..}
-    | gSnapshotRepoType == fsRepoType = do
-      let o = gSnapshotRepoSettingsObject gSnapshotRepoSettings
-      parseRepo $ do
-        FsSnapshotRepo gSnapshotRepoName <$> o .: "location"
-                                         <*> o .:? "compress" .!= False
-                                         <*> o .:? "chunk_size"
-                                         <*> o .:? "max_restore_bytes_per_sec"
-                                         <*> o .:? "max_snapshot_bytes_per_sec"
-    | otherwise = Left (RepoTypeMismatch fsRepoType gSnapshotRepoType)
-
-
-parseRepo :: Parser a -> Either SnapshotRepoConversionError a
-parseRepo parser = case parseEither (const parser) () of
-  Left e  -> Left (OtherRepoConversionError (T.pack e))
-  Right a -> Right a
-
-
-fsRepoType :: SnapshotRepoType
-fsRepoType = SnapshotRepoType "fs"
-
--- | Law: fromGSnapshotRepo (toGSnapshotRepo r) == Right r
-class SnapshotRepo r where
-  toGSnapshotRepo :: r -> GenericSnapshotRepo
-  fromGSnapshotRepo :: GenericSnapshotRepo -> Either SnapshotRepoConversionError r
-
-
-data SnapshotRepoConversionError = RepoTypeMismatch SnapshotRepoType SnapshotRepoType
-                                 -- ^ Expected type and actual type
-                                 | OtherRepoConversionError Text
-                                 deriving (Show, Eq, Generic, Typeable)
-
-
-instance Exception SnapshotRepoConversionError
-
-
-data SnapshotCreateSettings = SnapshotCreateSettings {
-      snapWaitForCompletion  :: Bool
-      -- ^ Should the API call return immediately after initializing
-      -- the snapshot or wait until completed? Note that if this is
-      -- enabled it could wait a long time, so you should adjust your
-      -- 'ManagerSettings' accordingly to set long timeouts or
-      -- explicitly handle timeouts.
-    , snapIndices            :: Maybe IndexSelection
-    -- ^ Nothing will snapshot all indices. Just [] is permissable and
-    -- will essentially be a no-op snapshot.
-    , snapIgnoreUnavailable  :: Bool
-    -- ^ If set to True, any matched indices that don't exist will be
-    -- ignored. Otherwise it will be an error and fail.
-    , snapIncludeGlobalState :: Bool
-    , snapPartial            :: Bool
-    -- ^ If some indices failed to snapshot (e.g. if not all primary
-    -- shards are available), should the process proceed?
-    } deriving (Eq, Generic, Show, Typeable)
-
-
--- | Reasonable defaults for snapshot creation
---
--- * snapWaitForCompletion False
--- * snapIndices Nothing
--- * snapIgnoreUnavailable False
--- * snapIncludeGlobalState True
--- * snapPartial False
-defaultSnapshotCreateSettings :: SnapshotCreateSettings
-defaultSnapshotCreateSettings = SnapshotCreateSettings {
-      snapWaitForCompletion = False
-    , snapIndices = Nothing
-    , snapIgnoreUnavailable = False
-    , snapIncludeGlobalState = True
-    , snapPartial = False
-    }
-
-
-data SnapshotSelection = SnapshotList (NonEmpty SnapshotPattern)
-                       | AllSnapshots deriving (Eq, Generic, Show, Typeable)
-
-
--- | Either specifies an exact snapshot name or one with globs in it,
--- e.g. @SnapPattern "foo*"@ __NOTE__: Patterns are not supported on
--- ES < 1.7
-data SnapshotPattern = ExactSnap SnapshotName
-                     | SnapPattern Text
-                     deriving (Eq, Generic, Show, Typeable)
-
-
--- | General information about the state of a snapshot. Has some
--- redundancies with 'SnapshotStatus'
-data SnapshotInfo = SnapshotInfo {
-      snapInfoShards    :: ShardResult
-    , snapInfoFailures  :: [SnapshotShardFailure]
-    , snapInfoDuration  :: NominalDiffTime
-    , snapInfoEndTime   :: UTCTime
-    , snapInfoStartTime :: UTCTime
-    , snapInfoState     :: SnapshotState
-    , snapInfoIndices   :: [IndexName]
-    , snapInfoName      :: SnapshotName
-    } deriving (Eq, Generic, Show, Typeable)
-
-
-instance FromJSON SnapshotInfo where
-  parseJSON = withObject "SnapshotInfo" parse
-    where
-      parse o = SnapshotInfo <$> o .: "shards"
-                             <*> o .: "failures"
-                             <*> (unMS <$> o .: "duration_in_millis")
-                             <*> (posixMS <$> o .: "end_time_in_millis")
-                             <*> (posixMS <$> o .: "start_time_in_millis")
-                             <*> o .: "state"
-                             <*> o .: "indices"
-                             <*> o .: "snapshot"
-
-data SnapshotShardFailure = SnapshotShardFailure {
-      snapShardFailureIndex   :: IndexName
-    , snapShardFailureNodeId  :: Maybe NodeName -- I'm not 100% sure this isn't actually 'FullNodeId'
-    , snapShardFailureReason  :: Text
-    , snapShardFailureShardId :: ShardId
-    } deriving (Eq, Show, Generic, Typeable)
-
-
-instance FromJSON SnapshotShardFailure where
-  parseJSON = withObject "SnapshotShardFailure" parse
-    where
-      parse o = SnapshotShardFailure <$> o .: "index"
-                                     <*> o .:? "node_id"
-                                     <*> o .: "reason"
-                                     <*> o .: "shard_id"
-
-
-newtype ShardId = ShardId { shardId :: Int }
-                deriving (Eq, Show, Generic, Typeable, FromJSON)
-
--- | Milliseconds
-newtype MS = MS NominalDiffTime
-
-
--- keeps the unexported constructor warnings at bay
-unMS :: MS -> NominalDiffTime
-unMS (MS t) = t
-
-
-instance FromJSON MS where
-  parseJSON = withScientific "MS" (return . MS . parse)
-    where
-      parse n = fromInteger ((truncate n) * 1000)
-
-
-data SnapshotState = SnapshotInit
-                   | SnapshotStarted
-                   | SnapshotSuccess
-                   | SnapshotFailed
-                   | SnapshotAborted
-                   | SnapshotMissing
-                   | SnapshotWaiting
-                   deriving (Show, Eq, Generic, Typeable)
-
-instance FromJSON SnapshotState where
-  parseJSON = withText "SnapshotState" parse
-    where
-      parse "INIT"    = return SnapshotInit
-      parse "STARTED" = return SnapshotStarted
-      parse "SUCCESS" = return SnapshotSuccess
-      parse "FAILED"  = return SnapshotFailed
-      parse "ABORTED" = return SnapshotAborted
-      parse "MISSING" = return SnapshotMissing
-      parse "WAITING" = return SnapshotWaiting
-      parse t         = fail ("Invalid snapshot state " <> T.unpack t)
-
-
-newtype SnapshotName = SnapshotName { snapshotName :: Text }
-                     deriving (Show, Eq, Ord, Generic, Typeable, ToJSON, FromJSON)
-
-
-data SnapshotRestoreSettings = SnapshotRestoreSettings {
-      snapRestoreWaitForCompletion      :: Bool
-      -- ^ Should the API call return immediately after initializing
-      -- the restore or wait until completed? Note that if this is
-      -- enabled, it could wait a long time, so you should adjust your
-      -- 'ManagerSettings' accordingly to set long timeouts or
-      -- explicitly handle timeouts.
-    , snapRestoreIndices                :: Maybe IndexSelection
-    -- ^ Nothing will restore all indices in the snapshot. Just [] is
-    -- permissable and will essentially be a no-op restore.
-    , snapRestoreIgnoreUnavailable      :: Bool
-    -- ^ If set to True, any indices that do not exist will be ignored
-    -- during snapshot rather than failing the restore.
-    , snapRestoreIncludeGlobalState     :: Bool
-    -- ^ If set to false, will ignore any global state in the snapshot
-    -- and will not restore it.
-    , snapRestoreRenamePattern          :: Maybe RestoreRenamePattern
-    -- ^ A regex pattern for matching indices. Used with
-    -- 'snapRestoreRenameReplacement', the restore can reference the
-    -- matched index and create a new index name upon restore.
-    , snapRestoreRenameReplacement      :: Maybe (NonEmpty RestoreRenameToken)
-    -- ^ Expression of how index renames should be constructed.
-    , snapRestorePartial                :: Bool
-    -- ^ If some indices fail to restore, should the process proceed?
-    , snapRestoreIncludeAliases         :: Bool
-    -- ^ Should the restore also restore the aliases captured in the
-    -- snapshot.
-    , snapRestoreIndexSettingsOverrides :: Maybe RestoreIndexSettings
-    -- ^ Settings to apply during the restore process. __NOTE:__ This
-    -- option is not supported in ES < 1.5 and should be set to
-    -- Nothing in that case.
-    , snapRestoreIgnoreIndexSettings    :: Maybe (NonEmpty Text)
-    -- ^ This type could be more rich but it isn't clear which
-    -- settings are allowed to be ignored during restore, so we're
-    -- going with including this feature in a basic form rather than
-    -- omitting it. One example here would be
-    -- "index.refresh_interval". Any setting specified here will
-    -- revert back to the server default during the restore process.
-    } deriving (Eq, Generic, Show, Typeable)
-
--- | Regex-stype pattern, e.g. "index_(.+)" to match index names
-newtype RestoreRenamePattern = RestoreRenamePattern { rrPattern :: Text }
-                             deriving (Show, Eq, Generic, Typeable, Ord, ToJSON)
-
-
--- | A single token in a index renaming scheme for a restore. These
--- are concatenated into a string before being sent to
--- ElasticSearch. Check out these Java
--- <https://docs.oracle.com/javase/7/docs/api/java/util/regex/Matcher.html docs> to find out more if you're into that sort of thing.
-data RestoreRenameToken = RRTLit Text
-                        -- ^ Just a literal string of characters
-                        | RRSubWholeMatch
-                        -- ^ Equivalent to $0. The entire matched pattern, not any subgroup
-                        | RRSubGroup RRGroupRefNum
-                        -- ^ A specific reference to a group number
-                        deriving (Show, Eq, Generic, Typeable)
-
-
--- | A group number for regex matching. Only values from 1-9 are
--- supported. Construct with 'mkRRGroupRefNum'
-newtype RRGroupRefNum = RRGroupRefNum { rrGroupRefNum :: Int }
-                      deriving (Show, Eq, Generic, Typeable, Ord)
-
-instance Bounded RRGroupRefNum where
-  minBound = RRGroupRefNum 1
-  maxBound = RRGroupRefNum 9
-
-
--- | Only allows valid group number references (1-9).
-mkRRGroupRefNum :: Int -> Maybe RRGroupRefNum
-mkRRGroupRefNum i
-  | i >= (rrGroupRefNum minBound) && i <= (rrGroupRefNum maxBound) =
-    Just $ RRGroupRefNum i
-  | otherwise = Nothing
-
-
--- | Reasonable defaults for snapshot restores
---
--- * snapRestoreWaitForCompletion False
--- * snapRestoreIndices Nothing
--- * snapRestoreIgnoreUnavailable False
--- * snapRestoreIncludeGlobalState True
--- * snapRestoreRenamePattern Nothing
--- * snapRestoreRenameReplacement Nothing
--- * snapRestorePartial False
--- * snapRestoreIncludeAliases True
--- * snapRestoreIndexSettingsOverrides Nothing
--- * snapRestoreIgnoreIndexSettings Nothing
-defaultSnapshotRestoreSettings :: SnapshotRestoreSettings
-defaultSnapshotRestoreSettings = SnapshotRestoreSettings {
-      snapRestoreWaitForCompletion = False
-    , snapRestoreIndices = Nothing
-    , snapRestoreIgnoreUnavailable  = False
-    , snapRestoreIncludeGlobalState = True
-    , snapRestoreRenamePattern = Nothing
-    , snapRestoreRenameReplacement = Nothing
-    , snapRestorePartial = False
-    , snapRestoreIncludeAliases = True
-    , snapRestoreIndexSettingsOverrides = Nothing
-    , snapRestoreIgnoreIndexSettings = Nothing
-    }
-
-
--- | Index settings that can be overridden. The docs only mention you
--- can update number of replicas, but there may be more. You
--- definitely cannot override shard count.
-data RestoreIndexSettings = RestoreIndexSettings {
-      restoreOverrideReplicas :: Maybe ReplicaCount
-    } deriving (Show, Eq, Generic, Typeable)
-
-
-instance ToJSON RestoreIndexSettings where
-  toJSON RestoreIndexSettings {..} = object prs
-    where
-      prs = catMaybes [("index.number_of_replicas" .=) <$> restoreOverrideReplicas]
-
-
-instance FromJSON NodesInfo where
-  parseJSON = withObject "NodesInfo" parse
-    where
-      parse o = do
-        nodes <- o .: "nodes"
-        infos <- forM (HM.toList nodes) $ \(fullNID, v) -> do
-          node <- parseJSON v
-          parseNodeInfo (FullNodeId fullNID) node
-        cn <- o .: "cluster_name"
-        return (NodesInfo infos cn)
-
-instance FromJSON NodesStats where
-  parseJSON = withObject "NodesStats" parse
-    where
-      parse o = do
-        nodes <- o .: "nodes"
-        stats <- forM (HM.toList nodes) $ \(fullNID, v) -> do
-          node <- parseJSON v
-          parseNodeStats (FullNodeId fullNID) node
-        cn <- o .: "cluster_name"
-        return (NodesStats stats cn)
-
-instance FromJSON NodeBreakerStats where
-  parseJSON = withObject "NodeBreakerStats" parse
-    where
-      parse o = NodeBreakerStats <$> o .: "tripped"
-                                 <*> o .: "overhead"
-                                 <*> o .: "estimated_size_in_bytes"
-                                 <*> o .: "limit_size_in_bytes"
-
-instance FromJSON NodeHTTPStats where
-  parseJSON = withObject "NodeHTTPStats" parse
-    where
-      parse o = NodeHTTPStats <$> o .: "total_opened"
-                              <*> o .: "current_open"
-
-instance FromJSON NodeTransportStats where
-  parseJSON = withObject "NodeTransportStats" parse
-    where
-      parse o = NodeTransportStats <$> o .: "tx_size_in_bytes"
-                                   <*> o .: "tx_count"
-                                   <*> o .: "rx_size_in_bytes"
-                                   <*> o .: "rx_count"
-                                   <*> o .: "server_open"
-
-instance FromJSON NodeFSStats where
-  parseJSON = withObject "NodeFSStats" parse
-    where
-      parse o = NodeFSStats <$> o .: "data"
-                            <*> o .: "total"
-                            <*> (posixMS <$> o .: "timestamp")
-
-instance FromJSON NodeDataPathStats where
-  parseJSON = withObject "NodeDataPathStats" parse
-    where
-      parse o =
-        NodeDataPathStats <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
-                          <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
-                          <*> o .:? "disk_io_size_in_bytes"
-                          <*> o .:? "disk_write_size_in_bytes"
-                          <*> o .:? "disk_read_size_in_bytes"
-                          <*> o .:? "disk_io_op"
-                          <*> o .:? "disk_writes"
-                          <*> o .:? "disk_reads"
-                          <*> o .: "available_in_bytes"
-                          <*> o .: "free_in_bytes"
-                          <*> o .: "total_in_bytes"
-                          <*> o .:? "type"
-                          <*> o .:? "dev"
-                          <*> o .: "mount"
-                          <*> o .: "path"
-
-newtype StringlyTypedDouble = StringlyTypedDouble { unStringlyTypedDouble :: Double }
-
-instance FromJSON StringlyTypedDouble where
-  parseJSON = fmap StringlyTypedDouble . parseJSON . unStringlyTypeJSON
-
-newtype StringlyTypedInt = StringlyTypedInt { unStringlyTypedInt :: Int }
-
-instance FromJSON StringlyTypedInt where
-  parseJSON = fmap StringlyTypedInt . parseJSON . unStringlyTypeJSON
-
-instance FromJSON NodeFSTotalStats where
-  parseJSON = withObject "NodeFSTotalStats" parse
-    where
-      parse o = NodeFSTotalStats <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
-                                 <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
-                                 <*> o .:? "disk_io_size_in_bytes"
-                                 <*> o .:? "disk_write_size_in_bytes"
-                                 <*> o .:? "disk_read_size_in_bytes"
-                                 <*> o .:? "disk_io_op"
-                                 <*> o .:? "disk_writes"
-                                 <*> o .:? "disk_reads"
-                                 <*> o .: "available_in_bytes"
-                                 <*> o .: "free_in_bytes"
-                                 <*> o .: "total_in_bytes"
-
-instance FromJSON NodeNetworkStats where
-  parseJSON = withObject "NodeNetworkStats" parse
-    where
-      parse o = do
-        tcp <- o .: "tcp"
-        NodeNetworkStats <$> tcp .: "out_rsts"
-                         <*> tcp .: "in_errs"
-                         <*> tcp .: "attempt_fails"
-                         <*> tcp .: "estab_resets"
-                         <*> tcp .: "retrans_segs"
-                         <*> tcp .: "out_segs"
-                         <*> tcp .: "in_segs"
-                         <*> tcp .: "curr_estab"
-                         <*> tcp .: "passive_opens"
-                         <*> tcp .: "active_opens"
-
-instance FromJSON NodeThreadPoolsStats where
-  parseJSON = withObject "NodeThreadPoolsStats" parse
-    where
-      parse o = NodeThreadPoolsStats <$> o .: "snapshot"
-                                     <*> o .: "bulk"
-                                     <*> o .: "force_merge"
-                                     <*> o .: "get"
-                                     <*> o .: "management"
-                                     <*> o .:? "fetch_shard_store"
-                                     <*> o .:? "optimize"
-                                     <*> o .: "flush"
-                                     <*> o .: "search"
-                                     <*> o .: "warmer"
-                                     <*> o .: "generic"
-                                     <*> o .:? "suggest"
-                                     <*> o .: "refresh"
-                                     <*> o .: "index"
-                                     <*> o .:? "listener"
-                                     <*> o .:? "fetch_shard_started"
-                                     <*> o .:? "percolate"
-instance FromJSON NodeThreadPoolStats where
-    parseJSON = withObject "NodeThreadPoolStats" parse
-      where
-        parse o = NodeThreadPoolStats <$> o .: "completed"
-                                      <*> o .: "largest"
-                                      <*> o .: "rejected"
-                                      <*> o .: "active"
-                                      <*> o .: "queue"
-                                      <*> o .: "threads"
-
-instance FromJSON NodeJVMStats where
-  parseJSON = withObject "NodeJVMStats" parse
-    where
-      parse o = do
-        bufferPools <- o .: "buffer_pools"
-        mapped <- bufferPools .: "mapped"
-        direct <- bufferPools .: "direct"
-        gc <- o .: "gc"
-        collectors <- gc .: "collectors"
-        oldC <- collectors .: "old"
-        youngC <- collectors .: "young"
-        threads <- o .: "threads"
-        mem <- o .: "mem"
-        pools <- mem .: "pools"
-        oldM <- pools .: "old"
-        survivorM <- pools .: "survivor"
-        youngM <- pools .: "young"
-        NodeJVMStats <$> pure mapped
-                     <*> pure direct
-                     <*> pure oldC
-                     <*> pure youngC
-                     <*> threads .: "peak_count"
-                     <*> threads .: "count"
-                     <*> pure oldM
-                     <*> pure survivorM
-                     <*> pure youngM
-                     <*> mem .: "non_heap_committed_in_bytes"
-                     <*> mem .: "non_heap_used_in_bytes"
-                     <*> mem .: "heap_max_in_bytes"
-                     <*> mem .: "heap_committed_in_bytes"
-                     <*> mem .: "heap_used_percent"
-                     <*> mem .: "heap_used_in_bytes"
-                     <*> (unMS <$> o .: "uptime_in_millis")
-                     <*> (posixMS <$> o .: "timestamp")
-
-instance FromJSON JVMBufferPoolStats where
-  parseJSON = withObject "JVMBufferPoolStats" parse
-    where
-      parse o = JVMBufferPoolStats <$> o .: "total_capacity_in_bytes"
-                                   <*> o .: "used_in_bytes"
-                                   <*> o .: "count"
-
-instance FromJSON JVMGCStats where
-  parseJSON = withObject "JVMGCStats" parse
-    where
-      parse o = JVMGCStats <$> (unMS <$> o .: "collection_time_in_millis")
-                           <*> o .: "collection_count"
-
-instance FromJSON JVMPoolStats where
-  parseJSON = withObject "JVMPoolStats" parse
-    where
-      parse o = JVMPoolStats <$> o .: "peak_max_in_bytes"
-                             <*> o .: "peak_used_in_bytes"
-                             <*> o .: "max_in_bytes"
-                             <*> o .: "used_in_bytes"
-
-instance FromJSON NodeProcessStats where
-  parseJSON = withObject "NodeProcessStats" parse
-    where
-      parse o = do
-        mem <- o .: "mem"
-        cpu <- o .: "cpu"
-        NodeProcessStats <$> (posixMS <$> o .: "timestamp")
-                         <*> o .: "open_file_descriptors"
-                         <*> o .: "max_file_descriptors"
-                         <*> cpu .: "percent"
-                         <*> (unMS <$> cpu .: "total_in_millis")
-                         <*> mem .: "total_virtual_in_bytes"
-
-instance FromJSON NodeOSStats where
-  parseJSON = withObject "NodeOSStats" parse
-    where
-      parse o = do
-        swap <- o .: "swap"
-        mem <- o .: "mem"
-        cpu <- o .: "cpu"
-        load <- o .:? "load_average"
-        NodeOSStats <$> (posixMS <$> o .: "timestamp")
-                    <*> cpu .: "percent"
-                    <*> pure load
-                    <*> mem .: "total_in_bytes"
-                    <*> mem .: "free_in_bytes"
-                    <*> mem .: "free_percent"
-                    <*> mem .: "used_in_bytes"
-                    <*> mem .: "used_percent"
-                    <*> swap .: "total_in_bytes"
-                    <*> swap .: "free_in_bytes"
-                    <*> swap .: "used_in_bytes"
-
-instance FromJSON LoadAvgs where
-  parseJSON = withArray "LoadAvgs" parse
-    where
-      parse v = case V.toList v of
-        [one, five, fifteen] -> LoadAvgs <$> parseJSON one
-                                         <*> parseJSON five
-                                         <*> parseJSON fifteen
-        _                    -> fail "Expecting a triple of Doubles"
-
-instance FromJSON NodeIndicesStats where
-  parseJSON = withObject "NodeIndicesStats" parse
-    where
-      parse o = do
-        let (.::) mv k = case mv of
-              Just v  -> Just <$> v .: k
-              Nothing -> pure Nothing
-        mRecovery <- o .:? "recovery"
-        mQueryCache <- o .:? "query_cache"
-        mSuggest <- o .:? "suggest"
-        translog <- o .: "translog"
-        segments <- o .: "segments"
-        completion <- o .: "completion"
-        mPercolate <- o .:? "percolate"
-        fielddata <- o .: "fielddata"
-        warmer <- o .: "warmer"
-        flush <- o .: "flush"
-        refresh <- o .: "refresh"
-        merges <- o .: "merges"
-        search <- o .: "search"
-        getStats <- o .: "get"
-        indexing <- o .: "indexing"
-        store <- o .: "store"
-        docs <- o .: "docs"
-        NodeIndicesStats <$> (fmap unMS <$> mRecovery .:: "throttle_time_in_millis")
-                         <*> mRecovery .:: "current_as_target"
-                         <*> mRecovery .:: "current_as_source"
-                         <*> mQueryCache .:: "miss_count"
-                         <*> mQueryCache .:: "hit_count"
-                         <*> mQueryCache .:: "evictions"
-                         <*> mQueryCache .:: "memory_size_in_bytes"
-                         <*> mSuggest .:: "current"
-                         <*> (fmap unMS <$> mSuggest .:: "time_in_millis")
-                         <*> mSuggest .:: "total"
-                         <*> translog .: "size_in_bytes"
-                         <*> translog .: "operations"
-                         <*> segments .:? "fixed_bit_set_memory_in_bytes"
-                         <*> segments .: "version_map_memory_in_bytes"
-                         <*> segments .:? "index_writer_max_memory_in_bytes"
-                         <*> segments .: "index_writer_memory_in_bytes"
-                         <*> segments .: "memory_in_bytes"
-                         <*> segments .: "count"
-                         <*> completion .: "size_in_bytes"
-                         <*> mPercolate .:: "queries"
-                         <*> mPercolate .:: "memory_size_in_bytes"
-                         <*> mPercolate .:: "current"
-                         <*> (fmap unMS <$> mPercolate .:: "time_in_millis")
-                         <*> mPercolate .:: "total"
-                         <*> fielddata .: "evictions"
-                         <*> fielddata .: "memory_size_in_bytes"
-                         <*> (unMS <$> warmer .: "total_time_in_millis")
-                         <*> warmer .: "total"
-                         <*> warmer .: "current"
-                         <*> (unMS <$> flush .: "total_time_in_millis")
-                         <*> flush .: "total"
-                         <*> (unMS <$> refresh .: "total_time_in_millis")
-                         <*> refresh .: "total"
-                         <*> merges .: "total_size_in_bytes"
-                         <*> merges .: "total_docs"
-                         <*> (unMS <$> merges .: "total_time_in_millis")
-                         <*> merges .: "total"
-                         <*> merges .: "current_size_in_bytes"
-                         <*> merges .: "current_docs"
-                         <*> merges .: "current"
-                         <*> search .: "fetch_current"
-                         <*> (unMS <$> search .: "fetch_time_in_millis")
-                         <*> search .: "fetch_total"
-                         <*> search .: "query_current"
-                         <*> (unMS <$> search .: "query_time_in_millis")
-                         <*> search .: "query_total"
-                         <*> search .: "open_contexts"
-                         <*> getStats .: "current"
-                         <*> (unMS <$> getStats .: "missing_time_in_millis")
-                         <*> getStats .: "missing_total"
-                         <*> (unMS <$> getStats .: "exists_time_in_millis")
-                         <*> getStats .: "exists_total"
-                         <*> (unMS <$> getStats .: "time_in_millis")
-                         <*> getStats .: "total"
-                         <*> (fmap unMS <$> indexing .:? "throttle_time_in_millis")
-                         <*> indexing .:? "is_throttled"
-                         <*> indexing .:? "noop_update_total"
-                         <*> indexing .: "delete_current"
-                         <*> (unMS <$> indexing .: "delete_time_in_millis")
-                         <*> indexing .: "delete_total"
-                         <*> indexing .: "index_current"
-                         <*> (unMS <$> indexing .: "index_time_in_millis")
-                         <*> indexing .: "index_total"
-                         <*> (unMS <$> store .: "throttle_time_in_millis")
-                         <*> store .: "size_in_bytes"
-                         <*> docs .: "deleted"
-                         <*> docs .: "count"
-
-instance FromJSON NodeBreakersStats where
-  parseJSON = withObject "NodeBreakersStats" parse
-    where
-      parse o = NodeBreakersStats <$> o .: "parent"
-                                  <*> o .: "request"
-                                  <*> o .: "fielddata"
-
-parseNodeStats :: FullNodeId -> Object -> Parser NodeStats
-parseNodeStats fnid o = do
-  NodeStats <$> o .: "name"
-            <*> pure fnid
-            <*> o .:? "breakers"
-            <*> o .: "http"
-            <*> o .: "transport"
-            <*> o .: "fs"
-            <*> o .:? "network"
-            <*> o .: "thread_pool"
-            <*> o .: "jvm"
-            <*> o .: "process"
-            <*> o .: "os"
-            <*> o .: "indices"
-
-parseNodeInfo :: FullNodeId -> Object -> Parser NodeInfo
-parseNodeInfo nid o =
-  NodeInfo <$> o .:? "http_address"
-           <*> o .: "build_hash"
-           <*> o .: "version"
-           <*> o .: "ip"
-           <*> o .: "host"
-           <*> o .: "transport_address"
-           <*> o .: "name"
-           <*> pure nid
-           <*> o .: "plugins"
-           <*> o .: "http"
-           <*> o .: "transport"
-           <*> o .:? "network"
-           <*> o .: "thread_pool"
-           <*> o .: "jvm"
-           <*> o .: "process"
-           <*> o .: "os"
-           <*> o .: "settings"
-
-instance FromJSON NodePluginInfo where
-  parseJSON = withObject "NodePluginInfo" parse
-    where
-      parse o = NodePluginInfo <$> o .:?  "site"
-                               <*> o .:?  "jvm"
-                               <*> o .:   "description"
-                               <*> o .:   "version"
-                               <*> o .:   "name"
-
-instance FromJSON NodeHTTPInfo where
-  parseJSON = withObject "NodeHTTPInfo" parse
-    where
-      parse o = NodeHTTPInfo <$> o .: "max_content_length_in_bytes"
-                             <*> parseJSON (Object o)
-
-instance FromJSON BoundTransportAddress where
-  parseJSON = withObject "BoundTransportAddress" parse
-    where
-      parse o = BoundTransportAddress <$> o .: "publish_address"
-                                      <*> o .: "bound_address"
-
-instance FromJSON NodeOSInfo where
-  parseJSON = withObject "NodeOSInfo" parse
-    where
-      parse o = do
-        NodeOSInfo <$> (unMS <$> o .: "refresh_interval_in_millis")
-                   <*> o .: "name"
-                   <*> o .: "arch"
-                   <*> o .: "version"
-                   <*> o .: "available_processors"
-                   <*> o .: "allocated_processors"
-
-
-instance FromJSON CPUInfo where
-  parseJSON = withObject "CPUInfo" parse
-    where
-      parse o = CPUInfo <$> o .: "cache_size_in_bytes"
-                        <*> o .: "cores_per_socket"
-                        <*> o .: "total_sockets"
-                        <*> o .: "total_cores"
-                        <*> o .: "mhz"
-                        <*> o .: "model"
-                        <*> o .: "vendor"
-
-instance FromJSON NodeProcessInfo where
-  parseJSON = withObject "NodeProcessInfo" parse
-    where
-      parse o = NodeProcessInfo <$> o .: "mlockall"
-                                <*> o .:? "max_file_descriptors"
-                                <*> o .: "id"
-                                <*> (unMS <$> o .: "refresh_interval_in_millis")
-
-instance FromJSON NodeJVMInfo where
-  parseJSON = withObject "NodeJVMInfo" parse
-    where
-      parse o = NodeJVMInfo <$> o .: "memory_pools"
-                            <*> o .: "gc_collectors"
-                            <*> o .: "mem"
-                            <*> (posixMS <$> o .: "start_time_in_millis")
-                            <*> o .: "vm_vendor"
-                            <*> o .: "vm_version"
-                            <*> o .: "vm_name"
-                            <*> (unJVMVersion <$> o .: "version")
-                            <*> o .: "pid"
-
-instance FromJSON JVMVersion where
-  parseJSON (String t) =
-    JVMVersion <$> parseJSON (String (T.replace "_" "." t))
-  parseJSON v = JVMVersion <$> parseJSON v
-
-instance FromJSON JVMMemoryInfo where
-  parseJSON = withObject "JVMMemoryInfo" parse
-    where
-      parse o = JVMMemoryInfo <$> o .: "direct_max_in_bytes"
-                              <*> o .: "non_heap_max_in_bytes"
-                              <*> o .: "non_heap_init_in_bytes"
-                              <*> o .: "heap_max_in_bytes"
-                              <*> o .: "heap_init_in_bytes"
-
-instance FromJSON NodeThreadPoolsInfo where
-  parseJSON = withObject "NodeThreadPoolsInfo" parse
-    where
-      parse o = NodeThreadPoolsInfo <$> o .: "refresh"
-                                    <*> o .: "management"
-                                    <*> o .:? "percolate"
-                                    <*> o .:? "listener"
-                                    <*> o .:? "fetch_shard_started"
-                                    <*> o .: "search"
-                                    <*> o .: "flush"
-                                    <*> o .: "warmer"
-                                    <*> o .:? "optimize"
-                                    <*> o .: "bulk"
-                                    <*> o .:? "suggest"
-                                    <*> o .: "force_merge"
-                                    <*> o .: "snapshot"
-                                    <*> o .: "get"
-                                    <*> o .:? "fetch_shard_store"
-                                    <*> o .: "index"
-                                    <*> o .: "generic"
-
-instance FromJSON NodeThreadPoolInfo where
-  parseJSON = withObject "NodeThreadPoolInfo" parse
-    where
-      parse o = do
-        ka <- maybe (return Nothing) (fmap Just . parseStringInterval) =<< o .:? "keep_alive"
-        NodeThreadPoolInfo <$> (parseJSON . unStringlyTypeJSON =<< o .: "queue_size")
-                           <*> pure ka
-                           <*> o .:? "min"
-                           <*> o .:? "max"
-                           <*> o .: "type"
-
-parseStringInterval :: (Monad m) => String -> m NominalDiffTime
-parseStringInterval s = case span isNumber s of
-  ("", _) -> fail "Invalid interval"
-  (nS, unitS) -> case (readMay nS, readMay unitS) of
-    (Just n, Just unit) -> return (fromInteger (n * unitNDT unit))
-    (Nothing, _)        -> fail "Invalid interval number"
-    (_, Nothing)        -> fail "Invalid interval unit"
-  where
-    unitNDT Seconds = 1
-    unitNDT Minutes = 60
-    unitNDT Hours   = 60 * 60
-    unitNDT Days    = 24 * 60 * 60
-    unitNDT Weeks   = 7 * 24 * 60 * 60
-
-instance FromJSON ThreadPoolSize where
-  parseJSON v = parseAsNumber v <|> parseAsString v
-    where
-      parseAsNumber = parseAsInt <=< parseJSON
-      parseAsInt (-1) = return ThreadPoolUnbounded
-      parseAsInt n
-        | n >= 0 = return (ThreadPoolBounded n)
-        | otherwise = fail "Thread pool size must be >= -1."
-      parseAsString = withText "ThreadPoolSize" $ \t ->
-        case first (readMay . T.unpack) (T.span isNumber t) of
-          (Just n, "k") -> return (ThreadPoolBounded (n * 1000))
-          (Just n, "")  -> return (ThreadPoolBounded n)
-          _             -> fail ("Invalid thread pool size " <> T.unpack t)
-
-instance FromJSON ThreadPoolType where
-  parseJSON = withText "ThreadPoolType" parse
-    where
-      parse "scaling" = return ThreadPoolScaling
-      parse "fixed"   = return ThreadPoolFixed
-      parse "cached"  = return ThreadPoolCached
-      parse e         = fail ("Unexpected thread pool type" <> T.unpack e)
-
-instance FromJSON NodeTransportInfo where
-  parseJSON = withObject "NodeTransportInfo" parse
-    where
-      parse o = NodeTransportInfo <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
-                                  <*> parseJSON (Object o)
-      parseProfiles (Object o)  | HM.null o = return []
-      parseProfiles v@(Array _) = parseJSON v
-      parseProfiles Null        = return []
-      parseProfiles _           = fail "Could not parse profiles"
-
-instance FromJSON NodeNetworkInfo where
-  parseJSON = withObject "NodeNetworkInfo" parse
-    where
-      parse o = NodeNetworkInfo <$> o .: "primary_interface"
-                                <*> (unMS <$> o .: "refresh_interval_in_millis")
-
-
-instance FromJSON NodeNetworkInterface where
-  parseJSON = withObject "NodeNetworkInterface" parse
-    where
-      parse o = NodeNetworkInterface <$> o .: "mac_address"
-                                     <*> o .: "name"
-                                     <*> o .: "address"
-
-newtype MaybeNA a = MaybeNA { unMaybeNA :: Maybe a }
-  deriving (Show, Eq)
-
-instance FromJSON a => FromJSON (MaybeNA a) where
-  parseJSON (String "NA") = pure $ MaybeNA Nothing
-  parseJSON o             = MaybeNA . Just <$> parseJSON o
 
 data Suggest = Suggest { suggestText :: Text
                        , suggestName :: Text
                        , suggestType :: SuggestType
                        }
- deriving (Show, Generic, Eq, Read)
+ deriving (Eq, Show)
 
 instance ToJSON Suggest where
   toJSON Suggest{..} = object [ "text" .= suggestText
@@ -5270,7 +1604,7 @@ instance FromJSON Suggest where
   parseJSON x = typeMismatch "Suggest" x
 
 data SuggestType = SuggestTypePhraseSuggester PhraseSuggester
-  deriving (Show, Generic, Eq, Read)
+  deriving (Eq, Show)
 
 instance ToJSON SuggestType where
   toJSON (SuggestTypePhraseSuggester x) = object ["phrase" .= x]
@@ -5294,7 +1628,7 @@ data PhraseSuggester =
                   , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
                   , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
                   }
-  deriving (Show, Generic, Eq, Read)
+  deriving (Eq, Show)
 
 instance ToJSON PhraseSuggester where
   toJSON PhraseSuggester{..} = omitNulls [ "field" .= phraseSuggesterField
@@ -5334,7 +1668,7 @@ data PhraseSuggesterHighlighter =
   PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
                              , phraseSuggesterHighlighterPostTag :: Text
                              }
-  deriving (Show, Generic, Eq, Read)
+  deriving (Eq, Show)
 
 instance ToJSON PhraseSuggesterHighlighter where
   toJSON PhraseSuggesterHighlighter{..} =
@@ -5352,7 +1686,7 @@ data PhraseSuggesterCollate =
   PhraseSuggesterCollate { phraseSuggesterCollateTemplateQuery :: TemplateQueryInline
                          , phraseSuggesterCollatePrune :: Bool
                          }
-  deriving (Show, Generic, Eq, Read)
+  deriving (Eq, Show)
 
 instance ToJSON PhraseSuggesterCollate where
   toJSON PhraseSuggesterCollate{..} = object [ "query" .= object

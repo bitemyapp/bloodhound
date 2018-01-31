@@ -31,18 +31,22 @@ Flag ES5
   Description: Run the test suite against an Elasticsearch 5.x server
   Default:     True
 
+-- Database.V1.Bloodhound
+-- Database.V1.Bloodhound.Client
+-- Database.V1.Bloodhound.Types
+-- Database.V1.Bloodhound.Types.Class
+-- Database.V1.Bloodhound.Types.Internal
+                       
 library
   ghc-options:         -Wall
-  exposed-modules:     Database.V1.Bloodhound
-                       Database.V1.Bloodhound.Client
-                       Database.V1.Bloodhound.Types
-                       Database.V1.Bloodhound.Types.Class
-                       Database.V1.Bloodhound.Types.Internal
-                       Database.V5.Bloodhound
+  exposed-modules:     Database.V5.Bloodhound
                        Database.V5.Bloodhound.Client
                        Database.V5.Bloodhound.Types
                        Database.V5.Bloodhound.Types.Class
                        Database.V5.Bloodhound.Types.Internal
+                       Database.V5.Bloodhound.Types.Internal.Analysis
+                       Database.V5.Bloodhound.Types.Internal.Client
+                       Database.V5.Bloodhound.Types.Internal.Query
   hs-source-dirs:      src
   build-depends:       base             >= 4.3     && <5,
                        bytestring       >= 0.10.0  && <0.11,
@@ -66,7 +70,7 @@ library
                        hashable
   default-language:    Haskell2010
 
-test-suite tests
+test-suite bloodhound-tests
   ghc-options: -Wall -fno-warn-orphans
   type: exitcode-stdio-1.0
   main-is: tests.hs

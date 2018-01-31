@@ -44,7 +44,7 @@ import           Data.Typeable
 import qualified Data.Vector                     as V
 import qualified Data.Version                    as Vers
 import           Database.V5.Bloodhound
-import           GHC.Generics                    as G
+-- import           GHC.Generics                    as G
 import           Network.HTTP.Client             hiding (Proxy)
 import qualified Network.HTTP.Types.Method       as NHTM
 import qualified Network.HTTP.Types.Status       as NHTS
@@ -164,7 +164,7 @@ propJSON _ = prop testName $ \(a :: a) ->
         ty = typeOf (undefined :: a)
 
 data Location = Location { lat :: Double
-                         , lon :: Double } deriving (Eq, Generic, Show)
+                         , lon :: Double } deriving (Eq, Show)
 
 data Tweet = Tweet { user     :: Text
                    , postDate :: UTCTime
@@ -172,7 +172,7 @@ data Tweet = Tweet { user     :: Text
                    , age      :: Int
                    , location :: Location
                    , extra    :: Maybe Text }
-           deriving (Eq, Generic, Show)
+           deriving (Eq, Show)
 
 instance ToJSON   Tweet where
   toJSON = genericToJSON defaultOptions
@@ -433,7 +433,7 @@ withSnapshot srn sn = bracket_ alloc free
 
 
 
-data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
+data BulkTest = BulkTest { name :: Text } deriving (Eq, Show)
 instance FromJSON BulkTest where
   parseJSON = genericParseJSON defaultOptions
 instance ToJSON BulkTest where

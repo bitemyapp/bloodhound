@@ -1,3 +1,5 @@
+stack = STACK_YAML='stack.yaml' stack
+
 build:
 	stack build
 
@@ -9,6 +11,9 @@ echo-warn:
 
 test: echo-warn
 	stack test
+
+ghcid:
+	ghcid -c "$(stack) ghci bloodhound:lib --test --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is bloodhound:test:bloodhound-tests"
 
 7.8-build:
 	STACK_YAML="stack-7.8.yaml" stack build
