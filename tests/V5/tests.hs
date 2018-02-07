@@ -435,7 +435,18 @@ withSnapshot srn sn = bracket_ alloc free
 
 newtype BulkTest =
   BulkTest { name :: Text }
-  deriving (Eq, Show, FromJSON, ToJSON)
+  deriving (Eq, Show)
+
+instance ToJSON BulkTest where
+  toJSON (BulkTest name) =
+    object ["name" .= name]
+
+instance FromJSON BulkTest where
+  parseJSON = withObject "BulkTest" parse
+    where
+      parse o = do
+        t <- o .: "name"
+        BulkTest <$> parseJSON t
 
 -- | Typeclass for "equal where it matters". Use this to specify
 -- less-strict equivalence for things such as lists that can wind up

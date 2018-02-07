@@ -215,6 +215,7 @@ dispatch dMethod url body = do
          $ setRequestIgnoreStatus
          $ initReq { method = dMethod
                    , requestHeaders =
+                     -- "application/x-ndjson" for bulk
                      ("Content-Type", "application/json") : requestHeaders initReq
                    , requestBody = reqBody }
   -- req <- liftIO $ reqHook $ setRequestIgnoreStatus $ initReq { method = dMethod
@@ -856,7 +857,9 @@ deleteDocument (IndexName indexName)
 -- >>> _ <- runBH' $ bulk stream
 -- >>> _ <- runBH' $ refreshIndex testIndex
 bulk :: MonadBH m => V.Vector BulkOperation -> m Reply
-bulk bulkOps = bindM2 post url (return body)
+bulk bulkOps = do
+  liftIO $ print body
+  bindM2 post url (return body)
   where url = joinPath ["_bulk"]
         body = Just $ encodeBulkOperations bulkOps
 
@@ -868,9 +871,12 @@ bulk bulkOps = bindM2 post url (return body)
 -- "\n{\"index\":{\"_type\":\"tweet\",\"_id\":\"2\",\"_index\":\"twitter\"}}\n{\"name\":\"blah\"}\n"
 encodeBulkOperations :: V.Vector BulkOperation -> L.ByteString
 encodeBulkOperations stream = collapsed where
-  blobs = fmap encodeBulkOperation stream
-  mashedTaters = mash (mempty :: Builder) blobs
-  collapsed = toLazyByteString $ mappend mashedTaters (byteString "\n")
+  blobs =
+    fmap encodeBulkOperation stream
+  mashedTaters =
+    mash (mempty :: Builder) blobs
+  collapsed =
+    toLazyByteString $ mappend mashedTaters (byteString "\n")
 
 mash :: Builder -> V.Vector L.ByteString -> Builder
 mash = V.foldl' (\b x -> b `mappend` (byteString "\n") `mappend` (lazyByteString x))
