@@ -2,14 +2,7 @@
 
 module Database.V5.Bloodhound.Types.Internal.StringlyTyped where
 
-import           Control.Monad    (MonadPlus(..))
 import           Data.Aeson
-import           Data.Aeson.Types ( Pair, Parser,
-                                    emptyObject,
-                                    parseEither, parseMaybe,
-                                    typeMismatch
-                                  )
-import           Data.Text        (Text)
 import qualified Data.Text     as T
 
 import           Bloodhound.Import

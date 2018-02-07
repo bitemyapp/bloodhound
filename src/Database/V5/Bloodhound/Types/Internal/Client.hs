@@ -277,9 +277,9 @@ data InitialShardCount = QuorumShards
 data NodeAttrFilter = NodeAttrFilter
   { nodeAttrFilterName   :: NodeAttrName
   , nodeAttrFilterValues :: NonEmpty Text }
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
-newtype NodeAttrName = NodeAttrName Text deriving (Eq, Show)
+newtype NodeAttrName = NodeAttrName Text deriving (Eq, Ord, Show)
 
 data CompoundFormat = CompoundFileFormat Bool
                     | MergeSegmentVsTotalIndex Double

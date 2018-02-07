@@ -4,11 +4,7 @@
 module Database.V5.Bloodhound.Types.Internal.Analysis where
 
 import           Data.Aeson
-import           Data.Aeson.Types ( Pair, Parser,
-                                    emptyObject,
-                                    parseEither, parseMaybe,
-                                    typeMismatch
-                                  )
+import           Data.Aeson.Types (Parser)
 import qualified Data.Map.Strict as M
 import           Data.Maybe         (catMaybes)
 import           Data.Text          (Text)

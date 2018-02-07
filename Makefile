@@ -3,17 +3,26 @@ stack = STACK_YAML='stack.yaml' stack
 build:
 	stack build
 
+ghci:
+	stack ghci
+
+test: echo-warn
+	stack test
+
+test-rerun: echo-warn
+	stack test --test-arguments "-r"
+
+test-ghci:
+	stack ghci bloodhound:test:bloodhound-tests
+
+ghcid:
+	ghcid -c "$(stack) ghci bloodhound:lib --test --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is bloodhound:test:bloodhound-tests"
+
 mod-build:
 	stack build --ghc-options '+RTS -A128M -RTS'
 
 echo-warn:
 	echo "Make certain you have an elasticsearch instance on localhost:9200 !"
-
-test: echo-warn
-	stack test
-
-ghcid:
-	ghcid -c "$(stack) ghci bloodhound:lib --test --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is bloodhound:test:bloodhound-tests"
 
 7.8-build:
 	STACK_YAML="stack-7.8.yaml" stack build
@@ -48,9 +57,6 @@ ghcid:
 module-touch:
 	touch src/Database/V1/Bloodhound/Types.hs
 	touch src/Database/V5/Bloodhound/Types.hs
-
-ghci:
-	stack ghci
 
 upload:
 	stack upload --no-signature .

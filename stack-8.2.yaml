@@ -5,6 +5,10 @@ flags:
 packages:
   - '.'
   - './examples'
+  - location:
+      git: git@github.com:bitemyapp/quickcheck-arbitrary-template.git
+      commit: 900e4f65769c93602cc6713182e4bd03681bf2b6
+    extra-dep: true
 
 extra-deps:
   - http-types-0.12

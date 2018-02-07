@@ -6,7 +6,6 @@ module Database.V5.Bloodhound.Types.Internal.Query where
 
 import           Bloodhound.Import
 
-import           Control.Applicative
 import           Data.Char           (isNumber)
 import qualified Data.HashMap.Strict as HM
 import           Data.List           (nub)

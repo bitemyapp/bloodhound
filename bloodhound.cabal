@@ -96,6 +96,8 @@ test-suite bloodhound-tests
                        vector,
                        unordered-containers >= 0.2.5.0 && <0.3,
                        mtl,
+                       pretty-simple,
+                       quickcheck-arbitrary-template,
                        quickcheck-properties,
                        generics-sop         >=0.2 && <0.4,
                        errors,

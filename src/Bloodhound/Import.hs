@@ -19,7 +19,7 @@ import           Control.Monad.Catch    as X ( MonadCatch
                                              , MonadMask
                                              , MonadThrow
                                              )
-import           Control.Monad.Error    as X (MonadError)
+import           Control.Monad.Except   as X (MonadError)
 import           Control.Monad.Reader   as X ( MonadReader (..)
                                              , MonadTrans (..)
                                              , ReaderT (..)
@@ -35,7 +35,6 @@ import           Data.Aeson.Types       as X ( Pair
                                              , typeMismatch
                                              )
 import           Data.Bifunctor         as X (first)
-import qualified Data.ByteString        as X (ByteString)
 import           Data.Char              as X (isNumber)
 import           Data.Hashable          as X (Hashable)
 import           Data.List              as X ( foldl'

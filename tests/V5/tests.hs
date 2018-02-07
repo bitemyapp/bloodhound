@@ -7,6 +7,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 #if __GLASGOW_HASKELL__ < 800
@@ -24,6 +25,7 @@ import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.Reader
 import           Data.Aeson
+import           Data.Aeson.TH
 import           Data.Aeson.Types                (parseEither)
 import qualified Data.ByteString.Lazy.Char8      as BL8
 import qualified Data.HashMap.Strict             as HM
@@ -44,7 +46,6 @@ import           Data.Typeable
 import qualified Data.Vector                     as V
 import qualified Data.Version                    as Vers
 import           Database.V5.Bloodhound
--- import           GHC.Generics                    as G
 import           Network.HTTP.Client             hiding (Proxy)
 import qualified Network.HTTP.Types.Method       as NHTM
 import qualified Network.HTTP.Types.Status       as NHTS
@@ -57,9 +58,8 @@ import           Test.QuickCheck.Property.Monoid (T (..), eq, prop_Monoid)
 
 import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck
-
-import qualified Generics.SOP as SOP
-import qualified Generics.SOP.GGP as SOP
+import           Test.QuickCheck.TH.Generators
+import           Text.Pretty.Simple (pPrint)
 
 testServer  :: Server
 testServer  = Server "http://localhost:9200"
@@ -153,13 +153,19 @@ is v = getServerVersion >>= \x -> return $ x == Just v
 when' :: Monad m => m Bool -> m () -> m ()
 when' b f = b >>= \x -> when x f
 
-(==~) :: (ApproxEq a) => a -> a -> Property
-a ==~ b = counterexample (showApproxEq a ++ " !=~ " ++ showApproxEq b) (a =~ b)
-
-propJSON :: forall a. (Arbitrary a, ToJSON a, FromJSON a, Show a, ApproxEq a, Typeable a) => Proxy a -> Spec
+propJSON :: forall a
+          . ( Arbitrary a
+            , ToJSON a
+            , FromJSON a
+            , Show a
+            , Eq a
+            , Typeable a
+            )
+         => Proxy a -> Spec
 propJSON _ = prop testName $ \(a :: a) ->
   let jsonStr = "via " <> BL8.unpack (encode a)
-  in counterexample jsonStr (parseEither parseJSON (toJSON a) ==~ Right a)
+  in counterexample jsonStr (parseEither parseJSON (toJSON a)
+                             === Right a)
   where testName = show ty <> " FromJSON/ToJSON roundtrips"
         ty = typeOf (undefined :: a)
 
@@ -174,14 +180,8 @@ data Tweet = Tweet { user     :: Text
                    , extra    :: Maybe Text }
            deriving (Eq, Show)
 
-instance ToJSON   Tweet where
-  toJSON = genericToJSON defaultOptions
-instance FromJSON Tweet where
-  parseJSON = genericParseJSON defaultOptions
-instance ToJSON   Location where
-  toJSON = genericToJSON defaultOptions
-instance FromJSON Location where
-  parseJSON = genericParseJSON defaultOptions
+$(deriveJSON defaultOptions ''Location)
+$(deriveJSON defaultOptions ''Tweet)
 
 data ParentMapping = ParentMapping deriving (Eq, Show)
 
@@ -433,208 +433,63 @@ withSnapshot srn sn = bracket_ alloc free
 
 
 
-data BulkTest = BulkTest { name :: Text } deriving (Eq, Show)
-instance FromJSON BulkTest where
-  parseJSON = genericParseJSON defaultOptions
-instance ToJSON BulkTest where
-  toJSON = genericToJSON defaultOptions
-
-class GApproxEq f where
-  gApproxEq :: f a -> f a -> Bool
-
--- | Unit type
-instance GApproxEq U1 where
-  gApproxEq U1 U1 = True
-
--- | Sum type, ensure same constructors, recurse
-instance (GApproxEq a, GApproxEq b) => GApproxEq (a :+: b) where
-  gApproxEq (L1 a) (L1 b) = gApproxEq a b
-  gApproxEq (R1 a) (R1 b) = gApproxEq a b
-  gApproxEq _ _           = False
-
--- | Product type, ensure each field is approx eq
-instance (GApproxEq a, GApproxEq b) => GApproxEq (a :*: b) where
-  gApproxEq (a1 :*: b1) (a2 :*: b2) = gApproxEq a1 a2 && gApproxEq b1 b2
-
--- | Value type, actually check the values for approx equality
-instance (ApproxEq a) => GApproxEq (K1 i a) where
-  gApproxEq (K1 a) (K1 b) = a =~ b
-
-instance (GApproxEq f) => GApproxEq (M1 i t f) where
-  gApproxEq (M1 a) (M1 b) = gApproxEq a b
+newtype BulkTest =
+  BulkTest { name :: Text }
+  deriving (Eq, Show, FromJSON, ToJSON)
 
 -- | Typeclass for "equal where it matters". Use this to specify
 -- less-strict equivalence for things such as lists that can wind up
 -- in an unpredictable order
 class ApproxEq a where
   (=~) :: a -> a -> Bool
-  default (=~) :: (Generic a, GApproxEq (Rep a)) => a -> a -> Bool
-  a =~ b = gApproxEq (G.from a) (G.from b)
 
   showApproxEq :: a -> String
   default showApproxEq :: (Show a) => a -> String
   showApproxEq = show
 
+(==~) :: (ApproxEq a) => a -> a -> Property
+a ==~ b = counterexample (showApproxEq a ++ " !=~ " ++ showApproxEq b) (a =~ b)
+
+propApproxJSON :: forall a
+                . ( Arbitrary a
+                  , ToJSON a
+                  , FromJSON a
+                  , Show a
+                  , ApproxEq a
+                  , Typeable a
+                  )
+               => Proxy a -> Spec
+propApproxJSON _ = prop testName $ \(a :: a) ->
+  let jsonStr = "via " <> BL8.unpack (encode a)
+  in counterexample jsonStr (parseEither parseJSON (toJSON a)
+                             ==~ Right a)
+  where testName = show ty <> " FromJSON/ToJSON roundtrips"
+        ty = typeOf (undefined :: a)
+
 instance ApproxEq NominalDiffTime where (=~) = (==)
-instance ApproxEq UTCTime where (=~) = (==)
-instance ApproxEq Text where (=~) = (==)
 instance ApproxEq Bool where (=~) = (==)
 instance ApproxEq Int where (=~) = (==)
-instance ApproxEq Double where (=~) = (==)
-instance (ApproxEq a, Show a) => ApproxEq (NonEmpty a)
-instance (ApproxEq a, Show a) => ApproxEq (Maybe a)
-instance ApproxEq GeoPoint
-instance ApproxEq Regexp
-instance ApproxEq RangeValue
-instance ApproxEq LessThan
-instance ApproxEq LessThanEq
-instance ApproxEq LessThanD
-instance ApproxEq LessThanEqD
-instance ApproxEq GreaterThan
-instance ApproxEq GreaterThanEq
-instance ApproxEq GreaterThanD
-instance ApproxEq GreaterThanEqD
-instance ApproxEq MinimumMatchHighLow
-instance ApproxEq RegexpFlag
-instance ApproxEq RegexpFlags
-instance ApproxEq NullValue
-instance ApproxEq Version
-instance ApproxEq VersionNumber
-instance ApproxEq DistanceRange
-instance ApproxEq IndexName
-instance ApproxEq MappingName
-instance ApproxEq DocId
-instance ApproxEq IndexAliasRouting
-instance ApproxEq RoutingValue
-instance ApproxEq ShardCount
-instance ApproxEq ReplicaCount
-instance ApproxEq TemplateName
-instance ApproxEq TemplatePattern
-instance ApproxEq QueryString
-instance ApproxEq FieldName
-instance ApproxEq CacheName
-instance ApproxEq CacheKey
-instance ApproxEq Existence
-instance ApproxEq CutoffFrequency
-instance ApproxEq Analyzer
-instance ApproxEq Lenient
-instance ApproxEq Tiebreaker
-instance ApproxEq Boost
-instance ApproxEq BoostTerms
-instance ApproxEq MaxExpansions
-instance ApproxEq MinimumMatch
-instance ApproxEq DisableCoord
-instance ApproxEq IgnoreTermFrequency
-instance ApproxEq MinimumTermFrequency
-instance ApproxEq MaxQueryTerms
-instance ApproxEq Fuzziness
-instance ApproxEq PrefixLength
-instance ApproxEq TypeName
-instance ApproxEq PercentMatch
-instance ApproxEq StopWord
-instance ApproxEq QueryPath
-instance ApproxEq AllowLeadingWildcard
-instance ApproxEq LowercaseExpanded
-instance ApproxEq EnablePositionIncrements
-instance ApproxEq AnalyzeWildcard
-instance ApproxEq GeneratePhraseQueries
-instance ApproxEq Locale
-instance ApproxEq MaxWordLength
-instance ApproxEq MinWordLength
-instance ApproxEq PhraseSlop
-instance ApproxEq MinDocFrequency
-instance ApproxEq MaxDocFrequency
-instance ApproxEq Filter
-instance ApproxEq Query
-instance ApproxEq SimpleQueryStringQuery
-instance ApproxEq FieldOrFields
-instance ApproxEq SimpleQueryFlag
-instance ApproxEq RegexpQuery
-instance ApproxEq QueryStringQuery
-instance ApproxEq RangeQuery
-instance ApproxEq PrefixQuery
-instance ApproxEq NestedQuery
-instance ApproxEq MoreLikeThisFieldQuery
-instance ApproxEq MoreLikeThisQuery
-instance ApproxEq IndicesQuery
-instance ApproxEq HasParentQuery
-instance ApproxEq HasChildQuery
-instance ApproxEq FuzzyQuery
-instance ApproxEq FuzzyLikeFieldQuery
-instance ApproxEq FuzzyLikeThisQuery
-instance ApproxEq DisMaxQuery
-instance ApproxEq CommonTermsQuery
-instance ApproxEq CommonMinimumMatch
-instance ApproxEq BoostingQuery
-instance ApproxEq BoolQuery
-instance ApproxEq MatchQuery
-instance ApproxEq MultiMatchQueryType
-instance ApproxEq BooleanOperator
-instance ApproxEq ZeroTermsQuery
-instance ApproxEq MatchQueryType
-instance ApproxEq AliasRouting
-instance ApproxEq IndexAliasCreate
-instance ApproxEq SearchAliasRouting
-instance ApproxEq ScoreType
-instance ApproxEq Distance
-instance ApproxEq DistanceUnit
-instance ApproxEq DistanceType
-instance ApproxEq OptimizeBbox
-instance ApproxEq GeoBoundingBoxConstraint
-instance ApproxEq GeoFilterType
-instance ApproxEq GeoBoundingBox
-instance ApproxEq LatLon
-instance ApproxEq RangeExecution
-instance ApproxEq FSType
-instance ApproxEq CompoundFormat
-instance ApproxEq InitialShardCount
-instance ApproxEq Bytes
-instance ApproxEq ReplicaBounds
-instance ApproxEq Term
-instance ApproxEq BoolMatch
-instance ApproxEq MultiMatchQuery
-instance ApproxEq IndexSettings
-instance ApproxEq AllocationPolicy
+instance (Eq a, Show a) => ApproxEq (Maybe a) where (=~) = (==)
 instance ApproxEq Char where
   (=~) = (==)
-instance ApproxEq Vers.Version where
-  (=~) = (==)
-instance (ApproxEq a, Show a) => ApproxEq [a] where
-  as =~ bs = and (zipWith (=~) as bs)
+
+instance ApproxEq NodeAttrFilter where (=~) = (==)
+instance ApproxEq NodeAttrName where (=~) = (==)
+instance (Eq a, Show a) => ApproxEq (NonEmpty a) where (=~) = (==)
 instance (ApproxEq l, Show l, ApproxEq r, Show r) => ApproxEq (Either l r) where
   Left a =~ Left b = a =~ b
   Right a =~ Right b = a =~ b
   _ =~ _ = False
   showApproxEq (Left x)  = "Left " <> showApproxEq x
   showApproxEq (Right x) = "Right " <> showApproxEq x
-instance ApproxEq NodeAttrFilter
-instance ApproxEq NodeAttrName
-instance ApproxEq BuildHash
-instance ApproxEq TemplateQueryKeyValuePairs where
-  (=~) = (==)
-instance ApproxEq TemplateQueryInline
-instance ApproxEq Size
-instance ApproxEq PhraseSuggesterHighlighter
-instance ApproxEq PhraseSuggesterCollate
-instance ApproxEq PhraseSuggester
-instance ApproxEq SuggestType
-instance ApproxEq Suggest
-
--- | Due to the way nodeattrfilters get serialized here, they may come
--- out in a different order, but they are morally equivalent
-instance ApproxEq UpdatableIndexSetting where
-  RoutingAllocationInclude a =~ RoutingAllocationInclude b =
-    NE.sort a =~ NE.sort b
-  RoutingAllocationExclude a =~ RoutingAllocationExclude b =
-    NE.sort a =~ NE.sort b
-  RoutingAllocationRequire a =~ RoutingAllocationRequire b =
-    NE.sort a =~ NE.sort b
-  a =~ b = a == b
-  showApproxEq (RoutingAllocationInclude xs) = show (RoutingAllocationInclude (NE.sort xs))
-  showApproxEq (RoutingAllocationExclude xs) = show (RoutingAllocationExclude (NE.sort xs))
-  showApproxEq (RoutingAllocationRequire xs) = show (RoutingAllocationRequire (NE.sort xs))
-  showApproxEq x = show x
-
+instance (ApproxEq a, Show a) => ApproxEq [a] where
+  as =~ bs = and (zipWith (=~) as bs)
+instance ApproxEq ReplicaCount where (=~) = (==)
+instance ApproxEq ReplicaBounds where (=~) = (==)
+instance ApproxEq Bytes where (=~) = (==)
+instance ApproxEq AllocationPolicy where (=~) = (==)
+instance ApproxEq InitialShardCount where (=~) = (==)
+instance ApproxEq FSType where (=~) = (==)
 
 noDuplicates :: Eq a => [a] -> Bool
 noDuplicates xs = nub xs == xs
@@ -674,7 +529,7 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> arbitraryScore
                   <*> arbitrary
                   <*> arbitrary
-  shrink = genericShrink
+
 
 
 instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
@@ -683,7 +538,7 @@ instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
     score <- arbitraryScore
     hs <- arbitrary
     return $ SearchHits tot score hs
-  shrink = genericShrink
+
 
 reduceSize :: Gen a -> Gen a
 reduceSize f = sized $ \n -> resize (n `div` 2) f
@@ -721,12 +576,14 @@ instance Arbitrary AliasRouting where
                  <$> (Just <$> arbitrary)
                  <*> (Just <$> arbitrary)
           allAlias = AllAliasRouting <$> arbitrary
-  shrink = genericShrink
+
 
 
 instance Arbitrary FieldName where
-  arbitrary = FieldName . T.pack <$> listOf1 arbitraryAlphaNum
-  shrink = genericShrink
+  arbitrary =
+        FieldName
+      . T.pack
+    <$> listOf1 arbitraryAlphaNum
 
 
 #if MIN_VERSION_base(4,10,0)
@@ -737,7 +594,9 @@ qcNonEmptyToNonEmpty (NonEmpty (a : xs)) = (a :| xs)
 qcNonEmptyToNonEmpty (NonEmpty []) = error "NonEmpty was empty!"
 
 instance Arbitrary a => Arbitrary (NonEmpty a) where
-  arbitrary = qcNonEmptyToNonEmpty <$> arbitrary
+  arbitrary =
+        qcNonEmptyToNonEmpty
+    <$> arbitrary
 #endif
 
 instance Arbitrary RegexpFlags where
@@ -745,62 +604,73 @@ instance Arbitrary RegexpFlags where
                     , pure NoRegexpFlags
                     , SomeRegexpFlags <$> genUniqueFlags
                     ]
-    where genUniqueFlags = NE.fromList . nub <$> listOf1 arbitrary
-
-  shrink = genericShrink
-
+    where genUniqueFlags =
+                NE.fromList . nub
+            <$> listOf1 arbitrary
 
 instance Arbitrary IndexAliasCreate where
-  arbitrary = IndexAliasCreate <$> arbitrary <*> reduceSize arbitrary
-  shrink = genericShrink
+  arbitrary =
+        IndexAliasCreate
+    <$> arbitrary
+    <*> reduceSize arbitrary
 
 instance Arbitrary Query where
-  arbitrary = reduceSize $ oneof [ TermQuery <$> arbitrary <*> arbitrary
-                                 , TermsQuery <$> arbitrary <*> arbitrary
-                                 , QueryMatchQuery <$> arbitrary
-                                 , QueryMultiMatchQuery <$> arbitrary
-                                 , QueryBoolQuery <$> arbitrary
-                                 , QueryBoostingQuery <$> arbitrary
-                                 , QueryCommonTermsQuery <$> arbitrary
-                                 , ConstantScoreQuery <$> arbitrary <*> arbitrary
-                                 , QueryDisMaxQuery <$> arbitrary
-                                 , QueryFuzzyLikeThisQuery <$> arbitrary
-                                 , QueryFuzzyLikeFieldQuery <$> arbitrary
-                                 , QueryFuzzyQuery <$> arbitrary
-                                 , QueryHasChildQuery <$> arbitrary
-                                 , QueryHasParentQuery <$> arbitrary
-                                 , IdsQuery <$> arbitrary <*> arbitrary
-                                 , QueryIndicesQuery <$> arbitrary
-                                 , MatchAllQuery <$> arbitrary
-                                 , QueryMoreLikeThisQuery <$> arbitrary
-                                 , QueryMoreLikeThisFieldQuery <$> arbitrary
-                                 , QueryNestedQuery <$> arbitrary
-                                 , QueryPrefixQuery <$> arbitrary
-                                 , QueryQueryStringQuery <$> arbitrary
-                                 , QuerySimpleQueryStringQuery <$> arbitrary
-                                 , QueryRangeQuery <$> arbitrary
-                                 , QueryRegexpQuery <$> arbitrary
-                                 , QueryTemplateQueryInline <$> arbitrary
-                                 ]
-  shrink = genericShrink
+  arbitrary =
+    reduceSize
+    $ oneof [ TermQuery <$> arbitrary <*> arbitrary
+            , TermsQuery <$> arbitrary <*> arbitrary
+            , QueryMatchQuery <$> arbitrary
+            , QueryMultiMatchQuery <$> arbitrary
+            , QueryBoolQuery <$> arbitrary
+            , QueryBoostingQuery <$> arbitrary
+            , QueryCommonTermsQuery <$> arbitrary
+            , ConstantScoreQuery <$> arbitrary <*> arbitrary
+            , QueryDisMaxQuery <$> arbitrary
+            , QueryFuzzyLikeThisQuery <$> arbitrary
+            , QueryFuzzyLikeFieldQuery <$> arbitrary
+            , QueryFuzzyQuery <$> arbitrary
+            , QueryHasChildQuery <$> arbitrary
+            , QueryHasParentQuery <$> arbitrary
+            , IdsQuery <$> arbitrary <*> arbitrary
+            , QueryIndicesQuery <$> arbitrary
+            , MatchAllQuery <$> arbitrary
+            , QueryMoreLikeThisQuery <$> arbitrary
+            , QueryMoreLikeThisFieldQuery <$> arbitrary
+            , QueryNestedQuery <$> arbitrary
+            , QueryPrefixQuery <$> arbitrary
+            , QueryQueryStringQuery <$> arbitrary
+            , QuerySimpleQueryStringQuery <$> arbitrary
+            , QueryRangeQuery <$> arbitrary
+            , QueryRegexpQuery <$> arbitrary
+            , QueryTemplateQueryInline <$> arbitrary
+            ]
+  -- TODO: Implement shrink
+  -- shrink = genericShrink
 
 instance Arbitrary Filter where
-  arbitrary = Filter <$> arbitrary 
-  shrink = genericShrink
+  arbitrary =
+    Filter <$> arbitrary 
+  shrink (Filter q) =
+    Filter <$> shrink q
 
 instance Arbitrary ReplicaBounds where
   arbitrary = oneof [ replicasBounded
                     , replicasLowerBounded
                     , pure ReplicasUnbounded
                     ]
-    where replicasBounded = do Positive a <- arbitrary
-                               Positive b <- arbitrary
-                               return (ReplicasBounded a b)
-          replicasLowerBounded = do Positive a <- arbitrary
-                                    return (ReplicasLowerBounded a)
+    where replicasBounded = do
+            Positive a <- arbitrary
+            Positive b <- arbitrary
+            return (ReplicasBounded a b)
+          replicasLowerBounded = do
+            Positive a <- arbitrary
+            return (ReplicasLowerBounded a)
 
 instance Arbitrary NodeAttrName where
-  arbitrary = NodeAttrName . T.pack <$> listOf1 arbitraryAlphaNum
+  arbitrary =
+        NodeAttrName
+      . T.pack
+    <$> listOf1 arbitraryAlphaNum
 
 
 instance Arbitrary NodeAttrFilter where
@@ -809,7 +679,6 @@ instance Arbitrary NodeAttrFilter where
     s:ss <- listOf1 (listOf1 arbitraryAlphaNum)
     let ts = T.pack <$> s :| ss
     return (NodeAttrFilter n ts)
-  shrink = genericShrink
 
 instance Arbitrary VersionNumber where
   arbitrary = mk . fmap getPositive . getNonEmpty <$> arbitrary
@@ -820,142 +689,285 @@ instance Arbitrary TemplateQueryKeyValuePairs where
   arbitrary = TemplateQueryKeyValuePairs . HM.fromList <$> arbitrary
   shrink (TemplateQueryKeyValuePairs x) = map (TemplateQueryKeyValuePairs . HM.fromList) . shrink $ HM.toList x
 
-instance Arbitrary IndexName where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MappingName where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary DocId where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Version where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary BuildHash where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary IndexAliasRouting where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary ShardCount where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary ReplicaCount where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary TemplateName where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary TemplatePattern where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary QueryString where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary CacheName where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary CacheKey where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Existence where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary CutoffFrequency where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Analyzer where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MaxExpansions where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Lenient where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Tiebreaker where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Boost where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary BoostTerms where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MinimumMatch where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary DisableCoord where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary IgnoreTermFrequency where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MinimumTermFrequency where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MaxQueryTerms where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Fuzziness where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary PrefixLength where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary TypeName where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary PercentMatch where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary StopWord where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary QueryPath where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary AllowLeadingWildcard where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary LowercaseExpanded where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary EnablePositionIncrements where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary AnalyzeWildcard where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GeneratePhraseQueries where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Locale where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MaxWordLength where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MinWordLength where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary PhraseSlop where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MinDocFrequency where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MaxDocFrequency where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Regexp where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary SimpleQueryStringQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary FieldOrFields where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary SimpleQueryFlag where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary RegexpQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary QueryStringQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary RangeQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary RangeValue where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary PrefixQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary NestedQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MoreLikeThisFieldQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MoreLikeThisQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary IndicesQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary HasParentQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary HasChildQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary FuzzyQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary FuzzyLikeFieldQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary FuzzyLikeThisQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary DisMaxQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary CommonTermsQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary DistanceRange where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MultiMatchQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary LessThanD where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary LessThanEqD where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GreaterThanD where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GreaterThanEqD where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary LessThan where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary LessThanEq where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GreaterThan where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GreaterThanEq where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GeoPoint where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary NullValue where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MinimumMatchHighLow where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary CommonMinimumMatch where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary BoostingQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary BoolQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MatchQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MultiMatchQueryType where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary BooleanOperator where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary ZeroTermsQuery where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary MatchQueryType where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary SearchAliasRouting where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary ScoreType where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Distance where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary DistanceUnit where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary DistanceType where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary OptimizeBbox where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GeoBoundingBoxConstraint where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GeoFilterType where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary GeoBoundingBox where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary LatLon where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary RangeExecution where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary RegexpFlag where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary BoolMatch where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Term where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary IndexSettings where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary TokenChar where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Ngram where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary TokenizerDefinition where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary AnalyzerDefinition where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Analysis where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Tokenizer where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary UpdatableIndexSetting where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Compression where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Bytes where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary AllocationPolicy where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary InitialShardCount where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary FSType where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary CompoundFormat where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary FsSnapshotRepo where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary SnapshotRepoName where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary TemplateQueryInline where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary PhraseSuggesterCollate where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary PhraseSuggesterHighlighter where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Size where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary PhraseSuggester where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary SuggestType where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary Suggest where arbitrary = sopArbitrary; shrink = genericShrink
+makeArbitrary ''IndexName
+instance Arbitrary IndexName where arbitrary = arbitraryIndexName
+makeArbitrary ''MappingName
+instance Arbitrary MappingName where arbitrary = arbitraryMappingName
+makeArbitrary ''DocId
+instance Arbitrary DocId where arbitrary = arbitraryDocId
+makeArbitrary ''Version
+instance Arbitrary Version where arbitrary = arbitraryVersion
+makeArbitrary ''BuildHash
+instance Arbitrary BuildHash where arbitrary = arbitraryBuildHash
+makeArbitrary ''IndexAliasRouting
+instance Arbitrary IndexAliasRouting where arbitrary = arbitraryIndexAliasRouting
+makeArbitrary ''ShardCount
+instance Arbitrary ShardCount where arbitrary = arbitraryShardCount
+makeArbitrary ''ReplicaCount
+instance Arbitrary ReplicaCount where arbitrary = arbitraryReplicaCount
+makeArbitrary ''TemplateName
+instance Arbitrary TemplateName where arbitrary = arbitraryTemplateName
+makeArbitrary ''TemplatePattern
+instance Arbitrary TemplatePattern where arbitrary = arbitraryTemplatePattern
+makeArbitrary ''QueryString
+instance Arbitrary QueryString where arbitrary = arbitraryQueryString
+makeArbitrary ''CacheName
+instance Arbitrary CacheName where arbitrary = arbitraryCacheName
+makeArbitrary ''CacheKey
+instance Arbitrary CacheKey where arbitrary = arbitraryCacheKey
+makeArbitrary ''Existence
+instance Arbitrary Existence where arbitrary = arbitraryExistence
+makeArbitrary ''CutoffFrequency
+instance Arbitrary CutoffFrequency where arbitrary = arbitraryCutoffFrequency
+makeArbitrary ''Analyzer
+instance Arbitrary Analyzer where arbitrary = arbitraryAnalyzer
+makeArbitrary ''MaxExpansions
+instance Arbitrary MaxExpansions where arbitrary = arbitraryMaxExpansions
+makeArbitrary ''Lenient
+instance Arbitrary Lenient where arbitrary = arbitraryLenient
+makeArbitrary ''Tiebreaker
+instance Arbitrary Tiebreaker where arbitrary = arbitraryTiebreaker
+makeArbitrary ''Boost
+instance Arbitrary Boost where arbitrary = arbitraryBoost
+makeArbitrary ''BoostTerms
+instance Arbitrary BoostTerms where arbitrary = arbitraryBoostTerms
+makeArbitrary ''MinimumMatch
+instance Arbitrary MinimumMatch where arbitrary = arbitraryMinimumMatch
+makeArbitrary ''DisableCoord
+instance Arbitrary DisableCoord where arbitrary = arbitraryDisableCoord
+makeArbitrary ''IgnoreTermFrequency
+instance Arbitrary IgnoreTermFrequency where arbitrary = arbitraryIgnoreTermFrequency
+makeArbitrary ''MinimumTermFrequency
+instance Arbitrary MinimumTermFrequency where arbitrary = arbitraryMinimumTermFrequency
+makeArbitrary ''MaxQueryTerms
+instance Arbitrary MaxQueryTerms where arbitrary = arbitraryMaxQueryTerms
+makeArbitrary ''Fuzziness
+instance Arbitrary Fuzziness where arbitrary = arbitraryFuzziness
+makeArbitrary ''PrefixLength
+instance Arbitrary PrefixLength where arbitrary = arbitraryPrefixLength
+makeArbitrary ''TypeName
+instance Arbitrary TypeName where arbitrary = arbitraryTypeName
+makeArbitrary ''PercentMatch
+instance Arbitrary PercentMatch where arbitrary = arbitraryPercentMatch
+makeArbitrary ''StopWord
+instance Arbitrary StopWord where arbitrary = arbitraryStopWord
+makeArbitrary ''QueryPath
+instance Arbitrary QueryPath where arbitrary = arbitraryQueryPath
+makeArbitrary ''AllowLeadingWildcard
+instance Arbitrary AllowLeadingWildcard where arbitrary = arbitraryAllowLeadingWildcard
+makeArbitrary ''LowercaseExpanded
+instance Arbitrary LowercaseExpanded where arbitrary = arbitraryLowercaseExpanded
+makeArbitrary ''EnablePositionIncrements
+instance Arbitrary EnablePositionIncrements where arbitrary = arbitraryEnablePositionIncrements
+makeArbitrary ''AnalyzeWildcard
+instance Arbitrary AnalyzeWildcard where arbitrary = arbitraryAnalyzeWildcard
+makeArbitrary ''GeneratePhraseQueries
+instance Arbitrary GeneratePhraseQueries where arbitrary = arbitraryGeneratePhraseQueries
+makeArbitrary ''Locale
+instance Arbitrary Locale where arbitrary = arbitraryLocale
+makeArbitrary ''MaxWordLength
+instance Arbitrary MaxWordLength where arbitrary = arbitraryMaxWordLength
+makeArbitrary ''MinWordLength
+instance Arbitrary MinWordLength where arbitrary = arbitraryMinWordLength
+makeArbitrary ''PhraseSlop
+instance Arbitrary PhraseSlop where arbitrary = arbitraryPhraseSlop
+makeArbitrary ''MinDocFrequency
+instance Arbitrary MinDocFrequency where arbitrary = arbitraryMinDocFrequency
+makeArbitrary ''MaxDocFrequency
+instance Arbitrary MaxDocFrequency where arbitrary = arbitraryMaxDocFrequency
+makeArbitrary ''Regexp
+instance Arbitrary Regexp where arbitrary = arbitraryRegexp
+makeArbitrary ''SimpleQueryStringQuery
+instance Arbitrary SimpleQueryStringQuery where arbitrary = arbitrarySimpleQueryStringQuery
+makeArbitrary ''FieldOrFields
+instance Arbitrary FieldOrFields where arbitrary = arbitraryFieldOrFields
+makeArbitrary ''SimpleQueryFlag
+instance Arbitrary SimpleQueryFlag where arbitrary = arbitrarySimpleQueryFlag
+makeArbitrary ''RegexpQuery
+instance Arbitrary RegexpQuery where arbitrary = arbitraryRegexpQuery
+makeArbitrary ''QueryStringQuery
+instance Arbitrary QueryStringQuery where arbitrary = arbitraryQueryStringQuery
+makeArbitrary ''RangeQuery
+instance Arbitrary RangeQuery where arbitrary = arbitraryRangeQuery
+makeArbitrary ''RangeValue
+instance Arbitrary RangeValue where arbitrary = arbitraryRangeValue
+makeArbitrary ''PrefixQuery
+instance Arbitrary PrefixQuery where arbitrary = arbitraryPrefixQuery
+makeArbitrary ''NestedQuery
+instance Arbitrary NestedQuery where arbitrary = arbitraryNestedQuery
+makeArbitrary ''MoreLikeThisFieldQuery
+instance Arbitrary MoreLikeThisFieldQuery where arbitrary = arbitraryMoreLikeThisFieldQuery
+makeArbitrary ''MoreLikeThisQuery
+instance Arbitrary MoreLikeThisQuery where arbitrary = arbitraryMoreLikeThisQuery
+makeArbitrary ''IndicesQuery
+instance Arbitrary IndicesQuery where arbitrary = arbitraryIndicesQuery
+makeArbitrary ''HasParentQuery
+instance Arbitrary HasParentQuery where arbitrary = arbitraryHasParentQuery
+makeArbitrary ''HasChildQuery
+instance Arbitrary HasChildQuery where arbitrary = arbitraryHasChildQuery
+makeArbitrary ''FuzzyQuery
+instance Arbitrary FuzzyQuery where arbitrary = arbitraryFuzzyQuery
+makeArbitrary ''FuzzyLikeFieldQuery
+instance Arbitrary FuzzyLikeFieldQuery where arbitrary = arbitraryFuzzyLikeFieldQuery
+makeArbitrary ''FuzzyLikeThisQuery
+instance Arbitrary FuzzyLikeThisQuery where arbitrary = arbitraryFuzzyLikeThisQuery
+makeArbitrary ''DisMaxQuery
+instance Arbitrary DisMaxQuery where arbitrary = arbitraryDisMaxQuery
+makeArbitrary ''CommonTermsQuery
+instance Arbitrary CommonTermsQuery where arbitrary = arbitraryCommonTermsQuery
+makeArbitrary ''DistanceRange
+instance Arbitrary DistanceRange where arbitrary = arbitraryDistanceRange
+makeArbitrary ''MultiMatchQuery
+instance Arbitrary MultiMatchQuery where arbitrary = arbitraryMultiMatchQuery
+makeArbitrary ''LessThanD
+instance Arbitrary LessThanD where arbitrary = arbitraryLessThanD
+makeArbitrary ''LessThanEqD
+instance Arbitrary LessThanEqD where arbitrary = arbitraryLessThanEqD
+makeArbitrary ''GreaterThanD
+instance Arbitrary GreaterThanD where arbitrary = arbitraryGreaterThanD
+makeArbitrary ''GreaterThanEqD
+instance Arbitrary GreaterThanEqD where arbitrary = arbitraryGreaterThanEqD
+makeArbitrary ''LessThan
+instance Arbitrary LessThan where arbitrary = arbitraryLessThan
+makeArbitrary ''LessThanEq
+instance Arbitrary LessThanEq where arbitrary = arbitraryLessThanEq
+makeArbitrary ''GreaterThan
+instance Arbitrary GreaterThan where arbitrary = arbitraryGreaterThan
+makeArbitrary ''GreaterThanEq
+instance Arbitrary GreaterThanEq where arbitrary = arbitraryGreaterThanEq
+makeArbitrary ''GeoPoint
+instance Arbitrary GeoPoint where arbitrary = arbitraryGeoPoint
+makeArbitrary ''NullValue
+instance Arbitrary NullValue where arbitrary = arbitraryNullValue
+makeArbitrary ''MinimumMatchHighLow
+instance Arbitrary MinimumMatchHighLow where arbitrary = arbitraryMinimumMatchHighLow
+makeArbitrary ''CommonMinimumMatch
+instance Arbitrary CommonMinimumMatch where arbitrary = arbitraryCommonMinimumMatch
+makeArbitrary ''BoostingQuery
+instance Arbitrary BoostingQuery where arbitrary = arbitraryBoostingQuery
+makeArbitrary ''BoolQuery
+instance Arbitrary BoolQuery where arbitrary = arbitraryBoolQuery
+makeArbitrary ''MatchQuery
+instance Arbitrary MatchQuery where arbitrary = arbitraryMatchQuery
+makeArbitrary ''MultiMatchQueryType
+instance Arbitrary MultiMatchQueryType where arbitrary = arbitraryMultiMatchQueryType
+makeArbitrary ''BooleanOperator
+instance Arbitrary BooleanOperator where arbitrary = arbitraryBooleanOperator
+makeArbitrary ''ZeroTermsQuery
+instance Arbitrary ZeroTermsQuery where arbitrary = arbitraryZeroTermsQuery
+makeArbitrary ''MatchQueryType
+instance Arbitrary MatchQueryType where arbitrary = arbitraryMatchQueryType
+makeArbitrary ''SearchAliasRouting
+instance Arbitrary SearchAliasRouting where arbitrary = arbitrarySearchAliasRouting
+makeArbitrary ''ScoreType
+instance Arbitrary ScoreType where arbitrary = arbitraryScoreType
+makeArbitrary ''Distance
+instance Arbitrary Distance where arbitrary = arbitraryDistance
+makeArbitrary ''DistanceUnit
+instance Arbitrary DistanceUnit where arbitrary = arbitraryDistanceUnit
+makeArbitrary ''DistanceType
+instance Arbitrary DistanceType where arbitrary = arbitraryDistanceType
+makeArbitrary ''OptimizeBbox
+instance Arbitrary OptimizeBbox where arbitrary = arbitraryOptimizeBbox
+makeArbitrary ''GeoBoundingBoxConstraint
+instance Arbitrary GeoBoundingBoxConstraint where arbitrary = arbitraryGeoBoundingBoxConstraint
+makeArbitrary ''GeoFilterType
+instance Arbitrary GeoFilterType where arbitrary = arbitraryGeoFilterType
+makeArbitrary ''GeoBoundingBox
+instance Arbitrary GeoBoundingBox where arbitrary = arbitraryGeoBoundingBox
+makeArbitrary ''LatLon
+instance Arbitrary LatLon where arbitrary = arbitraryLatLon
+makeArbitrary ''RangeExecution
+instance Arbitrary RangeExecution where arbitrary = arbitraryRangeExecution
+makeArbitrary ''RegexpFlag
+instance Arbitrary RegexpFlag where arbitrary = arbitraryRegexpFlag
+makeArbitrary ''BoolMatch
+instance Arbitrary BoolMatch where arbitrary = arbitraryBoolMatch
+makeArbitrary ''Term
+instance Arbitrary Term where arbitrary = arbitraryTerm
+makeArbitrary ''IndexSettings
+instance Arbitrary IndexSettings where arbitrary = arbitraryIndexSettings
+makeArbitrary ''TokenChar
+instance Arbitrary TokenChar where arbitrary = arbitraryTokenChar
+makeArbitrary ''Ngram
+instance Arbitrary Ngram where arbitrary = arbitraryNgram
+makeArbitrary ''TokenizerDefinition
+instance Arbitrary TokenizerDefinition where arbitrary = arbitraryTokenizerDefinition
+makeArbitrary ''AnalyzerDefinition
+instance Arbitrary AnalyzerDefinition where arbitrary = arbitraryAnalyzerDefinition
+makeArbitrary ''Analysis
+instance Arbitrary Analysis where arbitrary = arbitraryAnalysis
+makeArbitrary ''Tokenizer
+instance Arbitrary Tokenizer where arbitrary = arbitraryTokenizer
+makeArbitrary ''UpdatableIndexSetting
+instance Arbitrary UpdatableIndexSetting where
+  arbitrary = arbitraryUpdatableIndexSetting
+makeArbitrary ''Compression
+instance Arbitrary Compression where arbitrary = arbitraryCompression
+makeArbitrary ''Bytes
+instance Arbitrary Bytes where arbitrary = arbitraryBytes
+makeArbitrary ''AllocationPolicy
+instance Arbitrary AllocationPolicy where arbitrary = arbitraryAllocationPolicy
+makeArbitrary ''InitialShardCount
+instance Arbitrary InitialShardCount where arbitrary = arbitraryInitialShardCount
+makeArbitrary ''FSType
+instance Arbitrary FSType where arbitrary = arbitraryFSType
+makeArbitrary ''CompoundFormat
+instance Arbitrary CompoundFormat where arbitrary = arbitraryCompoundFormat
+makeArbitrary ''FsSnapshotRepo
+instance Arbitrary FsSnapshotRepo where arbitrary = arbitraryFsSnapshotRepo
+makeArbitrary ''SnapshotRepoName
+instance Arbitrary SnapshotRepoName where arbitrary = arbitrarySnapshotRepoName
+makeArbitrary ''TemplateQueryInline
+instance Arbitrary TemplateQueryInline where arbitrary = arbitraryTemplateQueryInline
+makeArbitrary ''PhraseSuggesterCollate
+instance Arbitrary PhraseSuggesterCollate where arbitrary = arbitraryPhraseSuggesterCollate
+makeArbitrary ''PhraseSuggesterHighlighter
+instance Arbitrary PhraseSuggesterHighlighter where arbitrary = arbitraryPhraseSuggesterHighlighter
+makeArbitrary ''Size
+instance Arbitrary Size where arbitrary = arbitrarySize
+makeArbitrary ''PhraseSuggester
+instance Arbitrary PhraseSuggester where arbitrary = arbitraryPhraseSuggester
+makeArbitrary ''SuggestType
+instance Arbitrary SuggestType where arbitrary = arbitrarySuggestType
+makeArbitrary ''Suggest
+instance Arbitrary Suggest where arbitrary = arbitrarySuggest
 
-newtype UpdatableIndexSetting' = UpdatableIndexSetting' UpdatableIndexSetting
-                               deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
+newtype UpdatableIndexSetting' =
+  UpdatableIndexSetting' UpdatableIndexSetting
+  deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
 
 instance Arbitrary UpdatableIndexSetting' where
   arbitrary = do
     settings <- arbitrary
     return $ UpdatableIndexSetting' $ case settings of
-      RoutingAllocationInclude xs -> RoutingAllocationInclude (dropDuplicateAttrNames xs)
-      RoutingAllocationExclude xs -> RoutingAllocationExclude (dropDuplicateAttrNames xs)
-      RoutingAllocationRequire xs -> RoutingAllocationRequire (dropDuplicateAttrNames xs)
+      RoutingAllocationInclude xs ->
+        RoutingAllocationInclude (dropDuplicateAttrNames xs)
+      RoutingAllocationExclude xs ->
+        RoutingAllocationExclude (dropDuplicateAttrNames xs)
+      RoutingAllocationRequire xs ->
+        RoutingAllocationRequire (dropDuplicateAttrNames xs)
       x -> x
     where
-      dropDuplicateAttrNames = NE.fromList . L.nubBy sameAttrName . NE.toList
-      sameAttrName a b = nodeAttrFilterName a == nodeAttrFilterName b
+      dropDuplicateAttrNames =
+        NE.fromList . L.nubBy sameAttrName . NE.toList
+      sameAttrName a b =
+        nodeAttrFilterName a == nodeAttrFilterName b
+
+-- | Due to the way nodeattrfilters get serialized here, they may come
+-- out in a different order, but they are morally equivalent
+instance ApproxEq UpdatableIndexSetting where
+  RoutingAllocationInclude a =~ RoutingAllocationInclude b =
+    NE.sort a =~ NE.sort b
+  RoutingAllocationExclude a =~ RoutingAllocationExclude b =
+    NE.sort a =~ NE.sort b
+  RoutingAllocationRequire a =~ RoutingAllocationRequire b =
+    NE.sort a =~ NE.sort b
+  a =~ b = a == b
+  showApproxEq (RoutingAllocationInclude xs) = show (RoutingAllocationInclude (NE.sort xs))
+  showApproxEq (RoutingAllocationExclude xs) = show (RoutingAllocationExclude (NE.sort xs))
+  showApproxEq (RoutingAllocationRequire xs) = show (RoutingAllocationRequire (NE.sort xs))
+  showApproxEq x = show x
 
 main :: IO ()
 main = hspec $ do
@@ -1055,14 +1067,26 @@ main = hspec $ do
       let thirdDoc = BulkCreateEncoding testIndex
                      testMapping (DocId "4") (toEncoding thirdTest)
       let stream = V.fromList [firstDoc, secondDoc, thirdDoc]
-      _ <- bulk stream
-      _ <- refreshIndex testIndex
+      bulkResp <- bulk stream
+      liftIO $ pPrint bulkResp
+      refreshResp <- refreshIndex testIndex
+      liftIO $ pPrint refreshResp
       fDoc <- getDocument testIndex testMapping (DocId "2")
       sDoc <- getDocument testIndex testMapping (DocId "3")
       tDoc <- getDocument testIndex testMapping (DocId "4")
-      let maybeFirst  = eitherDecode $ responseBody fDoc :: Either String (EsResult BulkTest)
-      let maybeSecond = eitherDecode $ responseBody sDoc :: Either String (EsResult BulkTest)
-      let maybeThird = eitherDecode $ responseBody tDoc :: Either String (EsResult BulkTest)
+      let maybeFirst =
+            eitherDecode
+            $ responseBody fDoc
+              :: Either String (EsResult BulkTest)
+      let maybeSecond =
+            eitherDecode
+            $ responseBody sDoc
+            :: Either String (EsResult BulkTest)
+      let maybeThird =
+            eitherDecode
+            $ responseBody tDoc
+            :: Either String (EsResult BulkTest)
+      liftIO $ pPrint [maybeFirst, maybeSecond, maybeThird]
       liftIO $ do
         fmap getSource maybeFirst `shouldBe` Right (Just firstTest)
         fmap getSource maybeSecond `shouldBe` Right (Just secondTest)
@@ -1602,10 +1626,14 @@ main = hspec $ do
         liftIO $ validateStatus resp 200
         deleteIndexAlias aname
         getIndexAliases
-      let expected = IndexAliasSummary alias create
+      -- let expected = IndexAliasSummary alias create
       case aliases of
         Right (IndexAliasesSummary summs) ->
-          L.find ((== aname) . indexAlias . indexAliasSummaryAlias) summs `shouldBe` Nothing
+          L.find ( (== aname)
+                   . indexAlias
+                   . indexAliasSummaryAlias
+                 ) summs
+          `shouldBe` Nothing
         Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)
 
   describe "Index Listing" $ do
@@ -1701,7 +1729,7 @@ main = hspec $ do
         Left e -> liftIO $ expectationFailure ("Expected an search suggestion but got " <> show e)
         Right sr -> liftIO $ (suggestOptionsText . head . suggestResponseOptions . head . nsrResponses  <$> suggest sr) `shouldBe` expectedText
 
-  describe "JSON instances" $ do
+  describe "Exact isomorphism JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
     propJSON (Proxy :: Proxy IndexName)
     propJSON (Proxy :: Proxy MappingName)
@@ -1796,26 +1824,14 @@ main = hspec $ do
     propJSON (Proxy :: Proxy Term)
     propJSON (Proxy :: Proxy MultiMatchQuery)
     propJSON (Proxy :: Proxy IndexSettings)
-    propJSON (Proxy :: Proxy UpdatableIndexSetting')
-    propJSON (Proxy :: Proxy ReplicaBounds)
-    propJSON (Proxy :: Proxy Bytes)
-    propJSON (Proxy :: Proxy AllocationPolicy)
-    propJSON (Proxy :: Proxy InitialShardCount)
-    propJSON (Proxy :: Proxy FSType)
     propJSON (Proxy :: Proxy CompoundFormat)
     propJSON (Proxy :: Proxy TemplateQueryInline)
     propJSON (Proxy :: Proxy Suggest)
-
--- Temporary solution for lacking of generic derivation of Arbitrary
--- We use generics-sop, as it's much more concise than directly using GHC.Generics
---
--- This will be unneeded after https://github.com/nick8325/quickcheck/pull/112
--- is merged and released
-sopArbitrary :: forall a. (Generic a, SOP.GTo a, SOP.All SOP.SListI (SOP.GCode a), SOP.All2 Arbitrary (SOP.GCode a)) => Gen a
-sopArbitrary = fmap SOP.gto sopArbitrary'
-
-sopArbitrary' :: forall xss. (SOP.All SOP.SListI xss, SOP.All2 Arbitrary xss) => Gen (SOP.SOP SOP.I xss)
-sopArbitrary' = SOP.hsequence =<< elements (SOP.apInjs_POP $ SOP.hcpure p arbitrary)
-  where
-    p :: Proxy Arbitrary
-    p = Proxy
+  describe "Approximate isomorphism JSON instances" $ do
+    propApproxJSON (Proxy :: Proxy UpdatableIndexSetting')
+    propApproxJSON (Proxy :: Proxy ReplicaCount)
+    propApproxJSON (Proxy :: Proxy ReplicaBounds)
+    propApproxJSON (Proxy :: Proxy Bytes)
+    propApproxJSON (Proxy :: Proxy AllocationPolicy)
+    propApproxJSON (Proxy :: Proxy InitialShardCount)
+    propApproxJSON (Proxy :: Proxy FSType)
