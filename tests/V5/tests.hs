@@ -18,7 +18,7 @@
 module Main where
 
 import           Control.Applicative
-import           Control.Error
+import           Control.Error                   hiding (Script)
 import           Control.Exception               (evaluate)
 import           Control.Monad
 import           Control.Monad.Catch
@@ -512,6 +512,11 @@ instance ApproxEq TemplateName
 instance ApproxEq TemplatePattern
 instance ApproxEq QueryString
 instance ApproxEq FieldName
+instance ApproxEq Script
+instance ApproxEq ScriptLanguage
+instance ApproxEq ScriptInline
+instance ApproxEq ScriptId
+instance ApproxEq ScriptParams where (=~) = (==)
 instance ApproxEq CacheName
 instance ApproxEq CacheKey
 instance ApproxEq Existence
@@ -562,6 +567,18 @@ instance ApproxEq HasChildQuery
 instance ApproxEq FuzzyQuery
 instance ApproxEq FuzzyLikeFieldQuery
 instance ApproxEq FuzzyLikeThisQuery
+instance ApproxEq FunctionScoreQuery
+instance ApproxEq BoostMode
+instance ApproxEq ScoreMode
+instance ApproxEq FunctionScoreFunctions
+instance ApproxEq FunctionScoreFunction
+instance ApproxEq ComponentFunctionScoreFunction
+instance ApproxEq Weight where (=~) = (==)
+instance ApproxEq Seed where (=~) = (==)
+instance ApproxEq FieldValueFactor
+instance ApproxEq Factor where (=~) = (==)
+instance ApproxEq FactorModifier
+instance ApproxEq FactorMissingFieldValue where (=~) = (==)
 instance ApproxEq DisMaxQuery
 instance ApproxEq CommonTermsQuery
 instance ApproxEq CommonMinimumMatch
@@ -674,8 +691,12 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> arbitraryScore
                   <*> arbitrary
                   <*> arbitrary
+                  <*> arbitrary
   shrink = genericShrink
 
+instance Arbitrary HitFields where
+  arbitrary = pure (HitFields M.empty)
+  shrink = const []
 
 instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
@@ -727,6 +748,27 @@ instance Arbitrary AliasRouting where
 instance Arbitrary FieldName where
   arbitrary = FieldName . T.pack <$> listOf1 arbitraryAlphaNum
   shrink = genericShrink
+
+instance Arbitrary ScriptFields where
+  arbitrary =
+    pure $ ScriptFields $
+      HM.fromList []
+
+  shrink = const []
+
+instance Arbitrary Script where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ScriptLanguage where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ScriptInline where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ScriptId where arbitrary = sopArbitrary; shrink = genericShrink
+
+instance Arbitrary ScriptParams where
+  arbitrary =
+    pure $ ScriptParams $
+      HM.fromList [ ("a", Number 42)
+                  , ("b", String "forty two")
+                  ]
+
+  shrink = const []
 
 
 #if MIN_VERSION_base(4,10,0)
@@ -785,7 +827,7 @@ instance Arbitrary Query where
   shrink = genericShrink
 
 instance Arbitrary Filter where
-  arbitrary = Filter <$> arbitrary 
+  arbitrary = Filter <$> arbitrary
   shrink = genericShrink
 
 instance Arbitrary ReplicaBounds where
@@ -881,6 +923,18 @@ instance Arbitrary HasChildQuery where arbitrary = sopArbitrary; shrink = generi
 instance Arbitrary FuzzyQuery where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FuzzyLikeFieldQuery where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FuzzyLikeThisQuery where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FunctionScoreQuery where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary BoostMode where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ScoreMode where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FunctionScoreFunctions where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FunctionScoreFunction where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary ComponentFunctionScoreFunction where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Weight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Seed where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FieldValueFactor where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Factor where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FactorModifier where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FactorMissingFieldValue where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary DisMaxQuery where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary CommonTermsQuery where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary DistanceRange where arbitrary = sopArbitrary; shrink = genericShrink
@@ -1183,7 +1237,7 @@ main = hspec $ do
       let search = Search Nothing
                    Nothing (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
-                   Nothing
+                   Nothing Nothing
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $
@@ -1714,6 +1768,11 @@ main = hspec $ do
     propJSON (Proxy :: Proxy TemplatePattern)
     propJSON (Proxy :: Proxy QueryString)
     propJSON (Proxy :: Proxy FieldName)
+    propJSON (Proxy :: Proxy Script)
+    propJSON (Proxy :: Proxy ScriptLanguage)
+    propJSON (Proxy :: Proxy ScriptInline)
+    propJSON (Proxy :: Proxy ScriptId)
+    propJSON (Proxy :: Proxy ScriptParams)
     propJSON (Proxy :: Proxy CacheName)
     propJSON (Proxy :: Proxy CacheKey)
     propJSON (Proxy :: Proxy Existence)
@@ -1764,6 +1823,12 @@ main = hspec $ do
     propJSON (Proxy :: Proxy FuzzyQuery)
     propJSON (Proxy :: Proxy FuzzyLikeFieldQuery)
     propJSON (Proxy :: Proxy FuzzyLikeThisQuery)
+    propJSON (Proxy :: Proxy FunctionScoreQuery)
+    propJSON (Proxy :: Proxy BoostMode)
+    propJSON (Proxy :: Proxy ScoreMode)
+    propJSON (Proxy :: Proxy ComponentFunctionScoreFunction)
+    propJSON (Proxy :: Proxy FieldValueFactor)
+    propJSON (Proxy :: Proxy FactorModifier)
     propJSON (Proxy :: Proxy DisMaxQuery)
     propJSON (Proxy :: Proxy CommonTermsQuery)
     propJSON (Proxy :: Proxy CommonMinimumMatch)

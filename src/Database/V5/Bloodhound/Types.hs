@@ -123,6 +123,7 @@ module Database.V5.Bloodhound.Types
        , Pattern(..)
        , ShardResult(..)
        , Hit(..)
+       , HitFields(..)
        , Filter(..)
        , Seminearring(..)
        , BoolMatch(..)
@@ -151,7 +152,16 @@ module Database.V5.Bloodhound.Types
        , RegexpFlags(..)
        , RegexpFlag(..)
        , FieldName(..)
+       , ScriptFields(..)
+       , ScriptFieldName
+       , ScriptFieldValue
        , Script(..)
+       , ScriptLanguage(..)
+       , ScriptInline(..)
+       , ScriptId(..)
+       , ScriptParams(..)
+       , ScriptParamName
+       , ScriptParamValue
        , IndexName(..)
        , IndexSelection(..)
        , NodeSelection(..)
@@ -181,6 +191,18 @@ module Database.V5.Bloodhound.Types
        , BoolQuery(..)
        , BoostingQuery(..)
        , CommonTermsQuery(..)
+       , FunctionScoreQuery(..)
+       , BoostMode(..)
+       , ScoreMode(..)
+       , FunctionScoreFunctions(..)
+       , ComponentFunctionScoreFunction(..)
+       , FunctionScoreFunction(..)
+       , Weight(..)
+       , Seed(..)
+       , FieldValueFactor(..)
+       , Factor(..)
+       , FactorModifier(..)
+       , FactorMissingFieldValue(..)
        , DisMaxQuery(..)
        , FuzzyLikeThisQuery(..)
        , FuzzyLikeFieldQuery(..)
@@ -1107,11 +1129,35 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Read, Show, ToJSON
 -}
 newtype FieldName = FieldName Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
+newtype ScriptFields =
+  ScriptFields (HM.HashMap ScriptFieldName ScriptFieldValue)
+  deriving (Eq, Read, Show, Generic, Typeable)
 
-{-| 'Script' is often used in place of 'FieldName' to specify more
-complex ways of extracting a value from a document.
--}
-newtype Script = Script { scriptText :: Text } deriving (Eq, Read, Show, Generic, Typeable)
+type ScriptFieldName = Text
+type ScriptFieldValue = Value
+
+data Script =
+  Script { scriptLanguage :: Maybe ScriptLanguage
+         , scriptInline   :: Maybe ScriptInline
+         , scriptStored   :: Maybe ScriptId
+         , scriptParams   :: Maybe ScriptParams
+         } deriving (Eq, Read, Show, Generic, Typeable)
+
+newtype ScriptLanguage =
+  ScriptLanguage Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+newtype ScriptInline =
+  ScriptInline Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+newtype ScriptId =
+  ScriptId Text deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+newtype ScriptParams =
+  ScriptParams (HM.HashMap ScriptParamName ScriptParamValue)
+  deriving (Eq, Read, Show, Generic, Typeable)
+
+type ScriptParamName = Text
+type ScriptParamValue = Value
 
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
@@ -1234,6 +1280,7 @@ data Search = Search { queryBody       :: Maybe Query
                      , size            :: Size
                      , searchType      :: SearchType
                      , fields          :: Maybe [FieldName]
+                     , scriptFields    :: Maybe ScriptFields
                      , source          :: Maybe Source
                      , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
                      } deriving (Eq, Read, Show, Generic, Typeable)
@@ -1320,6 +1367,7 @@ data Query =
   | QueryBoostingQuery          BoostingQuery
   | QueryCommonTermsQuery       CommonTermsQuery
   | ConstantScoreQuery          Query Boost
+  | QueryFunctionScoreQuery     FunctionScoreQuery
   | QueryDisMaxQuery            DisMaxQuery
   | QueryFuzzyLikeThisQuery     FuzzyLikeThisQuery
   | QueryFuzzyLikeFieldQuery    FuzzyLikeFieldQuery
@@ -1532,6 +1580,79 @@ data FuzzyLikeThisQuery =
   , fuzzyLikeBoost               :: Boost
   , fuzzyLikeAnalyzer            :: Maybe Analyzer
   } deriving (Eq, Read, Show, Generic, Typeable)
+
+data FunctionScoreQuery =
+  FunctionScoreQuery { functionScoreQuery     :: Maybe Query
+                     , functionScoreBoost     :: Maybe Boost
+                     , functionScoreFunctions :: FunctionScoreFunctions
+                     , functionScoreMaxBoost  :: Maybe Boost
+                     , functionScoreBoostMode :: Maybe BoostMode
+                     , functionScoreMinScore  :: Score
+                     , functionScoreScoreMode :: Maybe ScoreMode
+                     } deriving (Eq, Read, Show, Generic, Typeable)
+
+data BoostMode =
+  BoostModeMultiply
+  | BoostModeReplace
+  | BoostModeSum
+  | BoostModeAvg
+  | BoostModeMax
+  | BoostModeMin deriving (Eq, Read, Show, Generic, Typeable)
+
+data ScoreMode =
+  ScoreModeMultiply
+  | ScoreModeSum
+  | ScoreModeAvg
+  | ScoreModeFirst
+  | ScoreModeMax
+  | ScoreModeMin deriving (Eq, Read, Show, Generic, Typeable)
+
+data FunctionScoreFunctions =
+  FunctionScoreSingle FunctionScoreFunction
+  | FunctionScoreMultiple (NonEmpty ComponentFunctionScoreFunction) deriving (Eq, Read, Show, Generic, Typeable)
+
+data ComponentFunctionScoreFunction =
+  ComponentFunctionScoreFunction { componentScoreFunctionFilter :: Maybe Filter
+                                 , componentScoreFunction       :: FunctionScoreFunction
+                                 , componentScoreFunctionWeight :: Maybe Weight
+                                 } deriving (Eq, Read, Show, Generic, Typeable)
+
+data FunctionScoreFunction =
+  FunctionScoreFunctionScript Script
+  | FunctionScoreFunctionRandom Seed
+  | FunctionScoreFunctionFieldValueFactor FieldValueFactor
+  deriving (Eq, Read, Show, Generic, Typeable)
+
+newtype Weight =
+  Weight Float deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+newtype Seed =
+  Seed Float deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+data FieldValueFactor =
+  FieldValueFactor { fieldValueFactorField    :: FieldName
+                   , fieldValueFactor         :: Maybe Factor
+                   , fieldValueFactorModifier :: Maybe FactorModifier
+                   , fieldValueFactorMissing  :: Maybe FactorMissingFieldValue
+                   } deriving (Eq, Read, Show, Generic, Typeable)
+
+newtype Factor =
+  Factor Float deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
+
+data FactorModifier =
+  FactorModifierNone
+  | FactorModifierLog
+  | FactorModifierLog1p
+  | FactorModifierLog2p
+  | FactorModifierLn
+  | FactorModifierLn1p
+  | FactorModifierLn2p
+  | FactorModifierSquare
+  | FactorModifierSqrt
+  | FactorModifierReciprocal deriving (Eq, Read, Show, Generic, Typeable)
+
+newtype FactorMissingFieldValue =
+  FactorMissingFieldValue Float deriving (Eq, Read, Show, Generic, Typeable, ToJSON, FromJSON)
 
 data DisMaxQuery =
   DisMaxQuery { disMaxQueries    :: [Query]
@@ -1819,12 +1940,17 @@ data Hit a =
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
+      , hitFields    :: Maybe HitFields
       , hitHighlight :: Maybe HitHighlight } deriving (Eq, Read, Show, Generic, Typeable)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
               , shardsSuccessful :: Int
               , shardsFailed     :: Int } deriving (Eq, Read, Show, Generic, Typeable)
+
+newtype HitFields =
+  HitFields (M.Map Text [Value])
+  deriving (Eq, Read, Show, Generic, Typeable)
 
 type HitHighlight = M.Map Text [Text]
 
@@ -2097,7 +2223,7 @@ instance ToJSON Aggregation where
   toJSON (ValueCountAgg a) = object ["value_count" .= v]
     where v = case a of
                 (FieldValueCount (FieldName n)) -> object ["field" .= n]
-                (ScriptValueCount (Script s))   -> object ["script" .= s]
+                (ScriptValueCount s)   -> object ["script" .= s]
   toJSON (FilterAgg (FilterAggregation filt ags)) =
     omitNulls [ "filter" .= filt
               , "aggs" .= ags]
@@ -2335,6 +2461,9 @@ instance ToJSON Query where
     object ["constant_score" .= object ["query" .= query
                                        , "boost" .= boost]]
 
+  toJSON (QueryFunctionScoreQuery functionScoreQuery) =
+    object [ "function_score" .= functionScoreQuery ]
+
   toJSON (QueryDisMaxQuery disMaxQuery) =
     object [ "dis_max" .= disMaxQuery ]
 
@@ -2402,6 +2531,7 @@ instance FromJSON Query where
                 <|> queryBoostingQuery `taggedWith` "boosting"
                 <|> queryCommonTermsQuery `taggedWith` "common"
                 <|> constantScoreQuery `taggedWith` "constant_score"
+                <|> queryFunctionScoreQuery `taggedWith` "function_score"
                 <|> queryDisMaxQuery `taggedWith` "dis_max"
                 <|> queryFuzzyLikeThisQuery `taggedWith` "fuzzy_like_this"
                 <|> queryFuzzyLikeFieldQuery `taggedWith` "fuzzy_like_this_field"
@@ -2439,6 +2569,7 @@ instance FromJSON Query where
             Just x -> ConstantScoreQuery <$> parseJSON x
                                          <*> o .: "boost"
             _ -> fail "Does not appear to be a ConstantScoreQuery"
+          queryFunctionScoreQuery = pure . QueryFunctionScoreQuery
           queryDisMaxQuery = pure . QueryDisMaxQuery
           queryFuzzyLikeThisQuery = pure . QueryFuzzyLikeThisQuery
           queryFuzzyLikeFieldQuery = pure . QueryFuzzyLikeFieldQuery
@@ -2851,6 +2982,182 @@ instance FromJSON FuzzyLikeThisQuery where
                     <*> o .: "prefix_length"
                     <*> o .: "boost"
                     <*> o .:? "analyzer"
+
+instance ToJSON FunctionScoreQuery where
+  toJSON (FunctionScoreQuery query boost fns maxBoost boostMode minScore scoreMode) =
+    omitNulls base
+    where base = functionScoreFunctionsPair fns :
+                 [ "query"      .= query
+                 , "boost"      .= boost
+                 , "max_boost"  .= maxBoost
+                 , "boost_mode" .= boostMode
+                 , "min_score"  .= minScore
+                 , "score_mode" .= scoreMode ]
+
+functionScoreFunctionsPair :: FunctionScoreFunctions -> (Text, Value)
+functionScoreFunctionsPair (FunctionScoreSingle fn)
+  = functionScoreFunctionPair fn
+
+functionScoreFunctionsPair (FunctionScoreMultiple componentFns) =
+  ("functions", toJSON componentFns)
+
+instance FromJSON FunctionScoreQuery where
+  parseJSON = withObject "FunctionScoreQuery" parse
+    where parse o = FunctionScoreQuery
+                    <$> o .:? "query"
+                    <*> o .:? "boost"
+                    <*> (singleFunction o
+                          <|> multipleFunctions `taggedWith` "functions")
+                    <*> o .:? "max_boost"
+                    <*> o .:? "boost_mode"
+                    <*> o .:? "min_score"
+                    <*> o .:? "score_mode"
+            where taggedWith parser k = parser =<< o .: k
+          singleFunction = fmap FunctionScoreSingle . parseFunctionScoreFunction
+          multipleFunctions = pure . FunctionScoreMultiple
+
+instance ToJSON BoostMode where
+  toJSON BoostModeMultiply = "multiply"
+  toJSON BoostModeReplace  = "replace"
+  toJSON BoostModeSum      = "sum"
+  toJSON BoostModeAvg      = "avg"
+  toJSON BoostModeMax      = "max"
+  toJSON BoostModeMin      = "min"
+
+instance FromJSON BoostMode where
+  parseJSON = withText "BoostMode" parse
+    where parse "multiply" = pure BoostModeMultiply
+          parse "replace"  = pure BoostModeReplace
+          parse "sum"      = pure BoostModeSum
+          parse "avg"      = pure BoostModeAvg
+          parse "max"      = pure BoostModeMax
+          parse "min"      = pure BoostModeMin
+          parse bm         = fail ("Unexpected BoostMode: " <> show bm)
+
+instance ToJSON ScoreMode where
+  toJSON ScoreModeMultiply = "multiply"
+  toJSON ScoreModeSum      = "sum"
+  toJSON ScoreModeFirst    = "first"
+  toJSON ScoreModeAvg      = "avg"
+  toJSON ScoreModeMax      = "max"
+  toJSON ScoreModeMin      = "min"
+
+instance FromJSON ScoreMode where
+  parseJSON = withText "ScoreMode" parse
+    where parse "multiply" = pure ScoreModeMultiply
+          parse "sum"      = pure ScoreModeSum
+          parse "first"    = pure ScoreModeFirst
+          parse "avg"      = pure ScoreModeAvg
+          parse "max"      = pure ScoreModeMax
+          parse "min"      = pure ScoreModeMin
+          parse sm         = fail ("Unexpected ScoreMode: " <> show sm)
+
+instance ToJSON ComponentFunctionScoreFunction where
+  toJSON (ComponentFunctionScoreFunction filter fn weight) =
+    omitNulls base
+    where base = functionScoreFunctionPair fn :
+                 [ "filter" .= filter
+                 , "weight" .= weight ]
+
+instance FromJSON ComponentFunctionScoreFunction where
+  parseJSON = withObject "ComponentFunctionScoreFunction" parse
+    where parse o = ComponentFunctionScoreFunction
+                    <$> o .:? "filter"
+                    <*> parseFunctionScoreFunction o
+                    <*> o .:? "weight"
+
+functionScoreFunctionPair :: FunctionScoreFunction -> (Text, Value)
+functionScoreFunctionPair (FunctionScoreFunctionScript functionScoreScript) =
+  ("script_score", toJSON functionScoreScript)
+
+functionScoreFunctionPair (FunctionScoreFunctionRandom seed) =
+  ("random_score", omitNulls [ "seed" .= seed ])
+
+functionScoreFunctionPair (FunctionScoreFunctionFieldValueFactor fieldValueFactor) =
+  ("field_value_factor", toJSON fieldValueFactor)
+
+parseFunctionScoreFunction :: Object -> Parser FunctionScoreFunction
+parseFunctionScoreFunction o =
+  singleScript `taggedWith` "script_score"
+  <|> singleRandom `taggedWith` "random_score"
+  <|> singleFieldValueFactor `taggedWith` "field_value_factor"
+  where taggedWith parser k = parser =<< o .: k
+        singleScript = pure . FunctionScoreFunctionScript
+        singleRandom o' = FunctionScoreFunctionRandom <$> o' .: "seed"
+        singleFieldValueFactor = pure . FunctionScoreFunctionFieldValueFactor
+
+instance ToJSON ScriptFields where
+  toJSON (ScriptFields x) = Object x
+
+instance FromJSON ScriptFields where
+  parseJSON (Object o) = pure (ScriptFields o)
+  parseJSON _          = fail "error parsing ScriptFields"
+
+instance ToJSON Script where
+  toJSON (Script lang inline stored params) =
+    object [ "script" .= omitNulls base ]
+    where base = [ "lang"   .= lang
+                 , "inline" .= inline
+                 , "stored" .= stored
+                 , "params" .= params ]
+
+instance FromJSON Script where
+  parseJSON = withObject "Script" parse
+    where parse o = o .: "script" >>= \o' ->
+                      Script
+                      <$> o' .:? "lang"
+                      <*> o' .:? "inline"
+                      <*> o' .:? "stored"
+                      <*> o' .:? "params"
+
+instance ToJSON ScriptParams where
+  toJSON (ScriptParams x) = Object x
+
+instance FromJSON ScriptParams where
+  parseJSON (Object o) = pure (ScriptParams o)
+  parseJSON _          = fail "error parsing ScriptParams"
+
+instance ToJSON FieldValueFactor where
+  toJSON (FieldValueFactor field factor modifier missing) =
+    omitNulls base
+    where base = [ "field"    .= field
+                 , "factor"   .= factor
+                 , "modifier" .= modifier
+                 , "missing"  .= missing ]
+
+instance FromJSON FieldValueFactor where
+  parseJSON = withObject "FieldValueFactor" parse
+    where parse o = FieldValueFactor
+                    <$> o .: "field"
+                    <*> o .:? "factor"
+                    <*> o .:? "modifier"
+                    <*> o .:? "missing"
+
+instance ToJSON FactorModifier where
+  toJSON FactorModifierNone       = "none"
+  toJSON FactorModifierLog        = "log"
+  toJSON FactorModifierLog1p      = "log1p"
+  toJSON FactorModifierLog2p      = "log2p"
+  toJSON FactorModifierLn         = "ln"
+  toJSON FactorModifierLn1p       = "ln1p"
+  toJSON FactorModifierLn2p       = "ln2p"
+  toJSON FactorModifierSquare     = "square"
+  toJSON FactorModifierSqrt       = "sqrt"
+  toJSON FactorModifierReciprocal = "reciprocal"
+
+instance FromJSON FactorModifier where
+  parseJSON = withText "FactorModifier" parse
+    where parse "none"       = pure FactorModifierNone
+          parse "log"        = pure FactorModifierLog
+          parse "log1p"      = pure FactorModifierLog1p
+          parse "log2p"      = pure FactorModifierLog2p
+          parse "ln"         = pure FactorModifierLn
+          parse "ln1p"       = pure FactorModifierLn1p
+          parse "ln2p"       = pure FactorModifierLn2p
+          parse "square"     = pure FactorModifierSquare
+          parse "sqrt"       = pure FactorModifierSqrt
+          parse "reciprocal" = pure FactorModifierReciprocal
+          parse fm           = fail ("Unexpected FactorModifier: " <> show fm)
 
 instance ToJSON DisMaxQuery where
   toJSON (DisMaxQuery queries tiebreaker boost) =
@@ -3398,17 +3705,18 @@ instance FromJSON SearchAliasRouting where
     where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
-  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource sSuggest) =
-    omitNulls [ "query"        .= query'
-              , "sort"         .= sort
-              , "aggregations" .= searchAggs
-              , "highlight"    .= highlight
-              , "from"         .= sFrom
-              , "size"         .= sSize
-              , "track_scores" .= sTrackSortScores
-              , "fields"       .= sFields
-              , "_source"      .= sSource
-              , "suggest"      .= sSuggest]
+  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sScriptFields sSource sSuggest) =
+    omitNulls [ "query"         .= query'
+              , "sort"          .= sort
+              , "aggregations"  .= searchAggs
+              , "highlight"     .= highlight
+              , "from"          .= sFrom
+              , "size"          .= sSize
+              , "track_scores"  .= sTrackSortScores
+              , "fields"        .= sFields
+              , "script_fields" .= sScriptFields
+              , "_source"       .= sSource
+              , "suggest"       .= sSuggest]
 
     where query' = case sFilter of
                     Nothing -> mquery
@@ -3778,7 +4086,8 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:  "_type"    <*>
                          v .:  "_id"      <*>
                          v .:  "_score"   <*>
-                         v .:?  "_source" <*>
+                         v .:? "_source"  <*>
+                         v .:? "fields"   <*>
                          v .:? "highlight"
   parseJSON _          = empty
 
@@ -3789,6 +4098,9 @@ instance FromJSON ShardResult where
                          v .: "failed"
   parseJSON _          = empty
 
+instance FromJSON HitFields where
+  parseJSON x
+    = HitFields <$> parseJSON x
 
 instance FromJSON DocVersion where
   parseJSON v = do
