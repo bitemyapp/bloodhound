@@ -19,4 +19,7 @@ extra-deps:
 - void-0.7.1
 - generics-sop-0.2.2.0
 - unordered-containers-0.2.6.0
+- pretty-simple-2.0.2.0
+- quickcheck-arbitrary-template-0.2.0.0
+
 resolver: lts-2.18
