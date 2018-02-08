@@ -25,9 +25,11 @@ data TweetMapping = TweetMapping deriving (Eq, Show)
 
 instance ToJSON TweetMapping where
   toJSON TweetMapping =
-    object
-      [ "properties" .=
-        object ["location" .= object ["type" .= ("geo_point" :: Text)]]
+    object ["tweet" .=
+      object
+        [ "properties" .=
+          object ["location" .= object ["type" .= ("geo_point" :: Text)]]
+        ]
       ]
 -------------------------------------------------------------------------------
 data Tweet = Tweet
