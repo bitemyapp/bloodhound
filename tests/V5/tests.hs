@@ -19,7 +19,7 @@
 module Main where
 
 import           Control.Applicative
-import           Control.Error
+import           Control.Error                   hiding (Script)
 import           Control.Exception               (evaluate)
 import           Control.Monad
 import           Control.Monad.Catch
@@ -540,8 +540,11 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> arbitraryScore
                   <*> arbitrary
                   <*> arbitrary
+                  <*> arbitrary
 
-
+instance Arbitrary HitFields where
+  arbitrary = pure (HitFields M.empty)
+  shrink = const []
 
 instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
@@ -609,6 +612,21 @@ instance Arbitrary a => Arbitrary (NonEmpty a) where
         qcNonEmptyToNonEmpty
     <$> arbitrary
 #endif
+instance Arbitrary ScriptFields where
+  arbitrary =
+    pure $ ScriptFields $
+      HM.fromList []
+
+  shrink = const []
+
+instance Arbitrary ScriptParams where
+  arbitrary =
+    pure $ ScriptParams $
+      HM.fromList [ ("a", Number 42)
+                  , ("b", String "forty two")
+                  ]
+
+  shrink = const []
 
 instance Arbitrary RegexpFlags where
   arbitrary = oneof [ pure AllRegexpFlags
@@ -944,6 +962,40 @@ instance Arbitrary SuggestType where arbitrary = arbitrarySuggestType
 makeArbitrary ''Suggest
 instance Arbitrary Suggest where arbitrary = arbitrarySuggest
 
+makeArbitrary ''FunctionScoreQuery
+instance Arbitrary FunctionScoreQuery where arbitrary = arbitraryFunctionScoreQuery
+
+makeArbitrary ''FunctionScoreFunction
+instance Arbitrary FunctionScoreFunction where arbitrary = arbitraryFunctionScoreFunction
+makeArbitrary ''FunctionScoreFunctions
+instance Arbitrary FunctionScoreFunctions where arbitrary = arbitraryFunctionScoreFunctions
+makeArbitrary ''ComponentFunctionScoreFunction
+instance Arbitrary ComponentFunctionScoreFunction where arbitrary = arbitraryComponentFunctionScoreFunction
+makeArbitrary ''Script
+instance Arbitrary Script where arbitrary = arbitraryScript
+makeArbitrary ''ScriptLanguage
+instance Arbitrary ScriptLanguage where arbitrary = arbitraryScriptLanguage
+makeArbitrary ''ScriptInline
+instance Arbitrary ScriptInline where arbitrary = arbitraryScriptInline
+makeArbitrary ''ScriptId
+instance Arbitrary ScriptId where arbitrary = arbitraryScriptId
+makeArbitrary ''ScoreMode
+instance Arbitrary ScoreMode where arbitrary = arbitraryScoreMode
+makeArbitrary ''BoostMode
+instance Arbitrary BoostMode where arbitrary = arbitraryBoostMode
+makeArbitrary ''Seed
+instance Arbitrary Seed where arbitrary = arbitrarySeed
+makeArbitrary ''FieldValueFactor
+instance Arbitrary FieldValueFactor where arbitrary = arbitraryFieldValueFactor
+makeArbitrary ''Weight
+instance Arbitrary Weight where arbitrary = arbitraryWeight
+makeArbitrary ''Factor
+instance Arbitrary Factor where arbitrary = arbitraryFactor
+makeArbitrary ''FactorMissingFieldValue
+instance Arbitrary FactorMissingFieldValue where arbitrary = arbitraryFactorMissingFieldValue
+makeArbitrary ''FactorModifier
+instance Arbitrary FactorModifier where arbitrary = arbitraryFactorModifier
+
 newtype UpdatableIndexSetting' =
   UpdatableIndexSetting' UpdatableIndexSetting
   deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
@@ -1218,7 +1270,7 @@ main = hspec $ do
       let search = Search Nothing
                    Nothing (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
-                   Nothing
+                   Nothing Nothing
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $
@@ -1635,7 +1687,7 @@ main = hspec $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
         liftIO $ validateStatus resp 200
-        deleteIndexAlias aname
+        _ <- deleteIndexAlias aname
         getIndexAliases
       -- let expected = IndexAliasSummary alias create
       case aliases of
@@ -1740,6 +1792,30 @@ main = hspec $ do
         Left e -> liftIO $ expectationFailure ("Expected an search suggestion but got " <> show e)
         Right sr -> liftIO $ (suggestOptionsText . head . suggestResponseOptions . head . nsrResponses  <$> suggest sr) `shouldBe` expectedText
 
+  describe "Script" $ do
+    it "returns a transformed document based on the script field" $ withTestEnv $ do
+      _ <- insertData
+      let query = MatchAllQuery Nothing
+          sfv = toJSON $
+            Script
+            (Just (ScriptLanguage "painless"))
+            (Just (ScriptInline "doc['age'].value * 2"))
+            Nothing
+            Nothing
+          sf = ScriptFields $
+            HM.fromList [("test1", sfv)]
+          search' = mkSearch (Just query) Nothing
+          search = search' { scriptFields = Just sf }
+      resp <- searchByIndex testIndex search
+      parsed <- parseEsResponse resp :: BH IO (Either EsError (SearchResult Value))
+      case parsed of
+        Left e ->
+          liftIO $ expectationFailure ("Expected a script-transformed result but got: " <> show e)
+        Right sr -> do
+          let Just results =
+                hitFields (head (hits (searchHits sr)))
+          liftIO $ results `shouldBe` (HitFields (M.fromList [("test1", [Number 20000.0])]))
+
   describe "Exact isomorphism JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
     propJSON (Proxy :: Proxy IndexName)
@@ -1753,6 +1829,11 @@ main = hspec $ do
     propJSON (Proxy :: Proxy TemplatePattern)
     propJSON (Proxy :: Proxy QueryString)
     propJSON (Proxy :: Proxy FieldName)
+    propJSON (Proxy :: Proxy Script)
+    propJSON (Proxy :: Proxy ScriptLanguage)
+    propJSON (Proxy :: Proxy ScriptInline)
+    propJSON (Proxy :: Proxy ScriptId)
+    propJSON (Proxy :: Proxy ScriptParams)
     propJSON (Proxy :: Proxy CacheName)
     propJSON (Proxy :: Proxy CacheKey)
     propJSON (Proxy :: Proxy Existence)
@@ -1803,6 +1884,12 @@ main = hspec $ do
     propJSON (Proxy :: Proxy FuzzyQuery)
     propJSON (Proxy :: Proxy FuzzyLikeFieldQuery)
     propJSON (Proxy :: Proxy FuzzyLikeThisQuery)
+    propJSON (Proxy :: Proxy FunctionScoreQuery)
+    propJSON (Proxy :: Proxy BoostMode)
+    propJSON (Proxy :: Proxy ScoreMode)
+    propJSON (Proxy :: Proxy ComponentFunctionScoreFunction)
+    propJSON (Proxy :: Proxy FieldValueFactor)
+    propJSON (Proxy :: Proxy FactorModifier)
     propJSON (Proxy :: Proxy DisMaxQuery)
     propJSON (Proxy :: Proxy CommonTermsQuery)
     propJSON (Proxy :: Proxy CommonMinimumMatch)

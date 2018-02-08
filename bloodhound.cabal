@@ -44,6 +44,7 @@ library
                        Database.V5.Bloodhound.Types
                        Database.V5.Bloodhound.Types.Class
   other-modules:       Bloodhound.Import
+                       Database.Bloodhound.Common.Script
                        Database.V5.Bloodhound.Types.Internal.Analysis
                        Database.V5.Bloodhound.Types.Internal.Client
                        Database.V5.Bloodhound.Types.Internal.Newtypes
@@ -64,6 +65,7 @@ library
                        http-types       >= 0.8     && <0.13,
                        vector           >= 0.10.9  && <0.13,
                        scientific       >= 0.3.0.0 && <0.4.0.0,
+                       bifunctors,
                        exceptions,
                        data-default-class,
                        blaze-builder,

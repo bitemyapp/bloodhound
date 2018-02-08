@@ -122,6 +122,7 @@ module Database.V5.Bloodhound.Types
        , Pattern(..)
        , ShardResult(..)
        , Hit(..)
+       , HitFields(..)
        , Filter(..)
        , Seminearring(..)
        , BoolMatch(..)
@@ -150,7 +151,16 @@ module Database.V5.Bloodhound.Types
        , RegexpFlags(..)
        , RegexpFlag(..)
        , FieldName(..)
+       , ScriptFields(..)
+       , ScriptFieldName
+       , ScriptFieldValue
        , Script(..)
+       , ScriptLanguage(..)
+       , ScriptInline(..)
+       , ScriptId(..)
+       , ScriptParams(..)
+       , ScriptParamName
+       , ScriptParamValue
        , IndexName(..)
        , IndexSelection(..)
        , NodeSelection(..)
@@ -180,6 +190,18 @@ module Database.V5.Bloodhound.Types
        , BoolQuery(..)
        , BoostingQuery(..)
        , CommonTermsQuery(..)
+       , FunctionScoreQuery(..)
+       , BoostMode(..)
+       , ScoreMode(..)
+       , FunctionScoreFunctions(..)
+       , ComponentFunctionScoreFunction(..)
+       , FunctionScoreFunction(..)
+       , Weight(..)
+       , Seed(..)
+       , FieldValueFactor(..)
+       , Factor(..)
+       , FactorModifier(..)
+       , FactorMissingFieldValue(..)
        , DisMaxQuery(..)
        , FuzzyLikeThisQuery(..)
        , FuzzyLikeFieldQuery(..)
@@ -521,6 +543,7 @@ data Search = Search { queryBody       :: Maybe Query
                      , size            :: Size
                      , searchType      :: SearchType
                      , fields          :: Maybe [FieldName]
+                     , scriptFields    :: Maybe ScriptFields
                      , source          :: Maybe Source
                      , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
                      } deriving (Eq, Show)
@@ -607,9 +630,6 @@ data HighlightTag =
   | CustomTags ([Text], [Text]) 
   deriving (Eq, Show)
 
-
-
-
 data SearchResult a =
   SearchResult { took         :: Int
                , timedOut     :: Bool
@@ -617,15 +637,14 @@ data SearchResult a =
                , searchHits   :: SearchHits a
                , aggregations :: Maybe AggregationResults
                , scrollId     :: Maybe ScrollId
-               , suggest      :: Maybe NamedSuggestionResponse -- ^ Only one Suggestion request / response per Search is supported.
+               -- ^ Only one Suggestion request / response per Search is supported.
+               , suggest      :: Maybe NamedSuggestionResponse
                }
   deriving (Eq, Show)
 
 newtype ScrollId =
   ScrollId Text
   deriving (Eq, Show, Ord, ToJSON, FromJSON)
-
-type Score = Maybe Double
 
 data SearchHits a =
   SearchHits { hitsTotal :: Int
@@ -645,7 +664,12 @@ data Hit a =
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
+      , hitFields    :: Maybe HitFields
       , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
+
+newtype HitFields =
+  HitFields (M.Map Text [Value])
+  deriving (Eq, Show)
 
 type HitHighlight = M.Map Text [Text]
 
@@ -856,7 +880,9 @@ instance ToJSON Aggregation where
                                        ]
            ]
 
-  toJSON (DateHistogramAgg (DateHistogramAggregation field interval format preZone postZone preOffset postOffset dateHistoAggs)) =
+  toJSON (DateHistogramAgg
+          (DateHistogramAggregation field interval format
+           preZone postZone preOffset postOffset dateHistoAggs)) =
     omitNulls ["date_histogram" .= omitNulls [ "field"       .= field,
                                                "interval"    .= interval,
                                                "format"      .= format,
@@ -868,8 +894,10 @@ instance ToJSON Aggregation where
                "aggs"           .= dateHistoAggs ]
   toJSON (ValueCountAgg a) = object ["value_count" .= v]
     where v = case a of
-                (FieldValueCount (FieldName n)) -> object ["field" .= n]
-                (ScriptValueCount (Script s))   -> object ["script" .= s]
+                (FieldValueCount (FieldName n)) ->
+                  object ["field" .= n]
+                (ScriptValueCount s) ->
+                  object ["script" .= s]
   toJSON (FilterAgg (FilterAggregation filt ags)) =
     omitNulls [ "filter" .= filt
               , "aggs" .= ags]
@@ -1057,11 +1085,6 @@ getNamedSubAgg o knownKeys = maggRes
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
     object [ geoPointField  .= geoPointLatLon ]
-
-
-
-
-
 
 instance FromJSON Status where
   parseJSON (Object v) = Status <$>
@@ -1393,21 +1416,28 @@ instance FromJSON SearchAliasRouting where
     where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
-  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource sSuggest) =
-    omitNulls [ "query"        .= query'
-              , "sort"         .= sort
-              , "aggregations" .= searchAggs
-              , "highlight"    .= highlight
-              , "from"         .= sFrom
-              , "size"         .= sSize
-              , "track_scores" .= sTrackSortScores
-              , "fields"       .= sFields
-              , "_source"      .= sSource
-              , "suggest"      .= sSuggest]
+  toJSON (Search mquery sFilter sort searchAggs
+          highlight sTrackSortScores sFrom sSize _ sFields
+          sScriptFields sSource sSuggest) =
+    omitNulls [ "query"         .= query'
+              , "sort"          .= sort
+              , "aggregations"  .= searchAggs
+              , "highlight"     .= highlight
+              , "from"          .= sFrom
+              , "size"          .= sSize
+              , "track_scores"  .= sTrackSortScores
+              , "fields"        .= sFields
+              , "script_fields" .= sScriptFields
+              , "_source"       .= sSource
+              , "suggest"       .= sSuggest]
 
     where query' = case sFilter of
                     Nothing -> mquery
-                    Just x -> Just . QueryBoolQuery $ mkBoolQuery (maybeToList mquery) [x] [] []
+                    Just x ->
+                        Just
+                      . QueryBoolQuery
+                      $ mkBoolQuery (maybeToList mquery)
+                        [x] [] []
 
 instance ToJSON Source where
     toJSON NoSource                         = toJSON False
@@ -1568,17 +1598,19 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:  "_type"    <*>
                          v .:  "_id"      <*>
                          v .:  "_score"   <*>
-                         v .:?  "_source" <*>
+                         v .:? "_source"  <*>
+                         v .:? "fields"   <*>
                          v .:? "highlight"
   parseJSON _          = empty
 
+instance FromJSON HitFields where
+  parseJSON x
+    = HitFields <$> parseJSON x
 
 instance FromJSON DocVersion where
   parseJSON v = do
     i <- parseJSON v
     maybe (fail "DocVersion out of range") return $ mkDocVersion i
-
-
 
 
 data Suggest = Suggest { suggestText :: Text
