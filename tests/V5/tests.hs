@@ -1687,7 +1687,7 @@ main = hspec $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
         liftIO $ validateStatus resp 200
-        deleteIndexAlias aname
+        _ <- deleteIndexAlias aname
         getIndexAliases
       -- let expected = IndexAliasSummary alias create
       case aliases of
@@ -1791,6 +1791,30 @@ main = hspec $ do
       case parsed of
         Left e -> liftIO $ expectationFailure ("Expected an search suggestion but got " <> show e)
         Right sr -> liftIO $ (suggestOptionsText . head . suggestResponseOptions . head . nsrResponses  <$> suggest sr) `shouldBe` expectedText
+
+  describe "Script" $ do
+    it "returns a transformed document based on the script field" $ withTestEnv $ do
+      _ <- insertData
+      let query = MatchAllQuery Nothing
+          sfv = toJSON $
+            Script
+            (Just (ScriptLanguage "painless"))
+            (Just (ScriptInline "doc['age'].value * 2"))
+            Nothing
+            Nothing
+          sf = ScriptFields $
+            HM.fromList [("test1", sfv)]
+          search' = mkSearch (Just query) Nothing
+          search = search' { scriptFields = Just sf }
+      resp <- searchByIndex testIndex search
+      parsed <- parseEsResponse resp :: BH IO (Either EsError (SearchResult Value))
+      case parsed of
+        Left e ->
+          liftIO $ expectationFailure ("Expected a script-transformed result but got: " <> show e)
+        Right sr -> do
+          let Just results =
+                hitFields (head (hits (searchHits sr)))
+          liftIO $ results `shouldBe` (HitFields (M.fromList [("test1", [Number 20000.0])]))
 
   describe "Exact isomorphism JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
