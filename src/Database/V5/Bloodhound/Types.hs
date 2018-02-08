@@ -336,6 +336,9 @@ module Database.V5.Bloodhound.Types
        , SuggestOptions(..)
        , SuggestResponse(..)
        , NamedSuggestionResponse(..)
+       , DirectGenerators(..)
+       , mkDirectGenerators
+       , DirectGeneratorSuggestModeTypes (..)
 
        , Aggregation(..)
        , Aggregations
@@ -5293,6 +5296,7 @@ data PhraseSuggester =
                   , phraseSuggesterShardSize :: Maybe Int
                   , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
                   , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
+                  , phraseSuggesterCandidateGenerators :: [DirectGenerators]
                   }
   deriving (Show, Generic, Eq, Read)
 
@@ -5308,6 +5312,7 @@ instance ToJSON PhraseSuggester where
                                          , "shard_size" .= phraseSuggesterShardSize
                                          , "highlight" .= phraseSuggesterHighlight
                                          , "collate" .= phraseSuggesterCollate
+                                         , "direct_generator" .= phraseSuggesterCandidateGenerators
                                         ]
 
 instance FromJSON PhraseSuggester where
@@ -5324,11 +5329,12 @@ instance FromJSON PhraseSuggester where
                       <*> o .:? "shard_size"
                       <*> o .:? "highlight"
                       <*> o .:? "collate"
+                      <*> o .:? "direct_generator" .!= []
 
 mkPhraseSuggester :: FieldName -> PhraseSuggester
 mkPhraseSuggester fName =
   PhraseSuggester fName Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing []
 
 data PhraseSuggesterHighlighter =
   PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
@@ -5418,3 +5424,68 @@ instance FromJSON NamedSuggestionResponse where
     return $ NamedSuggestionResponse suggestionName' suggestionResponses'
 
   parseJSON x = typeMismatch "NamedSuggestionResponse" x
+
+data DirectGeneratorSuggestModeTypes = DirectGeneratorSuggestModeMissing
+                                | DirectGeneratorSuggestModePopular
+                                | DirectGeneratorSuggestModeAlways
+  deriving (Show, Eq, Read, Generic)
+
+instance ToJSON DirectGeneratorSuggestModeTypes where
+  toJSON DirectGeneratorSuggestModeMissing = "missing"
+  toJSON DirectGeneratorSuggestModePopular = "popular"
+  toJSON DirectGeneratorSuggestModeAlways = "always"
+
+instance FromJSON DirectGeneratorSuggestModeTypes where
+  parseJSON = withText "DirectGeneratorSuggestModeTypes" parse
+    where parse "missing"        = pure DirectGeneratorSuggestModeMissing
+          parse "popular"       = pure DirectGeneratorSuggestModePopular
+          parse "always"        = pure DirectGeneratorSuggestModeAlways
+          parse f            = fail ("Unexpected DirectGeneratorSuggestModeTypes: " <> show f)
+
+data DirectGenerators = DirectGenerators
+  { directGeneratorsField :: FieldName
+  , directGeneratorsSize :: Maybe Int
+  , directGeneratorSuggestMode :: DirectGeneratorSuggestModeTypes
+  , directGeneratorMaxEdits :: Maybe Double
+  , directGeneratorPrefixLength :: Maybe Int
+  , directGeneratorMinWordLength :: Maybe Int
+  , directGeneratorMaxInspections :: Maybe Int
+  , directGeneratorMinDocFreq :: Maybe Double
+  , directGeneratorMaxTermFreq :: Maybe Double
+  , directGeneratorPreFilter :: Maybe Text
+  , directGeneratorPostFilter :: Maybe Text
+  }
+  deriving (Show, Eq, Read, Generic)
+
+
+instance ToJSON DirectGenerators where
+  toJSON DirectGenerators{..} = omitNulls [ "field" .= directGeneratorsField
+                                         , "size" .= directGeneratorsSize
+                                         , "suggest_mode" .= directGeneratorSuggestMode
+                                         , "max_edits" .= directGeneratorMaxEdits
+                                         , "prefix_length" .= directGeneratorPrefixLength
+                                         , "min_word_length" .= directGeneratorMinWordLength
+                                         , "max_inspections" .= directGeneratorMaxInspections
+                                         , "min_doc_freq" .= directGeneratorMinDocFreq
+                                         , "max_term_freq" .= directGeneratorMaxTermFreq
+                                         , "pre_filter" .= directGeneratorPreFilter
+                                         , "post_filter" .= directGeneratorPostFilter
+                                        ]
+
+instance FromJSON DirectGenerators where
+  parseJSON = withObject "DirectGenerators" parse
+    where parse o = DirectGenerators
+                      <$> o .: "field"
+                      <*> o .:? "size"
+                      <*> o .:  "suggest_mode"
+                      <*> o .:? "max_edits"
+                      <*> o .:? "prefix_length"
+                      <*> o .:? "min_word_length"
+                      <*> o .:? "max_inspections"
+                      <*> o .:? "min_doc_freq"
+                      <*> o .:? "max_term_freq"
+                      <*> o .:? "pre_filter"
+                      <*> o .:? "post_filter"
+
+mkDirectGenerators :: FieldName -> DirectGenerators
+mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing 
