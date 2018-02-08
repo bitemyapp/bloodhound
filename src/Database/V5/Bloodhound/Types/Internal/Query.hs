@@ -2,7 +2,10 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 
-module Database.V5.Bloodhound.Types.Internal.Query where
+module Database.V5.Bloodhound.Types.Internal.Query
+  ( module X
+  , module Database.V5.Bloodhound.Types.Internal.Query
+  ) where
 
 import           Bloodhound.Import
 
@@ -13,10 +16,11 @@ import qualified Data.Text           as T
 import qualified Data.Traversable    as DT
 import qualified Data.Vector         as V
 
+import           Database.Bloodhound.Common.Script as X
 import           Database.V5.Bloodhound.Types.Internal.Newtypes
 
 data Query =
-  TermQuery                     Term (Maybe Boost)
+    TermQuery                   Term (Maybe Boost)
   | TermsQuery                  Text (NonEmpty Text)
   | QueryMatchQuery             MatchQuery
   | QueryMultiMatchQuery        MultiMatchQuery
@@ -24,6 +28,7 @@ data Query =
   | QueryBoostingQuery          BoostingQuery
   | QueryCommonTermsQuery       CommonTermsQuery
   | ConstantScoreQuery          Query Boost
+  | QueryFunctionScoreQuery     FunctionScoreQuery
   | QueryDisMaxQuery            DisMaxQuery
   | QueryFuzzyLikeThisQuery     FuzzyLikeThisQuery
   | QueryFuzzyLikeFieldQuery    FuzzyLikeFieldQuery
@@ -42,8 +47,8 @@ data Query =
   | QueryRangeQuery             RangeQuery
   | QueryRegexpQuery            RegexpQuery
   | QueryExistsQuery            FieldName
-  | QueryMatchNoneQuery
   | QueryTemplateQueryInline    TemplateQueryInline
+  | QueryMatchNoneQuery
   deriving (Eq, Show)
 
 -- | As of Elastic 2.0, 'Filters' are just 'Queries' housed in a
@@ -505,6 +510,74 @@ type Cache   = Bool -- caching on/off
 defaultCache :: Cache
 defaultCache = False
 
+
+data FunctionScoreQuery =
+  FunctionScoreQuery { functionScoreQuery     :: Maybe Query
+                     , functionScoreBoost     :: Maybe Boost
+                     , functionScoreFunctions :: FunctionScoreFunctions
+                     , functionScoreMaxBoost  :: Maybe Boost
+                     , functionScoreBoostMode :: Maybe BoostMode
+                     , functionScoreMinScore  :: Score
+                     , functionScoreScoreMode :: Maybe ScoreMode
+                     } deriving (Eq, Show)
+
+instance ToJSON FunctionScoreQuery where
+  toJSON (FunctionScoreQuery query boost fns maxBoost boostMode minScore scoreMode) =
+    omitNulls base
+    where base = functionScoreFunctionsPair fns :
+                 [ "query"      .= query
+                 , "boost"      .= boost
+                 , "max_boost"  .= maxBoost
+                 , "boost_mode" .= boostMode
+                 , "min_score"  .= minScore
+                 , "score_mode" .= scoreMode ]
+
+instance FromJSON FunctionScoreQuery where
+  parseJSON = withObject "FunctionScoreQuery" parse
+    where parse o = FunctionScoreQuery
+                    <$> o .:? "query"
+                    <*> o .:? "boost"
+                    <*> (singleFunction o
+                          <|> multipleFunctions `taggedWith` "functions")
+                    <*> o .:? "max_boost"
+                    <*> o .:? "boost_mode"
+                    <*> o .:? "min_score"
+                    <*> o .:? "score_mode"
+            where taggedWith parser k = parser =<< o .: k
+          singleFunction = fmap FunctionScoreSingle . parseFunctionScoreFunction
+          multipleFunctions = pure . FunctionScoreMultiple
+
+data FunctionScoreFunctions =
+  FunctionScoreSingle FunctionScoreFunction
+  | FunctionScoreMultiple (NonEmpty ComponentFunctionScoreFunction) deriving (Eq, Show)
+
+data ComponentFunctionScoreFunction =
+  ComponentFunctionScoreFunction { componentScoreFunctionFilter :: Maybe Filter
+                                 , componentScoreFunction       :: FunctionScoreFunction
+                                 , componentScoreFunctionWeight :: Maybe Weight
+                                 } deriving (Eq, Show)
+
+instance ToJSON ComponentFunctionScoreFunction where
+  toJSON (ComponentFunctionScoreFunction filter fn weight) =
+    omitNulls base
+    where base = functionScoreFunctionPair fn :
+                 [ "filter" .= filter
+                 , "weight" .= weight ]
+
+instance FromJSON ComponentFunctionScoreFunction where
+  parseJSON = withObject "ComponentFunctionScoreFunction" parse
+    where parse o = ComponentFunctionScoreFunction
+                    <$> o .:? "filter"
+                    <*> parseFunctionScoreFunction o
+                    <*> o .:? "weight"
+
+functionScoreFunctionsPair :: FunctionScoreFunctions -> (Text, Value)
+functionScoreFunctionsPair (FunctionScoreSingle fn)
+  = functionScoreFunctionPair fn
+functionScoreFunctionsPair (FunctionScoreMultiple componentFns) =
+  ("functions", toJSON componentFns)
+
+
 instance ToJSON Query where
   toJSON (TermQuery (Term termQueryField termQueryValue) boost) =
     object [ "term" .=
@@ -544,6 +617,9 @@ instance ToJSON Query where
   toJSON (ConstantScoreQuery query boost) =
     object ["constant_score" .= object ["query" .= query
                                        , "boost" .= boost]]
+
+  toJSON (QueryFunctionScoreQuery functionScoreQuery) =
+    object [ "function_score" .= functionScoreQuery ]
 
   toJSON (QueryDisMaxQuery disMaxQuery) =
     object [ "dis_max" .= disMaxQuery ]
@@ -612,6 +688,7 @@ instance FromJSON Query where
                 <|> queryBoostingQuery `taggedWith` "boosting"
                 <|> queryCommonTermsQuery `taggedWith` "common"
                 <|> constantScoreQuery `taggedWith` "constant_score"
+                <|> queryFunctionScoreQuery `taggedWith` "function_score"
                 <|> queryDisMaxQuery `taggedWith` "dis_max"
                 <|> queryFuzzyLikeThisQuery `taggedWith` "fuzzy_like_this"
                 <|> queryFuzzyLikeFieldQuery `taggedWith` "fuzzy_like_this_field"
@@ -649,6 +726,7 @@ instance FromJSON Query where
             Just x -> ConstantScoreQuery <$> parseJSON x
                                          <*> o .: "boost"
             _ -> fail "Does not appear to be a ConstantScoreQuery"
+          queryFunctionScoreQuery = pure . QueryFunctionScoreQuery
           queryDisMaxQuery = pure . QueryDisMaxQuery
           queryFuzzyLikeThisQuery = pure . QueryFuzzyLikeThisQuery
           queryFuzzyLikeFieldQuery = pure . QueryFuzzyLikeFieldQuery
@@ -667,20 +745,10 @@ instance FromJSON Query where
           -- queryExistsQuery o = QueryExistsQuery <$> o .: "field"
           queryTemplateQueryInline = pure . QueryTemplateQueryInline
 
-omitNulls :: [(Text, Value)] -> Value
-omitNulls = object . filter notNull where
-  notNull (_, Null)    = False
-  notNull (_, Array a) = (not . V.null) a
-  notNull _            = True
-
 fieldTagged :: Monad m => (FieldName -> Object -> m a) -> Object -> m a
 fieldTagged f o = case HM.toList o of
                     [(k, Object o')] -> f (FieldName k) o'
                     _ -> fail "Expected object with 1 field-named key"
-
-parseNEJSON :: (FromJSON a) => [Value] -> Parser (NonEmpty a)
-parseNEJSON []     = fail "Expected non-empty list"
-parseNEJSON (x:xs) = DT.mapM parseJSON (x :| xs)
 
 instance ToJSON SimpleQueryStringQuery where
   toJSON SimpleQueryStringQuery {..} =

@@ -2,6 +2,8 @@ module Bloodhound.Import
   ( module X
   , LByteString
   , Method
+  , omitNulls
+  , parseNEJSON
   , parseReadText
   , readMay
   , showText
@@ -62,6 +64,8 @@ import           Data.Time.Clock.POSIX  as X
 
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
+import qualified Data.Traversable as DT
+import qualified Data.Vector as V
 import qualified Network.HTTP.Types.Method as NHTM
 
 type LByteString = BL.ByteString
@@ -78,3 +82,13 @@ parseReadText = maybe mzero return . readMay . T.unpack
 
 showText :: Show a => a -> Text
 showText = T.pack . show
+
+omitNulls :: [(Text, Value)] -> Value
+omitNulls = object . filter notNull where
+  notNull (_, Null)    = False
+  notNull (_, Array a) = (not . V.null) a
+  notNull _            = True
+
+parseNEJSON :: (FromJSON a) => [Value] -> Parser (NonEmpty a)
+parseNEJSON []     = fail "Expected non-empty list"
+parseNEJSON (x:xs) = DT.mapM parseJSON (x :| xs)

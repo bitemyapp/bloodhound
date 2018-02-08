@@ -5,6 +5,9 @@ module Database.V5.Bloodhound.Types.Internal.Newtypes where
 
 import           Bloodhound.Import
 
+-- Slight misnomer.
+type Score = Maybe Double
+
 {-| 'MappingName' is part of mappings which are how ES describes and schematizes
     the data in the indices.
 -}
@@ -41,12 +44,12 @@ newtype QueryString =
   deriving (Eq, Show, ToJSON, FromJSON)
 
 
-{-| 'Script' is often used in place of 'FieldName' to specify more
-complex ways of extracting a value from a document.
--}
-newtype Script =
-  Script { scriptText :: Text }
-  deriving (Eq, Show)
+-- {-| 'Script' is often used in place of 'FieldName' to specify more
+-- complex ways of extracting a value from a document.
+-- -}
+-- newtype Script =
+--   Script { scriptText :: Text }
+--   deriving (Eq, Show)
 
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.

@@ -40,7 +40,7 @@ script:
   - stack update --no-terminal
   - stack build -j2 --fast --no-terminal
   - travis_wait 45 sleep 1800 &
-  - stack test --fast --no-terminal bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:$ESFLAG
+  - stack test --fast --no-terminal bloodhound:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:$ESFLAG
 
 cache:
   timeout: 2000
