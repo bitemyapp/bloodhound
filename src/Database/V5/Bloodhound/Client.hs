@@ -54,6 +54,7 @@ module Database.V5.Bloodhound.Client
        -- ** Searching
        , searchAll
        , searchByIndex
+       , searchByIndices
        , searchByType
        , scanSearch
        , getInitialScroll
@@ -971,6 +972,15 @@ searchAll = bindM2 dispatchSearch url . return
 searchByIndex :: MonadBH m => IndexName -> Search -> m Reply
 searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, "_search"]
+
+-- | 'searchByIndices' is a variant of 'searchByIndex' that executes a
+--   'Search' over many indices. This is much faster than using
+--   'mapM' to 'searchByIndex' over a collection since it only
+--   causes a single HTTP request to be emitted.
+searchByIndices :: MonadBH m => NonEmpty IndexName -> Search -> m Reply
+searchByIndices ixs = bindM2 dispatchSearch url . return
+  where url = joinPath [renderedIxs, "_search"]
+        renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
 
 -- | 'searchByType', given a 'Search', 'IndexName', and 'MappingName', will perform that
 --   search against a specific mapping within an index on an Elasticsearch server.
