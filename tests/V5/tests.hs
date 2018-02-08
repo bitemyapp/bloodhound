@@ -952,6 +952,10 @@ makeArbitrary ''SnapshotRepoName
 instance Arbitrary SnapshotRepoName where arbitrary = arbitrarySnapshotRepoName
 makeArbitrary ''TemplateQueryInline
 instance Arbitrary TemplateQueryInline where arbitrary = arbitraryTemplateQueryInline
+makeArbitrary ''DirectGeneratorSuggestModeTypes
+instance Arbitrary DirectGeneratorSuggestModeTypes where arbitrary = arbitraryDirectGeneratorSuggestModeTypes
+makeArbitrary ''DirectGenerators
+instance Arbitrary DirectGenerators where arbitrary = arbitraryDirectGenerators
 makeArbitrary ''PhraseSuggesterCollate
 instance Arbitrary PhraseSuggesterCollate where arbitrary = arbitraryPhraseSuggesterCollate
 makeArbitrary ''PhraseSuggesterHighlighter
@@ -1959,6 +1963,9 @@ main = hspec $ do
     propJSON (Proxy :: Proxy CompoundFormat)
     propJSON (Proxy :: Proxy TemplateQueryInline)
     propJSON (Proxy :: Proxy Suggest)
+    propJSON (Proxy :: Proxy DirectGenerators)
+    propJSON (Proxy :: Proxy DirectGeneratorSuggestModeTypes)
+
   describe "Approximate isomorphism JSON instances" $ do
     propApproxJSON (Proxy :: Proxy UpdatableIndexSetting')
     propApproxJSON (Proxy :: Proxy ReplicaCount)

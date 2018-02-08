@@ -700,14 +700,17 @@ listIndices :: (MonadThrow m, MonadBH m) => m [IndexName]
 listIndices =
   parse . responseBody =<< get =<< url
   where
-    url = joinPath ["_cat/indices?v"]
-    -- parses the tabular format the indices api provides
-    parse body = case T.lines (T.decodeUtf8 (L.toStrict body)) of
-      (hdr:rows) -> let ks = T.words hdr
-                        keyedRows = [ HM.fromList (zip ks (T.words row)) | row <- rows ]
-                        names = catMaybes (HM.lookup "index" <$> keyedRows)
-                    in return (IndexName <$> names)
-      [] -> throwM (EsProtocolException body)
+    url = joinPath ["_cat/indices?format=json"]
+    parse body = maybe (throwM (EsProtocolException body)) return $ do
+      vals <- decode body
+      forM vals $ \val -> do
+        case val of
+          Object obj -> do
+            indexVal <- HM.lookup "index" obj
+            case indexVal of
+              String txt -> Just (IndexName txt)
+              _ -> Nothing
+          _ -> Nothing
 
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at

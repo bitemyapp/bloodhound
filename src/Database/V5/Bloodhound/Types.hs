@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable         #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -16,7 +14,7 @@
 -- License : BSD-style (see the file LICENSE)
 -- Maintainer : Chris Allen <cma@bitemyapp.com
 -- Stability : provisional
--- Portability : DeriveGeneric, RecordWildCards
+-- Portability : RecordWildCards
 --
 -- Data types for describing actions and data structures performed to interact
 -- with Elasticsearch. The two main buckets your queries against Elasticsearch
@@ -357,6 +355,9 @@ module Database.V5.Bloodhound.Types
        , SuggestOptions(..)
        , SuggestResponse(..)
        , NamedSuggestionResponse(..)
+       , DirectGenerators(..)
+       , mkDirectGenerators
+       , DirectGeneratorSuggestModeTypes (..)
 
        , Aggregation(..)
        , Aggregations
@@ -406,44 +407,6 @@ module Database.V5.Bloodhound.Types
        , Ngram(..)
        , TokenChar(..)
          ) where
-
--- import           Control.Applicative                   as A
--- import           Control.Arrow                         (first)
--- import           Control.Monad.Catch
--- import           Control.Monad.Except
--- import           Control.Monad.State                   (MonadState)
--- import           Control.Monad.Writer                  (MonadWriter)
--- import           Data.Aeson
--- import           Data.Aeson.Types                      (Pair, Parser,
---                                                         emptyObject,
---                                                         parseEither, parseMaybe,
---                                                         typeMismatch)
--- import qualified Data.ByteString.Lazy.Char8            as L
--- import           Data.Char
--- import           Data.Hashable                         (Hashable)
--- import qualified Data.HashMap.Strict                   as HM
--- import           Data.List                             (foldl', intercalate,
---                                                         nub)
--- import           Data.List.NonEmpty                    (NonEmpty (..), toList)
--- import           Data.Maybe
--- import           Data.Scientific                       (Scientific)
--- import           Data.Semigroup
--- import           Data.Text                             (Text)
--- import qualified Data.Text                             as T
--- import           Data.Time.Calendar
--- import           Data.Time.Clock                       (NominalDiffTime,
---                                                         UTCTime)
--- import           Data.Time.Clock.POSIX
--- import qualified Data.Traversable                      as DT
--- import           Data.Typeable                         (Typeable)
--- import qualified Data.Vector                           as V
--- import qualified Data.Version                          as Vers
--- import           GHC.Enum
--- import           GHC.Generics                          (Generic)
--- import           Network.HTTP.Client
--- import qualified Network.HTTP.Types.Method             as NHTM
--- import qualified Text.ParserCombinators.ReadP          as RP
--- import qualified Text.Read                             as TR
 
 import           Bloodhound.Import
 
@@ -1659,6 +1622,7 @@ data PhraseSuggester =
                   , phraseSuggesterShardSize :: Maybe Int
                   , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
                   , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
+                  , phraseSuggesterCandidateGenerators :: [DirectGenerators]
                   }
   deriving (Eq, Show)
 
@@ -1674,6 +1638,7 @@ instance ToJSON PhraseSuggester where
                                          , "shard_size" .= phraseSuggesterShardSize
                                          , "highlight" .= phraseSuggesterHighlight
                                          , "collate" .= phraseSuggesterCollate
+                                         , "direct_generator" .= phraseSuggesterCandidateGenerators
                                         ]
 
 instance FromJSON PhraseSuggester where
@@ -1690,11 +1655,12 @@ instance FromJSON PhraseSuggester where
                       <*> o .:? "shard_size"
                       <*> o .:? "highlight"
                       <*> o .:? "collate"
+                      <*> o .:? "direct_generator" .!= []
 
 mkPhraseSuggester :: FieldName -> PhraseSuggester
 mkPhraseSuggester fName =
   PhraseSuggester fName Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing []
 
 data PhraseSuggesterHighlighter =
   PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
@@ -1784,3 +1750,68 @@ instance FromJSON NamedSuggestionResponse where
     return $ NamedSuggestionResponse suggestionName' suggestionResponses'
 
   parseJSON x = typeMismatch "NamedSuggestionResponse" x
+
+data DirectGeneratorSuggestModeTypes = DirectGeneratorSuggestModeMissing
+                                | DirectGeneratorSuggestModePopular
+                                | DirectGeneratorSuggestModeAlways
+  deriving (Eq, Show)
+
+instance ToJSON DirectGeneratorSuggestModeTypes where
+  toJSON DirectGeneratorSuggestModeMissing = "missing"
+  toJSON DirectGeneratorSuggestModePopular = "popular"
+  toJSON DirectGeneratorSuggestModeAlways = "always"
+
+instance FromJSON DirectGeneratorSuggestModeTypes where
+  parseJSON = withText "DirectGeneratorSuggestModeTypes" parse
+    where parse "missing"        = pure DirectGeneratorSuggestModeMissing
+          parse "popular"       = pure DirectGeneratorSuggestModePopular
+          parse "always"        = pure DirectGeneratorSuggestModeAlways
+          parse f            = fail ("Unexpected DirectGeneratorSuggestModeTypes: " <> show f)
+
+data DirectGenerators = DirectGenerators
+  { directGeneratorsField :: FieldName
+  , directGeneratorsSize :: Maybe Int
+  , directGeneratorSuggestMode :: DirectGeneratorSuggestModeTypes
+  , directGeneratorMaxEdits :: Maybe Double
+  , directGeneratorPrefixLength :: Maybe Int
+  , directGeneratorMinWordLength :: Maybe Int
+  , directGeneratorMaxInspections :: Maybe Int
+  , directGeneratorMinDocFreq :: Maybe Double
+  , directGeneratorMaxTermFreq :: Maybe Double
+  , directGeneratorPreFilter :: Maybe Text
+  , directGeneratorPostFilter :: Maybe Text
+  }
+  deriving (Eq, Show)
+
+
+instance ToJSON DirectGenerators where
+  toJSON DirectGenerators{..} = omitNulls [ "field" .= directGeneratorsField
+                                         , "size" .= directGeneratorsSize
+                                         , "suggest_mode" .= directGeneratorSuggestMode
+                                         , "max_edits" .= directGeneratorMaxEdits
+                                         , "prefix_length" .= directGeneratorPrefixLength
+                                         , "min_word_length" .= directGeneratorMinWordLength
+                                         , "max_inspections" .= directGeneratorMaxInspections
+                                         , "min_doc_freq" .= directGeneratorMinDocFreq
+                                         , "max_term_freq" .= directGeneratorMaxTermFreq
+                                         , "pre_filter" .= directGeneratorPreFilter
+                                         , "post_filter" .= directGeneratorPostFilter
+                                        ]
+
+instance FromJSON DirectGenerators where
+  parseJSON = withObject "DirectGenerators" parse
+    where parse o = DirectGenerators
+                      <$> o .: "field"
+                      <*> o .:? "size"
+                      <*> o .:  "suggest_mode"
+                      <*> o .:? "max_edits"
+                      <*> o .:? "prefix_length"
+                      <*> o .:? "min_word_length"
+                      <*> o .:? "max_inspections"
+                      <*> o .:? "min_doc_freq"
+                      <*> o .:? "max_term_freq"
+                      <*> o .:? "pre_filter"
+                      <*> o .:? "post_filter"
+
+mkDirectGenerators :: FieldName -> DirectGenerators
+mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing 

@@ -7,6 +7,7 @@ packages:
   - './examples'
 
 extra-deps:
+  - quickcheck-properties-0.1
   - http-types-0.12
   - quickcheck-arbitrary-template-0.2.0.0
 
