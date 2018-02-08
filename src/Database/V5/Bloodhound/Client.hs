@@ -858,7 +858,6 @@ deleteDocument (IndexName indexName)
 -- >>> _ <- runBH' $ refreshIndex testIndex
 bulk :: MonadBH m => V.Vector BulkOperation -> m Reply
 bulk bulkOps = do
-  liftIO $ print body
   bindM2 post url (return body)
   where url = joinPath ["_bulk"]
         body = Just $ encodeBulkOperations bulkOps
@@ -888,6 +887,12 @@ mkBulkStreamValue operation indexName mappingName docId =
                  , "_type"  .= mappingName
                  , "_id"    .= docId]]
 
+mkBulkStreamValueAuto :: Text -> Text -> Text -> Value
+mkBulkStreamValueAuto operation indexName mappingName =
+  object [operation .=
+          object [ "_index" .= indexName
+                 , "_type"  .= mappingName]]
+
 -- | 'encodeBulkOperation' is a convenience function for dumping a single 'BulkOperation'
 --   into an 'L.ByteString'
 --
@@ -900,6 +905,18 @@ encodeBulkOperation (BulkIndex (IndexName indexName)
                 (DocId docId) value) = blob
     where metadata = mkBulkStreamValue "index" indexName mappingName docId
           blob = encode metadata `mappend` "\n" `mappend` encode value
+
+encodeBulkOperation (BulkIndexAuto (IndexName indexName)
+                (MappingName mappingName)
+                value) = blob
+    where metadata = mkBulkStreamValueAuto "index" indexName mappingName
+          blob = encode metadata `mappend` "\n" `mappend` encode value
+
+encodeBulkOperation (BulkIndexEncodingAuto (IndexName indexName)
+                (MappingName mappingName)
+                encoding) = toLazyByteString blob
+    where metadata = toEncoding (mkBulkStreamValueAuto "index" indexName mappingName)
+          blob = fromEncoding metadata <> "\n" <> fromEncoding encoding
 
 encodeBulkOperation (BulkCreate (IndexName indexName)
                 (MappingName mappingName)

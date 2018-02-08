@@ -106,5 +106,7 @@ test-suite bloodhound-tests
                        exceptions,
                        temporary,
                        unix-compat,
-                       network-uri
+                       network-uri,
+                       microlens,
+                       microlens-aeson
   default-language:    Haskell2010
