@@ -2,9 +2,9 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 
-module Database.V5.Bloodhound.Types.Internal.Query
+module Database.V5.Bloodhound.Internal.Query
   ( module X
-  , module Database.V5.Bloodhound.Types.Internal.Query
+  , module Database.V5.Bloodhound.Internal.Query
   ) where
 
 import           Bloodhound.Import
@@ -17,7 +17,7 @@ import qualified Data.Traversable    as DT
 import qualified Data.Vector         as V
 
 import           Database.Bloodhound.Common.Script as X
-import           Database.V5.Bloodhound.Types.Internal.Newtypes
+import           Database.V5.Bloodhound.Internal.Newtypes
 
 data Query =
     TermQuery                   Term (Maybe Boost)

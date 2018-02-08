@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.V5.Bloodhound.Types.Internal.StringlyTyped where
+module Database.V5.Bloodhound.Internal.StringlyTyped where
 
 import           Data.Aeson
 import qualified Data.Text     as T

@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module Database.V5.Bloodhound.Types.Internal.Newtypes where
+module Database.V5.Bloodhound.Internal.Newtypes where
 
 import           Bloodhound.Import
 

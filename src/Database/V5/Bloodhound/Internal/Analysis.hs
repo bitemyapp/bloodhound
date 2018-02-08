@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module Database.V5.Bloodhound.Types.Internal.Analysis where
+module Database.V5.Bloodhound.Internal.Analysis where
 
 import           Data.Aeson
 import           Data.Aeson.Types (Parser)
@@ -9,7 +9,7 @@ import qualified Data.Map.Strict as M
 import           Data.Maybe         (catMaybes)
 import           Data.Text          (Text)
 
-import           Database.V5.Bloodhound.Types.Internal.StringlyTyped
+import           Database.V5.Bloodhound.Internal.StringlyTyped
 
 data Analysis = Analysis
   { analysisAnalyzer :: M.Map Text AnalyzerDefinition

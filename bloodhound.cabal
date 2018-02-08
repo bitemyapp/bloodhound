@@ -1,5 +1,5 @@
 name:                bloodhound
-version:             0.15.0.2
+version:             0.16.0.0
 synopsis:            ElasticSearch client library for Haskell
 description:         ElasticSearch made awesome for Haskell hackers
 homepage:            https://github.com/bitemyapp/bloodhound
@@ -45,11 +45,11 @@ library
                        Database.V5.Bloodhound.Types.Class
   other-modules:       Bloodhound.Import
                        Database.Bloodhound.Common.Script
-                       Database.V5.Bloodhound.Types.Internal.Analysis
-                       Database.V5.Bloodhound.Types.Internal.Client
-                       Database.V5.Bloodhound.Types.Internal.Newtypes
-                       Database.V5.Bloodhound.Types.Internal.Query
-                       Database.V5.Bloodhound.Types.Internal.StringlyTyped
+                       Database.V5.Bloodhound.Internal.Analysis
+                       Database.V5.Bloodhound.Internal.Client
+                       Database.V5.Bloodhound.Internal.Newtypes
+                       Database.V5.Bloodhound.Internal.Query
+                       Database.V5.Bloodhound.Internal.StringlyTyped
   hs-source-dirs:      src
   build-depends:       base             >= 4.3     && <5,
                        bytestring       >= 0.10.0  && <0.11,

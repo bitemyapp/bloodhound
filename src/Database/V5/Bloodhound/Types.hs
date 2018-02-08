@@ -453,11 +453,11 @@ import qualified Data.Map.Strict                       as M
 import qualified Data.Text                             as T
 
 import           Database.V5.Bloodhound.Types.Class
-import           Database.V5.Bloodhound.Types.Internal.Analysis
-import           Database.V5.Bloodhound.Types.Internal.Client
-import           Database.V5.Bloodhound.Types.Internal.Newtypes
-import           Database.V5.Bloodhound.Types.Internal.Query
-import           Database.V5.Bloodhound.Types.Internal.StringlyTyped
+import           Database.V5.Bloodhound.Internal.Analysis
+import           Database.V5.Bloodhound.Internal.Client
+import           Database.V5.Bloodhound.Internal.Newtypes
+import           Database.V5.Bloodhound.Internal.Query
+import           Database.V5.Bloodhound.Internal.StringlyTyped
 
 {-| 'Sort' is a synonym for a list of 'SortSpec's. Sort behavior is order
     dependent with later sorts acting as tie-breakers for earlier sorts.
