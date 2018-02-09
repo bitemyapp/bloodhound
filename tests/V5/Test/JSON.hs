@@ -1,19 +1,17 @@
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.JSON where
 
-import Database.V5.Bloodhound
+import Test.Import
 
-import Data.Aeson
-import Data.Aeson.Types (parseEither)
 import qualified Data.ByteString.Lazy.Char8 as BL8
 import qualified Data.List as L
+import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NE
-import Data.Monoid
-import Data.Typeable
-import Test.Hspec
-import Test.Hspec.QuickCheck
-import Test.QuickCheck
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
+import qualified Data.Vector as V
 
 import Test.ApproxEq
 import Test.Generators
@@ -52,6 +50,47 @@ propApproxJSON _ = prop testName $ \(a :: a) ->
 
 spec :: Spec
 spec = do
+  describe "ToJSON RegexpFlags" $ do
+    it "generates the correct JSON for AllRegexpFlags" $
+      toJSON AllRegexpFlags `shouldBe` String "ALL"
+
+    it "generates the correct JSON for NoRegexpFlags" $
+      toJSON NoRegexpFlags `shouldBe` String "NONE"
+
+    it "generates the correct JSON for SomeRegexpFlags" $
+      let flags = AnyString :| [ Automaton
+                               , Complement
+                               , Empty
+                               , Intersection
+                               , Interval ]
+      in toJSON (SomeRegexpFlags flags) `shouldBe` String "ANYSTRING|AUTOMATON|COMPLEMENT|EMPTY|INTERSECTION|INTERVAL"
+
+    prop "removes duplicates from flags" $ \(flags :: RegexpFlags) ->
+      let String str = toJSON flags
+          flagStrs   = T.splitOn "|" str
+      in noDuplicates flagStrs
+
+  describe "omitNulls" $ do
+    it "checks that omitNulls drops list elements when it should" $
+       let dropped = omitNulls $ [ "test1" .= (toJSON ([] :: [Int]))
+                                 , "test2" .= (toJSON ("some value" :: Text))]
+       in dropped `shouldBe` Object (HM.fromList [("test2", String "some value")])
+
+    it "checks that omitNulls doesn't drop list elements when it shouldn't" $
+       let notDropped = omitNulls $ [ "test1" .= (toJSON ([1] :: [Int]))
+                                    , "test2" .= (toJSON ("some value" :: Text))]
+       in notDropped `shouldBe` Object (HM.fromList [ ("test1", Array (V.fromList [Number 1.0]))
+                                                 , ("test2", String "some value")])
+    it "checks that omitNulls drops non list elements when it should" $
+       let dropped = omitNulls $ [ "test1" .= (toJSON Null)
+                                 , "test2" .= (toJSON ("some value" :: Text))]
+       in dropped `shouldBe` Object (HM.fromList [("test2", String "some value")])
+    it "checks that omitNulls doesn't drop non list elements when it shouldn't" $
+       let notDropped = omitNulls $ [ "test1" .= (toJSON (1 :: Int))
+                                    , "test2" .= (toJSON ("some value" :: Text))]
+       in notDropped `shouldBe` Object (HM.fromList [ ("test1", Number 1.0)
+                                                   , ("test2", String "some value")])
+
   describe "Exact isomorphism JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
     propJSON (Proxy :: Proxy IndexName)
