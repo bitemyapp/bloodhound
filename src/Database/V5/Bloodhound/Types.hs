@@ -223,6 +223,7 @@ module Database.V5.Bloodhound.Types
        , CutoffFrequency(..)
        , Analyzer(..)
        , Tokenizer(..)
+       , TokenFilter(..)
        , MaxExpansions(..)
        , Lenient(..)
        , MatchQueryType(..)
@@ -404,8 +405,11 @@ module Database.V5.Bloodhound.Types
        , Analysis(..)
        , AnalyzerDefinition(..)
        , TokenizerDefinition(..)
+       , TokenFilterDefinition(..)
        , Ngram(..)
        , TokenChar(..)
+       , Shingle(..)
+       , Language(..)
          ) where
 
 import           Bloodhound.Import
@@ -1574,7 +1578,6 @@ instance FromJSON DocVersion where
   parseJSON v = do
     i <- parseJSON v
     maybe (fail "DocVersion out of range") return $ mkDocVersion i
-
 
 data Suggest = Suggest { suggestText :: Text
                        , suggestName :: Text

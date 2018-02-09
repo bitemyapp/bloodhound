@@ -26,8 +26,16 @@ instance FromJSON StringlyTypedInt where
     . parseJSON
     . unStringlyTypeJSON
 
+newtype StringlyTypedBool = StringlyTypedBool { unStringlyTypedBool :: Bool }
+
+instance FromJSON StringlyTypedBool where
+  parseJSON =
+      fmap StringlyTypedBool
+    . parseJSON
+    . unStringlyTypeJSON
+
 -- | For some reason in several settings APIs, all leaf values get returned
--- as strings. This function attepmts to recover from this for all
+-- as strings. This function attempts to recover from this for all
 -- non-recursive JSON types. If nothing can be done, the value is left alone.
 unStringlyTypeJSON :: Value -> Value
 unStringlyTypeJSON (String "true") =

@@ -196,3 +196,6 @@ instance FromJSON MS where
   parseJSON = withScientific "MS" (return . MS . parse)
     where
       parse n = fromInteger ((truncate n) * 1000)
+
+newtype TokenFilter =
+  TokenFilter Text deriving (Eq, Show, FromJSON, ToJSON)
