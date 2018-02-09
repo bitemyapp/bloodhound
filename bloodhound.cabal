@@ -82,7 +82,9 @@ test-suite bloodhound-tests
     hs-source-dirs:     tests/V1
   else
     hs-source-dirs:     tests/V5
-
+  other-modules:       Test.ApproxEq
+                       Test.Generators
+                       Test.JSON
   build-depends:       base,
                        bloodhound,
                        bytestring,

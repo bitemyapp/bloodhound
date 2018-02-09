@@ -13,8 +13,6 @@ import           Data.Char           (isNumber)
 import qualified Data.HashMap.Strict as HM
 import           Data.List           (nub)
 import qualified Data.Text           as T
-import qualified Data.Traversable    as DT
-import qualified Data.Vector         as V
 
 import           Database.Bloodhound.Common.Script as X
 import           Database.V5.Bloodhound.Internal.Newtypes
@@ -558,10 +556,10 @@ data ComponentFunctionScoreFunction =
                                  } deriving (Eq, Show)
 
 instance ToJSON ComponentFunctionScoreFunction where
-  toJSON (ComponentFunctionScoreFunction filter fn weight) =
+  toJSON (ComponentFunctionScoreFunction filter' fn weight) =
     omitNulls base
     where base = functionScoreFunctionPair fn :
-                 [ "filter" .= filter
+                 [ "filter" .= filter'
                  , "weight" .= weight ]
 
 instance FromJSON ComponentFunctionScoreFunction where

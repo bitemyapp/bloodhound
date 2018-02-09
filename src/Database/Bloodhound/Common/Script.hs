@@ -131,12 +131,10 @@ instance FromJSON ScoreMode where
 functionScoreFunctionPair :: FunctionScoreFunction -> (Text, Value)
 functionScoreFunctionPair (FunctionScoreFunctionScript functionScoreScript) =
   ("script_score", toJSON functionScoreScript)
-
 functionScoreFunctionPair (FunctionScoreFunctionRandom seed) =
   ("random_score", omitNulls [ "seed" .= seed ])
-
-functionScoreFunctionPair (FunctionScoreFunctionFieldValueFactor fieldValueFactor) =
-  ("field_value_factor", toJSON fieldValueFactor)
+functionScoreFunctionPair (FunctionScoreFunctionFieldValueFactor fvf) =
+  ("field_value_factor", toJSON fvf)
 
 parseFunctionScoreFunction :: Object -> Parser FunctionScoreFunction
 parseFunctionScoreFunction o =
