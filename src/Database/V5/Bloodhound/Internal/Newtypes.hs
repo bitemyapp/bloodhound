@@ -5,6 +5,9 @@ module Database.V5.Bloodhound.Internal.Newtypes where
 
 import           Bloodhound.Import
 
+newtype From = From Int deriving (Eq, Show, ToJSON)
+newtype Size = Size Int deriving (Eq, Show, ToJSON, FromJSON)
+
 -- Slight misnomer.
 type Score = Maybe Double
 

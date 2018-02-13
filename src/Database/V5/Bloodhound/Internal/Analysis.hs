@@ -3,6 +3,8 @@
 
 module Database.V5.Bloodhound.Internal.Analysis where
 
+import           Bloodhound.Import
+
 import           Data.Aeson
 import           Data.Aeson.Types (Parser)
 import qualified Data.Map.Strict as M

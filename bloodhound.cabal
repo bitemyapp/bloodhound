@@ -37,10 +37,12 @@ library
                        Database.V5.Bloodhound.Client
                        Database.V5.Bloodhound.Types
                        Database.V5.Bloodhound.Types.Class
+                       Database.V5.Bloodhound.Internal.Aggregation
                        Database.V5.Bloodhound.Internal.Analysis
                        Database.V5.Bloodhound.Internal.Client
                        Database.V5.Bloodhound.Internal.Newtypes
                        Database.V5.Bloodhound.Internal.Query
+                       Database.V5.Bloodhound.Internal.Sort
                        Database.V5.Bloodhound.Internal.StringlyTyped
                        Database.V1.Bloodhound
                        Database.V1.Bloodhound.Client
