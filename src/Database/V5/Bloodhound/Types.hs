@@ -518,25 +518,25 @@ data PostingsHighlight =
   deriving (Eq, Show)
 
 -- This requires that term_vector is set to 'with_positions_offsets' in the mapping.
-data FastVectorHighlight =
-    FastVectorHighlight { fvCommon          :: Maybe CommonHighlight
-                        , fvNonPostSettings :: Maybe NonPostings
-                        , boundaryChars     :: Maybe Text
-                        , boundaryMaxScan   :: Maybe Int
-                        , fragmentOffset    :: Maybe Int
-                        , matchedFields     :: [Text]
-                        , phraseLimit       :: Maybe Int
-                        } deriving (Eq, Show)
+data FastVectorHighlight = FastVectorHighlight
+  { fvCommon          :: Maybe CommonHighlight
+  , fvNonPostSettings :: Maybe NonPostings
+  , boundaryChars     :: Maybe Text
+  , boundaryMaxScan   :: Maybe Int
+  , fragmentOffset    :: Maybe Int
+  , matchedFields     :: [Text]
+  , phraseLimit       :: Maybe Int
+  } deriving (Eq, Show)
 
-data CommonHighlight =
-    CommonHighlight { order             :: Maybe Text
-                    , forceSource       :: Maybe Bool
-                    , tag               :: Maybe HighlightTag
-                    , encoder           :: Maybe HighlightEncoder
-                    , noMatchSize       :: Maybe Int
-                    , highlightQuery    :: Maybe Query
-                    , requireFieldMatch :: Maybe Bool
-                    } deriving (Eq, Show)
+data CommonHighlight = CommonHighlight
+  { order             :: Maybe Text
+  , forceSource       :: Maybe Bool
+  , tag               :: Maybe HighlightTag
+  , encoder           :: Maybe HighlightEncoder
+  , noMatchSize       :: Maybe Int
+  , highlightQuery    :: Maybe Query
+  , requireFieldMatch :: Maybe Bool
+  } deriving (Eq, Show)
 
 -- Settings that are only applicable to FastVector and Plain highlighters.
 data NonPostings =
@@ -824,15 +824,16 @@ fastVectorHighPairs (Just
 
 commonHighlightPairs :: Maybe CommonHighlight -> [Pair]
 commonHighlightPairs Nothing = []
-commonHighlightPairs (Just (CommonHighlight chScore chForceSource chTag chEncoder
-                                      chNoMatchSize chHighlightQuery
-                                      chRequireFieldMatch)) =
+commonHighlightPairs (Just (CommonHighlight chScore chForceSource
+                            chTag chEncoder chNoMatchSize
+                            chHighlightQuery chRequireFieldMatch)) =
     [ "order" .= chScore
     , "force_source" .= chForceSource
     , "encoder" .= chEncoder
     , "no_match_size" .= chNoMatchSize
     , "highlight_query" .= chHighlightQuery
-    , "require_fieldMatch" .= chRequireFieldMatch]
+    , "require_fieldMatch" .= chRequireFieldMatch
+    ]
     ++ highlightTagToPairs chTag
 
 
@@ -840,32 +841,41 @@ nonPostingsToPairs :: Maybe NonPostings -> [Pair]
 nonPostingsToPairs Nothing = []
 nonPostingsToPairs (Just (NonPostings npFragSize npNumOfFrags)) =
     [ "fragment_size" .= npFragSize
-    , "number_of_fragments" .= npNumOfFrags]
+    , "number_of_fragments" .= npNumOfFrags
+    ]
 
 highlightTagToPairs :: Maybe HighlightTag -> [Pair]
-highlightTagToPairs (Just (TagSchema _))            = [ "scheme"    .=  String "default"]
-highlightTagToPairs (Just (CustomTags (pre, post))) = [ "pre_tags"  .= pre
-                                                      , "post_tags" .= post]
+highlightTagToPairs (Just (TagSchema _)) =
+  [ "scheme" .= String "default"
+  ]
+highlightTagToPairs (Just (CustomTags (pre, post))) =
+  [ "pre_tags"  .= pre
+  , "post_tags" .= post
+  ]
 highlightTagToPairs Nothing = []
 
-data Suggest = Suggest { suggestText :: Text
-                       , suggestName :: Text
-                       , suggestType :: SuggestType
-                       }
- deriving (Eq, Show)
+data Suggest = Suggest
+  { suggestText :: Text
+  , suggestName :: Text
+  , suggestType :: SuggestType
+  } deriving (Eq, Show)
 
 instance ToJSON Suggest where
-  toJSON Suggest{..} = object [ "text" .= suggestText
-                              , suggestName .= suggestType
-                              ]
+  toJSON Suggest{..} =
+    object [ "text" .= suggestText
+           , suggestName .= suggestType
+           ]
 
 instance FromJSON Suggest where
   parseJSON (Object o) = do
     suggestText' <- o .: "text"
-    let dropTextList = HM.toList $ HM.filterWithKey (\x _ -> x /= "text") o
-    suggestName' <- case dropTextList of
-                        [(x, _)] -> return x
-                        _ -> fail "error parsing Suggest field name"
+    let dropTextList =
+            HM.toList
+          $ HM.filterWithKey (\x _ -> x /= "text") o
+    suggestName' <-
+      case dropTextList of
+        [(x, _)] -> return x
+        _ -> fail "error parsing Suggest field name"
     suggestType' <- o .: suggestName'
     return $ Suggest suggestText' suggestName' suggestType'
   parseJSON x = typeMismatch "Suggest" x
@@ -988,11 +998,12 @@ data SuggestOptions =
 
 instance FromJSON SuggestOptions where
   parseJSON = withObject "SuggestOptions" parse
-    where parse o = SuggestOptions
-                    <$> o .: "text"
-                    <*> o .: "score"
-                    <*> o .:? "freq"
-                    <*> o .:? "highlighted"
+    where
+      parse o = SuggestOptions
+            <$> o .: "text"
+            <*> o .: "score"
+            <*> o .:? "freq"
+            <*> o .:? "highlighted"
 
 data SuggestResponse =
   SuggestResponse { suggestResponseText :: Text
@@ -1037,10 +1048,15 @@ instance ToJSON DirectGeneratorSuggestModeTypes where
 
 instance FromJSON DirectGeneratorSuggestModeTypes where
   parseJSON = withText "DirectGeneratorSuggestModeTypes" parse
-    where parse "missing"        = pure DirectGeneratorSuggestModeMissing
-          parse "popular"       = pure DirectGeneratorSuggestModePopular
-          parse "always"        = pure DirectGeneratorSuggestModeAlways
-          parse f            = fail ("Unexpected DirectGeneratorSuggestModeTypes: " <> show f)
+    where
+      parse "missing" =
+        pure DirectGeneratorSuggestModeMissing
+      parse "popular" =
+        pure DirectGeneratorSuggestModePopular
+      parse "always" =
+        pure DirectGeneratorSuggestModeAlways
+      parse f =
+        fail ("Unexpected DirectGeneratorSuggestModeTypes: " <> show f)
 
 data DirectGenerators = DirectGenerators
   { directGeneratorsField :: FieldName
@@ -1054,22 +1070,22 @@ data DirectGenerators = DirectGenerators
   , directGeneratorMaxTermFreq :: Maybe Double
   , directGeneratorPreFilter :: Maybe Text
   , directGeneratorPostFilter :: Maybe Text
-  }
-  deriving (Eq, Show)
+  } deriving (Eq, Show)
 
 instance ToJSON DirectGenerators where
-  toJSON DirectGenerators{..} = omitNulls [ "field" .= directGeneratorsField
-                                         , "size" .= directGeneratorsSize
-                                         , "suggest_mode" .= directGeneratorSuggestMode
-                                         , "max_edits" .= directGeneratorMaxEdits
-                                         , "prefix_length" .= directGeneratorPrefixLength
-                                         , "min_word_length" .= directGeneratorMinWordLength
-                                         , "max_inspections" .= directGeneratorMaxInspections
-                                         , "min_doc_freq" .= directGeneratorMinDocFreq
-                                         , "max_term_freq" .= directGeneratorMaxTermFreq
-                                         , "pre_filter" .= directGeneratorPreFilter
-                                         , "post_filter" .= directGeneratorPostFilter
-                                        ]
+  toJSON DirectGenerators{..} =
+    omitNulls [ "field" .= directGeneratorsField
+              , "size" .= directGeneratorsSize
+              , "suggest_mode" .= directGeneratorSuggestMode
+              , "max_edits" .= directGeneratorMaxEdits
+              , "prefix_length" .= directGeneratorPrefixLength
+              , "min_word_length" .= directGeneratorMinWordLength
+              , "max_inspections" .= directGeneratorMaxInspections
+              , "min_doc_freq" .= directGeneratorMinDocFreq
+              , "max_term_freq" .= directGeneratorMaxTermFreq
+              , "pre_filter" .= directGeneratorPreFilter
+              , "post_filter" .= directGeneratorPostFilter
+              ]
 
 instance FromJSON DirectGenerators where
   parseJSON = withObject "DirectGenerators" parse
