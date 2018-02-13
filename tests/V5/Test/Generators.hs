@@ -36,8 +36,10 @@ instance Arbitrary UTCTime where
           <*> (fromRational . toRational <$> choose (0::Double, 86400))
 
 instance Arbitrary Day where
-    arbitrary = ModifiedJulianDay <$> (2000 +) <$> arbitrary
-    shrink    = (ModifiedJulianDay <$>) . shrink . toModifiedJulianDay
+    arbitrary =
+      ModifiedJulianDay . (2000 +) <$> arbitrary
+    shrink =
+      (ModifiedJulianDay <$>) . shrink . toModifiedJulianDay
 
 #if !MIN_VERSION_QuickCheck(2,9,0)
 instance Arbitrary a => Arbitrary (NonEmpty a) where

@@ -1,13 +1,8 @@
 {-# LANGUAGE CPP                        #-}
-{-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE DeriveDataTypeable         #-}
-{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 #if __GLASGOW_HASKELL__ < 800
@@ -21,7 +16,7 @@ module Main where
 import           Test.Common
 import           Test.Import
 
-import           Prelude                         hiding (filter)
+import           Prelude
 
 import qualified Test.Aggregation as Aggregation
 import qualified Test.BulkAPI as Bulk
@@ -64,11 +59,11 @@ main = hspec $ do
       let errorResp = eitherDecode (responseBody res)
       liftIO (errorResp `shouldBe` Right (EsError 404 "no such index"))
 
-  describe "Monoid (SearchHits a)" $ do
+  describe "Monoid (SearchHits a)" $
     prop "abides the monoid laws" $ eq $
       prop_Monoid (T :: T (SearchHits ()))
 
-  describe "mkDocVersion" $ do
+  describe "mkDocVersion" $
     prop "can never construct an out of range docVersion" $ \i ->
       let res = mkDocVersion i
       in case res of
@@ -77,7 +72,7 @@ main = hspec $ do
                    (dv <= maxBound) .&&.
                    docVersionNumber dv === i
 
-  describe "getNodesInfo" $ do
+  describe "getNodesInfo" $
      it "fetches the responding node when LocalNode is used" $ withTestEnv $ do
        res <- getNodesInfo LocalNode
        liftIO $ case res of
@@ -87,7 +82,7 @@ main = hspec $ do
          Right NodesInfo {..} -> length nodesInfo `shouldBe` 1
          Left e -> expectationFailure ("Expected NodesInfo but got " <> show e)
 
-  describe "getNodesStats" $ do
+  describe "getNodesStats" $
      it "fetches the responding node when LocalNode is used" $ withTestEnv $ do
        res <- getNodesStats LocalNode
        liftIO $ case res of
@@ -97,7 +92,7 @@ main = hspec $ do
          Right NodesStats {..} -> length nodesStats `shouldBe` 1
          Left e -> expectationFailure ("Expected NodesStats but got " <> show e)
 
-  describe "Enum DocVersion" $ do
+  describe "Enum DocVersion" $
     it "follows the laws of Enum, Bounded" $ do
       evaluate (succ maxBound :: DocVersion) `shouldThrow` anyErrorCall
       evaluate (pred minBound :: DocVersion) `shouldThrow` anyErrorCall
@@ -107,11 +102,14 @@ main = hspec $ do
       enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
       enumFromThen minBound (pred maxBound :: DocVersion) `shouldBe` [minBound, pred maxBound]
 
-  describe "Scan & Scroll API" $ do
+  describe "Scan & Scroll API" $
     it "returns documents using the scan&scroll API" $ withTestEnv $ do
       _ <- insertData
       _ <- insertOther
-      let search = (mkSearch (Just $ MatchAllQuery Nothing) Nothing) { size = (Size 1) }
+      let search =
+            (mkSearch
+             (Just $ MatchAllQuery Nothing) Nothing)
+             { size = Size 1 }
       regular_search <- searchTweet search
       scan_search' <- scanSearch testIndex testMapping search :: BH IO [Hit Tweet]
       let scan_search = map hitSource scan_search'

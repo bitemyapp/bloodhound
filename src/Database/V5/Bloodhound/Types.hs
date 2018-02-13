@@ -414,7 +414,6 @@ module Database.V5.Bloodhound.Types
 
 import           Bloodhound.Import
 
-import qualified Data.Traversable                      as DT
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.Map.Strict                       as M
 import qualified Data.Text                             as T
@@ -424,7 +423,6 @@ import           Database.V5.Bloodhound.Internal.Analysis
 import           Database.V5.Bloodhound.Internal.Client
 import           Database.V5.Bloodhound.Internal.Newtypes
 import           Database.V5.Bloodhound.Internal.Query
-import           Database.V5.Bloodhound.Internal.StringlyTyped
 
 {-| 'Sort' is a synonym for a list of 'SortSpec's. Sort behavior is order
     dependent with later sorts acting as tie-breakers for earlier sorts.
@@ -438,8 +436,26 @@ type Sort = [SortSpec]
 
 <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 -}
-data SortSpec = DefaultSortSpec DefaultSort
-              | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Show)
+data SortSpec =
+    DefaultSortSpec DefaultSort
+  | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit
+  deriving (Eq, Show)
+
+instance ToJSON SortSpec where
+  toJSON (DefaultSortSpec
+          (DefaultSort (FieldName dsSortFieldName) dsSortOrder dsIgnoreUnmapped
+           dsSortMode dsMissingSort dsNestedFilter)) =
+    object [dsSortFieldName .= omitNulls base] where
+      base = [ "order" .= dsSortOrder
+             , "unmapped_type" .= dsIgnoreUnmapped
+             , "mode" .= dsSortMode
+             , "missing" .= dsMissingSort
+             , "nested_filter" .= dsNestedFilter ]
+
+  toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
+    object [ "unit" .= units
+           , field .= gdsLatLon
+           , "order" .= gdsSortOrder ]
 
 {-| 'DefaultSort' is usually the kind of 'SortSpec' you'll want. There's a
     'mkSort' convenience function for when you want to specify only the most
@@ -466,6 +482,10 @@ data DefaultSort =
 data SortOrder = Ascending
                | Descending deriving (Eq, Show)
 
+instance ToJSON SortOrder where
+  toJSON Ascending  = String "asc"
+  toJSON Descending = String "desc"
+
 {-| 'Missing' prescribes how to handle missing fields. A missing field can be
     sorted last, first, or using a custom value as a substitute.
 
@@ -475,6 +495,11 @@ data Missing = LastMissing
              | FirstMissing
              | CustomMissing Text deriving (Eq, Show)
 
+instance ToJSON Missing where
+  toJSON LastMissing         = String "_last"
+  toJSON FirstMissing        = String "_first"
+  toJSON (CustomMissing txt) = String txt
+
 {-| 'SortMode' prescribes how to handle sorting array/multi-valued fields.
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_sort_mode_option
@@ -483,6 +508,12 @@ data SortMode = SortMin
               | SortMax
               | SortSum
               | SortAvg deriving (Eq, Show)
+
+instance ToJSON SortMode where
+  toJSON SortMin = String "min"
+  toJSON SortMax = String "max"
+  toJSON SortSum = String "sum"
+  toJSON SortAvg = String "avg"
 
 {-| 'mkSort' defaults everything but the 'FieldName' and the 'SortOrder' so
     that you can concisely describe the usual kind of 'SortSpec's you want.
@@ -590,6 +621,10 @@ data HighlightEncoder = DefaultEncoder
                       | HTMLEncoder
                       deriving (Eq, Show)
 
+instance ToJSON HighlightEncoder where
+    toJSON DefaultEncoder = String "default"
+    toJSON HTMLEncoder    = String "html"
+
 -- NOTE: Should the tags use some kind of HTML type, rather than Text?
 data HighlightTag =
     TagSchema Text
@@ -609,6 +644,18 @@ data SearchResult a =
                }
   deriving (Eq, Show)
 
+
+instance (FromJSON a) => FromJSON (SearchResult a) where
+  parseJSON (Object v) = SearchResult <$>
+                         v .:  "took"         <*>
+                         v .:  "timed_out"    <*>
+                         v .:  "_shards"      <*>
+                         v .:  "hits"         <*>
+                         v .:? "aggregations" <*>
+                         v .:? "_scroll_id"   <*>
+                         v .:? "suggest"
+  parseJSON _          = empty
+
 newtype ScrollId =
   ScrollId Text
   deriving (Eq, Show, Ord, ToJSON, FromJSON)
@@ -617,6 +664,14 @@ data SearchHits a =
   SearchHits { hitsTotal :: Int
              , maxScore  :: Score
              , hits      :: [Hit a] } deriving (Eq, Show)
+
+
+instance (FromJSON a) => FromJSON (SearchHits a) where
+  parseJSON (Object v) = SearchHits <$>
+                         v .: "total"     <*>
+                         v .: "max_score" <*>
+                         v .: "hits"
+  parseJSON _          = empty
 
 instance Semigroup (SearchHits a) where
   (SearchHits ta ma ha) <> (SearchHits tb mb hb) = SearchHits (ta + tb) (max ma mb) (ha <> hb)
@@ -634,12 +689,26 @@ data Hit a =
       , hitFields    :: Maybe HitFields
       , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
 
+instance (FromJSON a) => FromJSON (Hit a) where
+  parseJSON (Object v) = Hit <$>
+                         v .:  "_index"   <*>
+                         v .:  "_type"    <*>
+                         v .:  "_id"      <*>
+                         v .:  "_score"   <*>
+                         v .:? "_source"  <*>
+                         v .:? "fields"   <*>
+                         v .:? "highlight"
+  parseJSON _          = empty
+
 newtype HitFields =
   HitFields (M.Map Text [Value])
   deriving (Eq, Show)
 
-type HitHighlight = M.Map Text [Text]
+instance FromJSON HitFields where
+  parseJSON x
+    = HitFields <$> parseJSON x
 
+type HitHighlight = M.Map Text [Text]
 
 type Aggregations = M.Map Text Aggregation
 
@@ -649,20 +718,42 @@ emptyAggregations = M.empty
 mkAggregations :: Text -> Aggregation -> Aggregations
 mkAggregations name aggregation = M.insert name aggregation emptyAggregations
 
-data TermOrder = TermOrder{ termSortField :: Text
-                          , termSortOrder :: SortOrder } deriving (Eq, Show)
+data TermOrder = TermOrder
+  { termSortField :: Text
+  , termSortOrder :: SortOrder } deriving (Eq, Show)
+
+instance ToJSON TermOrder where
+  toJSON (TermOrder termSortField termSortOrder) =
+    object [termSortField .= termSortOrder]
 
 data TermInclusion = TermInclusion Text
                    | TermPattern Text Text deriving (Eq, Show)
 
+instance ToJSON TermInclusion where
+  toJSON (TermInclusion x) = toJSON x
+  toJSON (TermPattern pattern flags) =
+    omitNulls [ "pattern" .= pattern
+              , "flags"   .= flags]
+
 data CollectionMode = BreadthFirst
                     | DepthFirst deriving (Eq, Show)
+
+instance ToJSON CollectionMode where
+  toJSON BreadthFirst = "breadth_first"
+  toJSON DepthFirst   = "depth_first"
 
 data ExecutionHint = Ordinals
                    | GlobalOrdinals
                    | GlobalOrdinalsHash
                    | GlobalOrdinalsLowCardinality
                    | Map deriving (Eq, Show)
+
+instance ToJSON ExecutionHint where
+  toJSON Ordinals                     = "ordinals"
+  toJSON GlobalOrdinals               = "global_ordinals"
+  toJSON GlobalOrdinalsHash           = "global_ordinals_hash"
+  toJSON GlobalOrdinalsLowCardinality = "global_ordinals_low_cardinality"
+  toJSON Map                          = "map"
 
 data Aggregation = TermsAgg TermsAggregation
                  | CardinalityAgg CardinalityAggregation
@@ -675,6 +766,67 @@ data Aggregation = TermsAgg TermsAggregation
                  | StatsAgg StatisticsAggregation
   deriving (Eq, Show)
 
+instance ToJSON Aggregation where
+  toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
+    omitNulls ["terms" .= omitNulls [ toJSON' term,
+                                      "include"        .= include,
+                                      "exclude"        .= exclude,
+                                      "order"          .= order,
+                                      "min_doc_count"  .= minDocCount,
+                                      "size"           .= size,
+                                      "shard_size"     .= shardSize,
+                                      "collect_mode"   .= collectMode,
+                                      "execution_hint" .= executionHint
+                                    ],
+               "aggs"  .= termAggs ]
+    where
+      toJSON' x = case x of { Left y -> "field" .= y;  Right y -> "script" .= y }
+
+  toJSON (CardinalityAgg (CardinalityAggregation field precisionThreshold)) =
+    object ["cardinality" .= omitNulls [ "field"              .= field,
+                                         "precisionThreshold" .= precisionThreshold
+                                       ]
+           ]
+
+  toJSON (DateHistogramAgg
+          (DateHistogramAggregation field interval format
+           preZone postZone preOffset postOffset dateHistoAggs)) =
+    omitNulls ["date_histogram" .= omitNulls [ "field"       .= field,
+                                               "interval"    .= interval,
+                                               "format"      .= format,
+                                               "pre_zone"    .= preZone,
+                                               "post_zone"   .= postZone,
+                                               "pre_offset"  .= preOffset,
+                                               "post_offset" .= postOffset
+                                             ],
+               "aggs"           .= dateHistoAggs ]
+  toJSON (ValueCountAgg a) = object ["value_count" .= v]
+    where v = case a of
+                (FieldValueCount (FieldName n)) ->
+                  object ["field" .= n]
+                (ScriptValueCount s) ->
+                  object ["script" .= s]
+  toJSON (FilterAgg (FilterAggregation filt ags)) =
+    omitNulls [ "filter" .= filt
+              , "aggs" .= ags]
+  toJSON (DateRangeAgg a) = object [ "date_range" .= a
+                                   ]
+  toJSON (MissingAgg (MissingAggregation{..})) =
+    object ["missing" .= object ["field" .= maField]]
+
+  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort)) =
+    omitNulls ["top_hits" .= omitNulls [ "size" .= msize
+                                       , "from" .= mfrom
+                                       , "sort" .= msort
+                                       ]
+              ]
+
+  toJSON (StatsAgg (StatisticsAggregation typ field)) =
+    object [stType .= omitNulls [ "field" .= field ]]
+    where
+      stType | typ == Basic = "stats"
+             | otherwise = "extended_stats"
+
 data TopHitsAggregation = TopHitsAggregation
   { taFrom :: Maybe From
   , taSize :: Maybe Size
@@ -685,17 +837,18 @@ data MissingAggregation = MissingAggregation
   { maField :: Text
   } deriving (Eq, Show)
 
-data TermsAggregation = TermsAggregation { term              :: Either Text Text
-                                         , termInclude       :: Maybe TermInclusion
-                                         , termExclude       :: Maybe TermInclusion
-                                         , termOrder         :: Maybe TermOrder
-                                         , termMinDocCount   :: Maybe Int
-                                         , termSize          :: Maybe Int
-                                         , termShardSize     :: Maybe Int
-                                         , termCollectMode   :: Maybe CollectionMode
-                                         , termExecutionHint :: Maybe ExecutionHint
-                                         , termAggs          :: Maybe Aggregations
-                                    } deriving (Eq, Show)
+data TermsAggregation = TermsAggregation
+  { term              :: Either Text Text
+  , termInclude       :: Maybe TermInclusion
+  , termExclude       :: Maybe TermInclusion
+  , termOrder         :: Maybe TermOrder
+  , termMinDocCount   :: Maybe Int
+  , termSize          :: Maybe Int
+  , termShardSize     :: Maybe Int
+  , termCollectMode   :: Maybe CollectionMode
+  , termExecutionHint :: Maybe ExecutionHint
+  , termAggs          :: Maybe Aggregations
+  } deriving (Eq, Show)
 
 data CardinalityAggregation = CardinalityAggregation
   { cardinalityField   :: FieldName,
@@ -720,17 +873,43 @@ data DateRangeAggregation = DateRangeAggregation
   , draRanges :: NonEmpty DateRangeAggRange
   } deriving (Eq, Show)
 
+instance ToJSON DateRangeAggregation where
+  toJSON DateRangeAggregation {..} =
+    omitNulls [ "field" .= draField
+              , "format" .= draFormat
+              , "ranges" .= toList draRanges
+              ]
+
 data DateRangeAggRange =
     DateRangeFrom DateMathExpr
   | DateRangeTo DateMathExpr
   | DateRangeFromAndTo DateMathExpr DateMathExpr
   deriving (Eq, Show)
 
+instance ToJSON DateRangeAggRange where
+  toJSON (DateRangeFrom e)        = object [ "from" .= e ]
+  toJSON (DateRangeTo e)          = object [ "to" .= e ]
+  toJSON (DateRangeFromAndTo f t) = object [ "from" .= f, "to" .= t ]
+
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math> for more information.
 data DateMathExpr =
   DateMathExpr DateMathAnchor [DateMathModifier]
   deriving (Eq, Show)
 
+instance ToJSON DateMathExpr where
+  toJSON (DateMathExpr a mods) = String (fmtA a <> mconcat (fmtMod <$> mods))
+    where fmtA DMNow         = "now"
+          fmtA (DMDate date) = (T.pack $ showGregorian date) <> "||"
+          fmtMod (AddTime n u)      = "+" <> showText n <> fmtU u
+          fmtMod (SubtractTime n u) = "-" <> showText n <> fmtU u
+          fmtMod (RoundDownTo u)    = "/" <> fmtU u
+          fmtU DMYear   = "y"
+          fmtU DMMonth  = "M"
+          fmtU DMWeek   = "w"
+          fmtU DMDay    = "d"
+          fmtU DMHour   = "h"
+          fmtU DMMinute = "m"
+          fmtU DMSecond = "s"
 
 -- | Starting point for a date range. This along with the 'DateMathModifiers' gets you the date ES will start from.
 data DateMathAnchor =
@@ -796,124 +975,6 @@ mkStatsAggregation = StatisticsAggregation Basic
 mkExtendedStatsAggregation :: FieldName -> StatisticsAggregation
 mkExtendedStatsAggregation = StatisticsAggregation Extended
 
-instance ToJSON TermOrder where
-  toJSON (TermOrder termSortField termSortOrder) = object [termSortField .= termSortOrder]
-
-instance ToJSON TermInclusion where
-  toJSON (TermInclusion x) = toJSON x
-  toJSON (TermPattern pattern flags) = omitNulls [ "pattern" .= pattern,
-                                                     "flags"   .= flags]
-
-instance ToJSON CollectionMode where
-  toJSON BreadthFirst = "breadth_first"
-  toJSON DepthFirst   = "depth_first"
-
-instance ToJSON ExecutionHint where
-  toJSON Ordinals                     = "ordinals"
-  toJSON GlobalOrdinals               = "global_ordinals"
-  toJSON GlobalOrdinalsHash           = "global_ordinals_hash"
-  toJSON GlobalOrdinalsLowCardinality = "global_ordinals_low_cardinality"
-  toJSON Map                          = "map"
-
-instance ToJSON Interval where
-  toJSON Year    = "year"
-  toJSON Quarter = "quarter"
-  toJSON Month   = "month"
-  toJSON Week    = "week"
-  toJSON Day     = "day"
-  toJSON Hour    = "hour"
-  toJSON Minute  = "minute"
-  toJSON Second  = "second"
-
-instance ToJSON Aggregation where
-  toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
-    omitNulls ["terms" .= omitNulls [ toJSON' term,
-                                      "include"        .= include,
-                                      "exclude"        .= exclude,
-                                      "order"          .= order,
-                                      "min_doc_count"  .= minDocCount,
-                                      "size"           .= size,
-                                      "shard_size"     .= shardSize,
-                                      "collect_mode"   .= collectMode,
-                                      "execution_hint" .= executionHint
-                                    ],
-               "aggs"  .= termAggs ]
-    where
-      toJSON' x = case x of { Left y -> "field" .= y;  Right y -> "script" .= y }
-
-  toJSON (CardinalityAgg (CardinalityAggregation field precisionThreshold)) =
-    object ["cardinality" .= omitNulls [ "field"              .= field,
-                                         "precisionThreshold" .= precisionThreshold
-                                       ]
-           ]
-
-  toJSON (DateHistogramAgg
-          (DateHistogramAggregation field interval format
-           preZone postZone preOffset postOffset dateHistoAggs)) =
-    omitNulls ["date_histogram" .= omitNulls [ "field"       .= field,
-                                               "interval"    .= interval,
-                                               "format"      .= format,
-                                               "pre_zone"    .= preZone,
-                                               "post_zone"   .= postZone,
-                                               "pre_offset"  .= preOffset,
-                                               "post_offset" .= postOffset
-                                             ],
-               "aggs"           .= dateHistoAggs ]
-  toJSON (ValueCountAgg a) = object ["value_count" .= v]
-    where v = case a of
-                (FieldValueCount (FieldName n)) ->
-                  object ["field" .= n]
-                (ScriptValueCount s) ->
-                  object ["script" .= s]
-  toJSON (FilterAgg (FilterAggregation filt ags)) =
-    omitNulls [ "filter" .= filt
-              , "aggs" .= ags]
-  toJSON (DateRangeAgg a) = object [ "date_range" .= a
-                                   ]
-  toJSON (MissingAgg (MissingAggregation{..})) =
-    object ["missing" .= object ["field" .= maField]]
-
-  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort)) =
-    omitNulls ["top_hits" .= omitNulls [ "size" .= msize
-                                       , "from" .= mfrom
-                                       , "sort" .= msort
-                                       ]
-              ]
-
-  toJSON (StatsAgg (StatisticsAggregation typ field)) =
-    object [stType .= omitNulls [ "field" .= field ]]
-    where
-      stType | typ == Basic = "stats"
-             | otherwise = "extended_stats"
-
-instance ToJSON DateRangeAggregation where
-  toJSON DateRangeAggregation {..} =
-    omitNulls [ "field" .= draField
-              , "format" .= draFormat
-              , "ranges" .= toList draRanges
-              ]
-
-instance ToJSON DateRangeAggRange where
-  toJSON (DateRangeFrom e)        = object [ "from" .= e ]
-  toJSON (DateRangeTo e)          = object [ "to" .= e ]
-  toJSON (DateRangeFromAndTo f t) = object [ "from" .= f, "to" .= t ]
-
-instance ToJSON DateMathExpr where
-  toJSON (DateMathExpr a mods) = String (fmtA a <> mconcat (fmtMod <$> mods))
-    where fmtA DMNow         = "now"
-          fmtA (DMDate date) = (T.pack $ showGregorian date) <> "||"
-          fmtMod (AddTime n u)      = "+" <> showText n <> fmtU u
-          fmtMod (SubtractTime n u) = "-" <> showText n <> fmtU u
-          fmtMod (RoundDownTo u)    = "/" <> fmtU u
-          fmtU DMYear   = "y"
-          fmtU DMMonth  = "M"
-          fmtU DMWeek   = "w"
-          fmtU DMDay    = "d"
-          fmtU DMHour   = "h"
-          fmtU DMMinute = "m"
-          fmtU DMSecond = "s"
-
-
 type AggregationResults = M.Map Text Value
 
 class BucketAggregation a where
@@ -921,72 +982,18 @@ class BucketAggregation a where
   docCount :: a -> Int
   aggs :: a -> Maybe AggregationResults
 
-
-data Bucket a = Bucket { buckets :: [a]} deriving (Read, Show)
-
-data BucketValue = TextValue Text
-                 | ScientificValue Scientific
-                 | BoolValue Bool deriving (Read, Show)
-
-data MissingResult = MissingResult { missingDocCount :: Int } deriving (Show)
-
-data TopHitResult a = TopHitResult { tarHits :: (SearchHits a)
-                                   } deriving Show
-
-data TermsResult = TermsResult { termKey       :: BucketValue
-                               , termsDocCount :: Int
-                               , termsAggs     :: Maybe AggregationResults } deriving (Read, Show)
-
-data DateHistogramResult = DateHistogramResult { dateKey           :: Int
-                                               , dateKeyStr        :: Maybe Text
-                                               , dateDocCount      :: Int
-                                               , dateHistogramAggs :: Maybe AggregationResults } deriving (Read, Show)
-
-data DateRangeResult =
-  DateRangeResult { dateRangeKey          :: Text
-                  , dateRangeFrom         :: Maybe UTCTime
-                  , dateRangeFromAsString :: Maybe Text
-                  , dateRangeTo           :: Maybe UTCTime
-                  , dateRangeToAsString   :: Maybe Text
-                  , dateRangeDocCount     :: Int
-                  , dateRangeAggs         :: Maybe AggregationResults }
-  deriving (Eq, Show)
-
-toTerms :: Text -> AggregationResults ->  Maybe (Bucket TermsResult)
-toTerms = toAggResult
-
-toDateHistogram :: Text -> AggregationResults -> Maybe (Bucket DateHistogramResult)
-toDateHistogram = toAggResult
-
-toMissing :: Text -> AggregationResults -> Maybe MissingResult
-toMissing = toAggResult
-
-toTopHits :: (FromJSON a) => Text -> AggregationResults -> Maybe (TopHitResult a)
-toTopHits = toAggResult
-
-toAggResult :: (FromJSON a) => Text -> AggregationResults -> Maybe a
-toAggResult t a = M.lookup t a >>= deserialize
-  where deserialize = parseMaybe parseJSON
-
-instance BucketAggregation TermsResult where
-  key = termKey
-  docCount = termsDocCount
-  aggs = termsAggs
-
-instance BucketAggregation DateHistogramResult where
-  key = TextValue . showText . dateKey
-  docCount = dateDocCount
-  aggs = dateHistogramAggs
-
-instance BucketAggregation DateRangeResult where
-  key = TextValue . dateRangeKey
-  docCount = dateRangeDocCount
-  aggs = dateRangeAggs
+data Bucket a = Bucket
+  { buckets :: [a]
+  } deriving (Read, Show)
 
 instance (FromJSON a) => FromJSON (Bucket a) where
   parseJSON (Object v) = Bucket <$>
                          v .: "buckets"
   parseJSON _ = mempty
+
+data BucketValue = TextValue Text
+                 | ScientificValue Scientific
+                 | BoolValue Bool deriving (Read, Show)
 
 instance FromJSON BucketValue where
   parseJSON (String t) = return $ TextValue t
@@ -994,9 +1001,28 @@ instance FromJSON BucketValue where
   parseJSON (Bool b)   = return $ BoolValue b
   parseJSON _          = mempty
 
+data MissingResult = MissingResult
+  { missingDocCount :: Int
+  } deriving (Show)
+
 instance FromJSON MissingResult where
   parseJSON = withObject "MissingResult" parse
     where parse v = MissingResult <$> v .: "doc_count"
+
+data TopHitResult a = TopHitResult
+  { tarHits :: (SearchHits a)
+  } deriving Show
+
+instance (FromJSON a) => FromJSON (TopHitResult a) where
+  parseJSON (Object v) = TopHitResult <$>
+                         v .: "hits"
+  parseJSON _          = fail "Failure in FromJSON (TopHitResult a)"
+
+data TermsResult = TermsResult
+  { termKey       :: BucketValue
+  , termsDocCount :: Int
+  , termsAggs     :: Maybe AggregationResults
+  } deriving (Read, Show)
 
 instance FromJSON TermsResult where
   parseJSON (Object v) = TermsResult        <$>
@@ -1004,6 +1030,18 @@ instance FromJSON TermsResult where
                          v .:   "doc_count" <*>
                          (pure $ getNamedSubAgg v ["key", "doc_count"])
   parseJSON _ = mempty
+
+instance BucketAggregation TermsResult where
+  key = termKey
+  docCount = termsDocCount
+  aggs = termsAggs
+
+data DateHistogramResult = DateHistogramResult
+  { dateKey           :: Int
+  , dateKeyStr        :: Maybe Text
+  , dateDocCount      :: Int
+  , dateHistogramAggs :: Maybe AggregationResults
+  } deriving (Show)
 
 instance FromJSON DateHistogramResult where
   parseJSON (Object v) = DateHistogramResult   <$>
@@ -1016,6 +1054,21 @@ instance FromJSON DateHistogramResult where
                                                   ]
                          )
   parseJSON _ = mempty
+
+instance BucketAggregation DateHistogramResult where
+  key = TextValue . showText . dateKey
+  docCount = dateDocCount
+  aggs = dateHistogramAggs
+
+data DateRangeResult = DateRangeResult
+  { dateRangeKey          :: Text
+  , dateRangeFrom         :: Maybe UTCTime
+  , dateRangeFromAsString :: Maybe Text
+  , dateRangeTo           :: Maybe UTCTime
+  , dateRangeToAsString   :: Maybe Text
+  , dateRangeDocCount     :: Int
+  , dateRangeAggs         :: Maybe AggregationResults
+  } deriving (Eq, Show)
 
 instance FromJSON DateRangeResult where
   parseJSON = withObject "DateRangeResult" parse
@@ -1035,10 +1088,26 @@ instance FromJSON DateRangeResult where
                                              ]
                     )
 
-instance (FromJSON a) => FromJSON (TopHitResult a) where
-  parseJSON (Object v) = TopHitResult <$>
-                         v .: "hits"
-  parseJSON _          = fail "Failure in FromJSON (TopHitResult a)"
+instance BucketAggregation DateRangeResult where
+  key = TextValue . dateRangeKey
+  docCount = dateRangeDocCount
+  aggs = dateRangeAggs
+
+toTerms :: Text -> AggregationResults ->  Maybe (Bucket TermsResult)
+toTerms = toAggResult
+
+toDateHistogram :: Text -> AggregationResults -> Maybe (Bucket DateHistogramResult)
+toDateHistogram = toAggResult
+
+toMissing :: Text -> AggregationResults -> Maybe MissingResult
+toMissing = toAggResult
+
+toTopHits :: (FromJSON a) => Text -> AggregationResults -> Maybe (TopHitResult a)
+toTopHits = toAggResult
+
+toAggResult :: (FromJSON a) => Text -> AggregationResults -> Maybe a
+toAggResult t a = M.lookup t a >>= deserialize
+  where deserialize = parseMaybe parseJSON
 
 -- Try to get an AggregationResults when we don't know the
 -- field name. We filter out the known keys to try to minimize the noise.
@@ -1048,339 +1117,6 @@ getNamedSubAgg o knownKeys = maggRes
         maggRes
           | HM.null unknownKeys = Nothing
           | otherwise           = Just . M.fromList $ HM.toList unknownKeys
-
-instance ToJSON GeoPoint where
-  toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
-    object [ geoPointField  .= geoPointLatLon ]
-
-instance FromJSON Status where
-  parseJSON (Object v) = Status <$>
-                         v .: "name" <*>
-                         v .: "cluster_name" <*>
-                         v .: "cluster_uuid" <*>
-                         v .: "version" <*>
-                         v .: "tagline"
-  parseJSON _          = empty
-
-instance ToJSON IndexSettings where
-  toJSON (IndexSettings s r) = object ["settings" .=
-                                 object ["index" .=
-                                   object ["number_of_shards" .= s, "number_of_replicas" .= r]
-                                 ]
-                               ]
-
-instance FromJSON IndexSettings where
-  parseJSON = withObject "IndexSettings" parse
-    where parse o = do s <- o .: "settings"
-                       i <- s .: "index"
-                       IndexSettings <$> i .: "number_of_shards"
-                                     <*> i .: "number_of_replicas"
-
-instance ToJSON UpdatableIndexSetting where
-  toJSON (NumberOfReplicas x) = oPath ("index" :| ["number_of_replicas"]) x
-  toJSON (AutoExpandReplicas x) = oPath ("index" :| ["auto_expand_replicas"]) x
-  toJSON (RefreshInterval x) = oPath ("index" :| ["refresh_interval"]) (NominalDiffTimeJSON x)
-  toJSON (IndexConcurrency x) = oPath ("index" :| ["concurrency"]) x
-  toJSON (FailOnMergeFailure x) = oPath ("index" :| ["fail_on_merge_failure"]) x
-  toJSON (TranslogFlushThresholdOps x) = oPath ("index" :| ["translog", "flush_threshold_ops"]) x
-  toJSON (TranslogFlushThresholdSize x) = oPath ("index" :| ["translog", "flush_threshold_size"]) x
-  toJSON (TranslogFlushThresholdPeriod x) = oPath ("index" :| ["translog", "flush_threshold_period"]) (NominalDiffTimeJSON x)
-  toJSON (TranslogDisableFlush x) = oPath ("index" :| ["translog", "disable_flush"]) x
-  toJSON (CacheFilterMaxSize x) = oPath ("index" :| ["cache", "filter", "max_size"]) x
-  toJSON (CacheFilterExpire x) = oPath ("index" :| ["cache", "filter", "expire"]) (NominalDiffTimeJSON <$> x)
-  toJSON (GatewaySnapshotInterval x) = oPath ("index" :| ["gateway", "snapshot_interval"]) (NominalDiffTimeJSON x)
-  toJSON (RoutingAllocationInclude fs) = oPath ("index" :| ["routing", "allocation", "include"]) (attrFilterJSON fs)
-  toJSON (RoutingAllocationExclude fs) = oPath ("index" :| ["routing", "allocation", "exclude"]) (attrFilterJSON fs)
-  toJSON (RoutingAllocationRequire fs) = oPath ("index" :| ["routing", "allocation", "require"]) (attrFilterJSON fs)
-  toJSON (RoutingAllocationEnable x) = oPath ("index" :| ["routing", "allocation", "enable"]) x
-  toJSON (RoutingAllocationShardsPerNode x) = oPath ("index" :| ["routing", "allocation", "total_shards_per_node"]) x
-  toJSON (RecoveryInitialShards x) = oPath ("index" :| ["recovery", "initial_shards"]) x
-  toJSON (GCDeletes x) = oPath ("index" :| ["gc_deletes"]) (NominalDiffTimeJSON x)
-  toJSON (TTLDisablePurge x) = oPath ("index" :| ["ttl", "disable_purge"]) x
-  toJSON (TranslogFSType x) = oPath ("index" :| ["translog", "fs", "type"]) x
-  toJSON (CompressionSetting x) = oPath ("index" :| ["codec"]) x
-  toJSON (IndexCompoundFormat x) = oPath ("index" :| ["compound_format"]) x
-  toJSON (IndexCompoundOnFlush x) = oPath ("index" :| ["compound_on_flush"]) x
-  toJSON (WarmerEnabled x) = oPath ("index" :| ["warmer", "enabled"]) x
-  toJSON (BlocksReadOnly x) = oPath ("blocks" :| ["read_only"]) x
-  toJSON (BlocksRead x) = oPath ("blocks" :| ["read"]) x
-  toJSON (BlocksWrite x) = oPath ("blocks" :| ["write"]) x
-  toJSON (BlocksMetaData x) = oPath ("blocks" :| ["metadata"]) x
-  toJSON (MappingTotalFieldsLimit x) = oPath ("index" :| ["mapping","total_fields","limit"]) x
-  toJSON (AnalysisSetting x) = oPath ("index" :| ["analysis"]) x
-
-instance FromJSON UpdatableIndexSetting where
-  parseJSON = withObject "UpdatableIndexSetting" parse
-    where parse o = numberOfReplicas `taggedAt` ["index", "number_of_replicas"]
-                <|> autoExpandReplicas `taggedAt` ["index", "auto_expand_replicas"]
-                <|> refreshInterval `taggedAt` ["index", "refresh_interval"]
-                <|> indexConcurrency `taggedAt` ["index", "concurrency"]
-                <|> failOnMergeFailure `taggedAt` ["index", "fail_on_merge_failure"]
-                <|> translogFlushThresholdOps `taggedAt` ["index", "translog", "flush_threshold_ops"]
-                <|> translogFlushThresholdSize `taggedAt` ["index", "translog", "flush_threshold_size"]
-                <|> translogFlushThresholdPeriod `taggedAt` ["index", "translog", "flush_threshold_period"]
-                <|> translogDisableFlush `taggedAt` ["index", "translog", "disable_flush"]
-                <|> cacheFilterMaxSize `taggedAt` ["index", "cache", "filter", "max_size"]
-                <|> cacheFilterExpire `taggedAt` ["index", "cache", "filter", "expire"]
-                <|> gatewaySnapshotInterval `taggedAt` ["index", "gateway", "snapshot_interval"]
-                <|> routingAllocationInclude `taggedAt` ["index", "routing", "allocation", "include"]
-                <|> routingAllocationExclude `taggedAt` ["index", "routing", "allocation", "exclude"]
-                <|> routingAllocationRequire `taggedAt` ["index", "routing", "allocation", "require"]
-                <|> routingAllocationEnable `taggedAt` ["index", "routing", "allocation", "enable"]
-                <|> routingAllocationShardsPerNode `taggedAt` ["index", "routing", "allocation", "total_shards_per_node"]
-                <|> recoveryInitialShards `taggedAt` ["index", "recovery", "initial_shards"]
-                <|> gcDeletes `taggedAt` ["index", "gc_deletes"]
-                <|> ttlDisablePurge `taggedAt` ["index", "ttl", "disable_purge"]
-                <|> translogFSType `taggedAt` ["index", "translog", "fs", "type"]
-                <|> compressionSetting `taggedAt` ["index", "codec"]
-                <|> compoundFormat `taggedAt` ["index", "compound_format"]
-                <|> compoundOnFlush `taggedAt` ["index", "compound_on_flush"]
-                <|> warmerEnabled `taggedAt` ["index", "warmer", "enabled"]
-                <|> blocksReadOnly `taggedAt` ["blocks", "read_only"]
-                <|> blocksRead `taggedAt` ["blocks", "read"]
-                <|> blocksWrite `taggedAt` ["blocks", "write"]
-                <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
-                <|> mappingTotalFieldsLimit `taggedAt` ["index", "mapping", "total_fields", "limit"]
-                <|> analysisSetting `taggedAt` ["index", "analysis"]
-            where taggedAt f ks = taggedAt' f (Object o) ks
-          taggedAt' f v [] = f =<< (parseJSON v <|> (parseJSON (unStringlyTypeJSON v)))
-          taggedAt' f v (k:ks) = withObject "Object" (\o -> do v' <- o .: k
-                                                               taggedAt' f v' ks) v
-          numberOfReplicas               = pure . NumberOfReplicas
-          autoExpandReplicas             = pure . AutoExpandReplicas
-          refreshInterval                = pure . RefreshInterval . ndtJSON
-          indexConcurrency               = pure . IndexConcurrency
-          failOnMergeFailure             = pure . FailOnMergeFailure
-          translogFlushThresholdOps      = pure . TranslogFlushThresholdOps
-          translogFlushThresholdSize     = pure . TranslogFlushThresholdSize
-          translogFlushThresholdPeriod   = pure . TranslogFlushThresholdPeriod . ndtJSON
-          translogDisableFlush           = pure . TranslogDisableFlush
-          cacheFilterMaxSize             = pure . CacheFilterMaxSize
-          cacheFilterExpire              = pure . CacheFilterExpire . fmap ndtJSON
-          gatewaySnapshotInterval        = pure . GatewaySnapshotInterval . ndtJSON
-          routingAllocationInclude       = fmap RoutingAllocationInclude . parseAttrFilter
-          routingAllocationExclude       = fmap RoutingAllocationExclude . parseAttrFilter
-          routingAllocationRequire       = fmap RoutingAllocationRequire . parseAttrFilter
-          routingAllocationEnable        = pure . RoutingAllocationEnable
-          routingAllocationShardsPerNode = pure . RoutingAllocationShardsPerNode
-          recoveryInitialShards          = pure . RecoveryInitialShards
-          gcDeletes                      = pure . GCDeletes . ndtJSON
-          ttlDisablePurge                = pure . TTLDisablePurge
-          translogFSType                 = pure . TranslogFSType
-          compressionSetting             = pure . CompressionSetting
-          compoundFormat                 = pure . IndexCompoundFormat
-          compoundOnFlush                = pure . IndexCompoundOnFlush
-          warmerEnabled                  = pure . WarmerEnabled
-          blocksReadOnly                 = pure . BlocksReadOnly
-          blocksRead                     = pure . BlocksRead
-          blocksWrite                    = pure . BlocksWrite
-          blocksMetaData                 = pure . BlocksMetaData
-          mappingTotalFieldsLimit        = pure . MappingTotalFieldsLimit
-          analysisSetting                = pure . AnalysisSetting
-
-instance FromJSON IndexSettingsSummary where
-  parseJSON = withObject "IndexSettingsSummary" parse
-    where parse o = case HM.toList o of
-                      [(ixn, v@(Object o'))] -> IndexSettingsSummary (IndexName ixn)
-                                                <$> parseJSON v
-                                                <*> (fmap (filter (not . redundant)) . parseSettings =<< o' .: "settings")
-                      _ -> fail "Expected single-key object with index name"
-          redundant (NumberOfReplicas _) = True
-          redundant _                    = False
-
-
-parseSettings :: Object -> Parser [UpdatableIndexSetting]
-parseSettings o = do
-  o' <- o .: "index"
-  -- slice the index object into singleton hashmaps and try to parse each
-  parses <- forM (HM.toList o') $ \(k, v) -> do
-    -- blocks are now nested into the "index" key, which is not how they're serialized
-    let atRoot = Object (HM.singleton k v)
-    let atIndex = Object (HM.singleton "index" atRoot)
-    optional (parseJSON atRoot <|> parseJSON atIndex)
-  return (catMaybes parses)
-
-oPath :: ToJSON a => NonEmpty Text -> a -> Value
-oPath (k :| []) v   = object [k .= v]
-oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
-
-attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
-attrFilterJSON fs = object [ n .= T.intercalate "," (toList vs)
-                           | NodeAttrFilter (NodeAttrName n) vs <- toList fs]
-
-parseAttrFilter :: Value -> Parser (NonEmpty NodeAttrFilter)
-parseAttrFilter = withObject "NonEmpty NodeAttrFilter" parse
-  where parse o = case HM.toList o of
-                    []   -> fail "Expected non-empty list of NodeAttrFilters"
-                    x:xs -> DT.mapM (uncurry parse') (x :| xs)
-        parse' n = withText "Text" $ \t ->
-          case T.splitOn "," t of
-            fv:fvs -> return (NodeAttrFilter (NodeAttrName n) (fv :| fvs))
-            []     -> fail "Expected non-empty list of filter values"
-
-instance ToJSON ReplicaBounds where
-  toJSON (ReplicasBounded a b)    = String (showText a <> "-" <> showText b)
-  toJSON (ReplicasLowerBounded a) = String (showText a <> "-all")
-  toJSON ReplicasUnbounded        = Bool False
-
-instance FromJSON ReplicaBounds where
-  parseJSON v = withText "ReplicaBounds" parseText v
-            <|> withBool "ReplicaBounds" parseBool v
-    where parseText t = case T.splitOn "-" t of
-                          [a, "all"] -> ReplicasLowerBounded <$> parseReadText a
-                          [a, b] -> ReplicasBounded <$> parseReadText a
-                                                    <*> parseReadText b
-                          _ -> fail ("Could not parse ReplicaBounds: " <> show t)
-          parseBool False = pure ReplicasUnbounded
-          parseBool _ = fail "ReplicasUnbounded cannot be represented with True"
-
-instance ToJSON AllocationPolicy where
-  toJSON AllocAll          = String "all"
-  toJSON AllocPrimaries    = String "primaries"
-  toJSON AllocNewPrimaries = String "new_primaries"
-  toJSON AllocNone         = String "none"
-
-instance FromJSON AllocationPolicy where
-  parseJSON = withText "AllocationPolicy" parse
-    where parse "all" = pure AllocAll
-          parse "primaries" = pure AllocPrimaries
-          parse "new_primaries" = pure AllocNewPrimaries
-          parse "none" = pure AllocNone
-          parse t = fail ("Invlaid AllocationPolicy: " <> show t)
-
-instance ToJSON InitialShardCount where
-  toJSON QuorumShards       = String "quorum"
-  toJSON QuorumMinus1Shards = String "quorum-1"
-  toJSON FullShards         = String "full"
-  toJSON FullMinus1Shards   = String "full-1"
-  toJSON (ExplicitShards x) = toJSON x
-
-instance FromJSON InitialShardCount where
-  parseJSON v = withText "InitialShardCount" parseText v
-            <|> ExplicitShards <$> parseJSON v
-    where parseText "quorum"   = pure QuorumShards
-          parseText "quorum-1" = pure QuorumMinus1Shards
-          parseText "full"     = pure FullShards
-          parseText "full-1"   = pure FullMinus1Shards
-          parseText _          = mzero
-
-instance ToJSON FSType where
-  toJSON FSSimple   = "simple"
-  toJSON FSBuffered = "buffered"
-
-instance FromJSON FSType where
-  parseJSON = withText "FSType" parse
-    where parse "simple"   = pure FSSimple
-          parse "buffered" = pure FSBuffered
-          parse t          = fail ("Invalid FSType: " <> show t)
-
-instance ToJSON CompoundFormat where
-  toJSON (CompoundFileFormat x)       = Bool x
-  toJSON (MergeSegmentVsTotalIndex x) = toJSON x
-
-instance FromJSON CompoundFormat where
-  parseJSON v = CompoundFileFormat <$> parseJSON v
-            <|> MergeSegmentVsTotalIndex <$> parseJSON v
-
-instance ToJSON NominalDiffTimeJSON where
-  toJSON (NominalDiffTimeJSON t) = String (showText (round t :: Integer) <> "s")
-
-instance FromJSON NominalDiffTimeJSON where
-  parseJSON = withText "NominalDiffTime" parse
-    where parse t = case T.takeEnd 1 t of
-                      "s" -> NominalDiffTimeJSON . fromInteger <$> parseReadText (T.dropEnd 1 t)
-                      _ -> fail "Invalid or missing NominalDiffTime unit (expected s)"
-
-instance ToJSON IndexTemplate where
-  toJSON (IndexTemplate p s m) = merge
-    (object [ "template" .= p
-            , "mappings" .= foldl' merge (object []) m
-            ])
-    (toJSON s)
-   where
-     merge (Object o1) (Object o2) = toJSON $ HM.union o1 o2
-     merge o           Null        = o
-     merge _           _           = undefined
-
-instance (FromJSON a) => FromJSON (EsResult a) where
-  parseJSON jsonVal@(Object v) = do
-    found <- v .:? "found" .!= False
-    fr <- if found
-             then parseJSON jsonVal
-             else return Nothing
-    EsResult <$> v .:  "_index"   <*>
-                 v .:  "_type"    <*>
-                 v .:  "_id"      <*>
-                 pure fr
-  parseJSON _          = empty
-
-instance (FromJSON a) => FromJSON (EsResultFound a) where
-  parseJSON (Object v) = EsResultFound <$>
-                         v .: "_version" <*>
-                         v .: "_source"
-  parseJSON _          = empty
-
-instance FromJSON EsError where
-  parseJSON (Object v) = EsError <$>
-                         v .: "status" <*>
-                         (v .: "error" <|> (v .: "error" >>= (.: "reason")))
-  parseJSON _ = empty
-
-instance FromJSON IndexAliasesSummary where
-  parseJSON = withObject "IndexAliasesSummary" parse
-    where parse o = IndexAliasesSummary . mconcat <$> mapM (uncurry go) (HM.toList o)
-          go ixn = withObject "index aliases" $ \ia -> do
-                     aliases <- ia .:? "aliases" .!= mempty
-                     forM (HM.toList aliases) $ \(aName, v) -> do
-                       let indexAlias = IndexAlias (IndexName ixn) (IndexAliasName (IndexName aName))
-                       IndexAliasSummary indexAlias <$> parseJSON v
-
-
-instance ToJSON IndexAliasAction where
-  toJSON (AddAlias ia opts) = object ["add" .= (iaObj <> optsObj)]
-    where Object iaObj = toJSON ia
-          Object optsObj = toJSON opts
-  toJSON (RemoveAlias ia) = object ["remove" .= iaObj]
-    where Object iaObj = toJSON ia
-
-instance ToJSON IndexAlias where
-  toJSON IndexAlias {..} = object ["index" .= srcIndex
-                                  , "alias" .= indexAlias
-                                  ]
-
-instance ToJSON IndexAliasCreate where
-  toJSON IndexAliasCreate {..} = Object (filterObj <> routingObj)
-    where filterObj = maybe mempty (HM.singleton "filter" . toJSON) aliasCreateFilter
-          Object routingObj = maybe (Object mempty) toJSON aliasCreateRouting
-
-instance ToJSON AliasRouting where
-  toJSON (AllAliasRouting v) = object ["routing" .= v]
-  toJSON (GranularAliasRouting srch idx) = object (catMaybes prs)
-    where prs = [("search_routing" .=) <$> srch
-                ,("index_routing" .=) <$> idx]
-
-instance FromJSON AliasRouting where
-  parseJSON = withObject "AliasRouting" parse
-    where parse o = parseAll o <|> parseGranular o
-          parseAll o = AllAliasRouting <$> o .: "routing"
-          parseGranular o = do
-            sr <- o .:? "search_routing"
-            ir <- o .:? "index_routing"
-            if isNothing sr && isNothing ir
-               then fail "Both search_routing and index_routing can't be blank"
-               else return (GranularAliasRouting sr ir)
-
-instance FromJSON IndexAliasCreate where
-  parseJSON v = withObject "IndexAliasCreate" parse v
-    where parse o = IndexAliasCreate <$> optional (parseJSON v)
-                                     <*> o .:? "filter"
-
-instance ToJSON SearchAliasRouting where
-  toJSON (SearchAliasRouting rvs) = toJSON (T.intercalate "," (routingValue <$> toList rvs))
-
-instance FromJSON SearchAliasRouting where
-  parseJSON = withText "SearchAliasRouting" parse
-    where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
   toJSON (Search mquery sFilter sort searchAggs
@@ -1494,90 +1230,11 @@ nonPostingsToPairs (Just (NonPostings npFragSize npNumOfFrags)) =
     [ "fragment_size" .= npFragSize
     , "number_of_fragments" .= npNumOfFrags]
 
-
-instance ToJSON HighlightEncoder where
-    toJSON DefaultEncoder = String "default"
-    toJSON HTMLEncoder    = String "html"
-
 highlightTagToPairs :: Maybe HighlightTag -> [Pair]
 highlightTagToPairs (Just (TagSchema _))            = [ "scheme"    .=  String "default"]
 highlightTagToPairs (Just (CustomTags (pre, post))) = [ "pre_tags"  .= pre
                                                       , "post_tags" .= post]
 highlightTagToPairs Nothing = []
-
-instance ToJSON SortSpec where
-  toJSON (DefaultSortSpec
-          (DefaultSort (FieldName dsSortFieldName) dsSortOrder dsIgnoreUnmapped
-           dsSortMode dsMissingSort dsNestedFilter)) =
-    object [dsSortFieldName .= omitNulls base] where
-      base = [ "order" .= dsSortOrder
-             , "unmapped_type" .= dsIgnoreUnmapped
-             , "mode" .= dsSortMode
-             , "missing" .= dsMissingSort
-             , "nested_filter" .= dsNestedFilter ]
-
-  toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
-    object [ "unit" .= units
-           , field .= gdsLatLon
-           , "order" .= gdsSortOrder ]
-
-
-instance ToJSON SortOrder where
-  toJSON Ascending  = String "asc"
-  toJSON Descending = String "desc"
-
-
-instance ToJSON SortMode where
-  toJSON SortMin = String "min"
-  toJSON SortMax = String "max"
-  toJSON SortSum = String "sum"
-  toJSON SortAvg = String "avg"
-
-
-instance ToJSON Missing where
-  toJSON LastMissing         = String "_last"
-  toJSON FirstMissing        = String "_first"
-  toJSON (CustomMissing txt) = String txt
-
-
-
-instance (FromJSON a) => FromJSON (SearchResult a) where
-  parseJSON (Object v) = SearchResult <$>
-                         v .:  "took"         <*>
-                         v .:  "timed_out"    <*>
-                         v .:  "_shards"      <*>
-                         v .:  "hits"         <*>
-                         v .:? "aggregations" <*>
-                         v .:? "_scroll_id"   <*>
-                         v .:? "suggest"
-  parseJSON _          = empty
-
-instance (FromJSON a) => FromJSON (SearchHits a) where
-  parseJSON (Object v) = SearchHits <$>
-                         v .: "total"     <*>
-                         v .: "max_score" <*>
-                         v .: "hits"
-  parseJSON _          = empty
-
-instance (FromJSON a) => FromJSON (Hit a) where
-  parseJSON (Object v) = Hit <$>
-                         v .:  "_index"   <*>
-                         v .:  "_type"    <*>
-                         v .:  "_id"      <*>
-                         v .:  "_score"   <*>
-                         v .:? "_source"  <*>
-                         v .:? "fields"   <*>
-                         v .:? "highlight"
-  parseJSON _          = empty
-
-instance FromJSON HitFields where
-  parseJSON x
-    = HitFields <$> parseJSON x
-
-instance FromJSON DocVersion where
-  parseJSON v = do
-    i <- parseJSON v
-    maybe (fail "DocVersion out of range") return $ mkDocVersion i
 
 data Suggest = Suggest { suggestText :: Text
                        , suggestName :: Text
@@ -1613,36 +1270,38 @@ instance FromJSON SuggestType where
            where taggedWith parser k = parser =<< o .: k
                  phraseSuggester = pure . SuggestTypePhraseSuggester
 
-data PhraseSuggester =
-  PhraseSuggester { phraseSuggesterField :: FieldName
-                  , phraseSuggesterGramSize :: Maybe Int
-                  , phraseSuggesterRealWordErrorLikelihood :: Maybe Int
-                  , phraseSuggesterConfidence :: Maybe Int
-                  , phraseSuggesterMaxErrors :: Maybe Int
-                  , phraseSuggesterSeparator :: Maybe Text
-                  , phraseSuggesterSize :: Maybe Size
-                  , phraseSuggesterAnalyzer :: Maybe Analyzer
-                  , phraseSuggesterShardSize :: Maybe Int
-                  , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
-                  , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
-                  , phraseSuggesterCandidateGenerators :: [DirectGenerators]
-                  }
-  deriving (Eq, Show)
+data PhraseSuggester = PhraseSuggester
+  { phraseSuggesterField :: FieldName
+  , phraseSuggesterGramSize :: Maybe Int
+  , phraseSuggesterRealWordErrorLikelihood :: Maybe Int
+  , phraseSuggesterConfidence :: Maybe Int
+  , phraseSuggesterMaxErrors :: Maybe Int
+  , phraseSuggesterSeparator :: Maybe Text
+  , phraseSuggesterSize :: Maybe Size
+  , phraseSuggesterAnalyzer :: Maybe Analyzer
+  , phraseSuggesterShardSize :: Maybe Int
+  , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
+  , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
+  , phraseSuggesterCandidateGenerators :: [DirectGenerators]
+  } deriving (Eq, Show)
 
 instance ToJSON PhraseSuggester where
-  toJSON PhraseSuggester{..} = omitNulls [ "field" .= phraseSuggesterField
-                                         , "gram_size" .= phraseSuggesterGramSize
-                                         , "real_word_error_likelihood" .= phraseSuggesterRealWordErrorLikelihood
-                                         , "confidence" .= phraseSuggesterConfidence
-                                         , "max_errors" .= phraseSuggesterMaxErrors
-                                         , "separator" .= phraseSuggesterSeparator
-                                         , "size" .= phraseSuggesterSize
-                                         , "analyzer" .= phraseSuggesterAnalyzer
-                                         , "shard_size" .= phraseSuggesterShardSize
-                                         , "highlight" .= phraseSuggesterHighlight
-                                         , "collate" .= phraseSuggesterCollate
-                                         , "direct_generator" .= phraseSuggesterCandidateGenerators
-                                        ]
+  toJSON PhraseSuggester{..} =
+    omitNulls [ "field" .= phraseSuggesterField
+              , "gram_size" .= phraseSuggesterGramSize
+              , "real_word_error_likelihood" .=
+                phraseSuggesterRealWordErrorLikelihood
+              , "confidence" .= phraseSuggesterConfidence
+              , "max_errors" .= phraseSuggesterMaxErrors
+              , "separator" .= phraseSuggesterSeparator
+              , "size" .= phraseSuggesterSize
+              , "analyzer" .= phraseSuggesterAnalyzer
+              , "shard_size" .= phraseSuggesterShardSize
+              , "highlight" .= phraseSuggesterHighlight
+              , "collate" .= phraseSuggesterCollate
+              , "direct_generator" .=
+                phraseSuggesterCandidateGenerators
+              ]
 
 instance FromJSON PhraseSuggester where
   parseJSON = withObject "PhraseSuggester" parse
@@ -1683,19 +1342,19 @@ instance FromJSON PhraseSuggesterHighlighter where
                       <$> o .: "pre_tag"
                       <*> o .: "post_tag"
 
-data PhraseSuggesterCollate =
-  PhraseSuggesterCollate { phraseSuggesterCollateTemplateQuery :: TemplateQueryInline
-                         , phraseSuggesterCollatePrune :: Bool
-                         }
-  deriving (Eq, Show)
+data PhraseSuggesterCollate = PhraseSuggesterCollate
+  { phraseSuggesterCollateTemplateQuery :: TemplateQueryInline
+  , phraseSuggesterCollatePrune :: Bool
+  } deriving (Eq, Show)
 
 instance ToJSON PhraseSuggesterCollate where
-  toJSON PhraseSuggesterCollate{..} = object [ "query" .= object
-                                              [ "inline" .= (inline phraseSuggesterCollateTemplateQuery)
-                                              ]
-                                             , "params" .= (params phraseSuggesterCollateTemplateQuery)
-                                             , "prune" .= phraseSuggesterCollatePrune
-                                             ]
+  toJSON PhraseSuggesterCollate{..} =
+    object [ "query" .= object
+             [ "inline" .= (inline phraseSuggesterCollateTemplateQuery)
+             ]
+           , "params" .= (params phraseSuggesterCollateTemplateQuery)
+           , "prune" .= phraseSuggesterCollatePrune
+           ]
 
 instance FromJSON PhraseSuggesterCollate where
   parseJSON (Object o) = do
@@ -1703,7 +1362,8 @@ instance FromJSON PhraseSuggesterCollate where
     inline' <- query' .: "inline"
     params' <- o .: "params"
     prune' <- o .:? "prune" .!= False
-    return $ PhraseSuggesterCollate (TemplateQueryInline inline' params') prune'
+    return $ PhraseSuggesterCollate
+             (TemplateQueryInline inline' params') prune'
   parseJSON x = typeMismatch "PhraseSuggesterCollate" x
 
 data SuggestOptions =
@@ -1738,11 +1398,10 @@ instance FromJSON SuggestResponse where
                     <*> o .: "length"
                     <*> o .: "options"
 
-data NamedSuggestionResponse =
-  NamedSuggestionResponse { nsrName :: Text
-                          , nsrResponses :: [SuggestResponse]
-                          }
-  deriving (Eq, Read, Show)
+data NamedSuggestionResponse = NamedSuggestionResponse
+  { nsrName :: Text
+  , nsrResponses :: [SuggestResponse]
+  } deriving (Eq, Read, Show)
 
 instance FromJSON NamedSuggestionResponse where
   parseJSON (Object o) = do
@@ -1785,7 +1444,6 @@ data DirectGenerators = DirectGenerators
   , directGeneratorPostFilter :: Maybe Text
   }
   deriving (Eq, Show)
-
 
 instance ToJSON DirectGenerators where
   toJSON DirectGenerators{..} = omitNulls [ "field" .= directGeneratorsField

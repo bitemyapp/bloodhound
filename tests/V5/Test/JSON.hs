@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Test.JSON where
+module Test.JSON (spec) where
 
 import Test.Import
 

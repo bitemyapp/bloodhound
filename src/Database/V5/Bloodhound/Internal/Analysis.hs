@@ -52,8 +52,8 @@ instance FromJSON AnalyzerDefinition where
     <$> m .:? "tokenizer"
     <*> m .:? "filter" .!= []
 
-data TokenizerDefinition
-  = TokenizerDefinitionNgram Ngram
+newtype TokenizerDefinition =
+  TokenizerDefinitionNgram Ngram
   deriving (Eq,Show)
 
 instance ToJSON TokenizerDefinition where
@@ -70,8 +70,8 @@ instance FromJSON TokenizerDefinition where
     typ <- m .: "type" :: Parser Text
     case typ of
       "ngram" -> fmap TokenizerDefinitionNgram $ Ngram
-        <$> (fmap unStringlyTypedInt (m .: "min_gram"))
-        <*> (fmap unStringlyTypedInt (m .: "max_gram"))
+        <$> fmap unStringlyTypedInt (m .: "min_gram")
+        <*> fmap unStringlyTypedInt (m .: "max_gram")
         <*> m .: "token_chars"
       _ -> fail "invalid TokenizerDefinition"
 

@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
--- {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -1137,8 +1136,10 @@ data Source =
   | SourceIncludeExclude Include Exclude
     deriving (Read, Show, Eq, Generic, Typeable)
 
-data PatternOrPatterns = PopPattern   Pattern
-                       | PopPatterns [Pattern] deriving (Eq, Read, Show, Generic, Typeable)
+data PatternOrPatterns =
+    PopPattern Pattern
+  | PopPatterns [Pattern]
+  deriving (Eq, Read, Show, Generic, Typeable)
 
 data Include = Include [Pattern] deriving (Eq, Read, Show, Generic, Typeable)
 data Exclude = Exclude [Pattern] deriving (Eq, Read, Show, Generic, Typeable)
@@ -1906,8 +1907,9 @@ instance ToJSON TermOrder where
 
 instance ToJSON TermInclusion where
   toJSON (TermInclusion x) = toJSON x
-  toJSON (TermPattern pattern flags) = omitNulls [ "pattern" .= pattern,
-                                                     "flags"   .= flags]
+  toJSON (TermPattern pattern flags) =
+    omitNulls [ "pattern" .= pattern
+              , "flags"   .= flags]
 
 instance ToJSON CollectionMode where
   toJSON BreadthFirst = "breadth_first"

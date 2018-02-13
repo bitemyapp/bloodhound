@@ -10,7 +10,7 @@ import qualified Data.Map as M
 
 spec :: Spec
 spec =
-  describe "Script" $ do
+  describe "Script" $
     it "returns a transformed document based on the script field" $ withTestEnv $ do
       _ <- insertData
       let query = MatchAllQuery Nothing
@@ -32,4 +32,5 @@ spec =
         Right sr -> do
           let Just results =
                 hitFields (head (hits (searchHits sr)))
-          liftIO $ results `shouldBe` (HitFields (M.fromList [("test1", [Number 20000.0])]))
+          liftIO $
+            results `shouldBe` HitFields (M.fromList [("test1", [Number 20000.0])])

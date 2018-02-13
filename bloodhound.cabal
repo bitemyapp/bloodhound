@@ -37,6 +37,11 @@ library
                        Database.V5.Bloodhound.Client
                        Database.V5.Bloodhound.Types
                        Database.V5.Bloodhound.Types.Class
+                       Database.V5.Bloodhound.Internal.Analysis
+                       Database.V5.Bloodhound.Internal.Client
+                       Database.V5.Bloodhound.Internal.Newtypes
+                       Database.V5.Bloodhound.Internal.Query
+                       Database.V5.Bloodhound.Internal.StringlyTyped
                        Database.V1.Bloodhound
                        Database.V1.Bloodhound.Client
                        Database.V1.Bloodhound.Types
@@ -44,11 +49,6 @@ library
                        Database.V1.Bloodhound.Types.Internal
   other-modules:       Bloodhound.Import
                        Database.Bloodhound.Common.Script
-                       Database.V5.Bloodhound.Internal.Analysis
-                       Database.V5.Bloodhound.Internal.Client
-                       Database.V5.Bloodhound.Internal.Newtypes
-                       Database.V5.Bloodhound.Internal.Query
-                       Database.V5.Bloodhound.Internal.StringlyTyped
   hs-source-dirs:      src
   build-depends:       base             >= 4.3     && <5,
                        bytestring       >= 0.10.0  && <0.11,
@@ -64,13 +64,10 @@ library
                        http-types       >= 0.8     && <0.13,
                        vector           >= 0.10.9  && <0.13,
                        scientific       >= 0.3.0.0 && <0.4.0.0,
-                       bifunctors,
-                       exceptions,
-                       data-default-class,
                        blaze-builder,
-                       unordered-containers,
-                       mtl-compat,
-                       hashable
+                       exceptions,
+                       hashable,
+                       unordered-containers
   default-language:    Haskell2010
 
 test-suite bloodhound-tests
@@ -116,7 +113,6 @@ test-suite bloodhound-tests
                        pretty-simple,
                        quickcheck-arbitrary-template,
                        quickcheck-properties,
-                       generics-sop         >=0.2 && <0.4,
                        errors,
                        exceptions,
                        temporary,

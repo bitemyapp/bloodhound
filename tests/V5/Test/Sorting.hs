@@ -7,7 +7,7 @@ import Test.Import
 
 spec :: Spec
 spec =
-  describe "sorting" $ do
+  describe "sorting" $
     it "returns documents in the right order" $ withTestEnv $ do
       _ <- insertData
       _ <- insertOther

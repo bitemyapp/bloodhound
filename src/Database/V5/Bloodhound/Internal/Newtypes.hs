@@ -146,6 +146,12 @@ newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Show, FromJSON, ToJS
 -- | Newtype wrapper to parse ES's concerning tendency to in some APIs return a floating point number of milliseconds since epoch ಠ_ಠ
 newtype POSIXMS = POSIXMS { posixMS :: UTCTime }
 
+instance FromJSON POSIXMS where
+  parseJSON = withScientific "POSIXMS" (return . parse)
+    where parse n =
+            let n' = truncate n :: Integer
+            in POSIXMS (posixSecondsToUTCTime (fromInteger (n' `div` 1000)))
+
 newtype Boost =
   Boost Double
   deriving (Eq, Show, ToJSON, FromJSON)
@@ -154,15 +160,28 @@ newtype BoostTerms =
   BoostTerms Double
   deriving (Eq, Show, ToJSON, FromJSON)
 
+{-| 'ReplicaCount' is part of 'IndexSettings' -}
+newtype ReplicaCount =
+  ReplicaCount Int
+  deriving (Eq, Show, ToJSON)
+
 {-| 'ShardCount' is part of 'IndexSettings' -}
 newtype ShardCount =
   ShardCount Int
   deriving (Eq, Show, ToJSON)
 
-{-| 'ReplicaCount' is part of 'IndexSettings' -}
-newtype ReplicaCount =
-  ReplicaCount Int
-  deriving (Eq, Show, ToJSON)
+-- This insanity is because ES *sometimes* returns Replica/Shard counts as strings
+instance FromJSON ReplicaCount where
+  parseJSON v = parseAsInt v
+            <|> parseAsString v
+    where parseAsInt = fmap ReplicaCount . parseJSON
+          parseAsString = withText "ReplicaCount" (fmap ReplicaCount . parseReadText)
+
+instance FromJSON ShardCount where
+  parseJSON v = parseAsInt v
+            <|> parseAsString v
+    where parseAsInt = fmap ShardCount . parseJSON
+          parseAsString = withText "ShardCount" (fmap ShardCount . parseReadText)
 
 {-| 'IndexName' is used to describe which index to query/create/delete -}
 newtype IndexName =
@@ -195,7 +214,7 @@ unMS (MS t) = t
 instance FromJSON MS where
   parseJSON = withScientific "MS" (return . MS . parse)
     where
-      parse n = fromInteger ((truncate n) * 1000)
+      parse n = fromInteger (truncate n * 1000)
 
 newtype TokenFilter =
   TokenFilter Text deriving (Eq, Show, FromJSON, ToJSON)

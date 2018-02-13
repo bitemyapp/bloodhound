@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Snapshots where
+module Test.Snapshots (spec) where
 
 import Test.Common
 import Test.Import
@@ -18,7 +18,7 @@ import Test.Generators ()
 
 spec :: Spec
 spec = do
-  describe "FsSnapshotRepo" $ do
+  describe "FsSnapshotRepo" $
     prop "SnapshotRepo laws" $ \fsr ->
       fromGSnapshotRepo (toGSnapshotRepo fsr) === Right (fsr :: FsSnapshotRepo)
 
@@ -149,7 +149,7 @@ canSnapshot :: IO Bool
 canSnapshot = do
   caresAboutRepos <- atleast es16
   repoPaths <- getRepoPaths
-  return (not caresAboutRepos || not (null (repoPaths)))
+  return (not caresAboutRepos || not (null repoPaths))
 
 withSnapshotRepo
     :: ( MonadMask m
@@ -197,5 +197,5 @@ withSnapshot srn sn = bracket_ alloc free
                                                    , snapIndices = Just (IndexList (testIndex :| []))
                                                    -- We don't actually need to back up any data
                                                    }
-    free = do
+    free =
       deleteSnapshot srn sn

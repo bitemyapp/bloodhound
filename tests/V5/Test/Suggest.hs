@@ -7,7 +7,7 @@ import Test.Import
 
 spec :: Spec
 spec =
-  describe "Suggest" $ do
+  describe "Suggest" $
     it "returns a search suggestion using the phrase suggester" $ withTestEnv $ do
       _ <- insertData
       let query = QueryMatchNoneQuery

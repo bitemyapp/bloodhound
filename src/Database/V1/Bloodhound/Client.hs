@@ -223,7 +223,8 @@ getStatus :: MonadBH m => m (Maybe Status)
 getStatus = do
   response <- get =<< url
   return $ decode (responseBody response)
-  where url = joinPath []
+  where
+    url = joinPath []
 
 -- | 'getSnapshotRepos' gets the definitions of a subset of the
 -- defined snapshot repos.
@@ -252,7 +253,7 @@ instance FromJSON GSRs where
   parseJSON = withObject "Collection of GenericSnapshotRepo" parse
     where
       parse = fmap GSRs . mapM (uncurry go) . HM.toList
-      go rawName = withObject "GenericSnapshotRepo" $ \o -> do
+      go rawName = withObject "GenericSnapshotRepo" $ \o ->
         GenericSnapshotRepo (SnapshotRepoName rawName) <$> o .: "type"
                                                        <*> o .: "settings"
 
@@ -454,16 +455,18 @@ deleteIndex (IndexName indexName) =
 updateIndexSettings :: MonadBH m => NonEmpty UpdatableIndexSetting -> IndexName -> m Reply
 updateIndexSettings updates (IndexName indexName) =
   bindM2 put url (return body)
-  where url = joinPath [indexName, "_settings"]
-        body = Just (encode jsonBody)
-        jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
+  where
+    url = joinPath [indexName, "_settings"]
+    body = Just (encode jsonBody)
+    jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
 
 
 getIndexSettings :: (MonadBH m, MonadThrow m) => IndexName
                  -> m (Either EsError IndexSettingsSummary)
-getIndexSettings (IndexName indexName) = do
+getIndexSettings (IndexName indexName) =
   parseEsResponse =<< get =<< url
-  where url = joinPath [indexName, "_settings"]
+  where
+    url = joinPath [indexName, "_settings"]
 
 
 -- | 'optimizeIndex' will optimize a single index, list of indexes or
@@ -586,7 +589,7 @@ listIndices =
     url = joinPath ["_cat/indices?format=json"]
     parse body = maybe (throwM (EsProtocolException body)) return $ do
       vals <- decode body
-      forM vals $ \val -> do
+      forM vals $ \val ->
         case val of
           Object obj -> do
             indexVal <- HM.lookup "index" obj
@@ -718,7 +721,8 @@ encodeBulkOperations stream = collapsed where
   collapsed = toLazyByteString $ mappend mashedTaters (byteString "\n")
 
 mash :: Builder -> V.Vector L.ByteString -> Builder
-mash = V.foldl' (\b x -> b `mappend` (byteString "\n") `mappend` (lazyByteString x))
+mash =
+  V.foldl' (\b x -> b <> byteString "\n" <> lazyByteString x)
 
 mkBulkStreamValue :: Text -> Text -> Text -> Text -> Value
 mkBulkStreamValue operation indexName mappingName docId =

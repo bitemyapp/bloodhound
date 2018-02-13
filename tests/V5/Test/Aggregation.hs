@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Aggregation where
+module Test.Aggregation (spec) where
 
 import Test.Common
 import Test.Import
@@ -29,7 +29,7 @@ spec =
           usersAggResults = result >>= aggregations >>= toTerms "users"
           subAggResults = usersAggResults >>= (listToMaybe . buckets) >>= termsAggs >>= toTerms "age_agg"
           subAddResultsExists = isJust subAggResults
-      liftIO $ (subAddResultsExists) `shouldBe` True
+      liftIO $ subAddResultsExists `shouldBe` True
 
     it "returns cardinality aggregation results" $ withTestEnv $ do
       _ <- insertData

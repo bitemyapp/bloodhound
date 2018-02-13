@@ -14,14 +14,14 @@ spec =
       docInserted <- getDocument testIndex testMapping (DocId "1")
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
-      liftIO $ (fmap getSource newTweet `shouldBe` Right (Just patchedTweet))
+      liftIO $ fmap getSource newTweet `shouldBe` Right (Just patchedTweet)
 
     it "indexes, gets, and then deletes the generated document with a DocId containing a space" $ withTestEnv $ do
       _ <- insertWithSpaceInId
       docInserted <- getDocument testIndex testMapping (DocId "Hello World")
       let newTweet = eitherDecode
                      (responseBody docInserted) :: Either String (EsResult Tweet)
-      liftIO $ (fmap getSource newTweet `shouldBe` Right (Just exampleTweet))
+      liftIO $ fmap getSource newTweet `shouldBe` Right (Just exampleTweet)
 
     it "produces a parseable result when looking up a bogus document" $ withTestEnv $ do
       doc <- getDocument testIndex testMapping  (DocId "bogus")

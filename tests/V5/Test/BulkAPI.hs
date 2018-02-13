@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.BulkAPI where
+module Test.BulkAPI (spec) where
 
 import Test.Common
 import Test.Import
@@ -9,7 +9,7 @@ import qualified Data.Vector as V
 import qualified Lens.Micro.Aeson as LMA
 
 newtype BulkTest =
-  BulkTest { name :: Text }
+  BulkTest Text
   deriving (Eq, Show)
 
 instance ToJSON BulkTest where
@@ -25,7 +25,7 @@ instance FromJSON BulkTest where
 
 spec :: Spec
 spec =
-  describe "Bulk API" $ do
+  describe "Bulk API" $
     it "inserts all documents we request" $ withTestEnv $ do
       _ <- insertData
       let firstTest = BulkTest "blah"
@@ -84,7 +84,7 @@ spec =
             hitsTotal (searchHits sr) `shouldBe` 6
           let nameList :: [Text]
               nameList =
-                (hits (searchHits sr))
+                hits (searchHits sr)
                 ^.. traverse
                   . to hitSource
                   . _Just

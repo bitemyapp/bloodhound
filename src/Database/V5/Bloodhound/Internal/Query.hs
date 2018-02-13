@@ -435,6 +435,10 @@ data GeoPoint =
   GeoPoint { geoField :: FieldName
            , latLon   :: LatLon} deriving (Eq, Show)
 
+instance ToJSON GeoPoint where
+  toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
+    object [ geoPointField  .= geoPointLatLon ]
+
 data DistanceUnit = Miles
                   | Yards
                   | Feet
@@ -882,7 +886,8 @@ instance FromJSON QueryStringQuery where
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) range boost) =
     object [ fieldName .= object conjoined ]
-    where conjoined = [ "boost" .= boost ] ++ (rangeValueToPair range)
+    where
+      conjoined = ("boost" .= boost) : rangeValueToPair range
 
 instance FromJSON RangeQuery where
   parseJSON = withObject "RangeQuery" parse
@@ -891,38 +896,76 @@ instance FromJSON RangeQuery where
                     <$> parseJSON (Object o)
                     <*> o .: "boost"
 
+parseRangeValue :: ( FromJSON t4
+                   , FromJSON t3
+                   , FromJSON t2
+                   , FromJSON t1
+                   )
+                => (t3 -> t5)
+                -> (t1 -> t6)
+                -> (t4 -> t7)
+                -> (t2 -> t8)
+                -> (t5 -> t6 -> b)
+                -> (t7 -> t6 -> b)
+                -> (t5 -> t8 -> b)
+                -> (t7 -> t8 -> b)
+                -> (t5 -> b)
+                -> (t6 -> b)
+                -> (t7 -> b)
+                -> (t8 -> b)
+                -> Parser b
+                -> Object
+                -> Parser b
+parseRangeValue mkGt mkLt mkGte mkLte
+                fGtLt fGteLt fGtLte fGteLte
+                fGt fLt fGte fLte nada o = do
+  lt <- o .:? "lt"
+  lte <- o .:? "lte"
+  gt <- o .:? "gt"
+  gte <- o .:? "gte"
+  case (lt, lte, gt, gte) of
+    (Just a, _, Just b, _) ->
+      return (fGtLt (mkGt b) (mkLt a))
+    (Just a, _, _, Just b) ->
+      return (fGteLt (mkGte b) (mkLt a))
+    (_, Just a, Just b, _) ->
+      return (fGtLte (mkGt b) (mkLte a))
+    (_, Just a, _, Just b) ->
+      return (fGteLte (mkGte b) (mkLte a))
+    (_, _, Just a, _) ->
+      return (fGt (mkGt a))
+    (Just a, _, _, _) ->
+      return (fLt (mkLt a))
+    (_, _, _, Just a) ->
+      return (fGte (mkGte a))
+    (_, Just a, _, _) ->
+      return (fLte (mkLte a))
+    (Nothing, Nothing, Nothing, Nothing) ->
+      nada
+
+  
 instance FromJSON RangeValue where
   parseJSON = withObject "RangeValue" parse
     where parse o = parseDate o
                 <|> parseDouble o
-          parseDate o = do lt <- o .:? "lt"
-                           lte <- o .:? "lte"
-                           gt <- o .:? "gt"
-                           gte <- o .:? "gte"
-                           case (lt, lte, gt, gte) of
-                             (Just a, _, Just b, _) -> return (RangeDateGtLt (GreaterThanD b) (LessThanD a))
-                             (Just a, _, _, Just b)-> return (RangeDateGteLt (GreaterThanEqD b) (LessThanD a))
-                             (_, Just a, Just b, _)-> return (RangeDateGtLte (GreaterThanD b) (LessThanEqD a))
-                             (_, Just a, _, Just b)-> return (RangeDateGteLte (GreaterThanEqD b) (LessThanEqD a))
-                             (_, _, Just a, _)-> return (RangeDateGt (GreaterThanD a))
-                             (Just a, _, _, _)-> return (RangeDateLt (LessThanD a))
-                             (_, _, _, Just a)-> return (RangeDateGte (GreaterThanEqD a))
-                             (_, Just a, _, _)-> return (RangeDateLte (LessThanEqD a))
-                             (Nothing, Nothing, Nothing, Nothing) -> mzero
-          parseDouble o = do lt <- o .:? "lt"
-                             lte <- o .:? "lte"
-                             gt <- o .:? "gt"
-                             gte <- o .:? "gte"
-                             case (lt, lte, gt, gte) of
-                               (Just a, _, Just b, _) -> return (RangeDoubleGtLt (GreaterThan b) (LessThan a))
-                               (Just a, _, _, Just b)-> return (RangeDoubleGteLt (GreaterThanEq b) (LessThan a))
-                               (_, Just a, Just b, _)-> return (RangeDoubleGtLte (GreaterThan b) (LessThanEq a))
-                               (_, Just a, _, Just b)-> return (RangeDoubleGteLte (GreaterThanEq b) (LessThanEq a))
-                               (_, _, Just a, _)-> return (RangeDoubleGt (GreaterThan a))
-                               (Just a, _, _, _)-> return (RangeDoubleLt (LessThan a))
-                               (_, _, _, Just a)-> return (RangeDoubleGte (GreaterThanEq a))
-                               (_, Just a, _, _)-> return (RangeDoubleLte (LessThanEq a))
-                               (Nothing, Nothing, Nothing, Nothing) -> mzero
+          parseDate o =
+            parseRangeValue
+            GreaterThanD LessThanD
+            GreaterThanEqD LessThanEqD
+            RangeDateGtLt RangeDateGteLt
+            RangeDateGtLte RangeDateGteLte
+            RangeDateGt RangeDateLt
+            RangeDateGte RangeDateLte
+            mzero o
+          parseDouble o =
+            parseRangeValue
+            GreaterThan LessThan
+            GreaterThanEq LessThanEq
+            RangeDoubleGtLt RangeDoubleGteLt
+            RangeDoubleGtLte RangeDoubleGteLte
+            RangeDoubleGt RangeDoubleLt
+            RangeDoubleGte RangeDoubleLte
+            mzero o
 
 instance ToJSON PrefixQuery where
   toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =

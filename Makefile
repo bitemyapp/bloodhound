@@ -3,6 +3,9 @@ stack = STACK_YAML='stack.yaml' stack
 build:
 	stack build
 
+build-validate:
+	stack build --fast --ghc-options '-Werror'
+
 ghci:
 	stack ghci
 
@@ -17,6 +20,19 @@ test-ghci:
 
 ghcid:
 	ghcid -c "$(stack) ghci bloodhound:lib --test --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is bloodhound:test:bloodhound-tests"
+
+ghcid-validate:
+	ghcid -c "$(stack) ghci bloodhound:lib --test --ghci-options='-Werror -fobject-code -fno-warn-unused-do-bind' --main-is bloodhound:test:bloodhound-tests"
+
+weeder:
+	weeder . --build
+
+# hlint --default > .hlint.yaml
+hlint:
+	hlint .
+
+hlint-watch:
+	sos src/ -c "hlint ." -p "src/(.*)\.hs"
 
 mod-build:
 	stack build --ghc-options '+RTS -A128M -RTS'
