@@ -880,11 +880,13 @@ instance FromJSON Suggest where
     return $ Suggest suggestText' suggestName' suggestType'
   parseJSON x = typeMismatch "Suggest" x
 
-data SuggestType = SuggestTypePhraseSuggester PhraseSuggester
+data SuggestType =
+  SuggestTypePhraseSuggester PhraseSuggester
   deriving (Eq, Show)
 
 instance ToJSON SuggestType where
-  toJSON (SuggestTypePhraseSuggester x) = object ["phrase" .= x]
+  toJSON (SuggestTypePhraseSuggester x) =
+    object [ "phrase" .= x ]
 
 instance FromJSON SuggestType where
   parseJSON = withObject "SuggestType" parse
