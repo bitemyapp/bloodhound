@@ -22,9 +22,11 @@ spec =
     it "returns highlight from query when there should be one" $ withTestEnv $ do
       myHighlight <- initHighlights "message"
       liftIO $
-        myHighlight `shouldBe` Right (Just (M.fromList [("message",["Use <em>haskell</em>!"])]))
+        myHighlight `shouldBe`
+          Right (Just (M.fromList [("message", ["Use <em>haskell</em>!"])]))
 
     it "doesn't return highlight from a query when it shouldn't" $ withTestEnv $ do
       myHighlight <- initHighlights "user"
       liftIO $
-        myHighlight `shouldBe` Right Nothing
+        myHighlight `shouldBe`
+          Right Nothing

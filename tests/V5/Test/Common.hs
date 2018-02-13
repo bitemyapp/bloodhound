@@ -261,10 +261,14 @@ searchTermsAggHint hints = do
       forM_ hints $ searchExpectAggs . search
       forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
 
-searchTweetHighlight :: Search -> BH IO (Either EsError (Maybe HitHighlight))
+searchTweetHighlight :: Search
+                     -> BH IO (Either EsError (Maybe HitHighlight))
 searchTweetHighlight search = do
   result <- searchTweets search
-  let myHighlight = fmap (hitHighlight . head . hits . searchHits) result
+  let tweetHit :: Either EsError (Maybe (Hit Tweet))
+      tweetHit = fmap (headMay . hits . searchHits) result
+      myHighlight :: Either EsError (Maybe HitHighlight)
+      myHighlight = (join . fmap hitHighlight) <$> tweetHit
   return myHighlight
 
 searchExpectSource :: Source -> Either EsError Value -> BH IO ()
