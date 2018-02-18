@@ -343,6 +343,7 @@ module Database.V5.Bloodhound.Types
        , DirectGeneratorSuggestModeTypes (..)
        , Collapse(..)
        , InnerHit(..)
+       , mkInnerHit
 
        , Aggregation(..)
        , Aggregations
@@ -378,7 +379,7 @@ module Database.V5.Bloodhound.Types
        , HighlightTag(..)
        , HitHighlight
        , HitFields
-       , InnerHitResult
+       , InnerHitResult(..)
 
        , MissingResult(..)
        , TermsResult(..)
