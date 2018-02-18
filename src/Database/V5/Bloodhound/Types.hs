@@ -341,6 +341,8 @@ module Database.V5.Bloodhound.Types
        , DirectGenerators(..)
        , mkDirectGenerators
        , DirectGeneratorSuggestModeTypes (..)
+       , Collapse(..)
+       , InnerHit(..)
 
        , Aggregation(..)
        , Aggregations
@@ -375,6 +377,8 @@ module Database.V5.Bloodhound.Types
        , HighlightEncoder(..)
        , HighlightTag(..)
        , HitHighlight
+       , HitFields
+       , InnerHitResult
 
        , MissingResult(..)
        , TermsResult(..)
@@ -1247,6 +1251,7 @@ data Search = Search { queryBody       :: Maybe Query
                      , fields          :: Maybe [FieldName]
                      , source          :: Maybe Source
                      , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
+                     , collapse        :: Maybe Collapse
                      } deriving (Eq, Read, Show, Generic, Typeable)
 
 data SearchType = SearchTypeQueryThenFetch
@@ -1834,7 +1839,10 @@ data Hit a =
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
-      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Read, Show, Generic, Typeable)
+      , hitHighlight :: Maybe HitHighlight 
+      , hitFields    :: Maybe HitFields
+      , hitInnerHits :: Maybe (InnerHitResult a) -- only one named inner_hits result is supported
+      } deriving (Eq, Read, Show, Generic, Typeable)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
@@ -1842,6 +1850,12 @@ data ShardResult =
               , shardsFailed     :: Int } deriving (Eq, Read, Show, Generic, Typeable)
 
 type HitHighlight = M.Map Text [Text]
+type HitFields = M.Map Text [Text]
+
+data InnerHitResult a =
+  InnerHitResult { ihrName :: Text
+                 , ihrHits :: SearchHits a
+                 } deriving (Eq, Read, Show, Generic, Typeable)
 
 showText :: Show a => a -> Text
 showText = T.pack . show
@@ -3443,7 +3457,8 @@ instance FromJSON SearchAliasRouting where
     where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
-  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource sSuggest) =
+  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores 
+          sFrom sSize _ sFields sSource sSuggest sCollapse) =
     omitNulls [ "query"        .= query'
               , "sort"         .= sort
               , "aggregations" .= searchAggs
@@ -3453,7 +3468,9 @@ instance ToJSON Search where
               , "track_scores" .= sTrackSortScores
               , "fields"       .= sFields
               , "_source"      .= sSource
-              , "suggest"      .= sSuggest]
+              , "suggest"      .= sSuggest
+              , "collapse"     .= sCollapse
+              ]
 
     where query' = case sFilter of
                     Nothing -> mquery
@@ -3823,10 +3840,12 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:  "_type"    <*>
                          v .:  "_id"      <*>
                          v .:  "_score"   <*>
-                         v .:?  "_source" <*>
-                         v .:? "highlight"
+                         v .:? "_source"  <*>
+                         v .:? "highlight" <*>
+                         v .:? "fields"   <*>
+                         v .:? "inner_hits"
   parseJSON _          = empty
-
+  
 instance FromJSON ShardResult where
   parseJSON (Object v) = ShardResult       <$>
                          v .: "total"      <*>
@@ -3834,6 +3853,14 @@ instance FromJSON ShardResult where
                          v .: "failed"
   parseJSON _          = empty
 
+instance (FromJSON a) => FromJSON (InnerHitResult a) where
+  parseJSON (Object v) = do
+    ihrName' <- case HM.toList v of
+                  [(x, _)] -> return x 
+                  _ -> fail "error parsing InnerHitResult"
+    ihrHits' <- v .: ihrName' 
+    return $ InnerHitResult ihrName' ihrHits' 
+  parseJSON _ = empty
 
 instance FromJSON DocVersion where
   parseJSON v = do
@@ -5531,3 +5558,37 @@ instance FromJSON DirectGenerators where
 
 mkDirectGenerators :: FieldName -> DirectGenerators
 mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing 
+
+data Collapse = Collapse { collapseField         :: FieldName
+                         , collapseInnerHit      :: Maybe InnerHit
+                         , collapseMaxConcurrent :: Maybe Int 
+                         } deriving (Eq, Read, Show, Generic, Typeable)
+                         
+data InnerHit = InnerHit { innerHitName      :: Text
+                         , innerHitFrom      :: Maybe From
+                         , innerHitSize      :: Maybe Size
+                         , innerHitSort      :: Maybe Sort
+                         , innerHitHighlight :: Maybe Highlights
+                         , innerHitSource    :: Maybe Source
+                         } deriving (Eq, Read, Show, Generic, Typeable)
+
+mkInnerHit :: Text -> InnerHit
+mkInnerHit name = InnerHit name Nothing Nothing Nothing Nothing Nothing
+                         
+instance ToJSON Collapse where
+  toJSON Collapse{..} = 
+    omitNulls [ "field"      .= collapseField
+              , "inner_hits" .= collapseInnerHit
+              , "max_concurrent_group_searches" .= collapseMaxConcurrent
+              ]
+                                  
+instance ToJSON InnerHit where
+  toJSON InnerHit{..} = omitNulls [ "name"      .= innerHitName
+                                  , "from"      .= innerHitFrom
+                                  , "size"      .= innerHitSize
+                                  , "sort"      .= innerHitSort
+                                  , "highlight" .= innerHitHighlight
+                                  , "_source"   .= innerHitSource
+                                  ]
+                      
+                      
