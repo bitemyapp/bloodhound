@@ -599,6 +599,8 @@ instance ApproxEq Char where
   (=~) = (==)
 instance ApproxEq Vers.Version where
   (=~) = (==)
+instance (ApproxEq a, Show a, ApproxEq b, Show b) => ApproxEq (a,b) where
+  (a1,b1) =~ (a2,b2) = a1 =~ a2 && b1 =~ b2
 instance (ApproxEq a, Show a) => ApproxEq [a] where
   as =~ bs = and (zipWith (=~) as bs)
 instance (ApproxEq l, Show l, ApproxEq r, Show r) => ApproxEq (Either l r) where
@@ -614,6 +616,20 @@ instance ApproxEq TemplateQueryKeyValuePairs where
   (=~) = (==)
 instance ApproxEq TemplateQueryInline
 instance ApproxEq Size
+instance ApproxEq From
+instance ApproxEq SortSpec
+instance ApproxEq DefaultSort 
+instance ApproxEq SortOrder
+instance ApproxEq SortMode
+instance ApproxEq Highlights
+instance ApproxEq HighlightSettings
+instance ApproxEq PlainHighlight
+instance ApproxEq FieldHighlight
+instance ApproxEq CommonHighlight
+instance ApproxEq PostingsHighlight
+instance ApproxEq Source
+instance ApproxEq PatternOrPatterns
+instance ApproxEq Missing
 instance ApproxEq PhraseSuggesterHighlighter
 instance ApproxEq PhraseSuggesterCollate
 instance ApproxEq PhraseSuggester
@@ -621,6 +637,15 @@ instance ApproxEq SuggestType
 instance ApproxEq Suggest
 instance ApproxEq DirectGenerators
 instance ApproxEq DirectGeneratorSuggestModeTypes
+instance ApproxEq Collapse
+instance ApproxEq InnerHit
+instance ApproxEq Pattern
+instance ApproxEq Include
+instance ApproxEq FastVectorHighlight
+instance ApproxEq NonPostings
+instance ApproxEq HighlightTag
+instance ApproxEq Exclude
+instance ApproxEq HighlightEncoder
 
 -- | Due to the way nodeattrfilters get serialized here, they may come
 -- out in a different order, but they are morally equivalent
@@ -676,8 +701,14 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> arbitraryScore
                   <*> arbitrary
                   <*> arbitrary
+                  <*> arbitrary
+                  <*> arbitrary
   shrink = genericShrink
 
+instance (Arbitrary a, Typeable a) => Arbitrary (InnerHitResult a) where
+  arbitrary = InnerHitResult <$> arbitrary
+                             <*> arbitrary
+  shrink = genericShrink
 
 instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
@@ -928,11 +959,34 @@ instance Arbitrary TemplateQueryInline where arbitrary = sopArbitrary; shrink = 
 instance Arbitrary PhraseSuggesterCollate where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary PhraseSuggesterHighlighter where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Size where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary From where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary SortSpec where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary DefaultSort where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary SortOrder where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary SortMode where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Highlights where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary HighlightSettings where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PlainHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FieldHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary CommonHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PostingsHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Source where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PatternOrPatterns where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Missing where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary PhraseSuggester where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary SuggestType where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Suggest where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary DirectGenerators where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary DirectGeneratorSuggestModeTypes where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Collapse where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary InnerHit where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Pattern where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Include where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary HighlightTag where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary NonPostings where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FastVectorHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Exclude where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary HighlightEncoder where arbitrary = sopArbitrary; shrink = genericShrink
 
 newtype UpdatableIndexSetting' = UpdatableIndexSetting' UpdatableIndexSetting
                                deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
@@ -1175,7 +1229,7 @@ main = hspec $ do
       let search = Search Nothing
                    Nothing (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
-                   Nothing
+                   Nothing Nothing
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $
