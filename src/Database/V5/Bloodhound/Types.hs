@@ -1842,7 +1842,7 @@ data Hit a =
       , hitSource    :: Maybe a
       , hitHighlight :: Maybe HitHighlight 
       , hitFields    :: Maybe HitFields
-      , hitInnerHits :: Maybe (InnerHitResult a) -- only one named inner_hits result is supported
+      , hitInnerHits :: Maybe (M.Map Text (InnerHitResult a))
       } deriving (Eq, Read, Show, Generic, Typeable)
 
 data ShardResult =
@@ -1853,10 +1853,8 @@ data ShardResult =
 type HitHighlight = M.Map Text [Text]
 type HitFields = M.Map Text [Text]
 
-data InnerHitResult a =
-  InnerHitResult { ihrName :: Text
-                 , ihrHits :: SearchHits a
-                 } deriving (Eq, Read, Show, Generic, Typeable)
+newtype InnerHitResult a = InnerHitResult { unInnerHitResult :: SearchHits a }
+    deriving (Eq, Read, Show, Generic, Typeable)
 
 showText :: Show a => a -> Text
 showText = T.pack . show
@@ -3855,12 +3853,8 @@ instance FromJSON ShardResult where
   parseJSON _          = empty
 
 instance (FromJSON a) => FromJSON (InnerHitResult a) where
-  parseJSON (Object v) = do
-    ihrName' <- case HM.toList v of
-                  [(x, _)] -> return x 
-                  _ -> fail "error parsing InnerHitResult"
-    ihrHits' <- v .: ihrName' 
-    return $ InnerHitResult ihrName' ihrHits' 
+  parseJSON (Object v) = InnerHitResult <$>
+                         v .: "hits"
   parseJSON _ = empty
 
 instance FromJSON DocVersion where
@@ -5561,7 +5555,7 @@ mkDirectGenerators :: FieldName -> DirectGenerators
 mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing 
 
 data Collapse = Collapse { collapseField         :: FieldName
-                         , collapseInnerHit      :: Maybe InnerHit
+                         , collapseInnerHit      :: Maybe [InnerHit]
                          , collapseMaxConcurrent :: Maybe Int 
                          } deriving (Eq, Read, Show, Generic, Typeable)
                          
@@ -5579,7 +5573,7 @@ mkInnerHit name = InnerHit name Nothing Nothing Nothing Nothing Nothing
 instance ToJSON Collapse where
   toJSON Collapse{..} = 
     omitNulls [ "field"      .= collapseField
-              , "inner_hits" .= collapseInnerHit
+              , "inner_hits" .= fmap toJSON collapseInnerHit
               , "max_concurrent_group_searches" .= collapseMaxConcurrent
               ]
                                   
