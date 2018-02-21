@@ -51,6 +51,7 @@ module Database.V5.Bloodhound.Types
        , mkExtendedStatsAggregation
        , docVersionNumber
        , toMissing
+       , toCardinality
        , toTerms
        , toDateHistogram
        , toTopHits
@@ -386,6 +387,7 @@ module Database.V5.Bloodhound.Types
        , DateHistogramResult(..)
        , DateRangeResult(..)
        , TopHitResult(..)
+       , CardinalityResult(..)
 
        , EsUsername(..)
        , EsPassword(..)
@@ -2213,6 +2215,9 @@ data BucketValue = TextValue Text
 
 data MissingResult = MissingResult { missingDocCount :: Int } deriving (Show)
 
+data CardinalityResult = CardinalityResult { cardinalityValue :: Int 
+                                           } deriving (Show)
+
 data TopHitResult a = TopHitResult { tarHits :: (SearchHits a)
                                    } deriving Show
 
@@ -2241,6 +2246,9 @@ toDateHistogram = toAggResult
 
 toMissing :: Text -> AggregationResults -> Maybe MissingResult
 toMissing = toAggResult
+
+toCardinality :: Text -> AggregationResults -> Maybe CardinalityResult
+toCardinality = toAggResult
 
 toTopHits :: (FromJSON a) => Text -> AggregationResults -> Maybe (TopHitResult a)
 toTopHits = toAggResult
@@ -2279,6 +2287,11 @@ instance FromJSON MissingResult where
   parseJSON = withObject "MissingResult" parse
     where parse v = MissingResult <$> v .: "doc_count"
 
+instance FromJSON CardinalityResult where
+  parseJSON (Object v) = CardinalityResult <$> 
+                           v .: "value"
+  parseJSON _ = mempty
+  
 instance FromJSON TermsResult where
   parseJSON (Object v) = TermsResult        <$>
                          v .:   "key"       <*>
