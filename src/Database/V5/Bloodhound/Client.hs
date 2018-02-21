@@ -54,6 +54,7 @@ module Database.V5.Bloodhound.Client
        -- ** Searching
        , searchAll
        , searchByIndex
+       , searchByIndices
        , searchByType
        , scanSearch
        , getInitialScroll
@@ -532,10 +533,6 @@ createIndexWith updates shards (IndexName indexName) =
             )
           ]
 
-oPath :: ToJSON a => NonEmpty Text -> a -> Value
-oPath (k :| []) v   = object [k .= v]
-oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
-
 -- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
 --
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
@@ -703,14 +700,17 @@ listIndices :: (MonadThrow m, MonadBH m) => m [IndexName]
 listIndices =
   parse . responseBody =<< get =<< url
   where
-    url = joinPath ["_cat/indices?v"]
-    -- parses the tabular format the indices api provides
-    parse body = case T.lines (T.decodeUtf8 (L.toStrict body)) of
-      (hdr:rows) -> let ks = T.words hdr
-                        keyedRows = [ HM.fromList (zip ks (T.words row)) | row <- rows ]
-                        names = catMaybes (HM.lookup "index" <$> keyedRows)
-                    in return (IndexName <$> names)
-      [] -> throwM (EsProtocolException body)
+    url = joinPath ["_cat/indices?format=json"]
+    parse body = maybe (throwM (EsProtocolException body)) return $ do
+      vals <- decode body
+      forM vals $ \val -> do
+        case val of
+          Object obj -> do
+            indexVal <- HM.lookup "index" obj
+            case indexVal of
+              String txt -> Just (IndexName txt)
+              _ -> Nothing
+          _ -> Nothing
 
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at
@@ -972,6 +972,15 @@ searchAll = bindM2 dispatchSearch url . return
 searchByIndex :: MonadBH m => IndexName -> Search -> m Reply
 searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, "_search"]
+
+-- | 'searchByIndices' is a variant of 'searchByIndex' that executes a
+--   'Search' over many indices. This is much faster than using
+--   'mapM' to 'searchByIndex' over a collection since it only
+--   causes a single HTTP request to be emitted.
+searchByIndices :: MonadBH m => NonEmpty IndexName -> Search -> m Reply
+searchByIndices ixs = bindM2 dispatchSearch url . return
+  where url = joinPath [renderedIxs, "_search"]
+        renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
 
 -- | 'searchByType', given a 'Search', 'IndexName', and 'MappingName', will perform that
 --   search against a specific mapping within an index on an Elasticsearch server.

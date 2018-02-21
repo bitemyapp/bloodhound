@@ -1,3 +1,14 @@
+0.15.0.2
+========
+- @michaelxavier
+  - Allow http-types 0.12
+
+0.15.0.1
+========
+- @bitemyapp
+  - Allow http-types 0.11
+  - Removed unused `oPath` function
+
 0.15.0.0
 ===================
 

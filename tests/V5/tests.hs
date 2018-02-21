@@ -762,12 +762,24 @@ instance Arbitrary FieldName where
   shrink = genericShrink
 
 
+#if MIN_VERSION_base(4,10,0)
+-- Test.QuickCheck.Modifiers
+
+qcNonEmptyToNonEmpty :: NonEmptyList a -> NonEmpty a
+qcNonEmptyToNonEmpty (NonEmpty (a : xs)) = (a :| xs)
+qcNonEmptyToNonEmpty (NonEmpty []) = error "NonEmpty was empty!"
+
+instance Arbitrary a => Arbitrary (NonEmpty a) where
+  arbitrary = qcNonEmptyToNonEmpty <$> arbitrary
+#endif
+
 instance Arbitrary RegexpFlags where
   arbitrary = oneof [ pure AllRegexpFlags
                     , pure NoRegexpFlags
                     , SomeRegexpFlags <$> genUniqueFlags
                     ]
     where genUniqueFlags = NE.fromList . nub <$> listOf1 arbitrary
+
   shrink = genericShrink
 
 
@@ -944,8 +956,12 @@ instance Arbitrary TokenChar where arbitrary = sopArbitrary; shrink = genericShr
 instance Arbitrary Ngram where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary TokenizerDefinition where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary AnalyzerDefinition where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary TokenFilterDefinition where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Shingle where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Language where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Analysis where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Tokenizer where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary TokenFilter where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary UpdatableIndexSetting where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Compression where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Bytes where arbitrary = sopArbitrary; shrink = genericShrink
@@ -1002,6 +1018,7 @@ instance Arbitrary UpdatableIndexSetting' where
     where
       dropDuplicateAttrNames = NE.fromList . L.nubBy sameAttrName . NE.toList
       sameAttrName a b = nodeAttrFilterName a == nodeAttrFilterName b
+  shrink (UpdatableIndexSetting' x) = map UpdatableIndexSetting' (genericShrink x)
 
 main :: IO ()
 main = hspec $ do
@@ -1690,11 +1707,30 @@ main = hspec $ do
     it "accepts customer analyzers" $ when' (atleast es50) $ withTestEnv $ do
       _ <- deleteExampleIndex
       let analysis = Analysis
-            (M.singleton "ex_analyzer" (AnalyzerDefinition (Just (Tokenizer "ex_tokenizer"))))
+            (M.singleton "ex_analyzer"
+              ( AnalyzerDefinition
+                (Just (Tokenizer "ex_tokenizer"))
+                (map TokenFilter
+                  [ "ex_filter_lowercase","ex_filter_uppercase","ex_filter_apostrophe"
+                  , "ex_filter_reverse","ex_filter_snowball"
+                  , "ex_filter_shingle"
+                  ]
+                )
+              )
+            )
             (M.singleton "ex_tokenizer"
               ( TokenizerDefinitionNgram
                 ( Ngram 3 4 [TokenLetter,TokenDigit])
               )
+            )
+            (M.fromList
+              [ ("ex_filter_lowercase",TokenFilterDefinitionLowercase (Just Greek))
+              , ("ex_filter_uppercase",TokenFilterDefinitionUppercase Nothing)
+              , ("ex_filter_apostrophe",TokenFilterDefinitionApostrophe)
+              , ("ex_filter_reverse",TokenFilterDefinitionReverse)
+              , ("ex_filter_snowball",TokenFilterDefinitionSnowball English)
+              , ("ex_filter_shingle",TokenFilterDefinitionShingle (Shingle 3 3 True False " " "_"))
+              ]
             )
           updates = [AnalysisSetting analysis]
       createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
