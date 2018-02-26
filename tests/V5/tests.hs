@@ -1686,7 +1686,10 @@ main = hspec $ do
               , ("ex_filter_reverse",TokenFilterDefinitionReverse)
               , ("ex_filter_snowball",TokenFilterDefinitionSnowball English)
               , ("ex_filter_shingle",TokenFilterDefinitionShingle (Shingle 3 3 True False " " "_"))
-              ]
+              , ("ex_filter_stemmer",TokenFilterDefinitionStemmer German)
+              , ("ex_filter_stop1", TokenFilterDefinitionStop (Left French))
+              , ("ex_filter_stop2", TokenFilterDefinitionStop (Right ["a", "is", "the"]))
+             ]
             )
             (M.fromList
              [ ("ex_mapping", CharFilterDefinitionMapping (M.singleton "١" "1"))

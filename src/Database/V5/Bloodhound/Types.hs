@@ -419,6 +419,7 @@ import qualified Data.Map.Strict                       as M
 import           Data.Maybe
 import           Data.Scientific                       (Scientific)
 import           Data.Semigroup
+import           Data.String                           (IsString)
 import           Data.Text                             (Text)
 import qualified Data.Text                             as T
 import           Data.Time.Calendar
@@ -689,6 +690,8 @@ data TokenFilterDefinition
   | TokenFilterDefinitionReverse
   | TokenFilterDefinitionSnowball Language
   | TokenFilterDefinitionShingle Shingle
+  | TokenFilterDefinitionStemmer Language
+  | TokenFilterDefinitionStop (Either Language [StopWord])
   deriving (Eq,Show,Generic)
 
 instance ToJSON TokenFilterDefinition where
@@ -720,6 +723,16 @@ instance ToJSON TokenFilterDefinition where
       , "token_separator" .= shingleTokenSeparator s
       , "filler_token" .= shingleFillerToken s
       ]
+    TokenFilterDefinitionStemmer lang -> object
+      [ "type" .= ("stemmer" :: Text)
+      , "language" .= languageToText lang
+      ]
+    TokenFilterDefinitionStop stop -> object
+      [ "type" .= ("stop" :: Text)
+      , "stopwords" .= case stop of
+          Left lang -> String $ "_" <> languageToText lang <> "_"
+          Right stops -> toJSON stops
+      ]
 
 instance FromJSON TokenFilterDefinition where
   parseJSON = withObject "TokenFilterDefinition" $ \m -> do
@@ -740,6 +753,14 @@ instance FromJSON TokenFilterDefinition where
         <*> (fmap.fmap) unStringlyTypedBool (m .:? "output_unigrams_if_no_shingles") .!= False
         <*> m .:? "token_separator" .!= " "
         <*> m .:? "filler_token" .!= "_"
+      "stemmer" -> TokenFilterDefinitionStemmer
+        <$> m .: "language"
+      "stop" -> do
+        stop <- m .: "stopwords"
+        stop' <- case stop of
+          String lang -> fmap Left . parseJSON . String . T.drop 1 . T.dropEnd 1 $ lang
+          _ -> Right <$> parseJSON stop
+        return (TokenFilterDefinitionStop stop')
       _ -> fail ("unrecognized token filter type: " ++ T.unpack t)
 
 -- | The set of languages that can be passed to various analyzers,
@@ -1439,7 +1460,7 @@ newtype TypeName =
 newtype PercentMatch =
   PercentMatch Double deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype StopWord =
-  StopWord Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
+  StopWord Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable, IsString)
 newtype QueryPath =
   QueryPath Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
@@ -5756,4 +5777,4 @@ instance FromJSON DirectGenerators where
                       <*> o .:? "post_filter"
 
 mkDirectGenerators :: FieldName -> DirectGenerators
-mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing 
+mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
