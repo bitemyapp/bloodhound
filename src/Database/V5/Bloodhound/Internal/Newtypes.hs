@@ -5,8 +5,19 @@ module Database.V5.Bloodhound.Internal.Newtypes where
 
 import           Bloodhound.Import
 
+import qualified Data.Map.Strict as M
+
 newtype From = From Int deriving (Eq, Show, ToJSON)
 newtype Size = Size Int deriving (Eq, Show, ToJSON, FromJSON)
+
+-- Used with scripts
+newtype HitFields =
+  HitFields (M.Map Text [Value])
+  deriving (Eq, Show)
+
+instance FromJSON HitFields where
+  parseJSON x
+    = HitFields <$> parseJSON x
 
 -- Slight misnomer.
 type Score = Maybe Double

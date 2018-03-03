@@ -2,10 +2,10 @@
 
 module Database.V5.Bloodhound.Internal.StringlyTyped where
 
-import           Data.Aeson
+import           Bloodhound.Import
+
 import qualified Data.Text     as T
 
-import           Bloodhound.Import
 
 -- This whole module is a sin bucket to deal with Elasticsearch badness.
 newtype StringlyTypedDouble = StringlyTypedDouble
