@@ -6,10 +6,12 @@ module Database.V5.Bloodhound.Internal.Aggregation where
 
 import           Bloodhound.Import
 
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
 import           Database.V5.Bloodhound.Internal.Client
+import           Database.V5.Bloodhound.Internal.Highlight (HitHighlight)
 import           Database.V5.Bloodhound.Internal.Newtypes
 import           Database.V5.Bloodhound.Internal.Query
 import           Database.V5.Bloodhound.Internal.Sort
@@ -304,3 +306,162 @@ data DateMathUnit =
   | DMMinute
   | DMSecond
   deriving (Eq, Show)
+
+data TermsResult = TermsResult
+  { termKey       :: BucketValue
+  , termsDocCount :: Int
+  , termsAggs     :: Maybe AggregationResults
+  } deriving (Read, Show)
+
+instance FromJSON TermsResult where
+  parseJSON (Object v) = TermsResult        <$>
+                         v .:   "key"       <*>
+                         v .:   "doc_count" <*>
+                         (pure $ getNamedSubAgg v ["key", "doc_count"])
+  parseJSON _ = mempty
+
+instance BucketAggregation TermsResult where
+  key = termKey
+  docCount = termsDocCount
+  aggs = termsAggs
+
+data DateHistogramResult = DateHistogramResult
+  { dateKey           :: Int
+  , dateKeyStr        :: Maybe Text
+  , dateDocCount      :: Int
+  , dateHistogramAggs :: Maybe AggregationResults
+  } deriving (Show)
+
+instance FromJSON DateHistogramResult where
+  parseJSON (Object v) = DateHistogramResult   <$>
+                         v .:  "key"           <*>
+                         v .:? "key_as_string" <*>
+                         v .:  "doc_count"     <*>
+                         (pure $ getNamedSubAgg v [ "key"
+                                                  , "doc_count"
+                                                  , "key_as_string"
+                                                  ]
+                         )
+  parseJSON _ = mempty
+
+instance BucketAggregation DateHistogramResult where
+  key = TextValue . showText . dateKey
+  docCount = dateDocCount
+  aggs = dateHistogramAggs
+
+data DateRangeResult = DateRangeResult
+  { dateRangeKey          :: Text
+  , dateRangeFrom         :: Maybe UTCTime
+  , dateRangeFromAsString :: Maybe Text
+  , dateRangeTo           :: Maybe UTCTime
+  , dateRangeToAsString   :: Maybe Text
+  , dateRangeDocCount     :: Int
+  , dateRangeAggs         :: Maybe AggregationResults
+  } deriving (Eq, Show)
+
+instance FromJSON DateRangeResult where
+  parseJSON = withObject "DateRangeResult" parse
+    where parse v = DateRangeResult                 <$>
+                    v .:  "key"                     <*>
+                    (fmap posixMS <$> v .:? "from") <*>
+                    v .:? "from_as_string"          <*>
+                    (fmap posixMS <$> v .:? "to")   <*>
+                    v .:? "to_as_string"            <*>
+                    v .:  "doc_count"               <*>
+                    (pure $ getNamedSubAgg v [ "key"
+                                             , "from"
+                                             , "from_as_string"
+                                             , "to"
+                                             , "to_as_string"
+                                             , "doc_count"
+                                             ]
+                    )
+
+instance BucketAggregation DateRangeResult where
+  key = TextValue . dateRangeKey
+  docCount = dateRangeDocCount
+  aggs = dateRangeAggs
+
+toTerms :: Text -> AggregationResults -> Maybe (Bucket TermsResult)
+toTerms = toAggResult
+
+toDateHistogram :: Text -> AggregationResults -> Maybe (Bucket DateHistogramResult)
+toDateHistogram = toAggResult
+
+toMissing :: Text -> AggregationResults -> Maybe MissingResult
+toMissing = toAggResult
+
+toTopHits :: (FromJSON a) => Text -> AggregationResults -> Maybe (TopHitResult a)
+toTopHits = toAggResult
+
+toAggResult :: (FromJSON a) => Text -> AggregationResults -> Maybe a
+toAggResult t a = M.lookup t a >>= deserialize
+  where deserialize = parseMaybe parseJSON
+
+-- Try to get an AggregationResults when we don't know the
+-- field name. We filter out the known keys to try to minimize the noise.
+getNamedSubAgg :: Object -> [Text] -> Maybe AggregationResults
+getNamedSubAgg o knownKeys = maggRes
+  where unknownKeys = HM.filterWithKey (\k _ -> k `notElem` knownKeys) o
+        maggRes
+          | HM.null unknownKeys = Nothing
+          | otherwise           = Just . M.fromList $ HM.toList unknownKeys
+
+data MissingResult = MissingResult
+  { missingDocCount :: Int
+  } deriving (Show)
+
+instance FromJSON MissingResult where
+  parseJSON = withObject "MissingResult" parse
+    where parse v = MissingResult <$> v .: "doc_count"
+
+data TopHitResult a = TopHitResult
+  { tarHits :: (SearchHits a)
+  } deriving Show
+
+instance (FromJSON a) => FromJSON (TopHitResult a) where
+  parseJSON (Object v) = TopHitResult <$>
+                         v .: "hits"
+  parseJSON _          = fail "Failure in FromJSON (TopHitResult a)"
+
+data SearchHits a =
+  SearchHits { hitsTotal :: Int
+             , maxScore  :: Score
+             , hits      :: [Hit a] } deriving (Eq, Show)
+
+
+instance (FromJSON a) => FromJSON (SearchHits a) where
+  parseJSON (Object v) = SearchHits <$>
+                         v .: "total"     <*>
+                         v .: "max_score" <*>
+                         v .: "hits"
+  parseJSON _          = empty
+
+instance Semigroup (SearchHits a) where
+  (SearchHits ta ma ha) <> (SearchHits tb mb hb) =
+    SearchHits (ta + tb) (max ma mb) (ha <> hb)
+
+instance Monoid (SearchHits a) where
+  mempty = SearchHits 0 Nothing mempty
+  mappend = (<>)
+
+
+data Hit a =
+  Hit { hitIndex     :: IndexName
+      , hitType      :: MappingName
+      , hitDocId     :: DocId
+      , hitScore     :: Score
+      , hitSource    :: Maybe a
+      , hitFields    :: Maybe HitFields
+      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
+
+instance (FromJSON a) => FromJSON (Hit a) where
+  parseJSON (Object v) = Hit <$>
+                         v .:  "_index"   <*>
+                         v .:  "_type"    <*>
+                         v .:  "_id"      <*>
+                         v .:  "_score"   <*>
+                         v .:? "_source"  <*>
+                         v .:? "fields"   <*>
+                         v .:? "highlight"
+  parseJSON _          = empty

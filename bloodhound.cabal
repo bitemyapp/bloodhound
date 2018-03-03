@@ -45,6 +45,7 @@ library
                        Database.V5.Bloodhound.Internal.Query
                        Database.V5.Bloodhound.Internal.Sort
                        Database.V5.Bloodhound.Internal.StringlyTyped
+                       Database.V5.Bloodhound.Internal.Suggest
                        Database.V1.Bloodhound
                        Database.V1.Bloodhound.Client
                        Database.V1.Bloodhound.Types
