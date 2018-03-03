@@ -4,7 +4,7 @@ build:
 	stack build
 
 build-validate:
-	stack build --fast --ghc-options '-Werror'
+	stack build --fast --ghc-options '-Wall -Werror'
 
 ghci:
 	stack ghci
