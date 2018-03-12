@@ -617,7 +617,9 @@ instance ApproxEq TemplateQueryKeyValuePairs where
 instance ApproxEq TemplateQueryInline
 instance ApproxEq Size
 instance ApproxEq From
-instance ApproxEq SortSpec
+instance ApproxEq SortSpec where
+  ScriptSortSpec _ _ =~ ScriptSortSpec _ _ = True -- json values are ignored for ApproxEq, always return True
+  x =~ y = x =~ y
 instance ApproxEq DefaultSort 
 instance ApproxEq SortOrder
 instance ApproxEq SortMode
@@ -707,7 +709,6 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
 
 instance (Arbitrary a, Typeable a) => Arbitrary (InnerHitResult a) where
   arbitrary = InnerHitResult <$> arbitrary
-                             <*> arbitrary
   shrink = genericShrink
 
 instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
@@ -852,6 +853,12 @@ instance Arbitrary VersionNumber where
 instance Arbitrary TemplateQueryKeyValuePairs where
   arbitrary = TemplateQueryKeyValuePairs . HM.fromList <$> arbitrary
   shrink (TemplateQueryKeyValuePairs x) = map (TemplateQueryKeyValuePairs . HM.fromList) . shrink $ HM.toList x
+  
+instance Arbitrary SortSpec where 
+  arbitrary = oneof [DefaultSortSpec <$> arbitrary,GeoDistanceSortSpec <$> arbitrary <*> arbitrary <*> arbitrary]
+  shrink (ScriptSortSpec _ _) = []
+  shrink (DefaultSortSpec ds) = shrink $ DefaultSortSpec ds
+  shrink (GeoDistanceSortSpec a b c) = shrink $ GeoDistanceSortSpec a b c
 
 instance Arbitrary IndexName where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary MappingName where arbitrary = sopArbitrary; shrink = genericShrink
@@ -976,7 +983,6 @@ instance Arbitrary PhraseSuggesterCollate where arbitrary = sopArbitrary; shrink
 instance Arbitrary PhraseSuggesterHighlighter where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Size where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary From where arbitrary = sopArbitrary; shrink = genericShrink
-instance Arbitrary SortSpec where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary DefaultSort where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary SortOrder where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary SortMode where arbitrary = sopArbitrary; shrink = genericShrink
