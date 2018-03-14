@@ -10,7 +10,7 @@
 -------------------------------------------------------------------------------
 -- |
 -- Module : Database.Bloodhound.Types
--- Copyright : (C) 2014, 2015, 2016 Chris Allen
+-- Copyright : (C) 2014, 2018 Chris Allen
 -- License : BSD-style (see the file LICENSE)
 -- Maintainer : Chris Allen <cma@bitemyapp.com
 -- Stability : provisional

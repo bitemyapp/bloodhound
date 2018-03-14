@@ -5,7 +5,7 @@
 -------------------------------------------------------------------------------
 -- |
 -- Module : Database.Bloodhound.Client
--- Copyright : (C) 2014 Chris Allen
+-- Copyright : (C) 2014, 2018 Chris Allen
 -- License : BSD-style (see the file LICENSE)
 -- Maintainer : Chris Allen <cma@bitemyapp.com>
 -- Stability : provisional
