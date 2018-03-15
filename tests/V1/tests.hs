@@ -15,6 +15,7 @@
 #if __GLASGOW_HASKELL__ >= 802
 {-# LANGUAGE MonoLocalBinds #-}
 #endif
+
 module Main where
 
 import           Control.Applicative

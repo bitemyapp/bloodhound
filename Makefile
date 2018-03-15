@@ -53,16 +53,22 @@ echo-warn:
 	STACK_YAML="stack-7.10.yaml" stack test
 
 7.10-test-ES1:
-	STACK_YAML="stack-7.10.yaml" stack test --fast bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
+	STACK_YAML="stack-7.10.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
 
 7.10-test-ES5:
-	STACK_YAML="stack-7.10.yaml" stack test --fast bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
+	STACK_YAML="stack-7.10.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
 
 8.0-test-ES1:
-	STACK_YAML="stack.yaml" stack test --fast bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
+	STACK_YAML="stack-8.0.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
 
 8.0-test-ES5:
-	STACK_YAML="stack-8.0.yaml" stack test --fast bloodhound:tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
+	STACK_YAML="stack-8.0.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
+
+8.2-test-ES1:
+	STACK_YAML="stack.yaml" stack test -v --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
+
+8.2-test-ES5:
+	STACK_YAML="stack.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
 
 8.0-build:
 	STACK_YAML="stack-8.0.yaml" stack build
