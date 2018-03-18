@@ -1147,6 +1147,7 @@ newtype Pattern = Pattern Text deriving (Eq, Read, Show, Generic, Typeable)
 
 data Highlights = Highlights { globalsettings  :: Maybe HighlightSettings
                              , highlightFields :: [FieldHighlight]
+                             , highlightRequireFieldMatch :: Maybe Bool
                              } deriving (Read, Show, Eq, Generic, Typeable)
 
 data FieldHighlight = FieldHighlight FieldName (Maybe HighlightSettings)
@@ -3510,8 +3511,9 @@ instance ToJSON FieldHighlight where
         object [ fName .= emptyObject ]
 
 instance ToJSON Highlights where
-    toJSON (Highlights global fields) =
+    toJSON (Highlights global fields rfm) =
         omitNulls (("fields" .= fields)
+                  :("require_field_match" .= rfm)
                   : highlightSettingsPairs global)
 
 instance ToJSON HighlightSettings where
