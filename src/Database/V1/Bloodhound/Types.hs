@@ -378,250 +378,53 @@ module Database.V1.Bloodhound.Types
        , EsPassword(..)
          ) where
 
-import           Control.Applicative                   as A
-import           Control.Arrow                         (first)
+import           Control.Applicative                    as A
+import           Control.Arrow                          (first)
 import           Control.Monad.Catch
 import           Control.Monad.Except
-import           Control.Monad.Reader                  (MonadReader (..),
-                                                        ReaderT (..))
-import           Control.Monad.State                   (MonadState)
-import           Control.Monad.Writer                  (MonadWriter)
+import           Control.Monad.Reader                   (MonadReader (..),
+                                                         ReaderT (..))
+import           Control.Monad.State                    (MonadState)
+import           Control.Monad.Writer                   (MonadWriter)
 import           Data.Aeson
-import           Data.Aeson.Types                      (Pair, Parser,
-                                                        emptyObject,
-                                                        parseEither, parseMaybe,
-                                                        typeMismatch)
-import qualified Data.ByteString.Lazy.Char8            as L
+import           Data.Aeson.Types                       (Pair, Parser,
+                                                         emptyObject,
+                                                         parseEither,
+                                                         parseMaybe,
+                                                         typeMismatch)
+import qualified Data.ByteString.Lazy.Char8             as L
 import           Data.Char
-import           Data.Hashable                         (Hashable)
-import qualified Data.HashMap.Strict                   as HM
-import           Data.List                             (foldl', intercalate,
-                                                        nub)
-import           Data.List.NonEmpty                    (NonEmpty (..), toList)
-import qualified Data.Map.Strict                       as M
+import           Data.Hashable                          (Hashable)
+import qualified Data.HashMap.Strict                    as HM
+import           Data.List                              (foldl', intercalate,
+                                                         nub)
+import           Data.List.NonEmpty                     (NonEmpty (..), toList)
+import qualified Data.Map.Strict                        as M
 import           Data.Maybe
-import           Data.Scientific                       (Scientific)
+import           Data.Scientific                        (Scientific)
 import           Data.Semigroup
-import           Data.Text                             (Text)
-import qualified Data.Text                             as T
+import           Data.Text                              (Text)
+import qualified Data.Text                              as T
 import           Data.Time.Calendar
-import           Data.Time.Clock                       (NominalDiffTime,
-                                                        UTCTime)
+import           Data.Time.Clock                        (NominalDiffTime,
+                                                         UTCTime)
 import           Data.Time.Clock.POSIX
-import qualified Data.Traversable                      as DT
-import           Data.Typeable                         (Typeable)
-import qualified Data.Vector                           as V
-import qualified Data.Version                          as Vers
+import qualified Data.Traversable                       as DT
+import           Data.Typeable                          (Typeable)
+import qualified Data.Vector                            as V
+import qualified Data.Version                           as Vers
 import           GHC.Enum
-import           GHC.Generics                          (Generic)
+import           GHC.Generics                           (Generic)
 import           Network.HTTP.Client
-import qualified Network.HTTP.Types.Method             as NHTM
-import qualified Text.ParserCombinators.ReadP          as RP
-import qualified Text.Read                             as TR
+import qualified Network.HTTP.Types.Method              as NHTM
+import qualified Text.ParserCombinators.ReadP           as RP
+import qualified Text.Read                              as TR
 
+import           Database.V1.Bloodhound.Internal.Client
 import           Database.V1.Bloodhound.Types.Class
 import           Database.V1.Bloodhound.Types.Internal
 
--- $setup
--- >>> :set -XOverloadedStrings
--- >>> import Data.Aeson
--- >>> import Database.V1.Bloodhound
--- >>> let testServer = (Server "http://localhost:9200")
--- >>> let testIndex = IndexName "twitter"
--- >>> let testMapping = MappingName "tweet"
--- >>> let defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2)
 
--- defaultIndexSettings is exported by Database.Bloodhound as well
--- no trailing slashes in servers, library handles building the path.
-
--- | Create a 'BHEnv' with all optional fields defaulted. HTTP hook
--- will be a noop. You can use the exported fields to customize it further, e.g.:
---
--- >> (mkBHEnv myServer myManager) { bhRequestHook = customHook }
-mkBHEnv :: Server -> Manager -> BHEnv
-mkBHEnv s m = BHEnv s m return
-
-newtype BH m a = BH {
-      unBH :: ReaderT BHEnv m a
-    } deriving ( Functor
-               , A.Applicative
-               , Monad
-               , MonadIO
-               , MonadState s
-               , MonadWriter w
-               , MonadError e
-               , Alternative
-               , MonadPlus
-               , MonadFix
-               , MonadThrow
-               , MonadCatch
-               , MonadMask)
-
-instance MonadTrans BH where
-  lift = BH . lift
-
-instance (MonadReader r m) => MonadReader r (BH m) where
-    ask = lift ask
-    local f (BH (ReaderT m)) = BH $ ReaderT $ \r ->
-      local f (m r)
-
-instance (Functor m, Applicative m, MonadIO m) => MonadBH (BH m) where
-  getBHEnv = BH getBHEnv
-
-runBH :: BHEnv -> BH m a -> m a
-runBH e f = runReaderT (unBH f) e
-
-{-| 'Version' is embedded in 'Status' -}
-data Version = Version { number          :: VersionNumber
-                       , build_hash      :: BuildHash
-                       , build_timestamp :: UTCTime
-                       , build_snapshot  :: Bool
-                       , lucene_version  :: VersionNumber } deriving (Eq, Read, Show, Generic, Typeable)
-
--- | Traditional software versioning number
-newtype VersionNumber = VersionNumber { versionNumber :: Vers.Version
-                                      } deriving (Eq, Read, Show, Generic, Typeable, Ord)
-
-{-| 'Status' is a data type for describing the JSON body returned by
-    Elasticsearch when you query its status. This was deprecated in 1.2.0.
-
-   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-status.html#indices-status>
--}
-
-data Status = Status { ok      :: Maybe Bool
-                     , status  :: Int
-                     , name    :: Text
-                     , version :: Version
-                     , tagline :: Text } deriving (Eq, Read, Show, Generic)
-
-{-| 'IndexSettings' is used to configure the shards and replicas when you create
-   an Elasticsearch Index.
-
-   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-create-index.html>
--}
-
-data IndexSettings =
-  IndexSettings { indexShards   :: ShardCount
-                , indexReplicas :: ReplicaCount } deriving (Eq, Read, Show, Generic, Typeable)
-
-{-| 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and 2 replicas. -}
-defaultIndexSettings :: IndexSettings
-defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2)
-
-
-{-| 'IndexOptimizationSettings' is used to configure index optimization. See
-    <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-optimize.html>
-    for more info.
--}
-data IndexOptimizationSettings =
-  IndexOptimizationSettings { maxNumSegments     :: Maybe Int
-                            -- ^ Number of segments to optimize to. 1 will fully optimize the index. If omitted, the default behavior is to only optimize if the server deems it necessary.
-                            , onlyExpungeDeletes :: Bool
-                            -- ^ Should the optimize process only expunge segments with deletes in them? If the purpose of the optimization is to free disk space, this should be set to True.
-                            , flushAfterOptimize :: Bool
-                            -- ^ Should a flush be performed after the optimize.
-                            } deriving (Eq, Show, Generic, Typeable)
-
-
-{-| 'defaultIndexOptimizationSettings' implements the default settings that
-    ElasticSearch uses for index optimization. 'maxNumSegments' is Nothing,
-    'onlyExpungeDeletes' is False, and flushAfterOptimize is True.
--}
-defaultIndexOptimizationSettings :: IndexOptimizationSettings
-defaultIndexOptimizationSettings = IndexOptimizationSettings Nothing False True
-
-{-| 'UpdatableIndexSetting' are settings which may be updated after an index is created.
-
-   <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-update-settings.html>
--}
-data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
-                           -- ^ The number of replicas each shard has.
-                           | AutoExpandReplicas ReplicaBounds
-                           | BlocksReadOnly Bool
-                           -- ^ Set to True to have the index read only. False to allow writes and metadata changes.
-                           | BlocksRead Bool
-                           -- ^ Set to True to disable read operations against the index.
-                           | BlocksWrite Bool
-                           -- ^ Set to True to disable write operations against the index.
-                           | BlocksMetaData Bool
-                           -- ^ Set to True to disable metadata operations against the index.
-                           | RefreshInterval NominalDiffTime
-                           -- ^ The async refresh interval of a shard
-                           | IndexConcurrency Int
-                           | FailOnMergeFailure Bool
-                           | TranslogFlushThresholdOps Int
-                           -- ^ When to flush on operations.
-                           | TranslogFlushThresholdSize Bytes
-                           -- ^ When to flush based on translog (bytes) size.
-                           | TranslogFlushThresholdPeriod NominalDiffTime
-                           -- ^ When to flush based on a period of not flushing.
-                           | TranslogDisableFlush Bool
-                           -- ^ Disables flushing. Note, should be set for a short interval and then enabled.
-                           | CacheFilterMaxSize (Maybe Bytes)
-                           -- ^ The maximum size of filter cache (per segment in shard).
-                           | CacheFilterExpire (Maybe NominalDiffTime)
-                           -- ^ The expire after access time for filter cache.
-                           | GatewaySnapshotInterval NominalDiffTime
-                           -- ^ The gateway snapshot interval (only applies to shared gateways).
-                           | RoutingAllocationInclude (NonEmpty NodeAttrFilter)
-                           -- ^ A node matching any rule will be allowed to host shards from the index.
-                           | RoutingAllocationExclude (NonEmpty NodeAttrFilter)
-                           -- ^ A node matching any rule will NOT be allowed to host shards from the index.
-                           | RoutingAllocationRequire (NonEmpty NodeAttrFilter)
-                           -- ^ Only nodes matching all rules will be allowed to host shards from the index.
-                           | RoutingAllocationEnable AllocationPolicy
-                           -- ^ Enables shard allocation for a specific index.
-                           | RoutingAllocationShardsPerNode ShardCount
-                           -- ^ Controls the total number of shards (replicas and primaries) allowed to be allocated on a single node.
-                           | RecoveryInitialShards InitialShardCount
-                           -- ^ When using local gateway a particular shard is recovered only if there can be allocated quorum shards in the cluster.
-                           | GCDeletes NominalDiffTime
-                           | TTLDisablePurge Bool
-                           -- ^ Disables temporarily the purge of expired docs.
-                           | TranslogFSType FSType
-                           | IndexCompoundFormat CompoundFormat
-                           | IndexCompoundOnFlush Bool
-                           | WarmerEnabled Bool
-                           deriving (Eq, Show, Generic, Typeable)
-
-data AllocationPolicy = AllocAll
-                      -- ^ Allows shard allocation for all shards.
-                      | AllocPrimaries
-                      -- ^ Allows shard allocation only for primary shards.
-                      | AllocNewPrimaries
-                      -- ^ Allows shard allocation only for primary shards for new indices.
-                      | AllocNone
-                      -- ^ No shard allocation is allowed
-                      deriving (Eq, Read, Show, Generic, Typeable)
-
-data ReplicaBounds = ReplicasBounded Int Int
-                   | ReplicasLowerBounded Int
-                   | ReplicasUnbounded
-                   deriving (Eq, Read, Show, Generic, Typeable)
-
--- | A measure of bytes used for various configurations. You may want
--- to use smart constructors like 'gigabytes' for larger values.
---
--- >>> gigabytes 9
--- Bytes 9000000000
---
--- >>> megabytes 9
--- Bytes 9000000
---
--- >>> kilobytes 9
--- Bytes 9000
-newtype Bytes = Bytes Int deriving (Eq, Read, Show, Generic, Typeable, Ord, ToJSON, FromJSON)
-
-gigabytes :: Int -> Bytes
-gigabytes n = megabytes (1000 * n)
-
-
-megabytes :: Int -> Bytes
-megabytes n = kilobytes (1000 * n)
-
-
-kilobytes :: Int -> Bytes
-kilobytes n = Bytes (1000 * n)
 
 
 data FSType = FSSimple
@@ -1739,13 +1542,6 @@ readMay s = case reads s of
 parseReadText :: Read a => Text -> Parser a
 parseReadText = maybe mzero return . readMay . T.unpack
 
-type Aggregations = M.Map Text Aggregation
-
-emptyAggregations :: Aggregations
-emptyAggregations = M.empty
-
-mkAggregations :: Text -> Aggregation -> Aggregations
-mkAggregations name aggregation = M.insert name aggregation emptyAggregations
 
 data TermOrder = TermOrder{ termSortField :: Text
                           , termSortOrder :: SortOrder } deriving (Eq, Read, Show, Generic, Typeable)
@@ -1778,62 +1574,6 @@ data Interval = Year
               | Second
               | FractionalInterval Float TimeInterval deriving (Eq, Read, Show, Generic, Typeable)
 
-data Aggregation = TermsAgg TermsAggregation
-                 | CardinalityAgg CardinalityAggregation
-                 | DateHistogramAgg DateHistogramAggregation
-                 | ValueCountAgg ValueCountAggregation
-                 | FilterAgg FilterAggregation
-                 | DateRangeAgg DateRangeAggregation
-                 | MissingAgg MissingAggregation
-                 | TopHitsAgg TopHitsAggregation
-  deriving (Eq, Read, Show, Generic, Typeable)
-
-data TopHitsAggregation = TopHitsAggregation
-  { taFrom :: Maybe From
-  , taSize :: Maybe Size
-  , taSort :: Maybe Sort
-  } deriving (Eq, Read, Show)
-
-data MissingAggregation = MissingAggregation
-  { maField :: Text
-  } deriving (Eq, Read, Show, Generic, Typeable)
-
-data TermsAggregation = TermsAggregation { term              :: Either Text Text
-                                         , termInclude       :: Maybe TermInclusion
-                                         , termExclude       :: Maybe TermInclusion
-                                         , termOrder         :: Maybe TermOrder
-                                         , termMinDocCount   :: Maybe Int
-                                         , termSize          :: Maybe Int
-                                         , termShardSize     :: Maybe Int
-                                         , termCollectMode   :: Maybe CollectionMode
-                                         , termExecutionHint :: Maybe ExecutionHint
-                                         , termAggs          :: Maybe Aggregations
-                                    } deriving (Eq, Read, Show, Generic, Typeable)
-
-data CardinalityAggregation = CardinalityAggregation { cardinalityField   :: FieldName,
-                                                       precisionThreshold :: Maybe Int
-                                                     } deriving (Eq, Read, Show, Generic, Typeable)
-
-data DateHistogramAggregation = DateHistogramAggregation { dateField      :: FieldName
-                                                         , dateInterval   :: Interval
-                                                         , dateFormat     :: Maybe Text
-                                                         -- pre and post deprecated in 1.5
-                                                         , datePreZone    :: Maybe Text
-                                                         , datePostZone   :: Maybe Text
-                                                         , datePreOffset  :: Maybe Text
-                                                         , datePostOffset :: Maybe Text
-                                                         , dateAggs       :: Maybe Aggregations
-                                                         } deriving (Eq, Read, Show, Generic, Typeable)
-
-
-data DateRangeAggregation = DateRangeAggregation { draField  :: FieldName
-                                                 , draFormat :: Maybe Text
-                                                 , draRanges :: NonEmpty DateRangeAggRange
-                                                 } deriving (Eq, Read, Show, Generic, Typeable)
-
-data DateRangeAggRange = DateRangeFrom DateMathExpr
-                       | DateRangeTo DateMathExpr
-                       | DateRangeFromAndTo DateMathExpr DateMathExpr deriving (Eq, Read, Show, Generic, Typeable)
 
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math> for more information.
 data DateMathExpr = DateMathExpr DateMathAnchor [DateMathModifier] deriving (Eq, Read, Show, Generic, Typeable)
@@ -1854,26 +1594,6 @@ data DateMathUnit = DMYear
                   | DMHour
                   | DMMinute
                   | DMSecond deriving (Eq, Read, Show, Generic, Typeable)
-
--- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-valuecount-aggregation.html> for more information.
-data ValueCountAggregation = FieldValueCount FieldName
-                           | ScriptValueCount Script deriving (Eq, Read, Show, Generic, Typeable)
-
--- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
-data FilterAggregation = FilterAggregation { faFilter :: Filter
-                                           , faAggs   :: Maybe Aggregations} deriving (Eq, Read, Show, Generic, Typeable)
-
-mkTermsAggregation :: Text -> TermsAggregation
-mkTermsAggregation t = TermsAggregation (Left t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-
-mkTermsScriptAggregation :: Text -> TermsAggregation
-mkTermsScriptAggregation t = TermsAggregation (Right t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-
-mkDateHistogram :: FieldName -> Interval -> DateHistogramAggregation
-mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
-
-mkCardinalityAggregation :: FieldName -> CardinalityAggregation
-mkCardinalityAggregation t = CardinalityAggregation t Nothing
 
 instance ToJSON Version where
   toJSON Version {..} = object ["number" .= number
@@ -1950,56 +1670,6 @@ instance Read TimeInterval where
       f 's' = return Seconds
       f  _  = fail "TimeInterval expected one of w, d, h, m, s"
 
-instance ToJSON Aggregation where
-  toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
-    omitNulls ["terms" .= omitNulls [ toJSON' term,
-                                      "include"        .= include,
-                                      "exclude"        .= exclude,
-                                      "order"          .= order,
-                                      "min_doc_count"  .= minDocCount,
-                                      "size"           .= size,
-                                      "shard_size"     .= shardSize,
-                                      "collect_mode"   .= collectMode,
-                                      "execution_hint" .= executionHint
-                                    ],
-               "aggs"  .= termAggs ]
-    where
-      toJSON' x = case x of { Left y -> "field" .= y;  Right y -> "script" .= y }
-
-  toJSON (CardinalityAgg (CardinalityAggregation field precisionThreshold)) =
-    object ["cardinality" .= omitNulls [ "field"              .= field,
-                                         "precisionThreshold" .= precisionThreshold
-                                       ]
-           ]
-
-  toJSON (DateHistogramAgg (DateHistogramAggregation field interval format preZone postZone preOffset postOffset dateHistoAggs)) =
-    omitNulls ["date_histogram" .= omitNulls [ "field"       .= field,
-                                               "interval"    .= interval,
-                                               "format"      .= format,
-                                               "pre_zone"    .= preZone,
-                                               "post_zone"   .= postZone,
-                                               "pre_offset"  .= preOffset,
-                                               "post_offset" .= postOffset
-                                             ],
-               "aggs"           .= dateHistoAggs ]
-  toJSON (ValueCountAgg a) = object ["value_count" .= v]
-    where v = case a of
-                (FieldValueCount (FieldName n)) -> object ["field" .= n]
-                (ScriptValueCount (Script s))   -> object ["script" .= s]
-  toJSON (FilterAgg (FilterAggregation filt ags)) =
-    omitNulls [ "filter" .= filt
-              , "aggs" .= ags]
-  toJSON (DateRangeAgg a) = object [ "date_range" .= a
-                                   ]
-  toJSON (MissingAgg (MissingAggregation{..})) =
-    object ["missing" .= object ["field" .= maField]]
-
-  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort)) =
-    omitNulls ["top_hits" .= omitNulls [ "size" .= msize
-                                       , "from" .= mfrom
-                                       , "sort" .= msort
-                                       ]
-              ]
 
 instance ToJSON DateRangeAggregation where
   toJSON DateRangeAggregation {..} =
@@ -5358,7 +5028,7 @@ instance FromJSON Suggest where
     let dropTextList = HM.toList $ HM.filterWithKey (\x _ -> x /= "text") o
     suggestName' <- case dropTextList of
                         [(x, _)] -> return x
-                        _ -> fail "error parsing Suggest field name"
+                        _        -> fail "error parsing Suggest field name"
     suggestType' <- o .: suggestName'
     return $ Suggest suggestText' suggestName' suggestType'
   parseJSON x = typeMismatch "Suggest" x
@@ -5428,7 +5098,7 @@ mkPhraseSuggester fName =
     Nothing Nothing Nothing Nothing []
 
 data PhraseSuggesterHighlighter =
-  PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
+  PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag  :: Text
                              , phraseSuggesterHighlighterPostTag :: Text
                              }
   deriving (Show, Generic, Eq, Read, Typeable)
@@ -5469,9 +5139,9 @@ instance FromJSON PhraseSuggesterCollate where
   parseJSON x = typeMismatch "PhraseSuggesterCollate" x
 
 data SuggestOptions =
-  SuggestOptions { suggestOptionsText :: Text
-                 , suggestOptionsScore :: Double
-                 , suggestOptionsFreq :: Maybe Int
+  SuggestOptions { suggestOptionsText        :: Text
+                 , suggestOptionsScore       :: Double
+                 , suggestOptionsFreq        :: Maybe Int
                  , suggestOptionsHighlighted :: Maybe Text
                  }
   deriving (Eq, Read, Show)
@@ -5485,9 +5155,9 @@ instance FromJSON SuggestOptions where
                     <*> o .:? "highlighted"
 
 data SuggestResponse =
-  SuggestResponse { suggestResponseText :: Text
-                  , suggestResponseOffset :: Int
-                  , suggestResponseLength :: Int
+  SuggestResponse { suggestResponseText    :: Text
+                  , suggestResponseOffset  :: Int
+                  , suggestResponseLength  :: Int
                   , suggestResponseOptions :: [SuggestOptions]
                   }
   deriving (Eq, Read, Show)
@@ -5501,7 +5171,7 @@ instance FromJSON SuggestResponse where
                     <*> o .: "options"
 
 data NamedSuggestionResponse =
-  NamedSuggestionResponse { nsrName :: Text
+  NamedSuggestionResponse { nsrName      :: Text
                           , nsrResponses :: [SuggestResponse]
                           }
   deriving (Eq, Read, Show)
@@ -5524,7 +5194,7 @@ data DirectGeneratorSuggestModeTypes = DirectGeneratorSuggestModeMissing
 instance ToJSON DirectGeneratorSuggestModeTypes where
   toJSON DirectGeneratorSuggestModeMissing = "missing"
   toJSON DirectGeneratorSuggestModePopular = "popular"
-  toJSON DirectGeneratorSuggestModeAlways = "always"
+  toJSON DirectGeneratorSuggestModeAlways  = "always"
 
 instance FromJSON DirectGeneratorSuggestModeTypes where
   parseJSON = withText "DirectGeneratorSuggestModeTypes" parse
@@ -5534,17 +5204,17 @@ instance FromJSON DirectGeneratorSuggestModeTypes where
           parse f            = fail ("Unexpected DirectGeneratorSuggestModeTypes: " <> show f)
 
 data DirectGenerators = DirectGenerators
-  { directGeneratorsField :: FieldName
-  , directGeneratorsSize :: Maybe Int
-  , directGeneratorSuggestMode :: DirectGeneratorSuggestModeTypes
-  , directGeneratorMaxEdits :: Maybe Double
-  , directGeneratorPrefixLength :: Maybe Int
-  , directGeneratorMinWordLength :: Maybe Int
+  { directGeneratorsField         :: FieldName
+  , directGeneratorsSize          :: Maybe Int
+  , directGeneratorSuggestMode    :: DirectGeneratorSuggestModeTypes
+  , directGeneratorMaxEdits       :: Maybe Double
+  , directGeneratorPrefixLength   :: Maybe Int
+  , directGeneratorMinWordLength  :: Maybe Int
   , directGeneratorMaxInspections :: Maybe Int
-  , directGeneratorMinDocFreq :: Maybe Double
-  , directGeneratorMaxTermFreq :: Maybe Double
-  , directGeneratorPreFilter :: Maybe Text
-  , directGeneratorPostFilter :: Maybe Text
+  , directGeneratorMinDocFreq     :: Maybe Double
+  , directGeneratorMaxTermFreq    :: Maybe Double
+  , directGeneratorPreFilter      :: Maybe Text
+  , directGeneratorPostFilter     :: Maybe Text
   }
   deriving (Show, Eq, Read, Generic, Typeable)
 
@@ -5579,4 +5249,4 @@ instance FromJSON DirectGenerators where
                       <*> o .:? "post_filter"
 
 mkDirectGenerators :: FieldName -> DirectGenerators
-mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing 
+mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing

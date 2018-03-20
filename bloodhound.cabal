@@ -46,11 +46,21 @@ library
                        Database.V5.Bloodhound.Internal.Sort
                        Database.V5.Bloodhound.Internal.StringlyTyped
                        Database.V5.Bloodhound.Internal.Suggest
+
                        Database.V1.Bloodhound
                        Database.V1.Bloodhound.Client
                        Database.V1.Bloodhound.Types
                        Database.V1.Bloodhound.Types.Class
-                       Database.V1.Bloodhound.Types.Internal
+
+                       -- Database.V1.Bloodhound.Internal.Aggregation
+                       -- Database.V1.Bloodhound.Internal.Analysis
+                       -- Database.V1.Bloodhound.Internal.Client
+                       -- Database.V1.Bloodhound.Internal.Highlight
+                       -- Database.V1.Bloodhound.Internal.Newtypes
+                       -- Database.V1.Bloodhound.Internal.Query
+                       -- Database.V1.Bloodhound.Internal.Sort
+                       Database.V1.Bloodhound.Internal.StringlyTyped
+                       -- Database.V1.Bloodhound.Internal.Suggest
   other-modules:       Bloodhound.Import
                        Database.Bloodhound.Common.Script
   hs-source-dirs:      src
