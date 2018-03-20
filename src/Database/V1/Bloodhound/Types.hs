@@ -422,8 +422,6 @@ import qualified Text.Read                              as TR
 
 import           Database.V1.Bloodhound.Internal.Client
 import           Database.V1.Bloodhound.Types.Class
-import           Database.V1.Bloodhound.Types.Internal
-
 
 
 
