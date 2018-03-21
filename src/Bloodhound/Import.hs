@@ -8,6 +8,7 @@ module Bloodhound.Import
   , readMay
   , showText
   , deleteSeveral
+  , oPath
   ) where
 
 import           Control.Applicative       as X (Alternative (..), optional)
@@ -74,3 +75,7 @@ parseNEJSON (x:xs) = DT.mapM parseJSON (x :| xs)
 
 deleteSeveral :: (Eq k, Hashable k) => [k] -> HM.HashMap k v -> HM.HashMap k v
 deleteSeveral ks hm = foldr HM.delete hm ks
+
+oPath :: ToJSON a => NonEmpty Text -> a -> Value
+oPath (k :| []) v   = object [k .= v]
+oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]

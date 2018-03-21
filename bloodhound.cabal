@@ -30,7 +30,7 @@ Flag ES1
 Flag ES5
   Description: Run the test suite against an Elasticsearch 5.x server
   Default:     True
-                       
+
 library
   ghc-options:         -Wall
   exposed-modules:     Database.V5.Bloodhound
@@ -51,16 +51,15 @@ library
                        Database.V1.Bloodhound.Client
                        Database.V1.Bloodhound.Types
                        Database.V1.Bloodhound.Types.Class
-
-                       -- Database.V1.Bloodhound.Internal.Aggregation
-                       -- Database.V1.Bloodhound.Internal.Analysis
-                       -- Database.V1.Bloodhound.Internal.Client
-                       -- Database.V1.Bloodhound.Internal.Highlight
-                       -- Database.V1.Bloodhound.Internal.Newtypes
-                       -- Database.V1.Bloodhound.Internal.Query
-                       -- Database.V1.Bloodhound.Internal.Sort
+                       Database.V1.Bloodhound.Internal.Aggregation
+                       Database.V1.Bloodhound.Internal.Client
+                       Database.V1.Bloodhound.Internal.Highlight
+                       Database.V1.Bloodhound.Internal.Newtypes
+                       Database.V1.Bloodhound.Internal.Query
+                       Database.V1.Bloodhound.Internal.Sort
                        Database.V1.Bloodhound.Internal.StringlyTyped
-                       -- Database.V1.Bloodhound.Internal.Suggest
+                       Database.V1.Bloodhound.Internal.Suggest
+
   other-modules:       Bloodhound.Import
                        Database.Bloodhound.Common.Script
   hs-source-dirs:      src
@@ -103,7 +102,6 @@ test-suite bloodhound-tests
                        Test.Indices
                        Test.JSON
                        Test.Query
-                       Test.Script
                        Test.Snapshots
                        Test.Sorting
                        Test.SourceFiltering

@@ -3,9 +3,7 @@
 
 module Database.V1.Bloodhound.Internal.Newtypes where
 
-
 import           Bloodhound.Import
-
 
 newtype From = From Int deriving (Eq, Show, ToJSON)
 newtype Size = Size Int deriving (Eq, Show, ToJSON, FromJSON)
@@ -16,7 +14,7 @@ newtype Size = Size Int deriving (Eq, Show, ToJSON, FromJSON)
 -}
 newtype FieldName =
   FieldName Text
-  deriving (Eq, Read, Show, ToJSON, FromJSON)
+  deriving (Eq, Show, ToJSON, FromJSON)
 
 newtype Boost =
   Boost Double
@@ -159,3 +157,55 @@ newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Show, ToJSON, FromJS
 
 -- | Newtype wrapper to parse ES's concerning tendency to in some APIs return a floating point number of milliseconds since epoch ಠ_ಠ
 newtype POSIXMS = POSIXMS { posixMS :: UTCTime }
+
+instance FromJSON POSIXMS where
+  parseJSON = withScientific "POSIXMS" (return . parse)
+    where parse n = let n' = truncate n :: Integer
+                    in POSIXMS (posixSecondsToUTCTime (fromInteger (n' `div` 1000)))
+
+{-| 'IndexName' is used to describe which index to query/create/delete
+-}
+newtype IndexName = IndexName Text deriving (Eq, Show, ToJSON, FromJSON)
+
+newtype IndexAliasName = IndexAliasName { indexAliasName :: IndexName } deriving (Eq, Show, ToJSON)
+
+type Score = Maybe Double
+
+newtype ShardId = ShardId { shardId :: Int }
+                deriving (Eq, Show, FromJSON)
+
+-- | Milliseconds
+newtype MS = MS NominalDiffTime
+
+
+-- keeps the unexported constructor warnings at bay
+unMS :: MS -> NominalDiffTime
+unMS (MS t) = t
+
+instance FromJSON MS where
+  parseJSON = withScientific "MS" (return . MS . parse)
+    where
+      parse n = fromInteger ((truncate n) * 1000)
+
+newtype MaybeNA a = MaybeNA { unMaybeNA :: Maybe a }
+  deriving (Show, Eq)
+
+instance FromJSON a => FromJSON (MaybeNA a) where
+  parseJSON (String "NA") = pure $ MaybeNA Nothing
+  parseJSON o             = MaybeNA . Just <$> parseJSON o
+
+newtype SnapshotName = SnapshotName { snapshotName :: Text }
+                     deriving (Show, Eq, Ord, ToJSON, FromJSON)
+
+instance FromJSON ShardCount where
+  parseJSON v = parseAsInt v
+            <|> parseAsString v
+    where parseAsInt = fmap ShardCount . parseJSON
+          parseAsString = withText "ShardCount" (fmap ShardCount . parseReadText)
+
+
+instance FromJSON ReplicaCount where
+  parseJSON v = parseAsInt v
+            <|> parseAsString v
+    where parseAsInt = fmap ReplicaCount . parseJSON
+          parseAsString = withText "ReplicaCount" (fmap ReplicaCount . parseReadText)

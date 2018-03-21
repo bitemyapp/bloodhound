@@ -2,10 +2,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 
-module Database.V1.Bloodhound.Internal.Query
-  ( module X
-  , module Database.V1.Bloodhound.Internal.Query
-  ) where
+module Database.V1.Bloodhound.Internal.Query where
 
 
 import           Bloodhound.Import
@@ -13,8 +10,8 @@ import           Bloodhound.Import
 import qualified Data.HashMap.Strict                      as HM
 import qualified Data.Text                                as T
 
-import           Database.Bloodhound.Common.Script        as X
-import           Database.V5.Bloodhound.Internal.Newtypes
+import           Database.V1.Bloodhound.Internal.Newtypes
+import           Database.V1.Bloodhound.Types.Class
 
 
 data GeoPoint =
@@ -99,6 +96,15 @@ data Filter = AndFilter [Filter] Cache
             | TermFilter    Term Cache
               deriving (Eq, Show)
 
+instance Semigroup Filter where
+  a <> b = AndFilter [a, b] defaultCache
+
+instance Monoid Filter where
+  mempty = IdentityFilter
+  mappend = (<>)
+
+instance Seminearring Filter where
+  a <||> b = OrFilter [a, b] defaultCache
 
 data BoolMatch = MustMatch    Term  Cache
                | MustNotMatch Term  Cache

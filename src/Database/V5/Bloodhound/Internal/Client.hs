@@ -236,10 +236,6 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            -- ^ Analysis is not a dynamic setting and can only be performed on a closed index.
                            deriving (Eq, Show)
 
-oPath :: ToJSON a => NonEmpty Text -> a -> Value
-oPath (k :| []) v   = object [k .= v]
-oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
-
 attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
 attrFilterJSON fs = object [ n .= T.intercalate "," (toList vs)
                            | NodeAttrFilter (NodeAttrName n) vs <- toList fs]

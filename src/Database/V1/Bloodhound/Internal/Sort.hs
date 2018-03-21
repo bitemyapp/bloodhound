@@ -25,6 +25,22 @@ type Sort = [SortSpec]
 data SortSpec = DefaultSortSpec DefaultSort
               | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Show)
 
+instance ToJSON SortSpec where
+  toJSON (DefaultSortSpec
+          (DefaultSort (FieldName dsSortFieldName) dsSortOrder dsIgnoreUnmapped
+           dsSortMode dsMissingSort dsNestedFilter)) =
+    object [dsSortFieldName .= omitNulls base] where
+      base = [ "order" .= dsSortOrder
+             , "ignore_unmapped" .= dsIgnoreUnmapped
+             , "mode" .= dsSortMode
+             , "missing" .= dsMissingSort
+             , "nested_filter" .= dsNestedFilter ]
+
+  toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
+    object [ "unit" .= units
+           , field .= gdsLatLon
+           , "order" .= gdsSortOrder ]
+
 {-| 'DefaultSort' is usually the kind of 'SortSpec' you'll want. There's a
     'mkSort' convenience function for when you want to specify only the most
     common parameters.
@@ -48,6 +64,10 @@ data DefaultSort =
 data SortOrder = Ascending
                | Descending deriving (Eq, Show)
 
+
+instance ToJSON SortOrder where
+  toJSON Ascending  = String "asc"
+  toJSON Descending = String "desc"
 
 {-| 'SortMode' prescribes how to handle sorting array/multi-valued fields.
 
@@ -77,3 +97,10 @@ instance ToJSON Missing where
   toJSON LastMissing         = String "_last"
   toJSON FirstMissing        = String "_first"
   toJSON (CustomMissing txt) = String txt
+
+-- {-| 'mkSort' defaults everything but the 'FieldName' and the 'SortOrder' so
+--     that you can concisely describe the usual kind of 'SortSpec's you want.
+-- -}
+mkSort :: FieldName -> SortOrder -> DefaultSort
+mkSort fieldName sOrder = DefaultSort fieldName sOrder False Nothing Nothing Nothing
+

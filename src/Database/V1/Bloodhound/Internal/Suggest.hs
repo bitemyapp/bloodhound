@@ -8,8 +8,8 @@ import           Bloodhound.Import
 
 import qualified Data.HashMap.Strict                      as HM
 
-import           Database.V5.Bloodhound.Internal.Newtypes
-import           Database.V5.Bloodhound.Internal.Query
+import           Database.V1.Bloodhound.Internal.Newtypes
+import           Database.V1.Bloodhound.Internal.Query
 
 data Suggest = Suggest { suggestText :: Text
                        , suggestName :: Text
@@ -209,7 +209,7 @@ data SuggestOptions =
                  , suggestOptionsFreq        :: Maybe Int
                  , suggestOptionsHighlighted :: Maybe Text
                  }
-  deriving (Eq, Read, Show)
+  deriving (Eq, Show)
 
 instance FromJSON SuggestOptions where
   parseJSON = withObject "SuggestOptions" parse
@@ -225,7 +225,7 @@ data SuggestResponse =
                   , suggestResponseLength  :: Int
                   , suggestResponseOptions :: [SuggestOptions]
                   }
-  deriving (Eq, Read, Show)
+  deriving (Eq, Show)
 
 instance FromJSON SuggestResponse where
   parseJSON = withObject "SuggestResponse" parse
@@ -239,7 +239,7 @@ data NamedSuggestionResponse =
   NamedSuggestionResponse { nsrName      :: Text
                           , nsrResponses :: [SuggestResponse]
                           }
-  deriving (Eq, Read, Show)
+  deriving (Eq, Show)
 
 instance FromJSON NamedSuggestionResponse where
   parseJSON (Object o) = do
