@@ -281,7 +281,7 @@ updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo =
 
 
 -- | Verify if a snapshot repo is working. __NOTE:__ this API did not
--- make it into ElasticSearch until 1.4. If you use an older version,
+-- make it into Elasticsearch until 1.4. If you use an older version,
 -- you will get an error here.
 verifySnapshotRepo
     :: ( MonadBH m
@@ -479,7 +479,7 @@ getIndexSettings (IndexName indexName) = do
 -- to True is the main way to release disk space back to the OS being
 -- held by deleted documents.
 --
--- Note that this API was deprecated in ElasticSearch 2.1 for the
+-- Note that this API was deprecated in Elasticsearch 2.1 for the
 -- almost completely identical forcemerge API. Adding support to that
 -- API would be trivial but due to the significant breaking changes,
 -- this library cannot currently be used with >= 2.0, so that feature was omitted.
@@ -520,7 +520,7 @@ existentialQuery url = do
 -- responses from elasticsearch should fall into these two
 -- categories. If they don't, a 'EsProtocolException' will be
 -- thrown. If you encounter this, please report the full body it
--- reports along with your ElasticSearch verison.
+-- reports along with your Elasticsearch verison.
 parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
                 -> m (Either EsError a)
 parseEsResponse reply

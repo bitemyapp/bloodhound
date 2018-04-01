@@ -345,7 +345,7 @@ updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo =
 
 
 -- | Verify if a snapshot repo is working. __NOTE:__ this API did not
--- make it into ElasticSearch until 1.4. If you use an older version,
+-- make it into Elasticsearch until 1.4. If you use an older version,
 -- you will get an error here.
 verifySnapshotRepo
     :: ( MonadBH m
@@ -628,7 +628,7 @@ existentialQuery url = do
 -- responses from elasticsearch should fall into these two
 -- categories. If they don't, a 'EsProtocolException' will be
 -- thrown. If you encounter this, please report the full body it
--- reports along with your ElasticSearch verison.
+-- reports along with your Elasticsearch verison.
 parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
                 -> m (Either EsError a)
 parseEsResponse reply
@@ -810,7 +810,7 @@ versionCtlParams cfg =
 --   Elasticsearch. The document itself is simply something we can
 --   convert into a JSON 'Value'. The 'DocId' will function as the
 --   primary key for the document. You are encouraged to generate
---   your own id's and not rely on ElasticSearch's automatic id
+--   your own id's and not rely on Elasticsearch's automatic id
 --   generation. Read more about it here:
 --   https://github.com/bitemyapp/bloodhound/issues/107
 --
