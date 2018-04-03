@@ -787,7 +787,7 @@ instance Arbitrary Query where
   shrink = genericShrink
 
 instance Arbitrary Filter where
-  arbitrary = Filter <$> arbitrary 
+  arbitrary = Filter <$> arbitrary
   shrink = genericShrink
 
 instance Arbitrary ReplicaBounds where
@@ -926,11 +926,18 @@ instance Arbitrary Ngram where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary TokenizerDefinition where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary AnalyzerDefinition where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary TokenFilterDefinition where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary CharFilterDefinition where
+  arbitrary = oneof [ CharFilterDefinitionMapping . chomp <$> arbitrary
+                    , CharFilterDefinitionPatternReplace <$> arbitrary <*> arbitrary <*> arbitrary
+                    ]
+              where chomp = M.map T.strip . M.mapKeys (T.replace "=>" "" . T.strip)
+  shrink = genericShrink
 instance Arbitrary Shingle where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Language where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Analysis where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Tokenizer where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary TokenFilter where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary CharFilter where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary UpdatableIndexSetting where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Compression where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Bytes where arbitrary = sopArbitrary; shrink = genericShrink
@@ -1662,6 +1669,9 @@ main = hspec $ do
                   , "ex_filter_shingle"
                   ]
                 )
+                (map CharFilter
+                  ["html_strip", "ex_mapping", "ex_pattern_replace"]
+                )
               )
             )
             (M.singleton "ex_tokenizer"
@@ -1676,7 +1686,15 @@ main = hspec $ do
               , ("ex_filter_reverse",TokenFilterDefinitionReverse)
               , ("ex_filter_snowball",TokenFilterDefinitionSnowball English)
               , ("ex_filter_shingle",TokenFilterDefinitionShingle (Shingle 3 3 True False " " "_"))
-              ]
+              , ("ex_filter_stemmer",TokenFilterDefinitionStemmer German)
+              , ("ex_filter_stop1", TokenFilterDefinitionStop (Left French))
+              , ("ex_filter_stop2", TokenFilterDefinitionStop (Right ["a", "is", "the"]))
+             ]
+            )
+            (M.fromList
+             [ ("ex_mapping", CharFilterDefinitionMapping (M.singleton "١" "1"))
+             , ("ex_pattern_replace", CharFilterDefinitionPatternReplace "(\\d+)-(?=\\d)" "$1_" Nothing)
+             ]
             )
           updates = [AnalysisSetting analysis]
       createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
