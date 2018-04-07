@@ -166,10 +166,10 @@ instance FromJSON TokenFilterDefinition where
       _ -> fail ("unrecognized token filter type: " ++ T.unpack t)
 
 -- | The set of languages that can be passed to various analyzers,
---   filters, etc. in ElasticSearch. Most data types in this module
+--   filters, etc. in Elasticsearch. Most data types in this module
 --   that have a 'Language' field are actually only actually to
 --   handle a subset of these languages. Consult the official
---   ElasticSearch documentation to see what is actually supported.
+--   Elasticsearch documentation to see what is actually supported.
 data Language
   = Arabic
   | Armenian
@@ -216,7 +216,7 @@ instance ToJSON Language where
 
 instance FromJSON Language where
   parseJSON = withText "Language" $ \t -> case languageFromText t of
-    Nothing -> fail "not a supported ElasticSearch language"
+    Nothing -> fail "not a supported Elasticsearch language"
     Just lang -> return lang
 
 languageToText :: Language -> Text
