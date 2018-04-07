@@ -262,4 +262,9 @@ instance FromJSON DirectGenerators where
                       <*> o .:? "post_filter"
 
 mkDirectGenerators :: FieldName -> DirectGenerators
-mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing 
+mkDirectGenerators fn =
+  DirectGenerators
+  fn
+  Nothing
+  DirectGeneratorSuggestModeMissing
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing

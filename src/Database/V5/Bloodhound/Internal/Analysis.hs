@@ -6,6 +6,7 @@ module Database.V5.Bloodhound.Internal.Analysis where
 import           Bloodhound.Import
 
 import qualified Data.Map.Strict as M
+import           Data.String
 import qualified Data.Text as T
 
 import           Database.V5.Bloodhound.Internal.Newtypes
@@ -15,13 +16,15 @@ data Analysis = Analysis
   { analysisAnalyzer :: M.Map Text AnalyzerDefinition
   , analysisTokenizer :: M.Map Text TokenizerDefinition
   , analysisTokenFilter :: M.Map Text TokenFilterDefinition
+  , analysisCharFilter :: M.Map Text CharFilterDefinition
   } deriving (Eq, Show)
 
 instance ToJSON Analysis where
-  toJSON (Analysis analyzer tokenizer tokenFilter) = object
+  toJSON (Analysis analyzer tokenizer tokenFilter charFilter) = object
     [ "analyzer" .= analyzer
     , "tokenizer" .= tokenizer
     , "filter" .= tokenFilter
+    , "char_filter" .= charFilter
     ]
 
 instance FromJSON Analysis where
@@ -29,6 +32,7 @@ instance FromJSON Analysis where
     <$> m .: "analyzer"
     <*> m .:? "tokenizer" .!= M.empty
     <*> m .:? "filter" .!= M.empty
+    <*> m .:? "char_filter" .!= M.empty
 
 newtype Tokenizer =
   Tokenizer Text
@@ -37,18 +41,57 @@ newtype Tokenizer =
 data AnalyzerDefinition = AnalyzerDefinition
   { analyzerDefinitionTokenizer :: Maybe Tokenizer
   , analyzerDefinitionFilter :: [TokenFilter]
+  , analyzerDefinitionCharFilter :: [CharFilter]
   } deriving (Eq,Show)
 
 instance ToJSON AnalyzerDefinition where
-  toJSON (AnalyzerDefinition tokenizer tokenFilter) = object $ catMaybes
+  toJSON (AnalyzerDefinition tokenizer tokenFilter charFilter) =
+    object $ catMaybes
     [ fmap ("tokenizer" .=) tokenizer
     , Just $ "filter" .= tokenFilter
+    , Just $ "char_filter" .= charFilter
     ]
 
 instance FromJSON AnalyzerDefinition where
   parseJSON = withObject "AnalyzerDefinition" $ \m -> AnalyzerDefinition
     <$> m .:? "tokenizer"
     <*> m .:? "filter" .!= []
+    <*> m .:? "char_filter" .!= []
+
+-- | Character filters are used to preprocess the stream of characters
+--   before it is passed to the tokenizer.
+data CharFilterDefinition
+  = CharFilterDefinitionMapping (M.Map Text Text)
+  | CharFilterDefinitionPatternReplace
+    { charFilterDefinitionPatternReplacePattern :: Text
+    , charFilterDefinitionPatternReplaceReplacement :: Text
+    , charFilterDefinitionPatternReplaceFlags :: Maybe Text
+    }
+  deriving (Eq, Show)
+
+instance ToJSON CharFilterDefinition where
+  toJSON (CharFilterDefinitionMapping ms) = object
+    [ "type" .= ("mapping" :: Text)
+    , "mappings" .= [a <> " => " <> b | (a, b) <- M.toList ms] ]
+  toJSON (CharFilterDefinitionPatternReplace pat repl flags) = object $
+    [ "type" .= ("pattern_replace" :: Text)
+    , "pattern" .= pat
+    , "replacement" .= repl
+    ] ++ maybe [] (\f -> ["flags" .= f]) flags
+
+instance FromJSON CharFilterDefinition where
+  parseJSON = withObject "CharFilterDefinition" $ \m -> do
+    t <- m .: "type"
+    case (t :: Text) of
+      "mapping" -> CharFilterDefinitionMapping . M.fromList <$> ms
+        where
+          ms = m .: "mappings" >>= mapM parseMapping
+          parseMapping kv = case T.splitOn "=>" kv of
+            (k:vs) -> pure (T.strip k, T.strip $ T.concat vs)
+            _ -> fail "mapping is not of the format key => value"
+      "pattern_replace" -> CharFilterDefinitionPatternReplace
+        <$> m .: "pattern" <*> m .: "replacement" <*> m .:? "flags"
+      _ -> fail ("unrecognized character filter type: " ++ T.unpack t)
 
 newtype TokenizerDefinition =
   TokenizerDefinitionNgram Ngram
@@ -112,6 +155,8 @@ data TokenFilterDefinition
   | TokenFilterDefinitionReverse
   | TokenFilterDefinitionSnowball Language
   | TokenFilterDefinitionShingle Shingle
+  | TokenFilterDefinitionStemmer Language
+  | TokenFilterDefinitionStop (Either Language [StopWord])
   deriving (Eq, Show)
 
 instance ToJSON TokenFilterDefinition where
@@ -143,6 +188,16 @@ instance ToJSON TokenFilterDefinition where
       , "token_separator" .= shingleTokenSeparator s
       , "filler_token" .= shingleFillerToken s
       ]
+    TokenFilterDefinitionStemmer lang -> object
+      [ "type" .= ("stemmer" :: Text)
+      , "language" .= languageToText lang
+      ]
+    TokenFilterDefinitionStop stop -> object
+      [ "type" .= ("stop" :: Text)
+      , "stopwords" .= case stop of
+          Left lang -> String $ "_" <> languageToText lang <> "_"
+          Right stops -> toJSON stops
+      ]
 
 instance FromJSON TokenFilterDefinition where
   parseJSON = withObject "TokenFilterDefinition" $ \m -> do
@@ -163,6 +218,19 @@ instance FromJSON TokenFilterDefinition where
         <*> (fmap.fmap) unStringlyTypedBool (m .:? "output_unigrams_if_no_shingles") .!= False
         <*> m .:? "token_separator" .!= " "
         <*> m .:? "filler_token" .!= "_"
+      "stemmer" -> TokenFilterDefinitionStemmer
+        <$> m .: "language"
+      "stop" -> do
+        stop <- m .: "stopwords"
+        stop' <- case stop of
+          String lang ->
+              fmap Left
+            . parseJSON
+            . String
+            . T.drop 1
+            . T.dropEnd 1 $ lang
+          _ -> Right <$> parseJSON stop
+        return (TokenFilterDefinitionStop stop')
       _ -> fail ("unrecognized token filter type: " ++ T.unpack t)
 
 -- | The set of languages that can be passed to various analyzers,

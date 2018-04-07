@@ -99,6 +99,9 @@ spec = do
                   , "ex_filter_shingle"
                   ]
                 )
+                (map CharFilter
+                  ["html_strip", "ex_mapping", "ex_pattern_replace"]
+                )
               )
             )
             (M.singleton "ex_tokenizer"
@@ -113,7 +116,18 @@ spec = do
               , ("ex_filter_reverse",TokenFilterDefinitionReverse)
               , ("ex_filter_snowball",TokenFilterDefinitionSnowball English)
               , ("ex_filter_shingle",TokenFilterDefinitionShingle (Shingle 3 3 True False " " "_"))
-              ]
+              , ("ex_filter_stemmer",TokenFilterDefinitionStemmer German)
+              , ("ex_filter_stop1", TokenFilterDefinitionStop (Left French))
+              , ("ex_filter_stop2",
+                 TokenFilterDefinitionStop
+                 (Right
+                  $ map StopWord ["a", "is", "the"]))
+             ]
+            )
+            (M.fromList
+             [ ("ex_mapping", CharFilterDefinitionMapping (M.singleton "١" "1"))
+             , ("ex_pattern_replace", CharFilterDefinitionPatternReplace "(\\d+)-(?=\\d)" "$1_" Nothing)
+             ]
             )
           updates = [AnalysisSetting analysis]
       createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex

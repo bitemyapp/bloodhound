@@ -231,4 +231,9 @@ instance FromJSON MS where
       parse n = fromInteger (truncate n * 1000)
 
 newtype TokenFilter =
-  TokenFilter Text deriving (Eq, Show, FromJSON, ToJSON)
+  TokenFilter Text
+  deriving (Eq, Show, FromJSON, ToJSON)
+
+newtype CharFilter =
+  CharFilter Text
+  deriving (Eq, Show, FromJSON, ToJSON)

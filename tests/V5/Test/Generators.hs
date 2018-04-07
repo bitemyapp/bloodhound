@@ -435,8 +435,25 @@ makeArbitrary ''Language
 instance Arbitrary Language where arbitrary = arbitraryLanguage
 makeArbitrary ''Shingle
 instance Arbitrary Shingle where arbitrary = arbitraryShingle
+
+makeArbitrary ''CharFilter
+instance Arbitrary CharFilter where arbitrary = arbitraryCharFilter
 makeArbitrary ''AnalyzerDefinition
 instance Arbitrary AnalyzerDefinition where arbitrary = arbitraryAnalyzerDefinition
+
+-- TODO: This should have a proper generator that doesn't
+-- create garbage that has to be filtered out.
+instance Arbitrary CharFilterDefinition where
+  arbitrary =
+    oneof [   CharFilterDefinitionMapping
+            . chomp <$> arbitrary
+          , CharFilterDefinitionPatternReplace
+            <$> arbitrary <*> arbitrary <*> arbitrary
+                    ]
+    where chomp =
+              M.map T.strip
+            . M.mapKeys (T.replace "=>" "" . T.strip)
+
 makeArbitrary ''Analysis
 instance Arbitrary Analysis where arbitrary = arbitraryAnalysis
 makeArbitrary ''Tokenizer
@@ -533,4 +550,4 @@ instance Arbitrary UpdatableIndexSetting' where
         NE.fromList . L.nubBy sameAttrName . NE.toList
       sameAttrName a b =
         nodeAttrFilterName a == nodeAttrFilterName b
-  -- shrink (UpdatableIndexSetting' x) = map UpdatableIndexSetting' (shrink x)
+  shrink (UpdatableIndexSetting' x) = map UpdatableIndexSetting' (shrink x)
