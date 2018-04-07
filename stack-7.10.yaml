@@ -15,4 +15,7 @@ extra-deps:
 - uri-bytestring-0.1.9
 - temporary-resourcet-0.1.0.0
 - transformers-compat-0.5.1.4
+- pretty-simple-2.0.2.0
+- quickcheck-arbitrary-template-0.2.0.0
+
 resolver: lts-6.12

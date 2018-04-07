@@ -17,7 +17,6 @@ dependencies:
 - http-client
 - vector
 - semigroups
-- transformers
 ghc-options:
 - -Wall
 - -threaded

@@ -7,7 +7,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Chris Allen
 maintainer:          cma@bitemyapp.com
-copyright:           2015, Chris Allen
+copyright:           2018 Chris Allen
 category:            Database, Search
 build-type:          Simple
 cabal-version:       >=1.10
@@ -33,16 +33,35 @@ Flag ES5
 
 library
   ghc-options:         -Wall
-  exposed-modules:     Database.V1.Bloodhound
-                       Database.V1.Bloodhound.Client
-                       Database.V1.Bloodhound.Types
-                       Database.V1.Bloodhound.Types.Class
-                       Database.V1.Bloodhound.Types.Internal
-                       Database.V5.Bloodhound
+  exposed-modules:     Database.V5.Bloodhound
                        Database.V5.Bloodhound.Client
                        Database.V5.Bloodhound.Types
                        Database.V5.Bloodhound.Types.Class
-                       Database.V5.Bloodhound.Types.Internal
+                       Database.V5.Bloodhound.Internal.Aggregation
+                       Database.V5.Bloodhound.Internal.Analysis
+                       Database.V5.Bloodhound.Internal.Client
+                       Database.V5.Bloodhound.Internal.Highlight
+                       Database.V5.Bloodhound.Internal.Newtypes
+                       Database.V5.Bloodhound.Internal.Query
+                       Database.V5.Bloodhound.Internal.Sort
+                       Database.V5.Bloodhound.Internal.StringlyTyped
+                       Database.V5.Bloodhound.Internal.Suggest
+
+                       Database.V1.Bloodhound
+                       Database.V1.Bloodhound.Client
+                       Database.V1.Bloodhound.Types
+                       Database.V1.Bloodhound.Types.Class
+                       Database.V1.Bloodhound.Internal.Aggregation
+                       Database.V1.Bloodhound.Internal.Client
+                       Database.V1.Bloodhound.Internal.Highlight
+                       Database.V1.Bloodhound.Internal.Newtypes
+                       Database.V1.Bloodhound.Internal.Query
+                       Database.V1.Bloodhound.Internal.Sort
+                       Database.V1.Bloodhound.Internal.StringlyTyped
+                       Database.V1.Bloodhound.Internal.Suggest
+
+  other-modules:       Bloodhound.Import
+                       Database.Bloodhound.Common.Script
   hs-source-dirs:      src
   build-depends:       base             >= 4.3     && <5,
                        bytestring       >= 0.10.0  && <0.11,
@@ -58,15 +77,13 @@ library
                        http-types       >= 0.8     && <0.13,
                        vector           >= 0.10.9  && <0.13,
                        scientific       >= 0.3.0.0 && <0.4.0.0,
-                       exceptions,
-                       data-default-class,
                        blaze-builder,
-                       unordered-containers,
-                       mtl-compat,
-                       hashable
+                       exceptions,
+                       hashable,
+                       unordered-containers
   default-language:    Haskell2010
 
-test-suite tests
+test-suite bloodhound-tests
   ghc-options: -Wall -fno-warn-orphans
   type: exitcode-stdio-1.0
   main-is: tests.hs
@@ -74,7 +91,22 @@ test-suite tests
     hs-source-dirs:     tests/V1
   else
     hs-source-dirs:     tests/V5
-
+  other-modules:       Test.Aggregation
+                       Test.ApproxEq
+                       Test.BulkAPI
+                       Test.Common
+                       Test.Documents
+                       Test.Generators
+                       Test.Highlights
+                       Test.Import
+                       Test.Indices
+                       Test.JSON
+                       Test.Query
+                       Test.Snapshots
+                       Test.Sorting
+                       Test.SourceFiltering
+                       Test.Suggest
+                       Test.Templates
   build-depends:       base,
                        bloodhound,
                        bytestring,
@@ -90,11 +122,14 @@ test-suite tests
                        vector,
                        unordered-containers >= 0.2.5.0 && <0.3,
                        mtl,
+                       pretty-simple,
+                       quickcheck-arbitrary-template,
                        quickcheck-properties,
-                       generics-sop         >=0.2 && <0.4,
                        errors,
                        exceptions,
                        temporary,
                        unix-compat,
-                       network-uri
+                       network-uri,
+                       microlens,
+                       microlens-aeson
   default-language:    Haskell2010
