@@ -26,6 +26,7 @@ module Database.V5.Bloodhound.Client
        -- ** Indices
        , createIndex
        , createIndexWith
+       , flushIndex
        , deleteIndex
        , updateIndexSettings
        , getIndexSettings
@@ -534,7 +535,13 @@ createIndexWith updates shards (IndexName indexName) =
             )
           ]
 
--- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
+-- | 'flushIndex' will flush an index given a 'Server' and an 'IndexName'.
+flushIndex :: MonadBH m => IndexName -> m Reply
+flushIndex (IndexName indexName) = do
+  path <- joinPath [indexName, "_flush"]
+  post path Nothing
+
+-- | 'deleteIndex' will delete an index given a 'Server' and an 'IndexName'.
 --
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
 -- >>> response <- runBH' $ deleteIndex (IndexName "didimakeanindex")

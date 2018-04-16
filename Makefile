@@ -38,7 +38,7 @@ mod-build:
 	stack build --ghc-options '+RTS -A128M -RTS'
 
 echo-warn:
-	echo "Make certain you have an elasticsearch instance on localhost:9200 !"
+	@echo "Make certain you have an elasticsearch instance on localhost:9200 !"
 
 7.8-build:
 	STACK_YAML="stack-7.8.yaml" stack build

@@ -164,3 +164,10 @@ spec = do
       _ <- createExampleIndex
       resp <- forceMergeIndex (IndexList (testIndex :| [])) defaultForceMergeIndexSettings
       liftIO $ validateStatus resp 200
+
+
+  describe "Index flushing" $ do
+    it "returns a successful response upon flushing" $ withTestEnv $ do
+      _ <- createExampleIndex
+      resp <- flushIndex testIndex
+      liftIO $ validateStatus resp 200
