@@ -255,6 +255,10 @@ module Database.Bloodhound.Types
        , FieldDefinition(..)
        , MappingField(..)
        , Mapping(..)
+       , UpsertActionMetadata(..)
+       , buildUpsertActionMetadata
+       , UpsertPayloadMetadata(..)
+       , buildUpsertPayloadMetadata
        , AllowLeadingWildcard(..)
        , LowercaseExpanded(..)
        , GeneratePhraseQueries(..)

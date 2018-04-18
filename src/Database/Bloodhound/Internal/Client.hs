@@ -592,6 +592,34 @@ data Mapping =
           , mappingFields :: [MappingField] }
   deriving (Eq, Show)
 
+data UpsertActionMetadata
+  = UA_RetryOnConflict Int
+  | UA_Source Bool
+  | UA_Version Int
+  deriving (Eq, Show)
+
+buildUpsertActionMetadata :: UpsertActionMetadata -> Pair
+buildUpsertActionMetadata (UA_RetryOnConflict i) = "_retry_on_conflict" .= i
+buildUpsertActionMetadata (UA_Source b)          = "_source"            .= b
+buildUpsertActionMetadata (UA_Version i)         = "_version"           .= i
+
+data UpsertPayloadMetadata
+  = UP_DocAsUpsert Bool
+  | UP_Script Value
+  | UP_Lang Text
+  | UP_Params Value
+  | UP_Upsert Value
+  | UP_Source Bool
+  deriving (Eq, Show)
+
+buildUpsertPayloadMetadata :: UpsertPayloadMetadata -> Pair
+buildUpsertPayloadMetadata (UP_DocAsUpsert a) = "doc_as_upsert" .= a
+buildUpsertPayloadMetadata (UP_Script a)      = "script"        .= a
+buildUpsertPayloadMetadata (UP_Lang a)        = "lang"          .= a
+buildUpsertPayloadMetadata (UP_Params a)      = "params"        .= a
+buildUpsertPayloadMetadata (UP_Upsert a)      = "upsert"        .= a
+buildUpsertPayloadMetadata (UP_Source a)      = "_source"       .= a
+
 data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation for all shards.
                       | AllocPrimaries
@@ -644,6 +672,8 @@ data BulkOperation =
     -- ^ Delete the document
   | BulkUpdate IndexName MappingName DocId Value
     -- ^ Update the document, merging the new value with the existing one.
+  | BulkUpsert IndexName MappingName DocId Value [UpsertActionMetadata] [UpsertPayloadMetadata]
+    -- ^ Update the document if it already exists, otherwise insert it.
     deriving (Eq, Show)
 
 {-| 'EsResult' describes the standard wrapper JSON document that you see in
