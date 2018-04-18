@@ -911,6 +911,14 @@ mkBulkStreamValueAuto operation indexName mappingName =
           object [ "_index" .= indexName
                  , "_type"  .= mappingName]]
 
+mkBulkStreamValueWithMeta :: [UpsertActionMetadata] -> Text -> Text -> Text -> Text -> Value
+mkBulkStreamValueWithMeta meta operation indexName mappingName docId =
+  object [ operation .=
+          object ([ "_index" .= indexName
+                  , "_type"  .= mappingName
+                  , "_id"    .= docId]
+                  <> (buildUpsertActionMetadata <$> meta))]
+
 -- | 'encodeBulkOperation' is a convenience function for dumping a single 'BulkOperation'
 --   into an 'L.ByteString'
 --
@@ -954,6 +962,16 @@ encodeBulkOperation (BulkUpdate (IndexName indexName)
     where metadata = mkBulkStreamValue "update" indexName mappingName docId
           doc = object ["doc" .= value]
           blob = encode metadata `mappend` "\n" `mappend` encode doc
+
+encodeBulkOperation (BulkUpsert (IndexName indexName)
+                (MappingName mappingName)
+                (DocId docId)
+                value
+                actionMeta
+                docMeta) = blob
+    where metadata = mkBulkStreamValueWithMeta actionMeta "update" indexName mappingName docId
+          doc = object $ ["doc" .= value] <> (buildUpsertPayloadMetadata <$> docMeta)
+          blob = encode metadata <> "\n" <> encode doc
 
 encodeBulkOperation (BulkCreateEncoding (IndexName indexName)
                 (MappingName mappingName)
