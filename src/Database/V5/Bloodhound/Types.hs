@@ -381,6 +381,7 @@ module Database.V5.Bloodhound.Types
        , DateMathUnit(..)
        , TopHitsAggregation(..)
        , StatisticsAggregation(..)
+       , SumAggregation(..)
 
        , Highlights(..)
        , FieldHighlight(..)
