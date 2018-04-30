@@ -398,6 +398,7 @@ module Database.Bloodhound.Types
        , OpenPointInTimeResponse (..)
        , ClosePointInTime (..)
        , ClosePointInTimeResponse (..)
+       , SumAggregation(..)
 
        , Highlights(..)
        , FieldHighlight(..)
