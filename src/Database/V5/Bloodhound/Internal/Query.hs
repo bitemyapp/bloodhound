@@ -47,6 +47,7 @@ data Query =
   | QueryExistsQuery            FieldName
   | QueryTemplateQueryInline    TemplateQueryInline
   | QueryMatchNoneQuery
+  | QueryWildcardQuery          WildcardQuery
   deriving (Eq, Show)
 
 instance ToJSON Query where
@@ -147,6 +148,9 @@ instance ToJSON Query where
   toJSON (QueryTemplateQueryInline templateQuery) =
     object [ "template" .= templateQuery ]
 
+  toJSON (QueryWildcardQuery query) =
+    object [ "wildcard" .= query ]
+
 instance FromJSON Query where
   parseJSON v = withObject "Query" parse v
     where parse o = termQuery `taggedWith` "term"
@@ -176,6 +180,7 @@ instance FromJSON Query where
                 <|> queryRegexpQuery `taggedWith` "regexp"
                 <|> querySimpleQueryStringQuery `taggedWith` "simple_query_string"
                 <|> queryTemplateQueryInline `taggedWith` "template"
+                <|> queryWildcardQuery `taggedWith` "wildcard"
             where taggedWith parser k = parser =<< o .: k
           termQuery = fieldTagged $ \(FieldName fn) o ->
                         TermQuery <$> (Term fn <$> o .: "value") <*> o .:? "boost"
@@ -215,6 +220,7 @@ instance FromJSON Query where
           querySimpleQueryStringQuery = pure . QuerySimpleQueryStringQuery
           -- queryExistsQuery o = QueryExistsQuery <$> o .: "field"
           queryTemplateQueryInline = pure . QueryTemplateQueryInline
+          queryWildcardQuery = pure . QueryWildcardQuery
 
 -- | As of Elastic 2.0, 'Filters' are just 'Queries' housed in a
 --   Bool Query, and flagged in a different context.
@@ -249,6 +255,26 @@ instance FromJSON RegexpQuery where
                     RegexpQuery fn
                     <$> o .: "value"
                     <*> o .: "flags"
+                    <*> o .:? "boost"
+
+data WildcardQuery =
+  WildcardQuery { wildcardQueryField :: FieldName
+                , wildcardQuery      :: Text
+                , wildcardQueryBoost :: Maybe Boost
+              } deriving (Eq, Show)
+
+instance ToJSON WildcardQuery where
+  toJSON (WildcardQuery (FieldName wcQueryField)
+         (wcQueryQuery) wcQueryBoost) =
+   object [ wcQueryField .= omitNulls base ]
+   where base = [ "value" .= wcQueryQuery
+                , "boost" .= wcQueryBoost ]
+
+instance FromJSON WildcardQuery where
+  parseJSON = withObject "WildcardQuery" parse
+    where parse = fieldTagged $ \fn o ->
+                    WildcardQuery fn
+                    <$> o .: "value"
                     <*> o .:? "boost"
 
 data RangeQuery =
@@ -1219,7 +1245,7 @@ parseRangeValue mkGt mkLt mkGte mkLte
     (Nothing, Nothing, Nothing, Nothing) ->
       nada
 
-  
+
 instance FromJSON RangeValue where
   parseJSON = withObject "RangeValue" parse
     where parse o = parseDate o

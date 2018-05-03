@@ -218,6 +218,7 @@ module Database.V5.Bloodhound.Types
        , QueryString(..)
        , TemplateQueryInline(..)
        , TemplateQueryKeyValuePairs(..)
+       , WildcardQuery(..)
        , BooleanOperator(..)
        , ZeroTermsQuery(..)
        , CutoffFrequency(..)
