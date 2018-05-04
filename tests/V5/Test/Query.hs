@@ -113,3 +113,11 @@ spec =
           search = mkSearch (Just templateQuery) Nothing
       myTweet <- searchTweet search
       liftIO $ myTweet `shouldBe` Right exampleTweet
+
+    it "returns document for wildcard query" $ withTestEnv $ do
+      _ <- insertData
+      let query = QueryWildcardQuery $ WildcardQuery (FieldName "user") "bitemy*" (Nothing)
+      let search = mkSearch (Just query) Nothing
+      myTweet <- searchTweet search
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
