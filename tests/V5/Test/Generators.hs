@@ -14,7 +14,7 @@ import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Text as T
-import qualified Data.Version as Vers
+import qualified Data.SemVer as SemVer
 import           Test.QuickCheck.TH.Generators
 
 import           Test.ApproxEq
@@ -215,9 +215,13 @@ instance Arbitrary NodeAttrFilter where
     return (NodeAttrFilter n ts)
 
 instance Arbitrary VersionNumber where
-  arbitrary = mk . fmap getPositive . getNonEmpty <$> arbitrary
+  arbitrary = do
+    major <- posInt
+    minor <- posInt
+    patch <- posInt
+    return $ VersionNumber $ SemVer.version major minor patch [] []
     where
-      mk versions = VersionNumber (Vers.Version versions [])
+      posInt = getPositive <$> arbitrary
 
 instance Arbitrary TemplateQueryKeyValuePairs where
   arbitrary = TemplateQueryKeyValuePairs . HM.fromList <$> arbitrary

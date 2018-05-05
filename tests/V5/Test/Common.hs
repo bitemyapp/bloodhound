@@ -6,7 +6,7 @@ module Test.Common where
 import Test.Import
 
 import qualified Data.Map as M
-import qualified Data.Version as Vers
+import qualified Data.SemVer as SemVer
 import qualified Network.HTTP.Types.Status as NHTS
 
 testServer  :: Server
@@ -50,31 +50,31 @@ instance ToJSON ParentMapping where
             , "extra"    .= object ["type" .= ("keyword" :: Text)]
             ]]
 
-es13 :: Vers.Version
-es13 = Vers.Version [1, 3, 0] []
+es11 :: SemVer.Version
+es11 = SemVer.version 1 1 0 [] []
 
-es12 :: Vers.Version
-es12 = Vers.Version [1, 2, 0] []
+es13 :: SemVer.Version
+es13 = SemVer.version 1 3 0 [] []
 
-es11 :: Vers.Version
-es11 = Vers.Version [1, 1, 0] []
+es12 :: SemVer.Version
+es12 = SemVer.version 1 2 0 [] []
 
-es14 :: Vers.Version
-es14 = Vers.Version [1, 4, 0] []
+es14 :: SemVer.Version
+es14 = SemVer.version 1 4 0 [] []
 
-es15 :: Vers.Version
-es15 = Vers.Version [1, 5, 0] []
+es15 :: SemVer.Version
+es15 = SemVer.version 1 5 0 [] []
 
-es16 :: Vers.Version
-es16 = Vers.Version [1, 6, 0] []
+es16 :: SemVer.Version
+es16 = SemVer.version 1 6 0 [] []
 
-es20 :: Vers.Version
-es20 = Vers.Version [2, 0, 0] []
+es20 :: SemVer.Version
+es20 = SemVer.version 2 0 0 [] []
 
-es50 :: Vers.Version
-es50 = Vers.Version [5, 0, 0] []
+es50 :: SemVer.Version
+es50 = SemVer.version 5 0 0 [] []
 
-getServerVersion :: IO (Maybe Vers.Version)
+getServerVersion :: IO (Maybe SemVer.Version)
 getServerVersion = fmap extractVersion <$> withTestEnv getStatus
   where
     extractVersion              = versionNumber . number . version
@@ -282,11 +282,11 @@ searchExpectSource src expected = do
   liftIO $
     value `shouldBe` expected
 
-atleast :: Vers.Version -> IO Bool
+atleast :: SemVer.Version -> IO Bool
 atleast v = getServerVersion >>= \x -> return $ x >= Just v
 
-atmost :: Vers.Version -> IO Bool
+atmost :: SemVer.Version -> IO Bool
 atmost v = getServerVersion >>= \x -> return $ x <= Just v
 
-is :: Vers.Version -> IO Bool
+is :: SemVer.Version -> IO Bool
 is v = getServerVersion >>= \x -> return $ x == Just v
