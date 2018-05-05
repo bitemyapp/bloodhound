@@ -639,19 +639,24 @@ existentialQuery url = do
 -- categories. If they don't, a 'EsProtocolException' will be
 -- thrown. If you encounter this, please report the full body it
 -- reports along with your Elasticsearch verison.
-parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
+parseEsResponse :: ( MonadThrow m
+                   , FromJSON a
+                   )
+                => Reply
                 -> m (Either EsError a)
 parseEsResponse reply
   | respIsTwoHunna reply = case eitherDecode body of
                              Right a -> return (Right a)
-                             Left _ -> tryParseError
-  | otherwise = tryParseError
+                             Left err ->
+                               tryParseError err
+  | otherwise = tryParseError "Non-200 status code"
   where body = responseBody reply
-        tryParseError = case eitherDecode body of
-                          Right e -> return (Left e)
-                          -- this case should not be possible
-                          Left _ -> explode
-        explode = throwM (EsProtocolException body)
+        tryParseError originalError
+          = case eitherDecode body of
+              Right e -> return (Left e)
+              -- Failed to parse the error message.
+              Left err -> explode ("Original error was: " <> originalError <> " Error parse failure was: " <> err)
+        explode errorMsg = throwM (EsProtocolException (T.pack errorMsg) body)
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
@@ -711,16 +716,15 @@ listIndices =
   parse . responseBody =<< get =<< url
   where
     url = joinPath ["_cat/indices?format=json"]
-    parse body = maybe (throwM (EsProtocolException body)) return $ do
-      vals <- decode body
+    parse body = either (\msg -> (throwM (EsProtocolException (T.pack msg) body))) return $ do
+      vals <- eitherDecode body
       forM vals $ \val ->
         case val of
-          Object obj -> do
-            indexVal <- HM.lookup "index" obj
-            case indexVal of
-              String txt -> Just (IndexName txt)
-              _ -> Nothing
-          _ -> Nothing
+          Object obj ->
+            case HM.lookup "index" obj of
+              (Just (String txt)) -> Right (IndexName txt)
+              v -> Left $ "indexVal in listIndices failed on non-string, was: " <> show v
+          v -> Left $ "One of the values parsed in listIndices wasn't an object, it was: " <> show v
 
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at

@@ -693,8 +693,9 @@ sure that your mappings are correct, then this error may be an indication of an
 incompatibility between Bloodhound and Elasticsearch. Please open a bug report
 and be sure to include the exception body.
 -}
-newtype EsProtocolException = EsProtocolException
-  { esProtoExBody :: LByteString
+data EsProtocolException = EsProtocolException
+  { esProtoExMessage :: !Text
+  , esProtoExBody :: !LByteString
   } deriving (Eq, Show)
 
 instance Exception EsProtocolException
