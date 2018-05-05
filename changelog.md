@@ -16,6 +16,8 @@
 - @rvl
   - Add [character filters][] to the `AnalyzerDefinition` type.
   - Add the "stemmer" and "stop" [token filters][] to `TokenFilterDefinition`.
+- @ahodgen
+  - Add support for wildcard queries
 
 [Character Filters]: https://www.elastic.co/guide/en/elasticsearch/reference/5.6/analysis-charfilters.html
 [Token Filters]: https://www.elastic.co/guide/en/elasticsearch/reference/5.6/analysis-tokenfilters.html
