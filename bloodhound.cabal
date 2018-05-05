@@ -88,9 +88,10 @@ test-suite bloodhound-tests
   type: exitcode-stdio-1.0
   main-is: tests.hs
   if flag(ES1)
-    hs-source-dirs:     tests/V1
+    hs-source-dirs:    tests/V1
   else
-    hs-source-dirs:     tests/V5
+    hs-source-dirs:    tests/V5
+    other-modules:     Test.Script
   other-modules:       Test.Aggregation
                        Test.ApproxEq
                        Test.BulkAPI
