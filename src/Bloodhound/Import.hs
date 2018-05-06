@@ -9,6 +9,7 @@ module Bloodhound.Import
   , showText
   , deleteSeveral
   , oPath
+  , tshow
   ) where
 
 import           Control.Applicative       as X (Alternative (..), optional)

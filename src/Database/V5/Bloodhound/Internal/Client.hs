@@ -1421,12 +1421,17 @@ data NodeJVMInfo = NodeJVMInfo {
     , nodeJVMVMVersion                   :: VMVersion
     -- ^ JVM doesn't seme to follow normal version conventions
     , nodeJVMVMName                      :: Text
-    , nodeJVMVersion                     :: VersionNumber
+    , nodeJVMVersion                     :: JVMVersion
     , nodeJVMPID                         :: PID
     } deriving (Eq, Show)
 
--- | Handles quirks in the way JVM versions are rendered (1.7.0_101 -> 1.7.0.101)
-newtype JVMVersion = JVMVersion { unJVMVersion :: VersionNumber }
+-- | We cannot parse JVM version numbers and we're not going to try.
+newtype JVMVersion =
+  JVMVersion { unJVMVersion :: Text }
+  deriving (Eq, Show)
+
+instance FromJSON JVMVersion where
+  parseJSON = withText "JVMVersion" (pure . JVMVersion)
 
 data JVMMemoryInfo = JVMMemoryInfo {
       jvmMemoryInfoDirectMax   :: Bytes
@@ -2240,13 +2245,8 @@ instance FromJSON NodeJVMInfo where
                             <*> o .: "vm_vendor"
                             <*> o .: "vm_version"
                             <*> o .: "vm_name"
-                            <*> (unJVMVersion <$> o .: "version")
+                            <*> o .: "version"
                             <*> o .: "pid"
-
-instance FromJSON JVMVersion where
-  parseJSON (String t) =
-    JVMVersion <$> parseJSON (String (T.replace "_" "." t))
-  parseJSON v = JVMVersion <$> parseJSON v
 
 instance FromJSON JVMMemoryInfo where
   parseJSON = withObject "JVMMemoryInfo" parse
