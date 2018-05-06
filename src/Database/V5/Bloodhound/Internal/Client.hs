@@ -12,11 +12,10 @@ import           Bloodhound.Import
 import qualified Data.Text           as T
 import qualified Data.Traversable    as DT
 import qualified Data.HashMap.Strict as HM
+import qualified Data.SemVer         as SemVer
 import qualified Data.Vector         as V
-import qualified Data.Version        as Vers
 import           GHC.Enum
 import           Network.HTTP.Client
-import qualified Text.ParserCombinators.ReadP as RP
 import           Text.Read           (Read(..))
 import qualified Text.Read           as TR
 
@@ -98,7 +97,7 @@ data Version = Version { number         :: VersionNumber
 
 -- | Traditional software versioning number
 newtype VersionNumber = VersionNumber
-  { versionNumber :: Vers.Version }
+  { versionNumber :: SemVer.Version }
   deriving (Eq, Ord, Show)
 
 {-| 'Status' is a data type for describing the JSON body returned by
@@ -2398,12 +2397,12 @@ instance FromJSON Version where
                     <*> o .: "lucene_version"
 
 instance ToJSON VersionNumber where
-  toJSON = toJSON . Vers.showVersion . versionNumber
+  toJSON = toJSON . SemVer.toText . versionNumber
 
 instance FromJSON VersionNumber where
-  parseJSON = withText "VersionNumber" (parse . T.unpack)
+  parseJSON = withText "VersionNumber" parse
     where
-      parse s = case filter (null . snd)(RP.readP_to_S Vers.parseVersion s) of
-                  [(v, _)] -> pure (VersionNumber v)
-                  [] -> fail ("Invalid version string " ++ s)
-                  xs -> fail ("Ambiguous version string " ++ s ++ " (" ++ intercalate ", " (Vers.showVersion . fst <$> xs) ++ ")")
+      parse t =
+        case SemVer.fromText t of
+          (Left err) -> fail err
+          (Right v) -> return (VersionNumber v)
