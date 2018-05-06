@@ -462,9 +462,6 @@ makeArbitrary ''Analysis
 instance Arbitrary Analysis where arbitrary = arbitraryAnalysis
 makeArbitrary ''Tokenizer
 instance Arbitrary Tokenizer where arbitrary = arbitraryTokenizer
-makeArbitrary ''UpdatableIndexSetting
-instance Arbitrary UpdatableIndexSetting where
-  arbitrary = arbitraryUpdatableIndexSetting
 makeArbitrary ''Compression
 instance Arbitrary Compression where arbitrary = arbitraryCompression
 makeArbitrary ''Bytes
@@ -533,6 +530,10 @@ makeArbitrary ''FactorMissingFieldValue
 instance Arbitrary FactorMissingFieldValue where arbitrary = arbitraryFactorMissingFieldValue
 makeArbitrary ''FactorModifier
 instance Arbitrary FactorModifier where arbitrary = arbitraryFactorModifier
+
+makeArbitrary ''UpdatableIndexSetting
+instance Arbitrary UpdatableIndexSetting where
+  arbitrary = resize 10 arbitraryUpdatableIndexSetting
 
 newtype UpdatableIndexSetting' =
   UpdatableIndexSetting' UpdatableIndexSetting
