@@ -1418,7 +1418,7 @@ data NodeJVMInfo = NodeJVMInfo {
     , nodeJVMInfoMemoryInfo              :: JVMMemoryInfo
     , nodeJVMInfoStartTime               :: UTCTime
     , nodeJVMInfoVMVendor                :: Text
-    , nodeJVMVMVersion                   :: VersionNumber
+    , nodeJVMVMVersion                   :: VMVersion
     -- ^ JVM doesn't seme to follow normal version conventions
     , nodeJVMVMName                      :: Text
     , nodeJVMVersion                     :: VersionNumber
@@ -1435,6 +1435,18 @@ data JVMMemoryInfo = JVMMemoryInfo {
     , jvmMemoryInfoHeapMax     :: Bytes
     , jvmMemoryInfoHeapInit    :: Bytes
     } deriving (Eq, Show)
+
+-- VM version numbers don't appear to be SemVer
+-- so we're special casing this jawn.
+newtype VMVersion =
+  VMVersion { unVMVersion :: Text }
+  deriving (Eq, Show)
+
+instance ToJSON VMVersion where
+  toJSON = toJSON . unVMVersion
+
+instance FromJSON VMVersion where
+  parseJSON = withText "VMVersion" (pure . VMVersion)
 
 newtype JVMMemoryPool = JVMMemoryPool {
       jvmMemoryPool :: Text
