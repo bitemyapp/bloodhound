@@ -1,1 +1,13 @@
-stack-8.2.yaml
+flags:
+  bloodhound-examples:
+    werror: true
+
+packages:
+  - '.'
+  - './examples'
+
+extra-deps:
+  - quickcheck-properties-0.1
+  - http-types-0.12
+
+resolver: lts-10.0

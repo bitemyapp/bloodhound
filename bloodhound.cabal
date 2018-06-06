@@ -62,7 +62,6 @@ library
                        data-default-class,
                        blaze-builder,
                        unordered-containers,
-                       mtl-compat,
                        hashable
   default-language:    Haskell2010
 
