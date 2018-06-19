@@ -9,12 +9,12 @@ module Database.V5.Bloodhound.Internal.Query
 
 import           Bloodhound.Import
 
-import           Data.Char           (isNumber)
-import qualified Data.HashMap.Strict as HM
-import           Data.List           (nub)
-import qualified Data.Text           as T
+import           Data.Char                                (isNumber)
+import qualified Data.HashMap.Strict                      as HM
+import           Data.List                                (nub)
+import qualified Data.Text                                as T
 
-import           Database.Bloodhound.Common.Script as X
+import           Database.Bloodhound.Common.Script        as X
 import           Database.V5.Bloodhound.Internal.Newtypes
 
 data Query =
@@ -834,16 +834,16 @@ instance FromJSON DisMaxQuery where
                     <*> o .:? "boost"
 
 data MatchQuery = MatchQuery
-  { matchQueryField           :: FieldName
-  , matchQueryQueryString     :: QueryString
-  , matchQueryOperator        :: BooleanOperator
-  , matchQueryZeroTerms       :: ZeroTermsQuery
-  , matchQueryCutoffFrequency :: Maybe CutoffFrequency
-  , matchQueryMatchType       :: Maybe MatchQueryType
-  , matchQueryAnalyzer        :: Maybe Analyzer
-  , matchQueryMaxExpansions   :: Maybe MaxExpansions
-  , matchQueryLenient         :: Maybe Lenient
-  , matchQueryBoost           :: Maybe Boost
+  { matchQueryField              :: FieldName
+  , matchQueryQueryString        :: QueryString
+  , matchQueryOperator           :: BooleanOperator
+  , matchQueryZeroTerms          :: ZeroTermsQuery
+  , matchQueryCutoffFrequency    :: Maybe CutoffFrequency
+  , matchQueryMatchType          :: Maybe MatchQueryType
+  , matchQueryAnalyzer           :: Maybe Analyzer
+  , matchQueryMaxExpansions      :: Maybe MaxExpansions
+  , matchQueryLenient            :: Maybe Lenient
+  , matchQueryBoost              :: Maybe Boost
   , matchQueryMinimumShouldMatch :: Maybe Text
   , matchQueryFuzziness          :: Maybe Fuzziness
   } deriving (Eq, Show)
@@ -1635,5 +1635,4 @@ instance ToJSON Fuzziness where
 
 instance FromJSON Fuzziness where
   parseJSON (String "AUTO") = return FuzzinessAuto
-  parseJSON (String "auto") = return FuzzinessAuto
-  parseJSON v = Fuzziness <$> parseJSON v
+  parseJSON v               = Fuzziness <$> parseJSON v
