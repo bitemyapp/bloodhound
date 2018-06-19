@@ -1624,3 +1624,16 @@ fieldTagged :: Monad m => (FieldName -> Object -> m a) -> Object -> m a
 fieldTagged f o = case HM.toList o of
                     [(k, Object o')] -> f (FieldName k) o'
                     _ -> fail "Expected object with 1 field-named key"
+
+{-| Fuzziness value as a number or 'AUTO'. -}
+data Fuzziness = Fuzziness Double | FuzzinessAuto
+  deriving (Eq, Show)
+
+instance ToJSON Fuzziness where
+  toJSON (Fuzziness n) = toJSON n
+  toJSON FuzzinessAuto = String "AUTO"
+
+instance FromJSON Fuzziness where
+  parseJSON (String "AUTO") = return FuzzinessAuto
+  parseJSON (String "auto") = return FuzzinessAuto
+  parseJSON v = Fuzziness <$> parseJSON v
