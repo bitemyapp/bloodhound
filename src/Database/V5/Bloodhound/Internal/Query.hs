@@ -845,6 +845,7 @@ data MatchQuery = MatchQuery
   , matchQueryLenient         :: Maybe Lenient
   , matchQueryBoost           :: Maybe Boost
   , matchQueryMinimumShouldMatch :: Maybe Text
+  , matchQueryFuzziness          :: Maybe Fuzziness
   } deriving (Eq, Show)
 
 
@@ -853,7 +854,7 @@ instance ToJSON MatchQuery where
           (QueryString mqQueryString) booleanOperator
           zeroTermsQuery cutoffFrequency matchQueryType
           analyzer maxExpansions lenient boost
-          minShouldMatch
+          minShouldMatch mqFuzziness
          ) =
     object [ fieldName .= omitNulls base ]
     where base = [ "query" .= mqQueryString
@@ -866,6 +867,7 @@ instance ToJSON MatchQuery where
                  , "lenient" .= lenient
                  , "boost" .= boost
                  , "minimum_should_match" .= minShouldMatch
+                 , "fuzziness" .= mqFuzziness
                  ]
 
 instance FromJSON MatchQuery where
@@ -882,12 +884,13 @@ instance FromJSON MatchQuery where
                     <*> o .:? "lenient"
                     <*> o .:? "boost"
                     <*> o .:? "minimum_should_match"
+                    <*> o .:? "fuzziness"
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
 -}
 mkMatchQuery :: FieldName -> QueryString -> MatchQuery
-mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 data MatchQueryType =
     MatchPhrase
