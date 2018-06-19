@@ -46,6 +46,15 @@ spec =
       liftIO $
         myTweet `shouldBe` Right exampleTweet
 
+    it "returns document for match query with fuzziness" $ withTestEnv $ do
+      _ <- insertData
+      let match = mkMatchQuery (FieldName "user") (QueryString "bidemyapp")
+      let query = QueryMatchQuery $ match { matchQueryFuzziness = Just FuzzinessAuto }
+      let search = mkSearch (Just query) Nothing
+      myTweet <- searchTweet search
+      liftIO $
+        myTweet `shouldBe` Right exampleTweet
+
     it "returns document for multi-match query" $ withTestEnv $ do
       _ <- insertData
       let flds = [FieldName "user", FieldName "message"]
