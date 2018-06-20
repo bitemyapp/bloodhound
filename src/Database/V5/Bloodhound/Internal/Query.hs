@@ -9,12 +9,12 @@ module Database.V5.Bloodhound.Internal.Query
 
 import           Bloodhound.Import
 
-import           Data.Char                                (isNumber)
-import qualified Data.HashMap.Strict                      as HM
-import           Data.List                                (nub)
-import qualified Data.Text                                as T
+import           Data.Char           (isNumber)
+import qualified Data.HashMap.Strict as HM
+import           Data.List           (nub)
+import qualified Data.Text           as T
 
-import           Database.Bloodhound.Common.Script        as X
+import           Database.Bloodhound.Common.Script as X
 import           Database.V5.Bloodhound.Internal.Newtypes
 
 data Query =
@@ -1625,7 +1625,9 @@ fieldTagged f o = case HM.toList o of
                     [(k, Object o')] -> f (FieldName k) o'
                     _ -> fail "Expected object with 1 field-named key"
 
-{-| Fuzziness value as a number or 'AUTO'. -}
+-- | Fuzziness value as a number or 'AUTO'.
+-- See:
+-- https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#fuzziness
 data Fuzziness = Fuzziness Double | FuzzinessAuto
   deriving (Eq, Show)
 
