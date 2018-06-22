@@ -3,6 +3,10 @@
 - @bitemyapp
   - Reorganized V5 modules internally, ripped out Generic,
     rewrote part of the test suite.
+  - Added message field to EsProtocolException
+  - Switch from Data.Version to Data.SemVer to support parsing broader version format.
+  - Drop support for GHC < 8.0
+  - Remove upper bound on aeson.
 - @mxavier
   - Reorganized V1 modules, mirroring the work done on V5.
 - @andrewthad
