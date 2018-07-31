@@ -6,6 +6,7 @@ module Database.V5.Bloodhound.Internal.Aggregation where
 
 import           Bloodhound.Import
 
+import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
@@ -445,6 +446,7 @@ instance Monoid (SearchHits a) where
   mempty = SearchHits 0 Nothing mempty
   mappend = (<>)
 
+type SearchAfterKey = [Aeson.Value]
 
 data Hit a =
   Hit { hitIndex     :: IndexName
@@ -452,6 +454,7 @@ data Hit a =
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
+      , hitSort      :: Maybe SearchAfterKey
       , hitFields    :: Maybe HitFields
       , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
 
@@ -462,6 +465,7 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:  "_id"      <*>
                          v .:  "_score"   <*>
                          v .:? "_source"  <*>
+                         v .:? "sort"     <*>
                          v .:? "fields"   <*>
                          v .:? "highlight"
   parseJSON _          = empty
