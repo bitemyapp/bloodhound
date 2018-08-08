@@ -1671,9 +1671,9 @@ main = hspec $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
         liftIO $ validateStatus resp 200
-        deleteIndexAlias aname
+        _ <- deleteIndexAlias aname
         getIndexAliases
-      let expected = IndexAliasSummary alias create
+      --let expected = IndexAliasSummary alias create
       case aliases of
         Right (IndexAliasesSummary summs) ->
           L.find ((== aname) . indexAlias . indexAliasSummaryAlias) summs `shouldBe` Nothing
