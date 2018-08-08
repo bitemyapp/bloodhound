@@ -644,6 +644,7 @@ instance ApproxEq InnerHit
 instance ApproxEq Pattern
 instance ApproxEq Include
 instance ApproxEq FastVectorHighlight
+instance ApproxEq UnifiedHighlight
 instance ApproxEq NonPostings
 instance ApproxEq HighlightTag
 instance ApproxEq Exclude
@@ -1007,6 +1008,7 @@ instance Arbitrary Include where arbitrary = sopArbitrary; shrink = genericShrin
 instance Arbitrary HighlightTag where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary NonPostings where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FastVectorHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary UnifiedHighlight where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Exclude where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary HighlightEncoder where arbitrary = sopArbitrary; shrink = genericShrink
 
@@ -1399,7 +1401,7 @@ main = hspec $ do
       _ <- insertData
       _ <- insertOther
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
-      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing] Nothing
+      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 
       let search = mkHighlightSearch (Just query) testHighlight
       myHighlight <- searchTweetHighlight search
@@ -1410,7 +1412,7 @@ main = hspec $ do
       _ <- insertData
       _ <- insertOther
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
-      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "user") Nothing] Nothing
+      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "user") Nothing]
 
       let search = mkHighlightSearch (Just query) testHighlight
       myHighlight <- searchTweetHighlight search
@@ -1669,9 +1671,9 @@ main = hspec $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
         liftIO $ validateStatus resp 200
-        deleteIndexAlias aname
+        _ <- deleteIndexAlias aname
         getIndexAliases
-      let expected = IndexAliasSummary alias create
+      --let expected = IndexAliasSummary alias create
       case aliases of
         Right (IndexAliasesSummary summs) ->
           L.find ((== aname) . indexAlias . indexAliasSummaryAlias) summs `shouldBe` Nothing
