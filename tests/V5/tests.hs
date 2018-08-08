@@ -644,6 +644,7 @@ instance ApproxEq InnerHit
 instance ApproxEq Pattern
 instance ApproxEq Include
 instance ApproxEq FastVectorHighlight
+instance ApproxEq UnifiedHighlight
 instance ApproxEq NonPostings
 instance ApproxEq HighlightTag
 instance ApproxEq Exclude
@@ -1007,6 +1008,7 @@ instance Arbitrary Include where arbitrary = sopArbitrary; shrink = genericShrin
 instance Arbitrary HighlightTag where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary NonPostings where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary FastVectorHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary UnifiedHighlight where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Exclude where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary HighlightEncoder where arbitrary = sopArbitrary; shrink = genericShrink
 

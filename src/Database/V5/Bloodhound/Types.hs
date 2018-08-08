@@ -375,6 +375,7 @@ module Database.V5.Bloodhound.Types
        , PlainHighlight(..)
        , PostingsHighlight(..)
        , FastVectorHighlight(..)
+       , UnifiedHighlight(..)
        , CommonHighlight(..)
        , NonPostings(..)
        , HighlightEncoder(..)
@@ -1506,6 +1507,7 @@ data FieldHighlight = FieldHighlight FieldName (Maybe HighlightSettings)
 data HighlightSettings = Plain PlainHighlight
                        | Postings PostingsHighlight
                        | FastVector FastVectorHighlight
+                       | Unified UnifiedHighlight
                          deriving (Read, Show, Eq, Generic, Typeable)
 data PlainHighlight =
     PlainHighlight { plainCommon  :: Maybe CommonHighlight
@@ -1524,6 +1526,13 @@ data FastVectorHighlight =
                         , matchedFields     :: [Text]
                         , phraseLimit       :: Maybe Int
                         } deriving (Read, Show, Eq, Generic, Typeable)
+                        
+data UnifiedHighlight =
+    UnifiedHighlight  { uCommon          :: Maybe CommonHighlight
+                      , uNonPostSettings :: Maybe NonPostings
+                      , uBoundaryChars     :: Maybe Text
+                      , uBoundaryMaxScan   :: Maybe Int
+                      } deriving (Read, Show, Eq, Generic, Typeable)
 
 data CommonHighlight =
     CommonHighlight { order             :: Maybe Text
@@ -3746,6 +3755,7 @@ highlightSettingsPairs Nothing = []
 highlightSettingsPairs (Just (Plain plh)) = plainHighPairs (Just plh)
 highlightSettingsPairs (Just (Postings ph)) = postHighPairs (Just ph)
 highlightSettingsPairs (Just (FastVector fvh)) = fastVectorHighPairs (Just fvh)
+highlightSettingsPairs (Just (Unified u)) = unifiedHighPairs (Just u)
 
 
 plainHighPairs :: Maybe PlainHighlight -> [Pair]
@@ -3776,6 +3786,16 @@ fastVectorHighPairs (Just
                         ++ commonHighlightPairs fvCom
                         ++ nonPostingsToPairs fvNonPostSettings
 
+unifiedHighPairs :: Maybe UnifiedHighlight -> [Pair]
+unifiedHighPairs Nothing = []
+unifiedHighPairs (Just 
+                   (UnifiedHighlight uCommon uNonPostSettings uBoundaryChars uBoundaryMaxScan)) =
+                       [ "type" .= String "unified"
+                       , "boundary_chars" .= uBoundaryChars
+                       , "boundary_max_scan" .= uBoundaryMaxScan]
+                       ++ commonHighlightPairs uCommon
+                       ++ nonPostingsToPairs uNonPostSettings
+                       
 deleteSeveral :: (Eq k, Hashable k) => [k] -> HM.HashMap k v -> HM.HashMap k v
 deleteSeveral ks hm = foldr HM.delete hm ks
 
