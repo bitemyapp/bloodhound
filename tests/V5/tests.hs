@@ -1399,7 +1399,7 @@ main = hspec $ do
       _ <- insertData
       _ <- insertOther
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
-      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing] Nothing
+      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 
       let search = mkHighlightSearch (Just query) testHighlight
       myHighlight <- searchTweetHighlight search
@@ -1410,7 +1410,7 @@ main = hspec $ do
       _ <- insertData
       _ <- insertOther
       let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
-      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "user") Nothing] Nothing
+      let testHighlight = Highlights Nothing [FieldHighlight (FieldName "user") Nothing]
 
       let search = mkHighlightSearch (Just query) testHighlight
       myHighlight <- searchTweetHighlight search
