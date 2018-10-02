@@ -51,6 +51,7 @@ module Database.V5.Bloodhound.Types
        , mkExtendedStatsAggregation
        , docVersionNumber
        , toMissing
+       , toCardinality
        , toTerms
        , toDateHistogram
        , toTopHits
@@ -152,6 +153,8 @@ module Database.V5.Bloodhound.Types
        , RegexpFlag(..)
        , FieldName(..)
        , Script(..)
+       , ScriptJ(..)
+       , MissingValue(..)
        , IndexName(..)
        , IndexSelection(..)
        , NodeSelection(..)
@@ -204,6 +207,7 @@ module Database.V5.Bloodhound.Types
        , CutoffFrequency(..)
        , Analyzer(..)
        , Tokenizer(..)
+       , TokenFilter(..)
        , MaxExpansions(..)
        , Lenient(..)
        , MatchQueryType(..)
@@ -336,6 +340,12 @@ module Database.V5.Bloodhound.Types
        , SuggestOptions(..)
        , SuggestResponse(..)
        , NamedSuggestionResponse(..)
+       , DirectGenerators(..)
+       , mkDirectGenerators
+       , DirectGeneratorSuggestModeTypes (..)
+       , Collapse(..)
+       , InnerHit(..)
+       , mkInnerHit
 
        , Aggregation(..)
        , Aggregations
@@ -357,6 +367,7 @@ module Database.V5.Bloodhound.Types
        , DateMathUnit(..)
        , TopHitsAggregation(..)
        , StatisticsAggregation(..)
+       , MaxAggregation(..)
 
        , Highlights(..)
        , FieldHighlight(..)
@@ -364,17 +375,21 @@ module Database.V5.Bloodhound.Types
        , PlainHighlight(..)
        , PostingsHighlight(..)
        , FastVectorHighlight(..)
+       , UnifiedHighlight(..)
        , CommonHighlight(..)
        , NonPostings(..)
        , HighlightEncoder(..)
        , HighlightTag(..)
        , HitHighlight
+       , HitFields
+       , InnerHitResult(..)
 
        , MissingResult(..)
        , TermsResult(..)
        , DateHistogramResult(..)
        , DateRangeResult(..)
        , TopHitResult(..)
+       , CardinalityResult(..)
 
        , EsUsername(..)
        , EsPassword(..)
@@ -382,8 +397,11 @@ module Database.V5.Bloodhound.Types
        , Analysis(..)
        , AnalyzerDefinition(..)
        , TokenizerDefinition(..)
+       , TokenFilterDefinition(..)
        , Ngram(..)
        , TokenChar(..)
+       , Shingle(..)
+       , Language(..)
          ) where
 
 import           Control.Applicative                   as A
@@ -599,32 +617,244 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
 data Analysis = Analysis
   { analysisAnalyzer :: M.Map Text AnalyzerDefinition
   , analysisTokenizer :: M.Map Text TokenizerDefinition
+  , analysisTokenFilter :: M.Map Text TokenFilterDefinition
   } deriving (Eq,Show,Generic,Typeable)
 
 instance ToJSON Analysis where
-  toJSON (Analysis analyzer tokenizer) = object
+  toJSON (Analysis analyzer tokenizer tokenFilter) = object
     [ "analyzer" .= analyzer
     , "tokenizer" .= tokenizer
+    , "filter" .= tokenFilter
     ]
 
 instance FromJSON Analysis where
   parseJSON = withObject "Analysis" $ \m -> Analysis
     <$> m .: "analyzer"
-    <*> m .: "tokenizer"
+    <*> m .:? "tokenizer" .!= M.empty
+    <*> m .:? "filter" .!= M.empty
 
 data AnalyzerDefinition = AnalyzerDefinition
   { analyzerDefinitionTokenizer :: Maybe Tokenizer
+  , analyzerDefinitionFilter :: [TokenFilter]
   } deriving (Eq,Show,Generic,Typeable)
 
 instance ToJSON AnalyzerDefinition where
-  toJSON (AnalyzerDefinition tokenizer) = object $ catMaybes
+  toJSON (AnalyzerDefinition tokenizer tokenFilter) = object $ catMaybes
     [ fmap ("tokenizer" .=) tokenizer
+    , Just $ "filter" .= tokenFilter
     ]
 
 instance FromJSON AnalyzerDefinition where
   parseJSON = withObject "AnalyzerDefinition" $ \m -> AnalyzerDefinition
     <$> m .:? "tokenizer"
+    <*> m .:? "filter" .!= []
   
+-- | Token filters are used to create custom analyzers.
+data TokenFilterDefinition
+  = TokenFilterDefinitionLowercase (Maybe Language)
+  | TokenFilterDefinitionUppercase (Maybe Language)
+  | TokenFilterDefinitionApostrophe
+  | TokenFilterDefinitionReverse
+  | TokenFilterDefinitionSnowball Language
+  | TokenFilterDefinitionShingle Shingle
+  deriving (Eq,Show,Generic)
+
+instance ToJSON TokenFilterDefinition where
+  toJSON x = case x of
+    TokenFilterDefinitionLowercase mlang -> object $ catMaybes
+      [ Just $ "type" .= ("lowercase" :: Text)
+      , fmap (\lang -> "language" .= languageToText lang) mlang
+      ]
+    TokenFilterDefinitionUppercase mlang -> object $ catMaybes
+      [ Just $ "type" .= ("uppercase" :: Text)
+      , fmap (\lang -> "language" .= languageToText lang) mlang
+      ]
+    TokenFilterDefinitionApostrophe -> object
+      [ "type" .= ("apostrophe" :: Text)
+      ]
+    TokenFilterDefinitionReverse -> object
+      [ "type" .= ("reverse" :: Text)
+      ]
+    TokenFilterDefinitionSnowball lang -> object
+      [ "type" .= ("snowball" :: Text)
+      , "language" .= languageToText lang
+      ]
+    TokenFilterDefinitionShingle s -> object
+      [ "type" .= ("shingle" :: Text)
+      , "max_shingle_size" .= shingleMaxSize s
+      , "min_shingle_size" .= shingleMinSize s
+      , "output_unigrams" .= shingleOutputUnigrams s
+      , "output_unigrams_if_no_shingles" .= shingleOutputUnigramsIfNoShingles s
+      , "token_separator" .= shingleTokenSeparator s
+      , "filler_token" .= shingleFillerToken s
+      ]
+
+instance FromJSON TokenFilterDefinition where
+  parseJSON = withObject "TokenFilterDefinition" $ \m -> do
+    t <- m .: "type"
+    case (t :: Text) of
+      "reverse" -> return TokenFilterDefinitionReverse
+      "apostrophe" -> return TokenFilterDefinitionApostrophe
+      "lowercase" -> TokenFilterDefinitionLowercase
+        <$> m .:? "language"
+      "uppercase" -> TokenFilterDefinitionUppercase
+        <$> m .:? "language"
+      "snowball" -> TokenFilterDefinitionSnowball
+        <$> m .: "language"
+      "shingle" -> fmap TokenFilterDefinitionShingle $ Shingle
+        <$> (fmap.fmap) unStringlyTypedInt (m .:? "max_shingle_size") .!= 2
+        <*> (fmap.fmap) unStringlyTypedInt (m .:? "min_shingle_size") .!= 2
+        <*> (fmap.fmap) unStringlyTypedBool (m .:? "output_unigrams") .!= True
+        <*> (fmap.fmap) unStringlyTypedBool (m .:? "output_unigrams_if_no_shingles") .!= False
+        <*> m .:? "token_separator" .!= " "
+        <*> m .:? "filler_token" .!= "_"
+      _ -> fail ("unrecognized token filter type: " ++ T.unpack t)
+
+-- | The set of languages that can be passed to various analyzers,
+--   filters, etc. in ElasticSearch. Most data types in this module
+--   that have a 'Language' field are actually only actually to
+--   handle a subset of these languages. Consult the official
+--   ElasticSearch documentation to see what is actually supported.
+data Language
+  = Arabic
+  | Armenian
+  | Basque
+  | Bengali
+  | Brazilian
+  | Bulgarian
+  | Catalan
+  | Cjk
+  | Czech
+  | Danish
+  | Dutch
+  | English
+  | Finnish
+  | French
+  | Galician
+  | German
+  | German2
+  | Greek
+  | Hindi
+  | Hungarian
+  | Indonesian
+  | Irish
+  | Italian
+  | Kp
+  | Latvian
+  | Lithuanian
+  | Lovins
+  | Norwegian
+  | Persian
+  | Porter
+  | Portuguese
+  | Romanian
+  | Russian
+  | Sorani
+  | Spanish
+  | Swedish
+  | Thai
+  | Turkish
+  deriving (Show,Eq,Generic)
+
+instance ToJSON Language where
+  toJSON = Data.Aeson.String . languageToText
+
+instance FromJSON Language where
+  parseJSON = withText "Language" $ \t -> case languageFromText t of
+    Nothing -> fail "not a supported ElasticSearch language"
+    Just lang -> return lang
+
+languageToText :: Language -> Text
+languageToText x = case x of
+  Arabic -> "arabic"
+  Armenian -> "armenian"
+  Basque -> "basque"
+  Bengali -> "bengali"
+  Brazilian -> "brazilian"
+  Bulgarian -> "bulgarian"
+  Catalan -> "catalan"
+  Cjk -> "cjk"
+  Czech -> "czech"
+  Danish -> "danish"
+  Dutch -> "dutch"
+  English -> "english"
+  Finnish -> "finnish"
+  French -> "french"
+  Galician -> "galician"
+  German -> "german"
+  German2 -> "german2"
+  Greek -> "greek"
+  Hindi -> "hindi"
+  Hungarian -> "hungarian"
+  Indonesian -> "indonesian"
+  Irish -> "irish"
+  Italian -> "italian"
+  Kp -> "kp"
+  Latvian -> "latvian"
+  Lithuanian -> "lithuanian"
+  Lovins -> "lovins"
+  Norwegian -> "norwegian"
+  Persian -> "persian"
+  Porter -> "porter"
+  Portuguese -> "portuguese"
+  Romanian -> "romanian"
+  Russian -> "russian"
+  Sorani -> "sorani"
+  Spanish -> "spanish"
+  Swedish -> "swedish"
+  Thai -> "thai"
+  Turkish -> "turkish"
+
+languageFromText :: Text -> Maybe Language
+languageFromText x = case x of
+  "arabic" -> Just Arabic
+  "armenian" -> Just Armenian
+  "basque" -> Just Basque
+  "bengali" -> Just Bengali
+  "brazilian" -> Just Brazilian
+  "bulgarian" -> Just Bulgarian
+  "catalan" -> Just Catalan
+  "cjk" -> Just Cjk
+  "czech" -> Just Czech
+  "danish" -> Just Danish
+  "dutch" -> Just Dutch
+  "english" -> Just English
+  "finnish" -> Just Finnish
+  "french" -> Just French
+  "galician" -> Just Galician
+  "german" -> Just German
+  "german2" -> Just German2
+  "greek" -> Just Greek
+  "hindi" -> Just Hindi
+  "hungarian" -> Just Hungarian
+  "indonesian" -> Just Indonesian
+  "irish" -> Just Irish
+  "italian" -> Just Italian
+  "kp" -> Just Kp
+  "latvian" -> Just Latvian
+  "lithuanian" -> Just Lithuanian
+  "lovins" -> Just Lovins
+  "norwegian" -> Just Norwegian
+  "persian" -> Just Persian
+  "porter" -> Just Porter
+  "portuguese" -> Just Portuguese
+  "romanian" -> Just Romanian
+  "russian" -> Just Russian
+  "sorani" -> Just Sorani
+  "spanish" -> Just Spanish
+  "swedish" -> Just Swedish
+  "thai" -> Just Thai
+  "turkish" -> Just Turkish
+  _ -> Nothing
+
+data Shingle = Shingle
+  { shingleMaxSize :: Int
+  , shingleMinSize :: Int
+  , shingleOutputUnigrams :: Bool
+  , shingleOutputUnigramsIfNoShingles :: Bool
+  , shingleTokenSeparator :: Text
+  , shingleFillerToken :: Text
+  } deriving (Eq,Show,Generic,Typeable)
 
 data TokenizerDefinition
   = TokenizerDefinitionNgram Ngram
@@ -966,14 +1196,16 @@ defaultIndexDocumentSettings = IndexDocumentSettings NoVersionControl Nothing
 -}
 type Sort = [SortSpec]
 
-{-| The two main kinds of 'SortSpec' are 'DefaultSortSpec' and
+{-| The main kinds of 'SortSpec' are 'DefaultSortSpec', 'ScriptSortSpec' and
     'GeoDistanceSortSpec'. The latter takes a 'SortOrder', 'GeoPoint', and
     'DistanceUnit' to express "nearness" to a single geographical point as a
-    sort specification.
+    sort specification. The script option takes a 'ScriptJ' JSON value to allow 
+    for freeform scripting.
 
 <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 -}
 data SortSpec = DefaultSortSpec DefaultSort
+              | ScriptSortSpec ScriptJ (Maybe SortOrder)
               | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Read, Show, Generic, Typeable)
 
 {-| 'DefaultSort' is usually the kind of 'SortSpec' you'll want. There's a
@@ -1107,11 +1339,16 @@ newtype QueryString = QueryString Text deriving (Eq, Generic, Read, Show, ToJSON
 -}
 newtype FieldName = FieldName Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
+{-| 'MissingValue' is used together with 'FieldName' to specify value for 
+     documents where specified field is empty.
+-}
+newtype MissingValue = MissingValue Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
 {-| 'Script' is often used in place of 'FieldName' to specify more
 complex ways of extracting a value from a document.
 -}
 newtype Script = Script { scriptText :: Text } deriving (Eq, Read, Show, Generic, Typeable)
+newtype ScriptJ = ScriptJ { scriptJson :: Value } deriving (Eq, Read, Show, Generic, Typeable)
 
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
@@ -1132,6 +1369,8 @@ newtype Analyzer =
   Analyzer Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype Tokenizer =
   Tokenizer Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
+newtype TokenFilter =
+  TokenFilter Text deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 newtype MaxExpansions =
   MaxExpansions Int deriving (Eq, Read, Show, Generic, ToJSON, FromJSON, Typeable)
 
@@ -1236,6 +1475,7 @@ data Search = Search { queryBody       :: Maybe Query
                      , fields          :: Maybe [FieldName]
                      , source          :: Maybe Source
                      , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
+                     , collapse        :: Maybe Collapse
                      } deriving (Eq, Read, Show, Generic, Typeable)
 
 data SearchType = SearchTypeQueryThenFetch
@@ -1267,6 +1507,7 @@ data FieldHighlight = FieldHighlight FieldName (Maybe HighlightSettings)
 data HighlightSettings = Plain PlainHighlight
                        | Postings PostingsHighlight
                        | FastVector FastVectorHighlight
+                       | Unified UnifiedHighlight
                          deriving (Read, Show, Eq, Generic, Typeable)
 data PlainHighlight =
     PlainHighlight { plainCommon  :: Maybe CommonHighlight
@@ -1285,6 +1526,13 @@ data FastVectorHighlight =
                         , matchedFields     :: [Text]
                         , phraseLimit       :: Maybe Int
                         } deriving (Read, Show, Eq, Generic, Typeable)
+                        
+data UnifiedHighlight =
+    UnifiedHighlight  { uCommon          :: Maybe CommonHighlight
+                      , uNonPostSettings :: Maybe NonPostings
+                      , uBoundaryChars     :: Maybe Text
+                      , uBoundaryMaxScan   :: Maybe Int
+                      } deriving (Read, Show, Eq, Generic, Typeable)
 
 data CommonHighlight =
     CommonHighlight { order             :: Maybe Text
@@ -1413,6 +1661,9 @@ data QueryStringQuery =
   , queryStringMinimumShouldMatch       :: Maybe MinimumMatch
   , queryStringLenient                  :: Maybe Lenient
   , queryStringLocale                   :: Maybe Locale
+  , queryStringFields                   :: [FieldName]
+  , queryStringTiebreaker               :: Maybe Tiebreaker
+  , queryStringQueryType                :: Maybe MultiMatchQueryType
   } deriving (Eq, Read, Show, Generic, Typeable)
 
 mkQueryStringQuery :: QueryString -> QueryStringQuery
@@ -1421,7 +1672,8 @@ mkQueryStringQuery qs =
   Nothing Nothing Nothing Nothing
   Nothing Nothing Nothing Nothing
   Nothing Nothing Nothing Nothing
-  Nothing Nothing
+  Nothing Nothing [] Nothing
+  Nothing
 
 data FieldOrFields = FofField   FieldName
                    | FofFields (NonEmpty FieldName) deriving (Eq, Read, Show, Generic, Typeable)
@@ -1819,7 +2071,10 @@ data Hit a =
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
-      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Read, Show, Generic, Typeable)
+      , hitHighlight :: Maybe HitHighlight 
+      , hitFields    :: Maybe HitFields
+      , hitInnerHits :: Maybe (M.Map Text (InnerHitResult a))
+      } deriving (Eq, Read, Show, Generic, Typeable)
 
 data ShardResult =
   ShardResult { shardTotal       :: Int
@@ -1827,6 +2082,10 @@ data ShardResult =
               , shardsFailed     :: Int } deriving (Eq, Read, Show, Generic, Typeable)
 
 type HitHighlight = M.Map Text [Text]
+type HitFields = M.Map Text [Text]
+
+newtype InnerHitResult a = InnerHitResult { unInnerHitResult :: SearchHits a }
+    deriving (Eq, Read, Show, Generic, Typeable)
 
 showText :: Show a => a -> Text
 showText = T.pack . show
@@ -1886,12 +2145,15 @@ data Aggregation = TermsAgg TermsAggregation
                  | MissingAgg MissingAggregation
                  | TopHitsAgg TopHitsAggregation
                  | StatsAgg StatisticsAggregation
+                 | MaxAgg MaxAggregation
   deriving (Eq, Read, Show, Generic, Typeable)
 
 data TopHitsAggregation = TopHitsAggregation
-  { taFrom :: Maybe From
-  , taSize :: Maybe Size
-  , taSort :: Maybe Sort
+  { taFrom      :: Maybe From
+  , taSize      :: Maybe Size
+  , taSort      :: Maybe Sort
+  , taSource    :: Maybe Source
+  , taHighlight :: Maybe Highlights
   } deriving (Eq, Read, Show)
 
 data MissingAggregation = MissingAggregation
@@ -1959,6 +2221,12 @@ data DateMathUnit = DMYear
 data ValueCountAggregation = FieldValueCount FieldName
                            | ScriptValueCount Script deriving (Eq, Read, Show, Generic, Typeable)
 
+-- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-max-aggregation.html> for more information.                           
+data MaxAggregation = FieldMax FieldName (Maybe MissingValue)
+                    | ScriptMax ScriptJ
+                    | FieldScriptMax FieldName ScriptJ (Maybe MissingValue)
+                      deriving (Eq, Read, Show, Generic, Typeable)                    
+                      
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
 data FilterAggregation = FilterAggregation { faFilter :: Filter
                                            , faAggs   :: Maybe Aggregations} deriving (Eq, Read, Show, Generic, Typeable)
@@ -2098,6 +2366,17 @@ instance ToJSON Aggregation where
     where v = case a of
                 (FieldValueCount (FieldName n)) -> object ["field" .= n]
                 (ScriptValueCount (Script s))   -> object ["script" .= s]
+  toJSON (MaxAgg a) = object ["max" .= v]
+    where v = case a of
+                (FieldMax (FieldName n) mv) -> omitNulls [ "field"   .= n,
+                                                           "missing" .= mv
+                                                         ]
+                (ScriptMax (ScriptJ s))      -> object   [ "script"  .= s ] 
+                (FieldScriptMax (FieldName n) (ScriptJ s) mv) -> 
+                                               omitNulls [ "field"   .= n
+                                                         , "script"  .= s
+                                                         , "missing" .= mv
+                                                         ]               
   toJSON (FilterAgg (FilterAggregation filt ags)) =
     omitNulls [ "filter" .= filt
               , "aggs" .= ags]
@@ -2106,10 +2385,12 @@ instance ToJSON Aggregation where
   toJSON (MissingAgg (MissingAggregation{..})) =
     object ["missing" .= object ["field" .= maField]]
 
-  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort)) =
-    omitNulls ["top_hits" .= omitNulls [ "size" .= msize
-                                       , "from" .= mfrom
-                                       , "sort" .= msort
+  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort msource mhighlight)) =
+    omitNulls ["top_hits" .= omitNulls [ "size"      .= msize
+                                       , "from"      .= mfrom
+                                       , "sort"      .= msort
+                                       , "_source"   .= msource
+                                       , "highlight" .= mhighlight
                                        ]
               ]
 
@@ -2163,6 +2444,9 @@ data BucketValue = TextValue Text
 
 data MissingResult = MissingResult { missingDocCount :: Int } deriving (Show)
 
+data CardinalityResult = CardinalityResult { cardinalityValue :: Int 
+                                           } deriving (Show)
+
 data TopHitResult a = TopHitResult { tarHits :: (SearchHits a)
                                    } deriving Show
 
@@ -2191,6 +2475,9 @@ toDateHistogram = toAggResult
 
 toMissing :: Text -> AggregationResults -> Maybe MissingResult
 toMissing = toAggResult
+
+toCardinality :: Text -> AggregationResults -> Maybe CardinalityResult
+toCardinality = toAggResult
 
 toTopHits :: (FromJSON a) => Text -> AggregationResults -> Maybe (TopHitResult a)
 toTopHits = toAggResult
@@ -2229,6 +2516,11 @@ instance FromJSON MissingResult where
   parseJSON = withObject "MissingResult" parse
     where parse v = MissingResult <$> v .: "doc_count"
 
+instance FromJSON CardinalityResult where
+  parseJSON (Object v) = CardinalityResult <$> 
+                           v .: "value"
+  parseJSON _ = mempty
+  
 instance FromJSON TermsResult where
   parseJSON (Object v) = TermsResult        <$>
                          v .:   "key"       <*>
@@ -2553,7 +2845,9 @@ instance ToJSON QueryStringQuery where
           qsFuzzyPrefixLength qsPhraseSlop
           qsBoost qsAnalyzeWildcard
           qsGeneratePhraseQueries qsMinimumShouldMatch
-          qsLenient qsLocale) =
+          qsLenient qsLocale
+          qsFields qsTiebreaker
+          qsType) =
     omitNulls base
     where
       base = [ "query" .= qsQueryString
@@ -2572,7 +2866,10 @@ instance ToJSON QueryStringQuery where
              , "auto_generate_phrase_queries" .= qsGeneratePhraseQueries
              , "minimum_should_match" .= qsMinimumShouldMatch
              , "lenient" .= qsLenient
-             , "locale" .= qsLocale ]
+             , "locale" .= qsLocale 
+             , "fields" .= fmap toJSON qsFields
+             , "tie_breaker" .= qsTiebreaker
+             , "type" .= qsType ]
 
 instance FromJSON QueryStringQuery where
   parseJSON = withObject "QueryStringQuery" parse
@@ -2594,6 +2891,9 @@ instance FromJSON QueryStringQuery where
                     <*> o .:? "minimum_should_match"
                     <*> o .:? "lenient"
                     <*> o .:? "locale"
+                    <*> o .:? "fields" .!= []
+                    <*> o .:? "tie_breaker"
+                    <*> o .:? "type"
 
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) range boost) =
@@ -3398,7 +3698,8 @@ instance FromJSON SearchAliasRouting where
     where parse t = SearchAliasRouting <$> parseNEJSON (String <$> T.splitOn "," t)
 
 instance ToJSON Search where
-  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores sFrom sSize _ sFields sSource sSuggest) =
+  toJSON (Search mquery sFilter sort searchAggs highlight sTrackSortScores 
+          sFrom sSize _ sFields sSource sSuggest sCollapse) =
     omitNulls [ "query"        .= query'
               , "sort"         .= sort
               , "aggregations" .= searchAggs
@@ -3408,7 +3709,9 @@ instance ToJSON Search where
               , "track_scores" .= sTrackSortScores
               , "fields"       .= sFields
               , "_source"      .= sSource
-              , "suggest"      .= sSuggest]
+              , "suggest"      .= sSuggest
+              , "collapse"     .= sCollapse
+              ]
 
     where query' = case sFilter of
                     Nothing -> mquery
@@ -3452,6 +3755,7 @@ highlightSettingsPairs Nothing = []
 highlightSettingsPairs (Just (Plain plh)) = plainHighPairs (Just plh)
 highlightSettingsPairs (Just (Postings ph)) = postHighPairs (Just ph)
 highlightSettingsPairs (Just (FastVector fvh)) = fastVectorHighPairs (Just fvh)
+highlightSettingsPairs (Just (Unified u)) = unifiedHighPairs (Just u)
 
 
 plainHighPairs :: Maybe PlainHighlight -> [Pair]
@@ -3482,6 +3786,16 @@ fastVectorHighPairs (Just
                         ++ commonHighlightPairs fvCom
                         ++ nonPostingsToPairs fvNonPostSettings
 
+unifiedHighPairs :: Maybe UnifiedHighlight -> [Pair]
+unifiedHighPairs Nothing = []
+unifiedHighPairs (Just 
+                   (UnifiedHighlight uCommon uNonPostSettings uBoundaryChars uBoundaryMaxScan)) =
+                       [ "type" .= String "unified"
+                       , "boundary_chars" .= uBoundaryChars
+                       , "boundary_max_scan" .= uBoundaryMaxScan]
+                       ++ commonHighlightPairs uCommon
+                       ++ nonPostingsToPairs uNonPostSettings
+                       
 deleteSeveral :: (Eq k, Hashable k) => [k] -> HM.HashMap k v -> HM.HashMap k v
 deleteSeveral ks hm = foldr HM.delete hm ks
 
@@ -3495,7 +3809,7 @@ commonHighlightPairs (Just (CommonHighlight chScore chForceSource chTag chEncode
     , "encoder" .= chEncoder
     , "no_match_size" .= chNoMatchSize
     , "highlight_query" .= chHighlightQuery
-    , "require_fieldMatch" .= chRequireFieldMatch]
+    , "require_field_match" .= chRequireFieldMatch]
     ++ highlightTagToPairs chTag
 
 
@@ -3531,6 +3845,10 @@ instance ToJSON SortSpec where
              , "missing" .= dsMissingSort
              , "nested_filter" .= dsNestedFilter ]
 
+  toJSON (ScriptSortSpec (ScriptJ sj) ssSortOrder) =
+    omitNulls [ "_script" .= sj
+              , "order"   .= ssSortOrder ]
+    
   toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
     object [ "unit" .= units
            , field .= gdsLatLon
@@ -3778,10 +4096,12 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:  "_type"    <*>
                          v .:  "_id"      <*>
                          v .:  "_score"   <*>
-                         v .:?  "_source" <*>
-                         v .:? "highlight"
+                         v .:? "_source"  <*>
+                         v .:? "highlight" <*>
+                         v .:? "fields"   <*>
+                         v .:? "inner_hits"
   parseJSON _          = empty
-
+  
 instance FromJSON ShardResult where
   parseJSON (Object v) = ShardResult       <$>
                          v .: "total"      <*>
@@ -3789,6 +4109,10 @@ instance FromJSON ShardResult where
                          v .: "failed"
   parseJSON _          = empty
 
+instance (FromJSON a) => FromJSON (InnerHitResult a) where
+  parseJSON (Object v) = InnerHitResult <$>
+                         v .: "hits"
+  parseJSON _ = empty
 
 instance FromJSON DocVersion where
   parseJSON v = do
@@ -4776,6 +5100,11 @@ newtype StringlyTypedInt = StringlyTypedInt { unStringlyTypedInt :: Int }
 instance FromJSON StringlyTypedInt where
   parseJSON = fmap StringlyTypedInt . parseJSON . unStringlyTypeJSON
 
+newtype StringlyTypedBool = StringlyTypedBool { unStringlyTypedBool :: Bool }
+
+instance FromJSON StringlyTypedBool where
+  parseJSON = fmap StringlyTypedBool . parseJSON . unStringlyTypeJSON
+
 instance FromJSON NodeFSTotalStats where
   parseJSON = withObject "NodeFSTotalStats" parse
     where
@@ -5293,6 +5622,7 @@ data PhraseSuggester =
                   , phraseSuggesterShardSize :: Maybe Int
                   , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
                   , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
+                  , phraseSuggesterCandidateGenerators :: [DirectGenerators]
                   }
   deriving (Show, Generic, Eq, Read)
 
@@ -5308,6 +5638,7 @@ instance ToJSON PhraseSuggester where
                                          , "shard_size" .= phraseSuggesterShardSize
                                          , "highlight" .= phraseSuggesterHighlight
                                          , "collate" .= phraseSuggesterCollate
+                                         , "direct_generator" .= phraseSuggesterCandidateGenerators
                                         ]
 
 instance FromJSON PhraseSuggester where
@@ -5324,11 +5655,12 @@ instance FromJSON PhraseSuggester where
                       <*> o .:? "shard_size"
                       <*> o .:? "highlight"
                       <*> o .:? "collate"
+                      <*> o .:? "direct_generator" .!= []
 
 mkPhraseSuggester :: FieldName -> PhraseSuggester
 mkPhraseSuggester fName =
   PhraseSuggester fName Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing []
 
 data PhraseSuggesterHighlighter =
   PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
@@ -5418,3 +5750,102 @@ instance FromJSON NamedSuggestionResponse where
     return $ NamedSuggestionResponse suggestionName' suggestionResponses'
 
   parseJSON x = typeMismatch "NamedSuggestionResponse" x
+
+data DirectGeneratorSuggestModeTypes = DirectGeneratorSuggestModeMissing
+                                | DirectGeneratorSuggestModePopular
+                                | DirectGeneratorSuggestModeAlways
+  deriving (Show, Eq, Read, Generic)
+
+instance ToJSON DirectGeneratorSuggestModeTypes where
+  toJSON DirectGeneratorSuggestModeMissing = "missing"
+  toJSON DirectGeneratorSuggestModePopular = "popular"
+  toJSON DirectGeneratorSuggestModeAlways = "always"
+
+instance FromJSON DirectGeneratorSuggestModeTypes where
+  parseJSON = withText "DirectGeneratorSuggestModeTypes" parse
+    where parse "missing"        = pure DirectGeneratorSuggestModeMissing
+          parse "popular"       = pure DirectGeneratorSuggestModePopular
+          parse "always"        = pure DirectGeneratorSuggestModeAlways
+          parse f            = fail ("Unexpected DirectGeneratorSuggestModeTypes: " <> show f)
+
+data DirectGenerators = DirectGenerators
+  { directGeneratorsField :: FieldName
+  , directGeneratorsSize :: Maybe Int
+  , directGeneratorSuggestMode :: DirectGeneratorSuggestModeTypes
+  , directGeneratorMaxEdits :: Maybe Double
+  , directGeneratorPrefixLength :: Maybe Int
+  , directGeneratorMinWordLength :: Maybe Int
+  , directGeneratorMaxInspections :: Maybe Int
+  , directGeneratorMinDocFreq :: Maybe Double
+  , directGeneratorMaxTermFreq :: Maybe Double
+  , directGeneratorPreFilter :: Maybe Text
+  , directGeneratorPostFilter :: Maybe Text
+  }
+  deriving (Show, Eq, Read, Generic)
+
+
+instance ToJSON DirectGenerators where
+  toJSON DirectGenerators{..} = omitNulls [ "field" .= directGeneratorsField
+                                         , "size" .= directGeneratorsSize
+                                         , "suggest_mode" .= directGeneratorSuggestMode
+                                         , "max_edits" .= directGeneratorMaxEdits
+                                         , "prefix_length" .= directGeneratorPrefixLength
+                                         , "min_word_length" .= directGeneratorMinWordLength
+                                         , "max_inspections" .= directGeneratorMaxInspections
+                                         , "min_doc_freq" .= directGeneratorMinDocFreq
+                                         , "max_term_freq" .= directGeneratorMaxTermFreq
+                                         , "pre_filter" .= directGeneratorPreFilter
+                                         , "post_filter" .= directGeneratorPostFilter
+                                        ]
+
+instance FromJSON DirectGenerators where
+  parseJSON = withObject "DirectGenerators" parse
+    where parse o = DirectGenerators
+                      <$> o .: "field"
+                      <*> o .:? "size"
+                      <*> o .:  "suggest_mode"
+                      <*> o .:? "max_edits"
+                      <*> o .:? "prefix_length"
+                      <*> o .:? "min_word_length"
+                      <*> o .:? "max_inspections"
+                      <*> o .:? "min_doc_freq"
+                      <*> o .:? "max_term_freq"
+                      <*> o .:? "pre_filter"
+                      <*> o .:? "post_filter"
+
+mkDirectGenerators :: FieldName -> DirectGenerators
+mkDirectGenerators fn = DirectGenerators fn Nothing DirectGeneratorSuggestModeMissing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing 
+
+data Collapse = Collapse { collapseField         :: FieldName
+                         , collapseInnerHit      :: Maybe [InnerHit]
+                         , collapseMaxConcurrent :: Maybe Int 
+                         } deriving (Eq, Read, Show, Generic, Typeable)
+                         
+data InnerHit = InnerHit { innerHitName      :: Text
+                         , innerHitFrom      :: Maybe From
+                         , innerHitSize      :: Maybe Size
+                         , innerHitSort      :: Maybe Sort
+                         , innerHitHighlight :: Maybe Highlights
+                         , innerHitSource    :: Maybe Source
+                         } deriving (Eq, Read, Show, Generic, Typeable)
+
+mkInnerHit :: Text -> InnerHit
+mkInnerHit name = InnerHit name Nothing Nothing Nothing Nothing Nothing
+                         
+instance ToJSON Collapse where
+  toJSON Collapse{..} = 
+    omitNulls [ "field"      .= collapseField
+              , "inner_hits" .= fmap toJSON collapseInnerHit
+              , "max_concurrent_group_searches" .= collapseMaxConcurrent
+              ]
+                                  
+instance ToJSON InnerHit where
+  toJSON InnerHit{..} = omitNulls [ "name"      .= innerHitName
+                                  , "from"      .= innerHitFrom
+                                  , "size"      .= innerHitSize
+                                  , "sort"      .= innerHitSort
+                                  , "highlight" .= innerHitHighlight
+                                  , "_source"   .= innerHitSource
+                                  ]
+                      
+                      

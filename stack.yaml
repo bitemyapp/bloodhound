@@ -1,6 +1,7 @@
 flags:
   bloodhound-examples:
     werror: true
+
 packages:
 - '.'
 - './examples'

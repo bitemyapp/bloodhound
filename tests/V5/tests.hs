@@ -599,6 +599,8 @@ instance ApproxEq Char where
   (=~) = (==)
 instance ApproxEq Vers.Version where
   (=~) = (==)
+instance (ApproxEq a, Show a, ApproxEq b, Show b) => ApproxEq (a,b) where
+  (a1,b1) =~ (a2,b2) = a1 =~ a2 && b1 =~ b2
 instance (ApproxEq a, Show a) => ApproxEq [a] where
   as =~ bs = and (zipWith (=~) as bs)
 instance (ApproxEq l, Show l, ApproxEq r, Show r) => ApproxEq (Either l r) where
@@ -614,11 +616,39 @@ instance ApproxEq TemplateQueryKeyValuePairs where
   (=~) = (==)
 instance ApproxEq TemplateQueryInline
 instance ApproxEq Size
+instance ApproxEq From
+instance ApproxEq SortSpec where
+  ScriptSortSpec _ _ =~ ScriptSortSpec _ _ = True -- json values are ignored for ApproxEq, always return True
+  x =~ y = x =~ y
+instance ApproxEq DefaultSort 
+instance ApproxEq SortOrder
+instance ApproxEq SortMode
+instance ApproxEq Highlights
+instance ApproxEq HighlightSettings
+instance ApproxEq PlainHighlight
+instance ApproxEq FieldHighlight
+instance ApproxEq CommonHighlight
+instance ApproxEq PostingsHighlight
+instance ApproxEq Source
+instance ApproxEq PatternOrPatterns
+instance ApproxEq Missing
 instance ApproxEq PhraseSuggesterHighlighter
 instance ApproxEq PhraseSuggesterCollate
 instance ApproxEq PhraseSuggester
 instance ApproxEq SuggestType
 instance ApproxEq Suggest
+instance ApproxEq DirectGenerators
+instance ApproxEq DirectGeneratorSuggestModeTypes
+instance ApproxEq Collapse
+instance ApproxEq InnerHit
+instance ApproxEq Pattern
+instance ApproxEq Include
+instance ApproxEq FastVectorHighlight
+instance ApproxEq UnifiedHighlight
+instance ApproxEq NonPostings
+instance ApproxEq HighlightTag
+instance ApproxEq Exclude
+instance ApproxEq HighlightEncoder
 
 -- | Due to the way nodeattrfilters get serialized here, they may come
 -- out in a different order, but they are morally equivalent
@@ -674,8 +704,13 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> arbitraryScore
                   <*> arbitrary
                   <*> arbitrary
+                  <*> arbitrary
+                  <*> arbitrary
   shrink = genericShrink
 
+instance (Arbitrary a, Typeable a) => Arbitrary (InnerHitResult a) where
+  arbitrary = InnerHitResult <$> arbitrary
+  shrink = genericShrink
 
 instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
@@ -729,12 +764,24 @@ instance Arbitrary FieldName where
   shrink = genericShrink
 
 
+#if MIN_VERSION_base(4,10,0)
+-- Test.QuickCheck.Modifiers
+
+qcNonEmptyToNonEmpty :: NonEmptyList a -> NonEmpty a
+qcNonEmptyToNonEmpty (NonEmpty (a : xs)) = (a :| xs)
+qcNonEmptyToNonEmpty (NonEmpty []) = error "NonEmpty was empty!"
+
+instance Arbitrary a => Arbitrary (NonEmpty a) where
+  arbitrary = qcNonEmptyToNonEmpty <$> arbitrary
+#endif
+
 instance Arbitrary RegexpFlags where
   arbitrary = oneof [ pure AllRegexpFlags
                     , pure NoRegexpFlags
                     , SomeRegexpFlags <$> genUniqueFlags
                     ]
     where genUniqueFlags = NE.fromList . nub <$> listOf1 arbitrary
+
   shrink = genericShrink
 
 
@@ -807,6 +854,12 @@ instance Arbitrary VersionNumber where
 instance Arbitrary TemplateQueryKeyValuePairs where
   arbitrary = TemplateQueryKeyValuePairs . HM.fromList <$> arbitrary
   shrink (TemplateQueryKeyValuePairs x) = map (TemplateQueryKeyValuePairs . HM.fromList) . shrink $ HM.toList x
+  
+instance Arbitrary SortSpec where 
+  arbitrary = oneof [DefaultSortSpec <$> arbitrary,GeoDistanceSortSpec <$> arbitrary <*> arbitrary <*> arbitrary]
+  shrink (ScriptSortSpec _ _) = []
+  shrink (DefaultSortSpec ds) = shrink $ DefaultSortSpec ds
+  shrink (GeoDistanceSortSpec a b c) = shrink $ GeoDistanceSortSpec a b c
 
 instance Arbitrary IndexName where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary MappingName where arbitrary = sopArbitrary; shrink = genericShrink
@@ -911,8 +964,12 @@ instance Arbitrary TokenChar where arbitrary = sopArbitrary; shrink = genericShr
 instance Arbitrary Ngram where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary TokenizerDefinition where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary AnalyzerDefinition where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary TokenFilterDefinition where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Shingle where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Language where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Analysis where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Tokenizer where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary TokenFilter where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary UpdatableIndexSetting where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Compression where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Bytes where arbitrary = sopArbitrary; shrink = genericShrink
@@ -926,9 +983,34 @@ instance Arbitrary TemplateQueryInline where arbitrary = sopArbitrary; shrink = 
 instance Arbitrary PhraseSuggesterCollate where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary PhraseSuggesterHighlighter where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Size where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary From where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary DefaultSort where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary SortOrder where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary SortMode where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Highlights where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary HighlightSettings where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PlainHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FieldHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary CommonHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PostingsHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Source where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary PatternOrPatterns where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Missing where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary PhraseSuggester where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary SuggestType where arbitrary = sopArbitrary; shrink = genericShrink
 instance Arbitrary Suggest where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary DirectGenerators where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary DirectGeneratorSuggestModeTypes where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Collapse where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary InnerHit where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Pattern where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Include where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary HighlightTag where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary NonPostings where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary FastVectorHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary UnifiedHighlight where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary Exclude where arbitrary = sopArbitrary; shrink = genericShrink
+instance Arbitrary HighlightEncoder where arbitrary = sopArbitrary; shrink = genericShrink
 
 newtype UpdatableIndexSetting' = UpdatableIndexSetting' UpdatableIndexSetting
                                deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
@@ -944,6 +1026,7 @@ instance Arbitrary UpdatableIndexSetting' where
     where
       dropDuplicateAttrNames = NE.fromList . L.nubBy sameAttrName . NE.toList
       sameAttrName a b = nodeAttrFilterName a == nodeAttrFilterName b
+  shrink (UpdatableIndexSetting' x) = map UpdatableIndexSetting' (genericShrink x)
 
 main :: IO ()
 main = hspec $ do
@@ -1171,7 +1254,7 @@ main = hspec $ do
       let search = Search Nothing
                    Nothing (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing
-                   Nothing
+                   Nothing Nothing
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $
@@ -1588,9 +1671,9 @@ main = hspec $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
         liftIO $ validateStatus resp 200
-        deleteIndexAlias aname
+        _ <- deleteIndexAlias aname
         getIndexAliases
-      let expected = IndexAliasSummary alias create
+      --let expected = IndexAliasSummary alias create
       case aliases of
         Right (IndexAliasesSummary summs) ->
           L.find ((== aname) . indexAlias . indexAliasSummaryAlias) summs `shouldBe` Nothing
@@ -1632,11 +1715,30 @@ main = hspec $ do
     it "accepts customer analyzers" $ when' (atleast es50) $ withTestEnv $ do
       _ <- deleteExampleIndex
       let analysis = Analysis
-            (M.singleton "ex_analyzer" (AnalyzerDefinition (Just (Tokenizer "ex_tokenizer"))))
+            (M.singleton "ex_analyzer"
+              ( AnalyzerDefinition
+                (Just (Tokenizer "ex_tokenizer"))
+                (map TokenFilter
+                  [ "ex_filter_lowercase","ex_filter_uppercase","ex_filter_apostrophe"
+                  , "ex_filter_reverse","ex_filter_snowball"
+                  , "ex_filter_shingle"
+                  ]
+                )
+              )
+            )
             (M.singleton "ex_tokenizer"
               ( TokenizerDefinitionNgram
                 ( Ngram 3 4 [TokenLetter,TokenDigit])
               )
+            )
+            (M.fromList
+              [ ("ex_filter_lowercase",TokenFilterDefinitionLowercase (Just Greek))
+              , ("ex_filter_uppercase",TokenFilterDefinitionUppercase Nothing)
+              , ("ex_filter_apostrophe",TokenFilterDefinitionApostrophe)
+              , ("ex_filter_reverse",TokenFilterDefinitionReverse)
+              , ("ex_filter_snowball",TokenFilterDefinitionSnowball English)
+              , ("ex_filter_shingle",TokenFilterDefinitionShingle (Shingle 3 3 True False " " "_"))
+              ]
             )
           updates = [AnalysisSetting analysis]
       createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
@@ -1793,6 +1895,8 @@ main = hspec $ do
     propJSON (Proxy :: Proxy CompoundFormat)
     propJSON (Proxy :: Proxy TemplateQueryInline)
     propJSON (Proxy :: Proxy Suggest)
+    propJSON (Proxy :: Proxy DirectGenerators)
+    propJSON (Proxy :: Proxy DirectGeneratorSuggestModeTypes)
 
 -- Temporary solution for lacking of generic derivation of Arbitrary
 -- We use generics-sop, as it's much more concise than directly using GHC.Generics
