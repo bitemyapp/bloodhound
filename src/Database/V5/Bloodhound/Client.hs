@@ -913,9 +913,9 @@ encodeBulkOperation (BulkDelete (IndexName indexName)
 
 encodeBulkOperation (BulkUpdate (IndexName indexName)
                 (MappingName mappingName)
-                (DocId docId) value) = blob
+                (DocId docId) value upsert) = blob
     where metadata = mkBulkStreamValue "update" indexName mappingName docId
-          doc = object ["doc" .= value]
+          doc = object ["doc" .= value, "doc_as_upsert" .= upsert]
           blob = encode metadata `mappend` "\n" `mappend` encode doc
 
 encodeBulkOperation (BulkCreateEncoding (IndexName indexName)
