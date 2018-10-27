@@ -83,7 +83,7 @@ main = runBH' $ do
   True <- indexExists aliasName
 
   -- create a template so that if we just write into an index named tweet-2017-01-02, for instance, the index will be automatically created with the given mapping. This is a great idea for any ongoing indices because it makes them much easier to manage and rotate.
-  let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+  let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [object ["tweet" .= toJSON TweetMapping]]
   let templateName = TemplateName "tweet-tpl"
   _ <- putTemplate idxTpl templateName
   True <- templateExists templateName
