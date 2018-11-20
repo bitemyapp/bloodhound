@@ -110,7 +110,7 @@ test-suite bloodhound-tests
                        Test.Suggest
                        Test.Templates
   build-depends:       base,
-                       QuickCheck,
+                       QuickCheck           < 2.12,
                        aeson,
                        bloodhound,
                        bytestring,
