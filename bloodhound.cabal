@@ -63,7 +63,7 @@ library
   other-modules:       Bloodhound.Import
                        Database.Bloodhound.Common.Script
   hs-source-dirs:      src
-  build-depends:       base             >= 4.3     && <5,
+  build-depends:       base             >= 4.9     && <5,
                        aeson            >= 0.11.1,
                        blaze-builder,
                        bytestring       >= 0.10.0  && <0.11,

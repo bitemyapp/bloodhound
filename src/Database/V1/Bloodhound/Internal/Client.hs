@@ -10,6 +10,7 @@ module Database.V1.Bloodhound.Internal.Client where
 import           Bloodhound.Import
 
 import           Control.Applicative                           as A
+import qualified Control.Monad.Fail                            as Fail
 import qualified Data.HashMap.Strict                           as HM
 import           Data.Text                                     (Text)
 import qualified Data.Text                                     as T
@@ -76,6 +77,7 @@ newtype BH m a = BH {
     } deriving ( Functor
                , A.Applicative
                , Monad
+               , Fail.MonadFail
                , MonadIO
                , MonadState s
                , MonadWriter w

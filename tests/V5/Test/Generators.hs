@@ -210,8 +210,8 @@ instance Arbitrary NodeAttrName where
 instance Arbitrary NodeAttrFilter where
   arbitrary = do
     n <- arbitrary
-    s:ss <- listOf1 (listOf1 arbitraryAlphaNum)
-    let ts = T.pack <$> s :| ss
+    ss <- listOf1 (listOf1 arbitraryAlphaNum)
+    let ts = T.pack <$> head ss :| tail ss
     return (NodeAttrFilter n ts)
 
 instance Arbitrary VersionNumber where
