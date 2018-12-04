@@ -109,6 +109,7 @@ module Database.V1.Bloodhound.Types
        , SearchType(..)
        , SearchResult(..)
        , ScrollId(..)
+       , Scrolls(..)
        , SearchHits(..)
        , TrackSortScores
        , From(..)
@@ -1697,6 +1698,9 @@ data SearchResult a =
   deriving (Eq, Read, Show, Generic, Typeable)
 
 newtype ScrollId = ScrollId Text deriving (Eq, Read, Show, Generic, Ord, ToJSON, FromJSON)
+
+data Scrolls = ScrollsAll | ScrollsMulti [ScrollId] | ScrollsSingle ScrollId 
+  deriving (Eq, Read, Show, Generic, Typeable)
 
 type Score = Maybe Double
 
