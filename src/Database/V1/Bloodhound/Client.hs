@@ -57,6 +57,7 @@ module Database.V1.Bloodhound.Client
        , scanSearch
        , getInitialScroll
        , advanceScroll
+       , deleteScroll
        , refreshIndex
        , mkSearch
        , mkAggregateSearch
@@ -845,6 +846,19 @@ simpleAccumulator oldHits ([], _) = return (oldHits, Nothing)
 simpleAccumulator oldHits (newHits, msid) = do
     (newHits', msid') <- scroll' msid
     simpleAccumulator (oldHits ++ newHits) (newHits', msid')
+
+-- | Manually clearing scrolls as soon as you are finished using them is 
+-- recommended by Elastic in order to release the memory more quickly.
+deleteScroll :: MonadBH m => Scrolls -> m Reply
+deleteScroll ScrollsAll = 
+    joinPath ["_search", "scroll", "_all"] >>= delete
+deleteScroll (ScrollsSingle (ScrollId si)) =
+    joinPath ["_search", "scroll", si]     >>= delete
+deleteScroll (ScrollsMulti sis) = 
+    joinPath ["_search", "scroll", sisStr] >>= delete
+  where 
+    sisStr = T.intercalate "," $ map getSiText sis
+    getSiText (ScrollId si) = si
 
 -- | 'scanSearch' uses the 'scan&scroll' API of elastic,
 -- for a given 'IndexName' and 'MappingName'. Note that this will
