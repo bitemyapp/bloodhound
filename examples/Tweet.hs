@@ -5,7 +5,6 @@ module Main
     ) where
 
 
--------------------------------------------------------------------------------
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson             (FromJSON (..), defaultOptions,
                                          genericParseJSON, genericToJSON,
@@ -18,7 +17,6 @@ import qualified Data.Vector            as V
 import           Database.V5.Bloodhound
 import           GHC.Generics           (Generic)
 import           Network.HTTP.Client    (defaultManagerSettings)
--------------------------------------------------------------------------------
 
 
 data TweetMapping = TweetMapping deriving (Eq, Show)
@@ -29,7 +27,7 @@ instance ToJSON TweetMapping where
       [ "properties" .=
         object ["location" .= object ["type" .= ("geo_point" :: Text)]]
       ]
--------------------------------------------------------------------------------
+
 data Tweet = Tweet
   { user     :: Text
   , postDate :: UTCTime
@@ -39,7 +37,6 @@ data Tweet = Tweet
   } deriving (Eq, Generic, Show)
 
 
--------------------------------------------------------------------------------
 exampleTweet :: Tweet
 exampleTweet =
   Tweet
