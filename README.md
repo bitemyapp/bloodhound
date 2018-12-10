@@ -22,17 +22,17 @@ Version compatibility
 ---------------------
 
 As of version 0.13.0.0, Bloodhound has 2 separate module trees for
-ElasticSearch versions 1 and 5. Import the module that is appropriate
+Elasticsearch versions 1 and 5. Import the module that is appropriate
 for your use case. If you would like to add support for another major
 version, open a ticket expressing your intend and follow the pattern
 used for other versions. We weighed the idea of sharing code between
 versions but it just got too messy, especially considering the
-instability of the ElasticSearch API. We switched to a model which
+instability of the Elasticsearch API. We switched to a model which
 would allow the persons responsible for a particular protocol version
 to maintain that version while avoiding conflict with other versions.
 
 See our [TravisCI](https://travis-ci.org/bitemyapp/bloodhound) for a
-listing of ElasticSearch version we test against.
+listing of Elasticsearch version we test against.
 
 
 Stability
@@ -43,15 +43,15 @@ Bloodhound is stable for production use. I will strive to avoid breaking API com
 Testing
 ---------
 
-The TravisCI tests are run using [Stack](http://docs.haskellstack.org/en/stable/README.html). You should use Stack instead of `cabal` to build and test Bloodhound to avoid compatibility problems. You will also need to have an ElasticSearch instance running at `localhost:9200` in order to execute some of the tests. See the "Version compatibility" section above for a list of ElasticSearch versions that are officially validated against in TravisCI.
+The TravisCI tests are run using [Stack](http://docs.haskellstack.org/en/stable/README.html). You should use Stack instead of `cabal` to build and test Bloodhound to avoid compatibility problems. You will also need to have an Elasticsearch instance running at `localhost:9200` in order to execute some of the tests. See the "Version compatibility" section above for a list of Elasticsearch versions that are officially validated against in TravisCI.
 
 Steps to run the tests locally:
-  1. Dig through the [past releases] (https://www.elastic.co/downloads/past-releases) section of the ElasticSearch download page and install the desired ElasticSearch versions.
+  1. Dig through the [past releases] (https://www.elastic.co/downloads/past-releases) section of the Elasticsearch download page and install the desired Elasticsearch versions.
   2. Install [Stack] (http://docs.haskellstack.org/en/stable/README.html#how-to-install)
   3. In your local Bloodhound directory, run `stack setup && stack build`
-  4. Start the desired version of ElasticSearch at `localhost:9200`, which should be the default.
+  4. Start the desired version of Elasticsearch at `localhost:9200`, which should be the default.
   5. Run `stack test` in your local Bloodhound directory.
-  6. The unit tests will pass if you re-execute `stack test`. If you want to start with a clean slate, stop your ElasticSearch instance, delete the `data/` folder in the ElasticSearch installation, restart ElasticSearch, and re-run `stack test`.
+  6. The unit tests will pass if you re-execute `stack test`. If you want to start with a clean slate, stop your Elasticsearch instance, delete the `data/` folder in the Elasticsearch installation, restart Elasticsearch, and re-run `stack test`.
 
 
 Hackage page and Haddock documentation

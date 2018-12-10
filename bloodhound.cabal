@@ -1,13 +1,13 @@
 name:                bloodhound
-version:             0.15.0.0
-synopsis:            ElasticSearch client library for Haskell
-description:         ElasticSearch made awesome for Haskell hackers
+version:             0.16.0.0
+synopsis:            Elasticsearch client library for Haskell
+description:         Elasticsearch made awesome for Haskell hackers
 homepage:            https://github.com/bitemyapp/bloodhound
 license:             BSD3
 license-file:        LICENSE
 author:              Chris Allen
 maintainer:          cma@bitemyapp.com
-copyright:           2015, Chris Allen
+copyright:           2018 Chris Allen
 category:            Database, Search
 build-type:          Simple
 cabal-version:       >=1.10
@@ -33,68 +33,106 @@ Flag ES5
 
 library
   ghc-options:         -Wall
-  exposed-modules:     Database.V1.Bloodhound
-                       Database.V1.Bloodhound.Client
-                       Database.V1.Bloodhound.Types
-                       Database.V1.Bloodhound.Types.Class
-                       Database.V1.Bloodhound.Types.Internal
-                       Database.V5.Bloodhound
+  exposed-modules:     Database.V5.Bloodhound
                        Database.V5.Bloodhound.Client
                        Database.V5.Bloodhound.Types
                        Database.V5.Bloodhound.Types.Class
-                       Database.V5.Bloodhound.Types.Internal
+                       Database.V5.Bloodhound.Internal.Aggregation
+                       Database.V5.Bloodhound.Internal.Analysis
+                       Database.V5.Bloodhound.Internal.Client
+                       Database.V5.Bloodhound.Internal.Highlight
+                       Database.V5.Bloodhound.Internal.Newtypes
+                       Database.V5.Bloodhound.Internal.Query
+                       Database.V5.Bloodhound.Internal.Sort
+                       Database.V5.Bloodhound.Internal.StringlyTyped
+                       Database.V5.Bloodhound.Internal.Suggest
+
+                       Database.V1.Bloodhound
+                       Database.V1.Bloodhound.Client
+                       Database.V1.Bloodhound.Types
+                       Database.V1.Bloodhound.Types.Class
+                       Database.V1.Bloodhound.Internal.Aggregation
+                       Database.V1.Bloodhound.Internal.Client
+                       Database.V1.Bloodhound.Internal.Highlight
+                       Database.V1.Bloodhound.Internal.Newtypes
+                       Database.V1.Bloodhound.Internal.Query
+                       Database.V1.Bloodhound.Internal.Sort
+                       Database.V1.Bloodhound.Internal.StringlyTyped
+                       Database.V1.Bloodhound.Internal.Suggest
+
+  other-modules:       Bloodhound.Import
+                       Database.Bloodhound.Common.Script
   hs-source-dirs:      src
   build-depends:       base             >= 4.3     && <5,
+                       aeson            >= 0.11.1,
+                       blaze-builder,
                        bytestring       >= 0.10.0  && <0.11,
                        containers       >= 0.5.0.0 && <0.6,
-                       aeson            >= 0.11.1  && <1.3,
-                       http-client      >= 0.4.30  && <0.6,
-                       network-uri      >= 2.6     && <2.7,
-                       semigroups       >= 0.15    && <0.19,
-                       time             >= 1.4     && <1.9,
-                       text             >= 0.11    && <1.3,
-                       mtl              >= 1.0     && <2.3,
-                       transformers     >= 0.2     && <0.6,
-                       http-types       >= 0.8     && <0.11,
-                       vector           >= 0.10.9  && <0.13,
-                       scientific       >= 0.3.0.0 && <0.4.0.0,
                        exceptions,
-                       data-default-class,
-                       blaze-builder,
+                       hashable,
+                       http-client      >= 0.4.30  && <0.6,
+                       http-types       >= 0.8     && <0.13,
+                       mtl              >= 1.0     && <2.3,
+                       network-uri      >= 2.6     && <2.7,
+                       scientific       >= 0.3.0.0 && <0.4.0.0,
+                       semigroups       >= 0.15    && <0.19,
+                       semver,
+                       text             >= 0.11    && <1.3,
+                       time             >= 1.4     && <1.9,
+                       transformers     >= 0.2     && <0.6,
                        unordered-containers,
-                       mtl-compat,
-                       hashable
+                       vector           >= 0.10.9  && <0.13
   default-language:    Haskell2010
 
-test-suite tests
+test-suite bloodhound-tests
   ghc-options: -Wall -fno-warn-orphans
   type: exitcode-stdio-1.0
   main-is: tests.hs
   if flag(ES1)
-    hs-source-dirs:     tests/V1
+    hs-source-dirs:    tests/V1
   else
-    hs-source-dirs:     tests/V5
-
+    hs-source-dirs:    tests/V5
+    other-modules:     Test.Script
+  other-modules:       Test.Aggregation
+                       Test.ApproxEq
+                       Test.BulkAPI
+                       Test.Common
+                       Test.Documents
+                       Test.Generators
+                       Test.Highlights
+                       Test.Import
+                       Test.Indices
+                       Test.JSON
+                       Test.Query
+                       Test.Snapshots
+                       Test.Sorting
+                       Test.SourceFiltering
+                       Test.Suggest
+                       Test.Templates
   build-depends:       base,
+                       QuickCheck,
+                       aeson,
                        bloodhound,
                        bytestring,
-                       http-client,
-                       http-types,
                        containers,
-                       hspec                >= 1.8,
-                       text,
-                       time,
-                       aeson,
-                       semigroups,
-                       QuickCheck,
-                       vector,
-                       unordered-containers >= 0.2.5.0 && <0.3,
-                       mtl,
-                       quickcheck-properties,
-                       generics-sop         >=0.2 && <0.4,
                        errors,
                        exceptions,
+                       hspec                >= 1.8,
+                       http-client,
+                       http-types,
+                       microlens,
+                       microlens-aeson,
+                       mtl,
+                       network-uri,
+                       pretty-simple,
+                       quickcheck-arbitrary-template,
+                       quickcheck-properties,
+                       semigroups,
+                       semver,
                        temporary,
+                       text,
+                       time,
                        unix-compat,
-                       network-uri
+                       unordered-containers >= 0.2.5.0 && <0.3,
+                       vector
   default-language:    Haskell2010

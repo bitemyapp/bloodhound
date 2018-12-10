@@ -5,7 +5,7 @@
 -------------------------------------------------------------------------------
 -- |
 -- Module : Database.Bloodhound.Client
--- Copyright : (C) 2014 Chris Allen
+-- Copyright : (C) 2014, 2018 Chris Allen
 -- License : BSD-style (see the file LICENSE)
 -- Maintainer : Chris Allen <cma@bitemyapp.com>
 -- Stability : provisional
@@ -26,6 +26,7 @@ module Database.V5.Bloodhound.Client
        -- ** Indices
        , createIndex
        , createIndexWith
+       , flushIndex
        , deleteIndex
        , updateIndexSettings
        , getIndexSettings
@@ -54,6 +55,7 @@ module Database.V5.Bloodhound.Client
        -- ** Searching
        , searchAll
        , searchByIndex
+       , searchByIndices
        , searchByType
        , scanSearch
        , getInitialScroll
@@ -215,6 +217,7 @@ dispatch dMethod url body = do
          $ setRequestIgnoreStatus
          $ initReq { method = dMethod
                    , requestHeaders =
+                     -- "application/x-ndjson" for bulk
                      ("Content-Type", "application/json") : requestHeaders initReq
                    , requestBody = reqBody }
   -- req <- liftIO $ reqHook $ setRequestIgnoreStatus $ initReq { method = dMethod
@@ -315,7 +318,7 @@ instance FromJSON GSRs where
   parseJSON = withObject "Collection of GenericSnapshotRepo" parse
     where
       parse = fmap GSRs . mapM (uncurry go) . HM.toList
-      go rawName = withObject "GenericSnapshotRepo" $ \o -> do
+      go rawName = withObject "GenericSnapshotRepo" $ \o ->
         GenericSnapshotRepo (SnapshotRepoName rawName) <$> o .: "type"
                                                        <*> o .: "settings"
 
@@ -344,7 +347,7 @@ updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo =
 
 
 -- | Verify if a snapshot repo is working. __NOTE:__ this API did not
--- make it into ElasticSearch until 1.4. If you use an older version,
+-- make it into Elasticsearch until 1.4. If you use an older version,
 -- you will get an error here.
 verifySnapshotRepo
     :: ( MonadBH m
@@ -532,11 +535,13 @@ createIndexWith updates shards (IndexName indexName) =
             )
           ]
 
-oPath :: ToJSON a => NonEmpty Text -> a -> Value
-oPath (k :| []) v   = object [k .= v]
-oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
+-- | 'flushIndex' will flush an index given a 'Server' and an 'IndexName'.
+flushIndex :: MonadBH m => IndexName -> m Reply
+flushIndex (IndexName indexName) = do
+  path <- joinPath [indexName, "_flush"]
+  post path Nothing
 
--- | 'deleteIndex' will delete an index given a 'Server', and an 'IndexName'.
+-- | 'deleteIndex' will delete an index given a 'Server' and an 'IndexName'.
 --
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings (IndexName "didimakeanindex")
 -- >>> response <- runBH' $ deleteIndex (IndexName "didimakeanindex")
@@ -557,16 +562,18 @@ deleteIndex (IndexName indexName) =
 updateIndexSettings :: MonadBH m => NonEmpty UpdatableIndexSetting -> IndexName -> m Reply
 updateIndexSettings updates (IndexName indexName) =
   bindM2 put url (return body)
-  where url = joinPath [indexName, "_settings"]
-        body = Just (encode jsonBody)
-        jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
+  where
+    url = joinPath [indexName, "_settings"]
+    body = Just (encode jsonBody)
+    jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
 
 
 getIndexSettings :: (MonadBH m, MonadThrow m) => IndexName
                  -> m (Either EsError IndexSettingsSummary)
-getIndexSettings (IndexName indexName) = do
+getIndexSettings (IndexName indexName) =
   parseEsResponse =<< get =<< url
-  where url = joinPath [indexName, "_settings"]
+  where
+    url = joinPath [indexName, "_settings"]
 
 -- | 'forceMergeIndex' 
 -- 
@@ -631,20 +638,25 @@ existentialQuery url = do
 -- responses from elasticsearch should fall into these two
 -- categories. If they don't, a 'EsProtocolException' will be
 -- thrown. If you encounter this, please report the full body it
--- reports along with your ElasticSearch verison.
-parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
+-- reports along with your Elasticsearch verison.
+parseEsResponse :: ( MonadThrow m
+                   , FromJSON a
+                   )
+                => Reply
                 -> m (Either EsError a)
 parseEsResponse reply
   | respIsTwoHunna reply = case eitherDecode body of
                              Right a -> return (Right a)
-                             Left _ -> tryParseError
-  | otherwise = tryParseError
+                             Left err ->
+                               tryParseError err
+  | otherwise = tryParseError "Non-200 status code"
   where body = responseBody reply
-        tryParseError = case eitherDecode body of
-                          Right e -> return (Left e)
-                          -- this case should not be possible
-                          Left _ -> explode
-        explode = throwM (EsProtocolException body)
+        tryParseError originalError
+          = case eitherDecode body of
+              Right e -> return (Left e)
+              -- Failed to parse the error message.
+              Left err -> explode ("Original error was: " <> originalError <> " Error parse failure was: " <> err)
+        explode errorMsg = throwM (EsProtocolException (T.pack errorMsg) body)
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
@@ -703,14 +715,16 @@ listIndices :: (MonadThrow m, MonadBH m) => m [IndexName]
 listIndices =
   parse . responseBody =<< get =<< url
   where
-    url = joinPath ["_cat/indices?v"]
-    -- parses the tabular format the indices api provides
-    parse body = case T.lines (T.decodeUtf8 (L.toStrict body)) of
-      (hdr:rows) -> let ks = T.words hdr
-                        keyedRows = [ HM.fromList (zip ks (T.words row)) | row <- rows ]
-                        names = catMaybes (HM.lookup "index" <$> keyedRows)
-                    in return (IndexName <$> names)
-      [] -> throwM (EsProtocolException body)
+    url = joinPath ["_cat/indices?format=json"]
+    parse body = either (\msg -> (throwM (EsProtocolException (T.pack msg) body))) return $ do
+      vals <- eitherDecode body
+      forM vals $ \val ->
+        case val of
+          Object obj ->
+            case HM.lookup "index" obj of
+              (Just (String txt)) -> Right (IndexName txt)
+              v -> Left $ "indexVal in listIndices failed on non-string, was: " <> show v
+          v -> Left $ "One of the values parsed in listIndices wasn't an object, it was: " <> show v
 
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at
@@ -810,7 +824,7 @@ versionCtlParams cfg =
 --   Elasticsearch. The document itself is simply something we can
 --   convert into a JSON 'Value'. The 'DocId' will function as the
 --   primary key for the document. You are encouraged to generate
---   your own id's and not rely on ElasticSearch's automatic id
+--   your own id's and not rely on Elasticsearch's automatic id
 --   generation. Read more about it here:
 --   https://github.com/bitemyapp/bloodhound/issues/107
 --
@@ -860,9 +874,11 @@ deleteDocument (IndexName indexName)
 -- >>> _ <- runBH' $ bulk stream
 -- >>> _ <- runBH' $ refreshIndex testIndex
 bulk :: MonadBH m => V.Vector BulkOperation -> m Reply
-bulk bulkOps = bindM2 post url (return body)
-  where url = joinPath ["_bulk"]
-        body = Just $ encodeBulkOperations bulkOps
+bulk bulkOps =
+  bindM2 post url (return body)
+  where
+    url = joinPath ["_bulk"]
+    body = Just $ encodeBulkOperations bulkOps
 
 -- | 'encodeBulkOperations' is a convenience function for dumping a vector of 'BulkOperation'
 --   into an 'L.ByteString'
@@ -872,12 +888,15 @@ bulk bulkOps = bindM2 post url (return body)
 -- "\n{\"index\":{\"_type\":\"tweet\",\"_id\":\"2\",\"_index\":\"twitter\"}}\n{\"name\":\"blah\"}\n"
 encodeBulkOperations :: V.Vector BulkOperation -> L.ByteString
 encodeBulkOperations stream = collapsed where
-  blobs = fmap encodeBulkOperation stream
-  mashedTaters = mash (mempty :: Builder) blobs
-  collapsed = toLazyByteString $ mappend mashedTaters (byteString "\n")
+  blobs =
+    fmap encodeBulkOperation stream
+  mashedTaters =
+    mash (mempty :: Builder) blobs
+  collapsed =
+    toLazyByteString $ mappend mashedTaters (byteString "\n")
 
 mash :: Builder -> V.Vector L.ByteString -> Builder
-mash = V.foldl' (\b x -> b `mappend` (byteString "\n") `mappend` (lazyByteString x))
+mash = V.foldl' (\b x -> b <> byteString "\n" <> lazyByteString x)
 
 mkBulkStreamValue :: Text -> Text -> Text -> Text -> Value
 mkBulkStreamValue operation indexName mappingName docId =
@@ -885,6 +904,12 @@ mkBulkStreamValue operation indexName mappingName docId =
           object [ "_index" .= indexName
                  , "_type"  .= mappingName
                  , "_id"    .= docId]]
+
+mkBulkStreamValueAuto :: Text -> Text -> Text -> Value
+mkBulkStreamValueAuto operation indexName mappingName =
+  object [operation .=
+          object [ "_index" .= indexName
+                 , "_type"  .= mappingName]]
 
 -- | 'encodeBulkOperation' is a convenience function for dumping a single 'BulkOperation'
 --   into an 'L.ByteString'
@@ -898,6 +923,18 @@ encodeBulkOperation (BulkIndex (IndexName indexName)
                 (DocId docId) value) = blob
     where metadata = mkBulkStreamValue "index" indexName mappingName docId
           blob = encode metadata `mappend` "\n" `mappend` encode value
+
+encodeBulkOperation (BulkIndexAuto (IndexName indexName)
+                (MappingName mappingName)
+                value) = blob
+    where metadata = mkBulkStreamValueAuto "index" indexName mappingName
+          blob = encode metadata `mappend` "\n" `mappend` encode value
+
+encodeBulkOperation (BulkIndexEncodingAuto (IndexName indexName)
+                (MappingName mappingName)
+                encoding) = toLazyByteString blob
+    where metadata = toEncoding (mkBulkStreamValueAuto "index" indexName mappingName)
+          blob = fromEncoding metadata <> "\n" <> fromEncoding encoding
 
 encodeBulkOperation (BulkCreate (IndexName indexName)
                 (MappingName mappingName)
@@ -972,6 +1009,15 @@ searchAll = bindM2 dispatchSearch url . return
 searchByIndex :: MonadBH m => IndexName -> Search -> m Reply
 searchByIndex (IndexName indexName) = bindM2 dispatchSearch url . return
   where url = joinPath [indexName, "_search"]
+
+-- | 'searchByIndices' is a variant of 'searchByIndex' that executes a
+--   'Search' over many indices. This is much faster than using
+--   'mapM' to 'searchByIndex' over a collection since it only
+--   causes a single HTTP request to be emitted.
+searchByIndices :: MonadBH m => NonEmpty IndexName -> Search -> m Reply
+searchByIndices ixs = bindM2 dispatchSearch url . return
+  where url = joinPath [renderedIxs, "_search"]
+        renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
 
 -- | 'searchByType', given a 'Search', 'IndexName', and 'MappingName', will perform that
 --   search against a specific mapping within an index on an Elasticsearch server.
@@ -1090,7 +1136,7 @@ scanSearch indexName mappingName search = do
 -- >>> mkSearch (Just query) Nothing
 -- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, searchType = SearchTypeQueryThenFetch, fields = Nothing, source = Nothing}
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing
+mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing
 
 -- | 'mkAggregateSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -1100,7 +1146,7 @@ mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 
 -- TermsAgg (TermsAggregation {term = Left "user", termInclude = Nothing, termExclude = Nothing, termOrder = Nothing, termMinDocCount = Nothing, termSize = Nothing, termShardSize = Nothing, termCollectMode = Just BreadthFirst, termExecutionHint = Nothing, termAggs = Nothing})
 -- >>> let myAggregation = mkAggregateSearch Nothing $ mkAggregations "users" terms
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
-mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) SearchTypeQueryThenFetch Nothing Nothing Nothing
+mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing
 
 -- | 'mkHighlightSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -1109,7 +1155,7 @@ mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSear
 -- >>> let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 -- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
-mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing
+mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing
 
 -- | 'pageSearch' is a helper function that takes a search and assigns the from
 --    and size fields for the search. The from parameter defines the offset
