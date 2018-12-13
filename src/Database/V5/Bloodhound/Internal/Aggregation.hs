@@ -33,6 +33,7 @@ data Aggregation = TermsAgg TermsAggregation
                  | MissingAgg MissingAggregation
                  | TopHitsAgg TopHitsAggregation
                  | StatsAgg StatisticsAggregation
+                 | MaxAgg MaxAggregation
   deriving (Eq, Show)
 
 instance ToJSON Aggregation where
@@ -75,6 +76,17 @@ instance ToJSON Aggregation where
                   object ["field" .= n]
                 (ScriptValueCount s) ->
                   object ["script" .= s]
+  toJSON (MaxAgg a) = object ["max" .= v]
+    where v = case a of
+                (FieldMax (FieldName n) mv) -> omitNulls [ "field"   .= n,
+                                                           "missing" .= mv
+                                                         ]
+                (ScriptMax (ScriptJ s))      -> object   [ "script"  .= s ] 
+                (FieldScriptMax (FieldName n) (ScriptJ s) mv) -> 
+                                               omitNulls [ "field"   .= n
+                                                         , "script"  .= s
+                                                         , "missing" .= mv
+                                                         ]                  
   toJSON (FilterAgg (FilterAggregation filt ags)) =
     omitNulls [ "filter" .= filt
               , "aggs" .= ags]
@@ -166,6 +178,12 @@ data ValueCountAggregation =
   | ScriptValueCount Script
   deriving (Eq, Show)
 
+-- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-max-aggregation.html> for more information.                           
+data MaxAggregation = FieldMax FieldName (Maybe MissingValue)
+                    | ScriptMax ScriptJ
+                    | FieldScriptMax FieldName ScriptJ (Maybe MissingValue)
+                      deriving (Eq, Read, Show)
+                      
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
 data FilterAggregation = FilterAggregation
   { faFilter :: Filter

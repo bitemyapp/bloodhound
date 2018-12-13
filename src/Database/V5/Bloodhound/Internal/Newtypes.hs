@@ -46,6 +46,12 @@ newtype DocId =
 newtype FieldName =
   FieldName Text
   deriving (Eq, Read, Show, ToJSON, FromJSON)
+  
+{-| 'MissingValue' is used together with 'FieldName' to specify value for 
+     documents where specified field is empty.
+-}
+newtype MissingValue = MissingValue Text 
+  deriving (Eq, Read, Show, ToJSON, FromJSON)  
 
 newtype TypeName =
   TypeName Text
@@ -64,6 +70,9 @@ newtype QueryString =
 -- newtype Script =
 --   Script { scriptText :: Text }
 --   deriving (Eq, Show)
+
+newtype ScriptJ = ScriptJ { scriptJson :: Value } 
+  deriving (Eq, Read, Show)
 
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.

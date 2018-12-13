@@ -153,6 +153,8 @@ module Database.V5.Bloodhound.Types
        , ScriptFieldName
        , ScriptFieldValue
        , Script(..)
+       , ScriptJ(..)
+       , MissingValue(..)       
        , ScriptLanguage(..)
        , ScriptInline(..)
        , ScriptId(..)
@@ -382,6 +384,7 @@ module Database.V5.Bloodhound.Types
        , DateMathUnit(..)
        , TopHitsAggregation(..)
        , StatisticsAggregation(..)
+       , MaxAggregation(..)       
 
        , Highlights(..)
        , FieldHighlight(..)
