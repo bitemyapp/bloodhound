@@ -397,6 +397,9 @@ data QueryStringQuery =
   , queryStringMinimumShouldMatch       :: Maybe MinimumMatch
   , queryStringLenient                  :: Maybe Lenient
   , queryStringLocale                   :: Maybe Locale
+  , queryStringFields                   :: [FieldName]
+  , queryStringTiebreaker               :: Maybe Tiebreaker
+  , queryStringQueryType                :: Maybe MultiMatchQueryType  
   } deriving (Eq, Show)
 
 
@@ -409,7 +412,9 @@ instance ToJSON QueryStringQuery where
           qsFuzzyPrefixLength qsPhraseSlop
           qsBoost qsAnalyzeWildcard
           qsGeneratePhraseQueries qsMinimumShouldMatch
-          qsLenient qsLocale) =
+          qsLenient qsLocale
+          qsFields qsTiebreaker
+          qsType) =
     omitNulls base
     where
       base = [ "query" .= qsQueryString
@@ -428,7 +433,10 @@ instance ToJSON QueryStringQuery where
              , "auto_generate_phrase_queries" .= qsGeneratePhraseQueries
              , "minimum_should_match" .= qsMinimumShouldMatch
              , "lenient" .= qsLenient
-             , "locale" .= qsLocale ]
+             , "locale" .= qsLocale 
+             , "fields" .= fmap toJSON qsFields
+             , "tie_breaker" .= qsTiebreaker
+             , "type" .= qsType ]
 
 instance FromJSON QueryStringQuery where
   parseJSON = withObject "QueryStringQuery" parse
@@ -450,6 +458,9 @@ instance FromJSON QueryStringQuery where
                     <*> o .:? "minimum_should_match"
                     <*> o .:? "lenient"
                     <*> o .:? "locale"
+                    <*> o .:? "fields" .!= []
+                    <*> o .:? "tie_breaker"
+                    <*> o .:? "type"                    
 
 mkQueryStringQuery :: QueryString -> QueryStringQuery
 mkQueryStringQuery qs =
@@ -457,7 +468,8 @@ mkQueryStringQuery qs =
   Nothing Nothing Nothing Nothing
   Nothing Nothing Nothing Nothing
   Nothing Nothing Nothing Nothing
-  Nothing Nothing
+  Nothing Nothing [] Nothing
+  Nothing
 
 data FieldOrFields = FofField   FieldName
                    | FofFields (NonEmpty FieldName) deriving (Eq, Show)
