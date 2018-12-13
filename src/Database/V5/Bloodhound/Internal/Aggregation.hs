@@ -11,7 +11,7 @@ import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
 import           Database.V5.Bloodhound.Internal.Client
-import           Database.V5.Bloodhound.Internal.Highlight (HitHighlight)
+import           Database.V5.Bloodhound.Internal.Highlight
 import           Database.V5.Bloodhound.Internal.Newtypes
 import           Database.V5.Bloodhound.Internal.Query
 import           Database.V5.Bloodhound.Internal.Sort
@@ -95,10 +95,12 @@ instance ToJSON Aggregation where
   toJSON (MissingAgg (MissingAggregation{..})) =
     object ["missing" .= object ["field" .= maField]]
 
-  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort)) =
-    omitNulls ["top_hits" .= omitNulls [ "size" .= msize
-                                       , "from" .= mfrom
-                                       , "sort" .= msort
+  toJSON (TopHitsAgg (TopHitsAggregation mfrom msize msort msource mhighlight)) =
+    omitNulls ["top_hits" .= omitNulls [ "size"      .= msize
+                                       , "from"      .= mfrom
+                                       , "sort"      .= msort
+                                       , "_source"   .= msource
+                                       , "highlight" .= mhighlight                                       
                                        ]
               ]
 
@@ -109,9 +111,11 @@ instance ToJSON Aggregation where
              | otherwise = "extended_stats"
 
 data TopHitsAggregation = TopHitsAggregation
-  { taFrom :: Maybe From
-  , taSize :: Maybe Size
-  , taSort :: Maybe Sort
+  { taFrom      :: Maybe From
+  , taSize      :: Maybe Size
+  , taSort      :: Maybe Sort
+  , taSource    :: Maybe Source
+  , taHighlight :: Maybe Highlights  
   } deriving (Eq, Show)
 
 data MissingAggregation = MissingAggregation
