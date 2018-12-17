@@ -63,6 +63,9 @@ complex ways of extracting a value from a document.
 -}
 newtype Script = Script { scriptText :: Text } deriving (Eq, Show)
 
+newtype ScriptJ = ScriptJ { scriptJson :: Value } 
+  deriving (Eq, Read, Show)
+
 {-| 'CacheName' is used in 'RegexpFilter' for describing the
     'CacheKey' keyed caching behavior.
 -}

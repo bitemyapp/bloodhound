@@ -15,14 +15,16 @@ import           Database.V1.Bloodhound.Internal.Query
 type Sort = [SortSpec]
 
 
-{-| The two main kinds of 'SortSpec' are 'DefaultSortSpec' and
+{-| The main kinds of 'SortSpec' are 'DefaultSortSpec', 'ScriptSortSpec' and
     'GeoDistanceSortSpec'. The latter takes a 'SortOrder', 'GeoPoint', and
     'DistanceUnit' to express "nearness" to a single geographical point as a
-    sort specification.
+    sort specification. The script option takes a 'ScriptJ' JSON value to allow 
+    for freeform scripting.
 
 <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 -}
 data SortSpec = DefaultSortSpec DefaultSort
+              | ScriptSortSpec ScriptJ (Maybe SortOrder)
               | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit deriving (Eq, Show)
 
 instance ToJSON SortSpec where
@@ -36,6 +38,10 @@ instance ToJSON SortSpec where
              , "missing" .= dsMissingSort
              , "nested_filter" .= dsNestedFilter ]
 
+  toJSON (ScriptSortSpec (ScriptJ sj) ssSortOrder) =
+    omitNulls [ "_script" .= sj
+              , "order"   .= ssSortOrder ]
+              
   toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
     object [ "unit" .= units
            , field .= gdsLatLon
