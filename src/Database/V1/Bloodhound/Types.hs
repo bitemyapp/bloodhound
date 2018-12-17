@@ -48,6 +48,7 @@ module Database.V1.Bloodhound.Types
        , mkDocVersion
        , docVersionNumber
        , toMissing
+       , toCardinality
        , toTerms
        , toDateHistogram
        , toTopHits
@@ -373,6 +374,7 @@ module Database.V1.Bloodhound.Types
        , DateHistogramResult(..)
        , DateRangeResult(..)
        , TopHitResult(..)
+       , CardinalityResult(..)
 
        , EsUsername(..)
        , EsPassword(..)

@@ -276,6 +276,9 @@ toMissing = toAggResult
 toTopHits :: (FromJSON a) => Text -> AggregationResults -> Maybe (TopHitResult a)
 toTopHits = toAggResult
 
+toCardinality :: Text -> AggregationResults -> Maybe CardinalityResult
+toCardinality = toAggResult
+
 toAggResult :: (FromJSON a) => Text -> AggregationResults -> Maybe a
 toAggResult t a = M.lookup t a >>= deserialize
   where deserialize = parseMaybe parseJSON
@@ -352,11 +355,19 @@ instance (FromJSON a) => FromJSON (TopHitResult a) where
                          v .: "hits"
   parseJSON _          = fail "Failure in FromJSON (TopHitResult a)"
 
+instance FromJSON CardinalityResult where
+  parseJSON (Object v) = CardinalityResult <$> 
+                           v .: "value"
+  parseJSON _ = mempty
+  
 data MissingResult = MissingResult { missingDocCount :: Int } deriving (Show)
 
 data TopHitResult a = TopHitResult { tarHits :: (SearchHits a)
                                    } deriving Show
 
+data CardinalityResult = CardinalityResult { cardinalityValue :: Int 
+                                           } deriving (Show)
+                                           
 data SearchHits a =
   SearchHits { hitsTotal :: Int
              , maxScore  :: Score
