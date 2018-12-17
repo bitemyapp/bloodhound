@@ -121,7 +121,7 @@ module Database.V5.Bloodhound.Types
        , ShardResult(..)
        , Hit(..)
        , HitFields(..)
-       , InnerHitResult
+       , InnerHitResult(..)
        , Filter(..)
        , Seminearring(..)
        , BoolMatch(..)
@@ -367,6 +367,7 @@ module Database.V5.Bloodhound.Types
        
        , Collapse(..)
        , InnerHit(..)
+       , mkInnerHit
 
        , Aggregation(..)
        , Aggregations

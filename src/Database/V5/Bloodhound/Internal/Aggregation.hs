@@ -476,7 +476,7 @@ data Hit a =
       , hitSource    :: Maybe a
       , hitFields    :: Maybe HitFields
       , hitHighlight :: Maybe HitHighlight 
-      , hitInnerHits :: Maybe (InnerHitResult a) -- ^ only one named inner_hits result is supported
+      , hitInnerHits :: Maybe (M.Map Text (InnerHitResult a))
       } deriving (Eq, Show)
 
 instance (FromJSON a) => FromJSON (Hit a) where
@@ -491,17 +491,11 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:? "inner_hits"
   parseJSON _          = empty
 
-data InnerHitResult a =
-  InnerHitResult { ihrName :: Text
-                 , ihrHits :: SearchHits a
-                 } deriving (Eq, Show)
+newtype InnerHitResult a = InnerHitResult { unInnerHitResult :: SearchHits a } 
+  deriving (Eq, Show)
                  
 instance (FromJSON a) => FromJSON (InnerHitResult a) where
-  parseJSON (Object v) = do
-    ihrName' <- case HM.toList v of
-                  [(x, _)] -> return x 
-                  _ -> fail "error parsing InnerHitResult"
-    ihrHits' <- v .: ihrName' 
-    return $ InnerHitResult ihrName' ihrHits' 
+  parseJSON (Object v) = InnerHitResult <$>
+                         v .: "hits"
   parseJSON _ = empty                
   

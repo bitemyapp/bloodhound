@@ -11,14 +11,14 @@ import           Database.V5.Bloodhound.Internal.Newtypes
 import           Database.V5.Bloodhound.Internal.Sort
 
 data Collapse = Collapse { collapseField         :: FieldName
-                         , collapseInnerHit      :: Maybe InnerHit
+                         , collapseInnerHit      :: Maybe [InnerHit]
                          , collapseMaxConcurrent :: Maybe Int 
                          } deriving (Eq, Show)
                          
 instance ToJSON Collapse where
   toJSON Collapse{..} = 
     omitNulls [ "field"      .= collapseField
-              , "inner_hits" .= collapseInnerHit
+              , "inner_hits" .= fmap toJSON collapseInnerHit
               , "max_concurrent_group_searches" .= collapseMaxConcurrent
               ]                         
                          
