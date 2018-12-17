@@ -475,15 +475,33 @@ data Hit a =
       , hitScore     :: Score
       , hitSource    :: Maybe a
       , hitFields    :: Maybe HitFields
-      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
+      , hitHighlight :: Maybe HitHighlight 
+      , hitInnerHits :: Maybe (InnerHitResult a) -- ^ only one named inner_hits result is supported
+      } deriving (Eq, Show)
 
 instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
-                         v .:  "_index"   <*>
-                         v .:  "_type"    <*>
-                         v .:  "_id"      <*>
-                         v .:  "_score"   <*>
-                         v .:? "_source"  <*>
-                         v .:? "fields"   <*>
-                         v .:? "highlight"
+                         v .:  "_index"    <*>
+                         v .:  "_type"     <*>
+                         v .:  "_id"       <*>
+                         v .:  "_score"    <*>
+                         v .:? "_source"   <*>
+                         v .:? "fields"    <*>
+                         v .:? "highlight" <*>
+                         v .:? "inner_hits"
   parseJSON _          = empty
+
+data InnerHitResult a =
+  InnerHitResult { ihrName :: Text
+                 , ihrHits :: SearchHits a
+                 } deriving (Eq, Show)
+                 
+instance (FromJSON a) => FromJSON (InnerHitResult a) where
+  parseJSON (Object v) = do
+    ihrName' <- case HM.toList v of
+                  [(x, _)] -> return x 
+                  _ -> fail "error parsing InnerHitResult"
+    ihrHits' <- v .: ihrName' 
+    return $ InnerHitResult ihrName' ihrHits' 
+  parseJSON _ = empty                
+  

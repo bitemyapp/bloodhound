@@ -121,6 +121,7 @@ module Database.V5.Bloodhound.Types
        , ShardResult(..)
        , Hit(..)
        , HitFields(..)
+       , InnerHitResult
        , Filter(..)
        , Seminearring(..)
        , BoolMatch(..)
@@ -363,6 +364,9 @@ module Database.V5.Bloodhound.Types
        , DirectGenerators(..)
        , mkDirectGenerators
        , DirectGeneratorSuggestModeTypes (..)
+       
+       , Collapse(..)
+       , InnerHit(..)
 
        , Aggregation(..)
        , Aggregations
@@ -424,6 +428,7 @@ import           Database.V5.Bloodhound.Types.Class
 import           Database.V5.Bloodhound.Internal.Analysis
 import           Database.V5.Bloodhound.Internal.Aggregation
 import           Database.V5.Bloodhound.Internal.Client
+import           Database.V5.Bloodhound.Internal.Collapse
 import           Database.V5.Bloodhound.Internal.Highlight
 import           Database.V5.Bloodhound.Internal.Newtypes
 import           Database.V5.Bloodhound.Internal.Query
@@ -451,13 +456,14 @@ data Search = Search { queryBody       :: Maybe Query
                      , scriptFields    :: Maybe ScriptFields
                      , source          :: Maybe Source
                      , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
+                     , collapse        :: Maybe Collapse                     
                      } deriving (Eq, Show)
 
 
 instance ToJSON Search where
   toJSON (Search mquery sFilter sort searchAggs
           highlight sTrackSortScores sFrom sSize _ sFields
-          sScriptFields sSource sSuggest) =
+          sScriptFields sSource sSuggest sCollapse) =
     omitNulls [ "query"         .= query'
               , "sort"          .= sort
               , "aggregations"  .= searchAggs
@@ -468,7 +474,8 @@ instance ToJSON Search where
               , "fields"        .= sFields
               , "script_fields" .= sScriptFields
               , "_source"       .= sSource
-              , "suggest"       .= sSuggest]
+              , "suggest"       .= sSuggest
+              , "collapse"      .= sCollapse]
 
     where query' = case sFilter of
                     Nothing -> mquery

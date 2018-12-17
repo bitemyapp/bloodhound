@@ -40,6 +40,7 @@ library
                        Database.V5.Bloodhound.Internal.Aggregation
                        Database.V5.Bloodhound.Internal.Analysis
                        Database.V5.Bloodhound.Internal.Client
+                       Database.V5.Bloodhound.Internal.Collapse
                        Database.V5.Bloodhound.Internal.Highlight
                        Database.V5.Bloodhound.Internal.Newtypes
                        Database.V5.Bloodhound.Internal.Query
