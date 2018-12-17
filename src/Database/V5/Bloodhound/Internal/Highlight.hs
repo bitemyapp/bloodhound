@@ -37,6 +37,7 @@ data HighlightSettings =
     Plain PlainHighlight
   | Postings PostingsHighlight
   | FastVector FastVectorHighlight
+  | Unified UnifiedHighlight
   deriving (Eq, Show)
 
 
@@ -64,6 +65,13 @@ data FastVectorHighlight = FastVectorHighlight
   , phraseLimit       :: Maybe Int
   } deriving (Eq, Show)
 
+data UnifiedHighlight = UnifiedHighlight  
+  { uCommon            :: Maybe CommonHighlight
+  , uNonPostSettings   :: Maybe NonPostings
+  , uBoundaryChars     :: Maybe Text
+  , uBoundaryMaxScan   :: Maybe Int
+  } deriving (Show, Eq)
+                      
 data CommonHighlight = CommonHighlight
   { order             :: Maybe Text
   , forceSource       :: Maybe Bool
@@ -100,6 +108,7 @@ highlightSettingsPairs Nothing = []
 highlightSettingsPairs (Just (Plain plh)) = plainHighPairs (Just plh)
 highlightSettingsPairs (Just (Postings ph)) = postHighPairs (Just ph)
 highlightSettingsPairs (Just (FastVector fvh)) = fastVectorHighPairs (Just fvh)
+highlightSettingsPairs (Just (Unified u)) = unifiedHighPairs (Just u)
 
 
 plainHighPairs :: Maybe PlainHighlight -> [Pair]
@@ -130,6 +139,18 @@ fastVectorHighPairs
                         , "phraseLimit" .= fvPhraseLim]
                         ++ commonHighlightPairs fvCom
                         ++ nonPostingsToPairs fvNonPostSettings'
+
+unifiedHighPairs :: Maybe UnifiedHighlight -> [Pair]
+unifiedHighPairs Nothing = []
+unifiedHighPairs 
+  (Just 
+    (UnifiedHighlight uCommon uNonPostSettings uBoundaryChars 
+                      uBoundaryMaxScan)) =
+                       [ "type" .= String "unified"
+                       , "boundary_chars" .= uBoundaryChars
+                       , "boundary_max_scan" .= uBoundaryMaxScan]
+                       ++ commonHighlightPairs uCommon
+                       ++ nonPostingsToPairs uNonPostSettings
 
 commonHighlightPairs :: Maybe CommonHighlight -> [Pair]
 commonHighlightPairs Nothing = []

@@ -398,6 +398,7 @@ module Database.V5.Bloodhound.Types
        , PlainHighlight(..)
        , PostingsHighlight(..)
        , FastVectorHighlight(..)
+       , UnifiedHighlight(..)
        , CommonHighlight(..)
        , NonPostings(..)
        , HighlightEncoder(..)
