@@ -1,4 +1,4 @@
-* ElasticSearch DSL
+* Elasticsearch DSL
 
 ** Grouping
 

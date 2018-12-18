@@ -224,7 +224,8 @@ getStatus :: MonadBH m => m (Maybe Status)
 getStatus = do
   response <- get =<< url
   return $ decode (responseBody response)
-  where url = joinPath []
+  where
+    url = joinPath []
 
 -- | 'getSnapshotRepos' gets the definitions of a subset of the
 -- defined snapshot repos.
@@ -253,7 +254,7 @@ instance FromJSON GSRs where
   parseJSON = withObject "Collection of GenericSnapshotRepo" parse
     where
       parse = fmap GSRs . mapM (uncurry go) . HM.toList
-      go rawName = withObject "GenericSnapshotRepo" $ \o -> do
+      go rawName = withObject "GenericSnapshotRepo" $ \o ->
         GenericSnapshotRepo (SnapshotRepoName rawName) <$> o .: "type"
                                                        <*> o .: "settings"
 
@@ -282,7 +283,7 @@ updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo =
 
 
 -- | Verify if a snapshot repo is working. __NOTE:__ this API did not
--- make it into ElasticSearch until 1.4. If you use an older version,
+-- make it into Elasticsearch until 1.4. If you use an older version,
 -- you will get an error here.
 verifySnapshotRepo
     :: ( MonadBH m
@@ -455,16 +456,18 @@ deleteIndex (IndexName indexName) =
 updateIndexSettings :: MonadBH m => NonEmpty UpdatableIndexSetting -> IndexName -> m Reply
 updateIndexSettings updates (IndexName indexName) =
   bindM2 put url (return body)
-  where url = joinPath [indexName, "_settings"]
-        body = Just (encode jsonBody)
-        jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
+  where
+    url = joinPath [indexName, "_settings"]
+    body = Just (encode jsonBody)
+    jsonBody = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
 
 
 getIndexSettings :: (MonadBH m, MonadThrow m) => IndexName
                  -> m (Either EsError IndexSettingsSummary)
-getIndexSettings (IndexName indexName) = do
+getIndexSettings (IndexName indexName) =
   parseEsResponse =<< get =<< url
-  where url = joinPath [indexName, "_settings"]
+  where
+    url = joinPath [indexName, "_settings"]
 
 
 -- | 'optimizeIndex' will optimize a single index, list of indexes or
@@ -480,7 +483,7 @@ getIndexSettings (IndexName indexName) = do
 -- to True is the main way to release disk space back to the OS being
 -- held by deleted documents.
 --
--- Note that this API was deprecated in ElasticSearch 2.1 for the
+-- Note that this API was deprecated in Elasticsearch 2.1 for the
 -- almost completely identical forcemerge API. Adding support to that
 -- API would be trivial but due to the significant breaking changes,
 -- this library cannot currently be used with >= 2.0, so that feature was omitted.
@@ -521,7 +524,7 @@ existentialQuery url = do
 -- responses from elasticsearch should fall into these two
 -- categories. If they don't, a 'EsProtocolException' will be
 -- thrown. If you encounter this, please report the full body it
--- reports along with your ElasticSearch verison.
+-- reports along with your Elasticsearch verison.
 parseEsResponse :: (MonadThrow m, FromJSON a) => Reply
                 -> m (Either EsError a)
 parseEsResponse reply
@@ -587,7 +590,7 @@ listIndices =
     url = joinPath ["_cat/indices?format=json"]
     parse body = maybe (throwM (EsProtocolException body)) return $ do
       vals <- decode body
-      forM vals $ \val -> do
+      forM vals $ \val ->
         case val of
           Object obj -> do
             indexVal <- HM.lookup "index" obj
@@ -719,7 +722,8 @@ encodeBulkOperations stream = collapsed where
   collapsed = toLazyByteString $ mappend mashedTaters (byteString "\n")
 
 mash :: Builder -> V.Vector L.ByteString -> Builder
-mash = V.foldl' (\b x -> b `mappend` (byteString "\n") `mappend` (lazyByteString x))
+mash =
+  V.foldl' (\b x -> b <> byteString "\n" <> lazyByteString x)
 
 mkBulkStreamValue :: Text -> Text -> Text -> Text -> Value
 mkBulkStreamValue operation indexName mappingName docId =
@@ -751,9 +755,9 @@ encodeBulkOperation (BulkDelete (IndexName indexName)
 
 encodeBulkOperation (BulkUpdate (IndexName indexName)
                 (MappingName mappingName)
-                (DocId docId) value) = blob
+                (DocId docId) value docAsUpsert) = blob
     where metadata = mkBulkStreamValue "update" indexName mappingName docId
-          doc = object ["doc" .= value]
+          doc = object ["doc" .= value, "doc_as_upsert" .= docAsUpsert]
           blob = encode metadata `mappend` "\n" `mappend` encode doc
 
 -- | 'getDocument' is a straight-forward way to fetch a single document from
@@ -859,7 +863,7 @@ deleteScroll (ScrollsMulti sis) =
   where 
     sisStr = T.intercalate "," $ map getSiText sis
     getSiText (ScrollId si) = si
-
+    
 -- | 'scanSearch' uses the 'scan&scroll' API of elastic,
 -- for a given 'IndexName' and 'MappingName'. Note that this will
 -- consume the entire search result set and will be doing O(n) list
