@@ -631,7 +631,7 @@ data BulkOperation =
     -- ^ Create a document, failing if it already exists. Use fast JSON encoding.
   | BulkDelete IndexName MappingName DocId
     -- ^ Delete the document
-  | BulkUpdate IndexName MappingName DocId Value
+  | BulkUpdate IndexName MappingName DocId Value Bool
     -- ^ Update the document, merging the new value with the existing one.
     deriving (Eq, Show)
 

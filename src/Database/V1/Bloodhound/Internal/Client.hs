@@ -450,7 +450,7 @@ data BulkOperation =
     BulkIndex  IndexName MappingName DocId Value
   | BulkCreate IndexName MappingName DocId Value
   | BulkDelete IndexName MappingName DocId
-  | BulkUpdate IndexName MappingName DocId Value deriving (Eq, Show)
+  | BulkUpdate IndexName MappingName DocId Value Bool deriving (Eq, Show)
 
 {-| 'EsResult' describes the standard wrapper JSON document that you see in
     successful Elasticsearch lookups or lookups that couldn't find the document.
