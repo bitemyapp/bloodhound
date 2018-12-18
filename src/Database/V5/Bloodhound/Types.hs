@@ -163,6 +163,7 @@ module Database.V5.Bloodhound.Types
        , ScriptParams(..)
        , ScriptParamName
        , ScriptParamValue
+
        , IndexName(..)
        , IndexSelection(..)
        , NodeSelection(..)
@@ -365,7 +366,7 @@ module Database.V5.Bloodhound.Types
        , DirectGenerators(..)
        , mkDirectGenerators
        , DirectGeneratorSuggestModeTypes (..)
-       
+
        , Collapse(..)
        , InnerHit(..)
        , mkInnerHit
@@ -404,6 +405,8 @@ module Database.V5.Bloodhound.Types
        , HighlightEncoder(..)
        , HighlightTag(..)
        , HitHighlight
+       , HitFields
+       , InnerHitResult(..)
 
        , MissingResult(..)
        , TermsResult(..)

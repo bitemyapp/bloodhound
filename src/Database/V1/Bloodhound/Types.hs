@@ -442,7 +442,6 @@ instance ToJSON Search where
               , "_source"      .= sSource
               , "suggest"      .= sSuggest]
 
-
 instance (FromJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) = SearchResult <$>
                          v .:  "took"         <*>

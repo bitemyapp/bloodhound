@@ -1106,6 +1106,19 @@ simpleAccumulator oldHits ([], _) = return (oldHits, Nothing)
 simpleAccumulator oldHits (newHits, msid) = do
     (newHits', msid') <- scroll' msid
     simpleAccumulator (oldHits ++ newHits) (newHits', msid')
+    
+-- | Manually clearing scrolls as soon as you are finished using them is 
+-- recommended by Elastic in order to release the memory more quickly.
+deleteScroll :: MonadBH m => Scrolls -> m Reply
+deleteScroll ScrollsAll = 
+    joinPath ["_search", "scroll", "_all"] >>= delete
+deleteScroll (ScrollsSingle (ScrollId si)) =
+    joinPath ["_search", "scroll", si]     >>= delete
+deleteScroll (ScrollsMulti sis) = 
+    joinPath ["_search", "scroll", sisStr] >>= delete
+  where 
+    sisStr = T.intercalate "," $ map getSiText sis
+    getSiText (ScrollId si) = si
 
 -- | Manually clearing scrolls as soon as you are finished using them is 
 -- recommended by Elastic in order to release the memory more quickly.
@@ -1148,7 +1161,7 @@ scanSearch indexName mappingName search = do
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> mkSearch (Just query) Nothing
--- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, searchType = SearchTypeQueryThenFetch, fields = Nothing, source = Nothing}
+-- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, searchType = SearchTypeQueryThenFetch, fields = Nothing, source = Nothing, collapse = Nothing}
 mkSearch :: Maybe Query -> Maybe Filter -> Search
 mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing Nothing
 
