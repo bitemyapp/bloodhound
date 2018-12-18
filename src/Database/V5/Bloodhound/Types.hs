@@ -404,7 +404,7 @@ module Database.V5.Bloodhound.Types
        , HighlightEncoder(..)
        , HighlightTag(..)
        , HitHighlight
-       , HitFields
+       , HitFields(..)
 
        , MissingResult(..)
        , TermsResult(..)
