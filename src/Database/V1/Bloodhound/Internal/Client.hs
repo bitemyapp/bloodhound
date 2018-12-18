@@ -2137,6 +2137,9 @@ newtype Pattern = Pattern Text deriving (Eq, Show)
 
 newtype ScrollId = ScrollId Text deriving (Eq, Show, Ord, ToJSON, FromJSON)
 
+data Scrolls = ScrollsAll | ScrollsMulti [ScrollId] | ScrollsSingle ScrollId 
+  deriving (Eq, Show)
+
 instance ToJSON PatternOrPatterns where
   toJSON (PopPattern pattern)   = toJSON pattern
   toJSON (PopPatterns patterns) = toJSON patterns

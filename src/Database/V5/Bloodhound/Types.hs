@@ -110,6 +110,7 @@ module Database.V5.Bloodhound.Types
        , SearchType(..)
        , SearchResult(..)
        , ScrollId(..)
+       , Scrolls(..)
        , SearchHits(..)
        , TrackSortScores
        , From(..)
@@ -520,3 +521,7 @@ instance (FromJSON a) => FromJSON (SearchResult a) where
 newtype ScrollId =
   ScrollId Text
   deriving (Eq, Show, Ord, ToJSON, FromJSON)
+
+data Scrolls = ScrollsAll | ScrollsMulti [ScrollId] | ScrollsSingle ScrollId 
+  deriving (Eq, Show)
+  

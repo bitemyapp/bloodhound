@@ -109,6 +109,7 @@ module Database.V1.Bloodhound.Types
        , SearchType(..)
        , SearchResult(..)
        , ScrollId(..)
+       , Scrolls(..)
        , SearchHits(..)
        , TrackSortScores
        , From(..)
