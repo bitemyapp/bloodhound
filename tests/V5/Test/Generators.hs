@@ -57,6 +57,10 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> arbitrary
                   <*> arbitrary
                   <*> arbitrary
+                  <*> arbitrary
+                  
+instance (Arbitrary a, Typeable a) => Arbitrary (InnerHitResult a) where
+  arbitrary = InnerHitResult <$> arbitrary
 
 instance Arbitrary HitFields where
   arbitrary = pure (HitFields M.empty)
