@@ -157,8 +157,8 @@ instance ToJSON Script where
   toJSON (Script lang inline stored params) =
     object [ "script" .= omitNulls base ]
     where base = [ "lang"   .= lang
-                 , "inline" .= inline
-                 , "stored" .= stored
+                 , "source" .= inline
+                 , "id"     .= stored
                  , "params" .= params ]
 
 instance FromJSON Script where
@@ -166,8 +166,8 @@ instance FromJSON Script where
     where parse o = o .: "script" >>= \o' ->
                       Script
                       <$> o' .:? "lang"
-                      <*> o' .:? "inline"
-                      <*> o' .:? "stored"
+                      <*> o' .:? "source"
+                      <*> o' .:? "id"
                       <*> o' .:? "params"
 
 instance ToJSON ScriptParams where

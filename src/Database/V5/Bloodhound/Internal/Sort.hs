@@ -38,14 +38,13 @@ type Sort = [SortSpec]
 {-| The main kinds of 'SortSpec' are 'DefaultSortSpec', 'ScriptSortSpec' and
     'GeoDistanceSortSpec'. The latter takes a 'SortOrder', 'GeoPoint', and
     'DistanceUnit' to express "nearness" to a single geographical point as a
-    sort specification. The script option takes a 'ScriptJ' JSON value to allow 
-    for freeform scripting.
+    sort specification. The script option takes a 'Script' object.
 
 <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 -}
 data SortSpec =
     DefaultSortSpec DefaultSort
-  | ScriptSortSpec ScriptJ (Maybe SortOrder)
+  | ScriptSortSpec Text Script (Maybe SortOrder)
   | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit
   deriving (Eq, Show)
 
@@ -60,8 +59,9 @@ instance ToJSON SortSpec where
              , "missing" .= dsMissingSort
              , "nested_filter" .= dsNestedFilter ]
 
-  toJSON (ScriptSortSpec (ScriptJ sj) ssSortOrder) =
-    omitNulls [ "_script" .= sj
+  toJSON (ScriptSortSpec typ script ssSortOrder) =
+    omitNulls [ "type"    .= typ
+              , "_script" .= script
               , "order"   .= ssSortOrder ]
              
   toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =

@@ -156,7 +156,6 @@ module Database.V5.Bloodhound.Types
        , ScriptFieldName
        , ScriptFieldValue
        , Script(..)
-       , ScriptJ(..)
        , MissingValue(..)       
        , ScriptLanguage(..)
        , ScriptInline(..)

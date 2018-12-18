@@ -81,10 +81,10 @@ instance ToJSON Aggregation where
                 (FieldMax (FieldName n) mv) -> omitNulls [ "field"   .= n,
                                                            "missing" .= mv
                                                          ]
-                (ScriptMax (ScriptJ s))      -> object   [ "script"  .= s ] 
-                (FieldScriptMax (FieldName n) (ScriptJ s) mv) -> 
+                (ScriptMax s)               -> object    [ "_script"  .= s ]
+                (FieldScriptMax (FieldName n) s mv) -> 
                                                omitNulls [ "field"   .= n
-                                                         , "script"  .= s
+                                                         , "_script"  .= s
                                                          , "missing" .= mv
                                                          ]                  
   toJSON (FilterAgg (FilterAggregation filt ags)) =
@@ -184,9 +184,9 @@ data ValueCountAggregation =
 
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-max-aggregation.html> for more information.                           
 data MaxAggregation = FieldMax FieldName (Maybe MissingValue)
-                    | ScriptMax ScriptJ
-                    | FieldScriptMax FieldName ScriptJ (Maybe MissingValue)
-                      deriving (Eq, Read, Show)
+                    | ScriptMax Script
+                    | FieldScriptMax FieldName Script (Maybe MissingValue)
+                      deriving (Eq, Show)
                       
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
 data FilterAggregation = FilterAggregation
