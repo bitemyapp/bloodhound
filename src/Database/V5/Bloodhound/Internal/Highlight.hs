@@ -162,7 +162,7 @@ commonHighlightPairs (Just (CommonHighlight chScore chForceSource
     , "encoder" .= chEncoder
     , "no_match_size" .= chNoMatchSize
     , "highlight_query" .= chHighlightQuery
-    , "require_fieldMatch" .= chRequireFieldMatch
+    , "require_field_match" .= chRequireFieldMatch
     ]
     ++ highlightTagToPairs chTag
 
