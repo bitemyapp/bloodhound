@@ -122,7 +122,6 @@ module Database.V5.Bloodhound.Types
        , Pattern(..)
        , ShardResult(..)
        , Hit(..)
-       , HitFields(..)
        , InnerHitResult(..)
        , Filter(..)
        , Seminearring(..)
@@ -406,7 +405,6 @@ module Database.V5.Bloodhound.Types
        , HighlightTag(..)
        , HitHighlight
        , HitFields
-       , InnerHitResult(..)
 
        , MissingResult(..)
        , TermsResult(..)
