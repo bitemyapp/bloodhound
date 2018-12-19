@@ -112,6 +112,8 @@ module Database.V5.Bloodhound.Types
        , ScrollId(..)
        , Scrolls(..)
        , SearchHits(..)
+       , NestedSearchHits(..)
+       , nestedSearchHits2SearchHits
        , TrackSortScores
        , From(..)
        , Size(..)
@@ -122,7 +124,9 @@ module Database.V5.Bloodhound.Types
        , Pattern(..)
        , ShardResult(..)
        , Hit(..)
+       , NestedHit(..)
        , InnerHitResult(..)
+       , nestedHit2Hit
        , Filter(..)
        , Seminearring(..)
        , BoolMatch(..)

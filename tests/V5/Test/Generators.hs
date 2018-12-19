@@ -59,6 +59,15 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> arbitrary
                   <*> arbitrary
                   
+instance (Arbitrary a, Typeable a) => Arbitrary (NestedHit a) where
+  arbitrary = NestedHit <$> arbitrary
+                  <*> arbitrary
+                  <*> arbitrary
+                  <*> arbitraryScore
+                  <*> arbitrary
+                  <*> arbitrary
+                  <*> arbitrary
+                  
 instance (Arbitrary a, Typeable a) => Arbitrary (InnerHitResult a) where
   arbitrary = InnerHitResult <$> arbitrary
 
@@ -72,6 +81,13 @@ instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
     score <- arbitraryScore
     hs <- arbitrary
     return $ SearchHits tot score hs
+    
+instance (Arbitrary a, Typeable a) => Arbitrary (NestedSearchHits a) where
+  arbitrary = reduceSize $ do
+    tot <- getPositive <$> arbitrary
+    score <- arbitraryScore
+    hs <- arbitrary
+    return $ NestedSearchHits tot score hs    
 
 
 reduceSize :: Gen a -> Gen a

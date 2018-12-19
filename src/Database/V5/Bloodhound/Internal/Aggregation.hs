@@ -478,7 +478,26 @@ instance Monoid (SearchHits a) where
   mempty = SearchHits 0 Nothing mempty
   mappend = (<>)
 
+data NestedSearchHits a =
+  NestedSearchHits { nhitsTotal :: Int
+                   , nmaxScore  :: Score
+                   , nhits      :: [NestedHit a] } deriving (Eq, Show)
 
+instance (FromJSON a) => FromJSON (NestedSearchHits a) where
+  parseJSON (Object v) = NestedSearchHits <$>
+                         v .: "total"     <*>
+                         v .: "max_score" <*>
+                         v .: "hits"
+  parseJSON _          = empty
+
+instance Semigroup (NestedSearchHits a) where
+  (NestedSearchHits ta ma ha) <> (NestedSearchHits tb mb hb) =
+    NestedSearchHits (ta + tb) (max ma mb) (ha <> hb)
+
+instance Monoid (NestedSearchHits a) where
+  mempty = NestedSearchHits 0 Nothing mempty
+  mappend = (<>)
+    
 data Hit a =
   Hit { hitIndex     :: IndexName
       , hitType      :: MappingName
@@ -502,11 +521,41 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:? "inner_hits"
   parseJSON _          = empty
 
-newtype InnerHitResult a = InnerHitResult { unInnerHitResult :: SearchHits a } 
+data NestedHit a =
+  NestedHit { nhitIndex     :: IndexName
+            , nhitType      :: MappingName
+            , nhitDocId     :: DocId
+            , nhitScore     :: Score
+            , nhitSource    :: Maybe a
+            , nhitFields    :: Maybe HitFields
+            , nhitHighlight :: Maybe HitHighlight 
+      } deriving (Eq, Show)
+      
+instance (FromJSON a) => FromJSON (NestedHit a) where
+  parseJSON (Object v) = NestedHit <$>
+                         v .:  "_index"    <*>
+                         v .:  "_type"     <*>
+                         v .:  "_id"       <*>
+                         v .:  "_score"    <*>
+                         v .:? "_source"   <*>
+                         v .:? "fields"    <*>
+                         v .:? "highlight"
+  parseJSON _          = empty
+  
+newtype InnerHitResult b = InnerHitResult { unInnerHitResult :: NestedSearchHits b } 
   deriving (Eq, Show)
                  
 instance (FromJSON a) => FromJSON (InnerHitResult a) where
   parseJSON (Object v) = InnerHitResult <$>
                          v .: "hits"
   parseJSON _ = empty                
+  
+nestedHit2Hit :: NestedHit a -> Hit a 
+nestedHit2Hit NestedHit{..} = 
+  Hit nhitIndex nhitType nhitDocId nhitScore nhitSource nhitFields 
+      nhitHighlight Nothing
+      
+nestedSearchHits2SearchHits :: NestedSearchHits a -> SearchHits a 
+nestedSearchHits2SearchHits NestedSearchHits{..} =
+  SearchHits nhitsTotal nmaxScore $ map nestedHit2Hit nhits
   
