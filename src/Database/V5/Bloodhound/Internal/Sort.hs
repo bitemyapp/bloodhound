@@ -9,6 +9,8 @@ import           Bloodhound.Import
 import           Database.V5.Bloodhound.Internal.Newtypes
 import           Database.V5.Bloodhound.Internal.Query
 
+import qualified Data.HashMap.Strict as HM (toList)
+
 {-| 'SortMode' prescribes how to handle sorting array/multi-valued fields.
 
 http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_sort_mode_option
@@ -60,9 +62,14 @@ instance ToJSON SortSpec where
              , "nested_filter" .= dsNestedFilter ]
 
   toJSON (ScriptSortSpec typ script ssSortOrder) =
-    omitNulls [ "type"    .= typ
-              , "_script" .= script
-              , "order"   .= ssSortOrder ]
+    let getPair (Object hm) = HM.toList hm
+        getPair _ = []
+    in  object [ "_script" .= (object $ [ "type"  .= typ
+                                       , "order" .= ssSortOrder
+                                       ] 
+                                       ++ (getPair $ toJSON script) 
+                              )
+               ]
              
   toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
     object [ "unit" .= units
