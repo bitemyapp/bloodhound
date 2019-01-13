@@ -64,11 +64,11 @@ instance ToJSON SortSpec where
   toJSON (ScriptSortSpec typ script ssSortOrder) =
     let getPair (Object hm) = HM.toList hm
         getPair _ = []
-    in  object [ "_script" .= (object $ [ "type"  .= typ
-                                       , "order" .= ssSortOrder
-                                       ] 
-                                       ++ (getPair $ toJSON script) 
-                              )
+        scriptPairs = getPair $ toJSON script
+        base = [ "type"  .= typ
+               , "order" .= ssSortOrder
+               ]
+    in  object [ "_script" .= omitNulls (base ++ scriptPairs)
                ]
              
   toJSON (GeoDistanceSortSpec gdsSortOrder (GeoPoint (FieldName field) gdsLatLon) units) =
