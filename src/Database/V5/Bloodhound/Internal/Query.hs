@@ -147,7 +147,7 @@ instance ToJSON Query where
 
   toJSON (QueryTemplateQueryInline templateQuery) =
     object [ "template" .= templateQuery ]
-
+ 
   toJSON (QueryWildcardQuery query) =
     object [ "wildcard" .= query ]
 
