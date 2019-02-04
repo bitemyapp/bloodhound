@@ -55,6 +55,7 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> arbitrary
                   <*> arbitraryScore
                   <*> arbitrary
+                  <*> return Nothing
                   <*> arbitrary
                   <*> arbitrary
 
@@ -183,7 +184,7 @@ instance Arbitrary Query where
 
 instance Arbitrary Filter where
   arbitrary =
-    Filter <$> arbitrary 
+    Filter <$> arbitrary
   shrink (Filter q) =
     Filter <$> shrink q
 

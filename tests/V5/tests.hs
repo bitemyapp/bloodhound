@@ -18,6 +18,7 @@ import           Test.Import
 
 import           Prelude
 
+import qualified Data.Aeson as Aeson
 import qualified Test.Aggregation as Aggregation
 import qualified Test.BulkAPI as Bulk
 import qualified Test.Documents as Documents
@@ -117,3 +118,19 @@ main = hspec $ do
         regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored
       liftIO $
         scan_search `shouldMatchList` [Just exampleTweet, Just otherTweet]
+
+  describe "Search After API" $
+    it "returns document for search after query" $ withTestEnv $ do
+      _ <- insertData
+      _ <- insertOther
+      let
+        sortSpec = DefaultSortSpec $ mkSort (FieldName "user") Ascending
+        searchAfterKey = [Aeson.toJSON ("bitemyapp" :: String)]
+        search = Search Nothing
+                 Nothing (Just [sortSpec]) Nothing Nothing
+                 False (From 0) (Size 10) SearchTypeQueryThenFetch (Just searchAfterKey)
+                 Nothing Nothing Nothing Nothing
+      result <- searchTweets search
+      let myTweet = grabFirst result
+      liftIO $
+        myTweet `shouldBe` Right otherTweet

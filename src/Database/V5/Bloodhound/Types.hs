@@ -382,6 +382,7 @@ module Database.V5.Bloodhound.Types
        , DateMathUnit(..)
        , TopHitsAggregation(..)
        , StatisticsAggregation(..)
+       , SearchAfterKey
 
        , Highlights(..)
        , FieldHighlight(..)
@@ -413,7 +414,7 @@ module Database.V5.Bloodhound.Types
        , TokenChar(..)
        , Shingle(..)
        , Language(..)
-         ) where
+       ) where
 
 import           Bloodhound.Import
 
@@ -444,6 +445,7 @@ data Search = Search { queryBody       :: Maybe Query
                      , from            :: From
                      , size            :: Size
                      , searchType      :: SearchType
+                     , searchAfterKey  :: Maybe SearchAfterKey
                      , fields          :: Maybe [FieldName]
                      , scriptFields    :: Maybe ScriptFields
                      , source          :: Maybe Source
@@ -453,7 +455,7 @@ data Search = Search { queryBody       :: Maybe Query
 
 instance ToJSON Search where
   toJSON (Search mquery sFilter sort searchAggs
-          highlight sTrackSortScores sFrom sSize _ sFields
+          highlight sTrackSortScores sFrom sSize _ sAfter sFields
           sScriptFields sSource sSuggest) =
     omitNulls [ "query"         .= query'
               , "sort"          .= sort
@@ -462,6 +464,7 @@ instance ToJSON Search where
               , "from"          .= sFrom
               , "size"          .= sSize
               , "track_scores"  .= sTrackSortScores
+              , "search_after"  .= sAfter
               , "fields"        .= sFields
               , "script_fields" .= sScriptFields
               , "_source"       .= sSource
