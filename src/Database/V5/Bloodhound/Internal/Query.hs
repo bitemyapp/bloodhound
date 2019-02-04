@@ -834,17 +834,18 @@ instance FromJSON DisMaxQuery where
                     <*> o .:? "boost"
 
 data MatchQuery = MatchQuery
-  { matchQueryField           :: FieldName
-  , matchQueryQueryString     :: QueryString
-  , matchQueryOperator        :: BooleanOperator
-  , matchQueryZeroTerms       :: ZeroTermsQuery
-  , matchQueryCutoffFrequency :: Maybe CutoffFrequency
-  , matchQueryMatchType       :: Maybe MatchQueryType
-  , matchQueryAnalyzer        :: Maybe Analyzer
-  , matchQueryMaxExpansions   :: Maybe MaxExpansions
-  , matchQueryLenient         :: Maybe Lenient
-  , matchQueryBoost           :: Maybe Boost
+  { matchQueryField              :: FieldName
+  , matchQueryQueryString        :: QueryString
+  , matchQueryOperator           :: BooleanOperator
+  , matchQueryZeroTerms          :: ZeroTermsQuery
+  , matchQueryCutoffFrequency    :: Maybe CutoffFrequency
+  , matchQueryMatchType          :: Maybe MatchQueryType
+  , matchQueryAnalyzer           :: Maybe Analyzer
+  , matchQueryMaxExpansions      :: Maybe MaxExpansions
+  , matchQueryLenient            :: Maybe Lenient
+  , matchQueryBoost              :: Maybe Boost
   , matchQueryMinimumShouldMatch :: Maybe Text
+  , matchQueryFuzziness          :: Maybe Fuzziness
   } deriving (Eq, Show)
 
 
@@ -853,7 +854,7 @@ instance ToJSON MatchQuery where
           (QueryString mqQueryString) booleanOperator
           zeroTermsQuery cutoffFrequency matchQueryType
           analyzer maxExpansions lenient boost
-          minShouldMatch
+          minShouldMatch mqFuzziness
          ) =
     object [ fieldName .= omitNulls base ]
     where base = [ "query" .= mqQueryString
@@ -866,6 +867,7 @@ instance ToJSON MatchQuery where
                  , "lenient" .= lenient
                  , "boost" .= boost
                  , "minimum_should_match" .= minShouldMatch
+                 , "fuzziness" .= mqFuzziness
                  ]
 
 instance FromJSON MatchQuery where
@@ -882,12 +884,13 @@ instance FromJSON MatchQuery where
                     <*> o .:? "lenient"
                     <*> o .:? "boost"
                     <*> o .:? "minimum_should_match"
+                    <*> o .:? "fuzziness"
 
 {-| 'mkMatchQuery' is a convenience function that defaults the less common parameters,
     enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
 -}
 mkMatchQuery :: FieldName -> QueryString -> MatchQuery
-mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 data MatchQueryType =
     MatchPhrase
@@ -1621,3 +1624,17 @@ fieldTagged :: Monad m => (FieldName -> Object -> m a) -> Object -> m a
 fieldTagged f o = case HM.toList o of
                     [(k, Object o')] -> f (FieldName k) o'
                     _ -> fail "Expected object with 1 field-named key"
+
+-- | Fuzziness value as a number or 'AUTO'.
+-- See:
+-- https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#fuzziness
+data Fuzziness = Fuzziness Double | FuzzinessAuto
+  deriving (Eq, Show)
+
+instance ToJSON Fuzziness where
+  toJSON (Fuzziness n) = toJSON n
+  toJSON FuzzinessAuto = String "AUTO"
+
+instance FromJSON Fuzziness where
+  parseJSON (String "AUTO") = return FuzzinessAuto
+  parseJSON v               = Fuzziness <$> parseJSON v

@@ -110,8 +110,6 @@ newtype MinimumTermFrequency =
   MinimumTermFrequency Int deriving (Eq, Show, FromJSON, ToJSON)
 newtype MaxQueryTerms =
   MaxQueryTerms Int deriving (Eq, Show, FromJSON, ToJSON)
-newtype Fuzziness =
-  Fuzziness Double deriving (Eq, Show, FromJSON, ToJSON)
 
 {-| 'PrefixLength' is the prefix length used in queries, defaults to 0. -}
 newtype PrefixLength =
