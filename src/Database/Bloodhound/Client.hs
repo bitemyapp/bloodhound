@@ -52,6 +52,7 @@ module Database.Bloodhound.Client
        , getDocument
        , documentExists
        , deleteDocument
+       , deleteByQuery
        -- ** Searching
        , searchAll
        , searchByIndex
@@ -862,6 +863,17 @@ deleteDocument :: MonadBH m => IndexName -> MappingName
 deleteDocument (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
   delete =<< joinPath [indexName, mappingName, docId]
+
+-- | 'deleteByQuery' performs a deletion on every document that matches a query.
+--
+-- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
+-- >>> _ <- runBH' $ deleteDocument testIndex testMapping query
+deleteByQuery :: MonadBH m => IndexName -> MappingName -> Query -> m Reply
+deleteByQuery (IndexName indexName) (MappingName mappingName) query =
+  bindM2 post url (return body)
+  where
+    url = joinPath [indexName, mappingName, "_delete_by_query"]
+    body = Just (encode $ object [ "query" .= query ])
 
 -- | 'bulk' uses
 --    <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
