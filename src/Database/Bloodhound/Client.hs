@@ -35,6 +35,7 @@ module Database.Bloodhound.Client
        , openIndex
        , closeIndex
        , listIndices
+       , catIndices
        , waitForYellowIndex
        -- *** Index Aliases
        , updateIndexAliases
@@ -726,6 +727,22 @@ listIndices =
               (Just (String txt)) -> Right (IndexName txt)
               v -> Left $ "indexVal in listIndices failed on non-string, was: " <> show v
           v -> Left $ "One of the values parsed in listIndices wasn't an object, it was: " <> show v
+
+-- | 'catIndices' returns a list of all index names on a given 'Server' as well as their doc counts
+catIndices :: (MonadThrow m, MonadBH m) => m [(IndexName, Int)]
+catIndices =
+  parse . responseBody =<< get =<< url
+  where
+    url = joinPath ["_cat/indices?format=json"]
+    parse body = either (\msg -> (throwM (EsProtocolException (T.pack msg) body))) return $ do
+      vals <- eitherDecode body
+      forM vals $ \val ->
+        case val of
+          Object obj ->
+            case (HM.lookup "index" obj, HM.lookup "docs.count" obj) of
+              (Just (String txt), Just (String docs)) -> Right ((IndexName txt), read (T.unpack docs))
+              v -> Left $ "indexVal in catIndices failed on non-string, was: " <> show v
+          v -> Left $ "One of the values parsed in catIndices wasn't an object, it was: " <> show v
 
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at
