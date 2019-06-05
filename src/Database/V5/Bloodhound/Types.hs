@@ -383,6 +383,7 @@ module Database.V5.Bloodhound.Types
        , TopHitsAggregation(..)
        , StatisticsAggregation(..)
        , SearchAfterKey
+       , SumAggregation(..)
 
        , Highlights(..)
        , FieldHighlight(..)

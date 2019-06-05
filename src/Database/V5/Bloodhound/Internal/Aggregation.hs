@@ -34,6 +34,7 @@ data Aggregation = TermsAgg TermsAggregation
                  | MissingAgg MissingAggregation
                  | TopHitsAgg TopHitsAggregation
                  | StatsAgg StatisticsAggregation
+                 | SumAgg SumAggregation
   deriving (Eq, Show)
 
 instance ToJSON Aggregation where
@@ -96,6 +97,9 @@ instance ToJSON Aggregation where
     where
       stType | typ == Basic = "stats"
              | otherwise = "extended_stats"
+
+  toJSON (SumAgg (SumAggregation (FieldName n))) =
+    omitNulls ["sum" .= omitNulls [ "field" .= n ] ]
 
 data TopHitsAggregation = TopHitsAggregation
   { taFrom :: Maybe From
@@ -181,6 +185,9 @@ data StatisticsAggregation = StatisticsAggregation
 data StatsType
   = Basic
   | Extended
+  deriving (Eq, Show)
+
+newtype SumAggregation = SumAggregation { sumAggregationField :: FieldName }
   deriving (Eq, Show)
 
 mkTermsAggregation :: Text -> TermsAggregation
