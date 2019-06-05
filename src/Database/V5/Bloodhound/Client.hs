@@ -46,6 +46,7 @@ module Database.V5.Bloodhound.Client
        , deleteTemplate
        -- ** Mapping
        , putMapping
+       , putMappingV7
        -- ** Documents
        , indexDocument
        , updateDocument
@@ -802,6 +803,15 @@ putMapping :: (MonadBH m, ToJSON a) => IndexName
 putMapping (IndexName indexName) (MappingName mappingName) mapping =
   bindM2 put url (return body)
   where url = joinPath [indexName, "_mapping", mappingName]
+        -- "_mapping" and mappingName above were originally transposed
+        -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
+        body = Just $ encode mapping
+
+-- | Does not take a mapping name.
+putMappingV7 :: (MonadBH m, ToJSON a) => IndexName -> a -> m Reply
+putMappingV7 (IndexName indexName) mapping =
+  bindM2 put url (return body)
+  where url = joinPath [indexName, "_mapping"]
         -- "_mapping" and mappingName above were originally transposed
         -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
         body = Just $ encode mapping
