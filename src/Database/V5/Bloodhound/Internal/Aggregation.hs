@@ -431,9 +431,15 @@ data SearchHits a =
              , hits      :: [Hit a] } deriving (Eq, Show)
 
 
+parserHitsV7 :: Aeson.Value -> Parser Int
+parserHitsV7 obj =
+  parseJSON obj
+  <|>
+  withObject "hits-v7" (\v -> v .: "value") obj
+
 instance (FromJSON a) => FromJSON (SearchHits a) where
   parseJSON (Object v) = SearchHits <$>
-                         v .: "total"     <*>
+                         (v .: "total" >>= parserHitsV7) <*>
                          v .: "max_score" <*>
                          v .: "hits"
   parseJSON _          = empty
