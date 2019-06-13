@@ -444,6 +444,7 @@ data Search = Search { queryBody       :: Maybe Query
                      , trackSortScores :: TrackSortScores
                      , from            :: From
                      , size            :: Size
+                     , trackTotalHits  :: Bool
                      , searchType      :: SearchType
                      , searchAfterKey  :: Maybe SearchAfterKey
                      , fields          :: Maybe [FieldName]
@@ -455,14 +456,15 @@ data Search = Search { queryBody       :: Maybe Query
 
 instance ToJSON Search where
   toJSON (Search mquery sFilter sort searchAggs
-          highlight sTrackSortScores sFrom sSize _ sAfter sFields
-          sScriptFields sSource sSuggest) =
+          highlight sTrackSortScores sFrom sSize sTrackTotalHits _
+          sAfter sFields sScriptFields sSource sSuggest) =
     omitNulls [ "query"         .= query'
               , "sort"          .= sort
               , "aggregations"  .= searchAggs
               , "highlight"     .= highlight
               , "from"          .= sFrom
               , "size"          .= sSize
+              , "track_total_hits" .= sTrackTotalHits
               , "track_scores"  .= sTrackSortScores
               , "search_after"  .= sAfter
               , "fields"        .= sFields
