@@ -36,7 +36,6 @@ library
   exposed-modules:     Database.V5.Bloodhound
                        Database.V5.Bloodhound.Client
                        Database.V5.Bloodhound.Types
-                       Database.V5.Bloodhound.Types.Class
                        Database.V5.Bloodhound.Internal.Aggregation
                        Database.V5.Bloodhound.Internal.Analysis
                        Database.V5.Bloodhound.Internal.Client

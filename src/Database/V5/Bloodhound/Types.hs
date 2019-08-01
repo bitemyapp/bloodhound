@@ -122,7 +122,6 @@ module Database.V5.Bloodhound.Types
        , Hit(..)
        , HitFields(..)
        , Filter(..)
-       , Seminearring(..)
        , BoolMatch(..)
        , Term(..)
        , GeoPoint(..)
@@ -418,9 +417,8 @@ module Database.V5.Bloodhound.Types
 
 import           Bloodhound.Import
 
-import           Database.V5.Bloodhound.Types.Class
-import           Database.V5.Bloodhound.Internal.Analysis
 import           Database.V5.Bloodhound.Internal.Aggregation
+import           Database.V5.Bloodhound.Internal.Analysis
 import           Database.V5.Bloodhound.Internal.Client
 import           Database.V5.Bloodhound.Internal.Highlight
 import           Database.V5.Bloodhound.Internal.Newtypes
