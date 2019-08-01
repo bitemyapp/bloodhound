@@ -1,84 +1,116 @@
+.PHONY : build build-validate ghci test test-rerun test-ghci ghcid ghcid-validate \
+         weeder hlint hlint-watch mod-build
+
+.DEFAULT_GOAL = help
+
 stack = STACK_YAML='stack.yaml' stack
+build = build --ghc-options '+RTS -A128M -RTS'
+stack-8.0 = STACK_YAML="stack-8.0.yaml" stack
+stack-8.2 = STACK_YAML="stack-8.2.yaml" stack
+stack-8.4 = STACK_YAML="stack-8.4.yaml" stack
+stack-8.6 = STACK_YAML="stack-8.6.yaml" stack
 
+# stack build --ghc-options '+RTS -A128M -RTS'
+
+## run build
 build:
-	stack build
+	$(stack) $(build)
 
+## build with validation options (Wall, Werror)
 build-validate:
 	stack build --fast --ghc-options '-Wall -Werror'
 
+## run ghci
 ghci:
 	stack ghci
 
+## run tests
 test: echo-warn
 	stack test
 
+## run tests with forced re-run via "-r"
 test-rerun: echo-warn
 	stack test --test-arguments "-r"
 
+## run ghci with test stanza
 test-ghci:
 	stack ghci bloodhound:test:bloodhound-tests
 
+## run ghcid
 ghcid:
 	ghcid -c "$(stack) ghci bloodhound:lib --test --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is bloodhound:test:bloodhound-tests"
 
+## run ghcid with validate options (Werror, etc.)
 ghcid-validate:
 	ghcid -c "$(stack) ghci bloodhound:lib --test --ghci-options='-Werror -fobject-code -fno-warn-unused-do-bind' --main-is bloodhound:test:bloodhound-tests"
 
+## run weeder
 weeder:
 	weeder . --build
 
-# hlint --default > .hlint.yaml
+## run hlint
 hlint:
 	hlint .
 
+## hlint watch with `sos`
 hlint-watch:
 	sos src/ -c "hlint ." -p "src/(.*)\.hs"
 
-mod-build:
-	stack build --ghc-options '+RTS -A128M -RTS'
+# mod-build:
+# 	stack build --ghc-options '+RTS -A128M -RTS'
 
 echo-warn:
 	@echo "Make certain you have an elasticsearch instance on localhost:9200 !"
 
-7.8-build:
-	STACK_YAML="stack-7.8.yaml" stack build
-
-7.8-test: echo-warn
-	STACK_YAML="stack-7.8.yaml" stack test
-
-7.10-build:
-	STACK_YAML="stack-7.10.yaml" stack build
-
-7.10-test: echo-warn
-	STACK_YAML="stack-7.10.yaml" stack test
-
-7.10-test-ES1:
-	STACK_YAML="stack-7.10.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
-
-7.10-test-ES5:
-	STACK_YAML="stack-7.10.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
-
+## Test with GHC 8.0 and ES 1.x
 8.0-test-ES1:
 	STACK_YAML="stack-8.0.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
 
+## Test with GHC 8.0 and ES 5.x
 8.0-test-ES5:
 	STACK_YAML="stack-8.0.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
 
+## Test with GHC 8.2 and ES 1.x
 8.2-test-ES1:
 	STACK_YAML="stack.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
 
+## Test with GHC 8.2 and ES 5.x
 8.2-test-ES5:
 	STACK_YAML="stack.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
 
+## Build with the GHC 8.0 Stack YAML
 8.0-build:
-	STACK_YAML="stack-8.0.yaml" stack build
+	$(stack-8.0) $(build)
 
+## Build with the GHC 8.2 Stack YAML
 8.2-build:
-	STACK_YAML="stack-8.2.yaml" stack build
+	$(stack-8.0) $(build)
 
+## Build with the GHC 8.4 Stack YAML
+8.4-build:
+	$(stack-8.4) $(build)
+
+## Build with the GHC 8.6 Stack YAML
+8.6-build:
+	$(stack-8.6) $(build)
+
+## Touch the V1 and V5 modules
 module-touch:
 	touch src/Database/V1/Bloodhound/Types.hs
 	touch src/Database/V5/Bloodhound/Types.hs
 
+## Upload the package to Hackage
 upload:
 	stack upload --no-signature .
+
+help:
+	@echo "Please use \`make <target>' where <target> is one of\n\n"
+	@awk '/^[a-zA-Z\-\_0-9]+:/ { \
+		helpMessage = match(lastLine, /^## (.*)/); \
+		if (helpMessage) { \
+			helpCommand = substr($$1, 0, index($$1, ":")); \
+			helpMessage = substr(lastLine, RSTART + 3, RLENGTH); \
+			printf "%-30s %s\n", helpCommand, helpMessage; \
+		} \
+	} \
+	{ lastLine = $$0 }' $(MAKEFILE_LIST)
