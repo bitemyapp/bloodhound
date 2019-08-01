@@ -4,7 +4,10 @@
 .DEFAULT_GOAL = help
 
 stack = STACK_YAML='stack.yaml' stack
-build = build --ghc-options '+RTS -A128M -RTS'
+ghc_perf_options = --ghc-options '+RTS -A128M -RTS'
+build = build $(ghc_perf_options)
+ghci = ghci $(ghc_perf_options)
+test = test $(ghc_perf_options)
 stack-8.0 = STACK_YAML="stack-8.0.yaml" stack
 stack-8.2 = STACK_YAML="stack-8.2.yaml" stack
 stack-8.4 = STACK_YAML="stack-8.4.yaml" stack
@@ -18,23 +21,23 @@ build:
 
 ## build with validation options (Wall, Werror)
 build-validate:
-	stack build --fast --ghc-options '-Wall -Werror'
+	$(stack) build --fast --ghc-options '-Wall -Werror +RTS -A128M -RTS'
 
 ## run ghci
 ghci:
-	stack ghci
+	$(stack) $(ghci)
 
 ## run tests
 test: echo-warn
-	stack test
+	$(stack) $(test)
 
 ## run tests with forced re-run via "-r"
 test-rerun: echo-warn
-	stack test --test-arguments "-r"
+	$(stack) $(test) --test-arguments "-r"
 
 ## run ghci with test stanza
 test-ghci:
-	stack ghci bloodhound:test:bloodhound-tests
+	$(stack) $(ghci) bloodhound:test:bloodhound-tests
 
 ## run ghcid
 ghcid:
