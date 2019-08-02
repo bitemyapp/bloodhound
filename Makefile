@@ -106,6 +106,28 @@ module-touch:
 upload:
 	stack upload --no-signature .
 
+# Create ES5 instance
+
+## Run test environment
+compose-ES5:
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ up
+
+## Run test environment in detach mode
+compose-ES5-detach-up:
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ up -d
+
+## Close test environment if run on detach mode
+compose-ES5-detach-down:
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ down
+
+## build the docker compose images
+compose-build:
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ build
+
+## Spawn bash shell in ES5 test container
+ES5-shell:
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ exec elasticsearch1 bash
+
 help:
 	@echo "Please use \`make <target>' where <target> is one of\n\n"
 	@awk '/^[a-zA-Z\-\_0-9]+:/ { \
