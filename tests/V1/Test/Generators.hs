@@ -152,9 +152,13 @@ instance Arbitrary NodeAttrName where
 instance Arbitrary NodeAttrFilter where
   arbitrary = do
     n <- arbitrary
-    s:ss <- listOf1 (listOf1 arbitraryAlphaNum)
-    let ts = T.pack <$> s :| ss
+    xs <- listOf1 (listOf1 arbitraryAlphaNum)
+    let (s, ss) = unpackConsPartial xs
+        ts = T.pack <$> s :| ss
     return (NodeAttrFilter n ts)
+      where -- listOf1 means this shouldn't blow up.
+            unpackConsPartial (x : xs) = (x, xs)
+            unpackConsPartial _ = error "unpackConsPartial failed but shouldn't have"
 
 instance Arbitrary VersionNumber where
   arbitrary = mk . fmap getPositive . getNonEmpty <$> arbitrary
