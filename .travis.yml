@@ -1,11 +1,10 @@
 sudo: false
-language: generic
+language: java
 
 addons:
   apt:
     packages:
       - libgmp-dev
-      - oracle-java8-installer
 
 env:
   global:
