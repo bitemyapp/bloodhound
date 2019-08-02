@@ -1,10 +1,10 @@
-module Database.V5.Bloodhound
+module Database.Bloodhound
        ( -- module Data.Aeson.Types
        -- , 
-         module Database.V5.Bloodhound.Client
-       , module Database.V5.Bloodhound.Types
+         module Database.Bloodhound.Client
+       , module Database.Bloodhound.Types
        ) where
 
 -- import Data.Aeson.Types
-import Database.V5.Bloodhound.Client
-import Database.V5.Bloodhound.Types
+import Database.Bloodhound.Client
+import Database.Bloodhound.Types

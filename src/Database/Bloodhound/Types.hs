@@ -26,7 +26,7 @@
 
 
 
-module Database.V5.Bloodhound.Types
+module Database.Bloodhound.Types
        ( defaultCache
        , defaultIndexSettings
        , defaultIndexDocumentSettings
@@ -417,14 +417,14 @@ module Database.V5.Bloodhound.Types
 
 import           Bloodhound.Import
 
-import           Database.V5.Bloodhound.Internal.Aggregation
-import           Database.V5.Bloodhound.Internal.Analysis
-import           Database.V5.Bloodhound.Internal.Client
-import           Database.V5.Bloodhound.Internal.Highlight
-import           Database.V5.Bloodhound.Internal.Newtypes
-import           Database.V5.Bloodhound.Internal.Query
-import           Database.V5.Bloodhound.Internal.Sort
-import           Database.V5.Bloodhound.Internal.Suggest
+import           Database.Bloodhound.Internal.Aggregation
+import           Database.Bloodhound.Internal.Analysis
+import           Database.Bloodhound.Internal.Client
+import           Database.Bloodhound.Internal.Highlight
+import           Database.Bloodhound.Internal.Newtypes
+import           Database.Bloodhound.Internal.Query
+import           Database.Bloodhound.Internal.Sort
+import           Database.Bloodhound.Internal.Suggest
 
 {-| 'unpackId' is a silly convenience function that gets used once.
 -}

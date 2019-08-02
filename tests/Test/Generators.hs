@@ -5,7 +5,7 @@
 
 module Test.Generators where
 
-import           Database.V5.Bloodhound
+import           Database.Bloodhound
 
 import           Test.Import
 

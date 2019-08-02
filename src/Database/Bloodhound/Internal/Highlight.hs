@@ -1,14 +1,14 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module Database.V5.Bloodhound.Internal.Highlight where
+module Database.Bloodhound.Internal.Highlight where
 
 import           Bloodhound.Import
 
 import qualified Data.Map.Strict as M
 
-import           Database.V5.Bloodhound.Internal.Newtypes
-import           Database.V5.Bloodhound.Internal.Query
+import           Database.Bloodhound.Internal.Newtypes
+import           Database.Bloodhound.Internal.Query
 
 type HitHighlight = M.Map Text [Text]
 

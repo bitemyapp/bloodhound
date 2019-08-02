@@ -14,7 +14,7 @@ import           Data.Text              (Text)
 import           Data.Time.Calendar     (Day (..))
 import           Data.Time.Clock        (UTCTime (..), secondsToDiffTime)
 import qualified Data.Vector            as V
-import           Database.V5.Bloodhound
+import           Database.Bloodhound
 import           GHC.Generics           (Generic)
 import           Network.HTTP.Client    (defaultManagerSettings)
 

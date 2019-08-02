@@ -7,7 +7,7 @@ import Test.Import
 
 import Control.Error (fmapL, note)
 import qualified Data.Map as M
-import qualified Database.V5.Bloodhound
+import qualified Database.Bloodhound
 
 spec :: Spec
 spec =
@@ -35,7 +35,7 @@ spec =
       _ <- insertData
       let cardinality = CardinalityAgg $ mkCardinalityAggregation $ FieldName "user"
       let search = mkAggregateSearch Nothing $ mkAggregations "users" cardinality
-      let search' = search { Database.V5.Bloodhound.from = From 0, size = Size 0 }
+      let search' = search { Database.Bloodhound.from = From 0, size = Size 0 }
       searchExpectAggs search'
       let docCountPair k n = (k, object ["value" .= Number n])
       res <- searchTweets search'
@@ -46,7 +46,7 @@ spec =
       _ <- insertData
       let stats = StatsAgg $ mkStatsAggregation $ FieldName "age"
       let search = mkAggregateSearch Nothing $ mkAggregations "users" stats
-      let search' = search { Database.V5.Bloodhound.from = From 0, size = Size 0 }
+      let search' = search { Database.Bloodhound.from = From 0, size = Size 0 }
       searchExpectAggs search'
       let statsAggRes k n = (k, object [ "max" .= Number n
                                        , "avg" .= Number n

@@ -6,7 +6,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Database.V5.Bloodhound.Internal.Client where
+module Database.Bloodhound.Internal.Client where
 
 import           Bloodhound.Import
 
@@ -25,10 +25,10 @@ import           Network.HTTP.Client
 import           Text.Read           (Read(..))
 import qualified Text.Read           as TR
 
-import           Database.V5.Bloodhound.Internal.Analysis
-import           Database.V5.Bloodhound.Internal.Newtypes
-import           Database.V5.Bloodhound.Internal.Query
-import           Database.V5.Bloodhound.Internal.StringlyTyped
+import           Database.Bloodhound.Internal.Analysis
+import           Database.Bloodhound.Internal.Newtypes
+import           Database.Bloodhound.Internal.Query
+import           Database.Bloodhound.Internal.StringlyTyped
 
 {-| Common environment for Elasticsearch calls. Connections will be
     pipelined according to the provided HTTP connection manager.

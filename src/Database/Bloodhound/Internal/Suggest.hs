@@ -2,14 +2,14 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module Database.V5.Bloodhound.Internal.Suggest where
+module Database.Bloodhound.Internal.Suggest where
 
 import           Bloodhound.Import
 
 import qualified Data.HashMap.Strict as HM
 
-import           Database.V5.Bloodhound.Internal.Newtypes
-import           Database.V5.Bloodhound.Internal.Query (TemplateQueryInline(..), params)
+import           Database.Bloodhound.Internal.Newtypes
+import           Database.Bloodhound.Internal.Query (TemplateQueryInline(..), params)
 
 data Suggest = Suggest
   { suggestText :: Text

@@ -2,12 +2,12 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 
-module Database.V5.Bloodhound.Internal.Sort where
+module Database.Bloodhound.Internal.Sort where
 
 import           Bloodhound.Import
 
-import           Database.V5.Bloodhound.Internal.Newtypes
-import           Database.V5.Bloodhound.Internal.Query
+import           Database.Bloodhound.Internal.Newtypes
+import           Database.Bloodhound.Internal.Query
 
 {-| 'SortMode' prescribes how to handle sorting array/multi-valued fields.
 

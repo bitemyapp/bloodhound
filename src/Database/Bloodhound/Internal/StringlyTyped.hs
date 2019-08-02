@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.V5.Bloodhound.Internal.StringlyTyped where
+module Database.Bloodhound.Internal.StringlyTyped where
 
 import           Bloodhound.Import
 

@@ -90,11 +90,6 @@ build-8.4:
 build-8.6:
 	$(stack-8.6) $(build)
 
-## Touch the V1 and V5 modules
-module-touch:
-	touch src/Database/V1/Bloodhound/Types.hs
-	touch src/Database/V5/Bloodhound/Types.hs
-
 ## Upload the package to Hackage
 upload:
 	stack upload --no-signature .

@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 
-module Database.V5.Bloodhound.Internal.Aggregation where
+module Database.Bloodhound.Internal.Aggregation where
 
 import           Bloodhound.Import
 
@@ -11,11 +11,11 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
-import           Database.V5.Bloodhound.Internal.Client
-import           Database.V5.Bloodhound.Internal.Highlight (HitHighlight)
-import           Database.V5.Bloodhound.Internal.Newtypes
-import           Database.V5.Bloodhound.Internal.Query
-import           Database.V5.Bloodhound.Internal.Sort
+import           Database.Bloodhound.Internal.Client
+import           Database.Bloodhound.Internal.Highlight (HitHighlight)
+import           Database.Bloodhound.Internal.Newtypes
+import           Database.Bloodhound.Internal.Query
+import           Database.Bloodhound.Internal.Sort
 
 type Aggregations = M.Map Text Aggregation
 

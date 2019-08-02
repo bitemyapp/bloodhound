@@ -15,7 +15,7 @@
 --
 -------------------------------------------------------------------------------
 
-module Database.V5.Bloodhound.Client
+module Database.Bloodhound.Client
        ( -- * Bloodhound client functions
          -- | The examples in this module assume the following code has been run.
          --   The :{ and :} will only work in GHCi. You'll only need the data types
@@ -125,12 +125,12 @@ import qualified Network.HTTP.Types.URI       as NHTU
 import qualified Network.URI                  as URI
 import           Prelude                      hiding (filter, head)
 
-import           Database.V5.Bloodhound.Types
+import           Database.Bloodhound.Types
 
 -- $setup
 -- >>> :set -XOverloadedStrings
 -- >>> :set -XDeriveGeneric
--- >>> import Database.V5.Bloodhound
+-- >>> import Database.Bloodhound
 -- >>> import Network.HTTP.Client
 -- >>> let testServer = (Server "http://localhost:9200")
 -- >>> let runBH' = withBH defaultManagerSettings testServer

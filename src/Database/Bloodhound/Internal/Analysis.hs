@@ -1,15 +1,15 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module Database.V5.Bloodhound.Internal.Analysis where
+module Database.Bloodhound.Internal.Analysis where
 
 import           Bloodhound.Import
 
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
-import           Database.V5.Bloodhound.Internal.Newtypes
-import           Database.V5.Bloodhound.Internal.StringlyTyped
+import           Database.Bloodhound.Internal.Newtypes
+import           Database.Bloodhound.Internal.StringlyTyped
 
 data Analysis = Analysis
   { analysisAnalyzer :: M.Map Text AnalyzerDefinition
