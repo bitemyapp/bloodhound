@@ -10,8 +10,6 @@ addons:
       - libgmp-dev
 
 env:
-  global:
-   - JAVA_HOME=/usr/lib/jvm/java-8-oracle
   matrix:
     - GHCVER=8.0  ESVER=1.7.6 STACK_YAML=stack-8.0.yaml ESFLAG=ES1 DLINK=https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch
     - GHCVER=8.0  ESVER=5.0.2 STACK_YAML=stack-8.0.yaml ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
