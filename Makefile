@@ -12,6 +12,7 @@ stack-8.0 = STACK_YAML="stack-8.0.yaml" stack
 stack-8.2 = STACK_YAML="stack-8.2.yaml" stack
 stack-8.4 = STACK_YAML="stack-8.4.yaml" stack
 stack-8.6 = STACK_YAML="stack-8.6.yaml" stack
+elasticsearch_directory = elasticsearch
 
 # stack build --ghc-options '+RTS -A128M -RTS'
 
@@ -110,23 +111,23 @@ upload:
 
 ## Run test environment
 compose-ES5:
-	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ up
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml --project-directory $(elasticsearch_directory) up
 
 ## Run test environment in detach mode
 compose-ES5-detach-up:
-	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ up -d
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml --project-directory $(elasticsearch_directory) up -d
 
 ## Close test environment if run on detach mode
 compose-ES5-detach-down:
-	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ down
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml --project-directory $(elasticsearch_directory) down
 
 ## build the docker compose images
 compose-build:
-	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ build
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml --project-directory $(elasticsearch_directory) build
 
 ## Spawn bash shell in ES5 test container
 ES5-shell:
-	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f tests/ES5/docker-compose.yml --project-directory tests/ES5/ exec elasticsearch1 bash
+	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml --project-directory $(elasticsearch_directory) exec elasticsearch1 bash
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of\n\n"
