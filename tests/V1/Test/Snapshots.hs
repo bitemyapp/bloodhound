@@ -135,7 +135,8 @@ getRepoPaths = withTestEnv $ do
   let tUrl = s <> "/" <> "_nodes"
   initReq <- parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack tUrl))
   let req = setRequestIgnoreStatus $ initReq { method = NHTM.methodGet }
-  Right (Object o) <- parseEsResponse =<< liftIO (httpLbs req (bhManager bhe))
+  maybeObject <- parseEsResponse =<< liftIO (httpLbs req (bhManager bhe))
+  let o = unpackObject maybeObject
   return $ fromMaybe mempty $ do
     Object nodes <- HM.lookup "nodes" o
     Object firstNode <- snd <$> headMay (HM.toList nodes)
@@ -143,6 +144,8 @@ getRepoPaths = withTestEnv $ do
     Object path <- HM.lookup "path" settings
     Array repo <- HM.lookup "repo" path
     return [ T.unpack t | String t <- V.toList repo]
+  where unpackObject Right (Object o) = o
+        unpackObject _ = error "unpacking the object failed!"
 
 -- | 1.5 and earlier don't care about repo paths
 canSnapshot :: IO Bool
