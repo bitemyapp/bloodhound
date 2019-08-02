@@ -31,7 +31,7 @@ import System.IO.Temp as X
 import System.PosixCompat.Files as X
 import Test.Hspec as X
 import Test.Hspec.QuickCheck as X (prop)
-import Test.QuickCheck as X hiding (Result, Success)
+import Test.QuickCheck as X hiding (Result, Success, isSuccess)
 import Test.QuickCheck.Property.Monoid as X (T (..), eq, prop_Monoid)
 import Text.Pretty.Simple as X (pPrint)
 
