@@ -6,7 +6,6 @@ module Database.V5.Bloodhound.Internal.Analysis where
 import           Bloodhound.Import
 
 import qualified Data.Map.Strict as M
-import           Data.String
 import qualified Data.Text as T
 
 import           Database.V5.Bloodhound.Internal.Newtypes

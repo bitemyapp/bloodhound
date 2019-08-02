@@ -66,36 +66,28 @@ hlint-watch:
 echo-warn:
 	@echo "Make certain you have an elasticsearch instance on localhost:9200 !"
 
-## Test with GHC 8.0 and ES 1.x
-8.0-test-ES1:
-	STACK_YAML="stack-8.0.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
-
 ## Test with GHC 8.0 and ES 5.x
-8.0-test-ES5:
-	STACK_YAML="stack-8.0.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
-
-## Test with GHC 8.2 and ES 1.x
-8.2-test-ES1:
-	STACK_YAML="stack.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES1
+test-8.0:
+	STACK_YAML="stack-8.0.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500"
 
 ## Test with GHC 8.2 and ES 5.x
-8.2-test-ES5:
-	STACK_YAML="stack.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:ES5
+test-8.2:
+	STACK_YAML="stack.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500"
 
 ## Build with the GHC 8.0 Stack YAML
-8.0-build:
+build-8.0:
 	$(stack-8.0) $(build)
 
 ## Build with the GHC 8.2 Stack YAML
-8.2-build:
-	$(stack-8.0) $(build)
+build-8.2:
+	$(stack-8.2) $(build)
 
 ## Build with the GHC 8.4 Stack YAML
-8.4-build:
+build-8.4:
 	$(stack-8.4) $(build)
 
 ## Build with the GHC 8.6 Stack YAML
-8.6-build:
+build-8.6:
 	$(stack-8.6) $(build)
 
 ## Touch the V1 and V5 modules
