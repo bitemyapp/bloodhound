@@ -9,15 +9,15 @@ module Database.V5.Bloodhound.Internal.Client where
 
 import           Bloodhound.Import
 
-import qualified Data.Text           as T
-import qualified Data.Traversable    as DT
-import qualified Data.HashMap.Strict as HM
-import qualified Data.SemVer         as SemVer
-import qualified Data.Vector         as V
+import qualified Data.HashMap.Strict                           as HM
+import qualified Data.SemVer                                   as SemVer
+import qualified Data.Text                                     as T
+import qualified Data.Traversable                              as DT
+import qualified Data.Vector                                   as V
 import           GHC.Enum
 import           Network.HTTP.Client
-import           Text.Read           (Read(..))
-import qualified Text.Read           as TR
+import           Text.Read                                     (Read (..))
+import qualified Text.Read                                     as TR
 
 import           Database.V5.Bloodhound.Internal.Analysis
 import           Database.V5.Bloodhound.Internal.Newtypes
@@ -233,6 +233,8 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            | MappingTotalFieldsLimit Int
                            | AnalysisSetting Analysis
                            -- ^ Analysis is not a dynamic setting and can only be performed on a closed index.
+                           | UnassignedNodeLeftDelayedTimeout NominalDiffTime
+                           -- ^ Sets a delay to the allocation of replica shards which become unassigned because a node has left, giving them chance to return. See <https://www.elastic.co/guide/en/elasticsearch/reference/5.6/delayed-allocation.html>
                            deriving (Eq, Show)
 
 attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
@@ -281,6 +283,7 @@ instance ToJSON UpdatableIndexSetting where
   toJSON (BlocksMetaData x) = oPath ("blocks" :| ["metadata"]) x
   toJSON (MappingTotalFieldsLimit x) = oPath ("index" :| ["mapping","total_fields","limit"]) x
   toJSON (AnalysisSetting x) = oPath ("index" :| ["analysis"]) x
+  toJSON (UnassignedNodeLeftDelayedTimeout x) = oPath ("index" :| ["unassigned","node_left","delayed_timeout"]) (NominalDiffTimeJSON x)
 
 instance FromJSON UpdatableIndexSetting where
   parseJSON = withObject "UpdatableIndexSetting" parse
@@ -315,43 +318,45 @@ instance FromJSON UpdatableIndexSetting where
                 <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
                 <|> mappingTotalFieldsLimit `taggedAt` ["index", "mapping", "total_fields", "limit"]
                 <|> analysisSetting `taggedAt` ["index", "analysis"]
+                <|> unassignedNodeLeftDelayedTimeout `taggedAt` ["index", "unassigned", "node_left", "delayed_timeout"]
             where taggedAt f ks = taggedAt' f (Object o) ks
           taggedAt' f v [] =
             f =<< (parseJSON v <|> parseJSON (unStringlyTypeJSON v))
           taggedAt' f v (k:ks) =
             withObject "Object" (\o -> do v' <- o .: k
                                           taggedAt' f v' ks) v
-          numberOfReplicas               = pure . NumberOfReplicas
-          autoExpandReplicas             = pure . AutoExpandReplicas
-          refreshInterval                = pure . RefreshInterval . ndtJSON
-          indexConcurrency               = pure . IndexConcurrency
-          failOnMergeFailure             = pure . FailOnMergeFailure
-          translogFlushThresholdOps      = pure . TranslogFlushThresholdOps
-          translogFlushThresholdSize     = pure . TranslogFlushThresholdSize
-          translogFlushThresholdPeriod   = pure . TranslogFlushThresholdPeriod . ndtJSON
-          translogDisableFlush           = pure . TranslogDisableFlush
-          cacheFilterMaxSize             = pure . CacheFilterMaxSize
-          cacheFilterExpire              = pure . CacheFilterExpire . fmap ndtJSON
-          gatewaySnapshotInterval        = pure . GatewaySnapshotInterval . ndtJSON
-          routingAllocationInclude       = fmap RoutingAllocationInclude . parseAttrFilter
-          routingAllocationExclude       = fmap RoutingAllocationExclude . parseAttrFilter
-          routingAllocationRequire       = fmap RoutingAllocationRequire . parseAttrFilter
-          routingAllocationEnable        = pure . RoutingAllocationEnable
-          routingAllocationShardsPerNode = pure . RoutingAllocationShardsPerNode
-          recoveryInitialShards          = pure . RecoveryInitialShards
-          gcDeletes                      = pure . GCDeletes . ndtJSON
-          ttlDisablePurge                = pure . TTLDisablePurge
-          translogFSType                 = pure . TranslogFSType
-          compressionSetting             = pure . CompressionSetting
-          compoundFormat                 = pure . IndexCompoundFormat
-          compoundOnFlush                = pure . IndexCompoundOnFlush
-          warmerEnabled                  = pure . WarmerEnabled
-          blocksReadOnly                 = pure . BlocksReadOnly
-          blocksRead                     = pure . BlocksRead
-          blocksWrite                    = pure . BlocksWrite
-          blocksMetaData                 = pure . BlocksMetaData
-          mappingTotalFieldsLimit        = pure . MappingTotalFieldsLimit
-          analysisSetting                = pure . AnalysisSetting
+          numberOfReplicas                 = pure . NumberOfReplicas
+          autoExpandReplicas               = pure . AutoExpandReplicas
+          refreshInterval                  = pure . RefreshInterval . ndtJSON
+          indexConcurrency                 = pure . IndexConcurrency
+          failOnMergeFailure               = pure . FailOnMergeFailure
+          translogFlushThresholdOps        = pure . TranslogFlushThresholdOps
+          translogFlushThresholdSize       = pure . TranslogFlushThresholdSize
+          translogFlushThresholdPeriod     = pure . TranslogFlushThresholdPeriod . ndtJSON
+          translogDisableFlush             = pure . TranslogDisableFlush
+          cacheFilterMaxSize               = pure . CacheFilterMaxSize
+          cacheFilterExpire                = pure . CacheFilterExpire . fmap ndtJSON
+          gatewaySnapshotInterval          = pure . GatewaySnapshotInterval . ndtJSON
+          routingAllocationInclude         = fmap RoutingAllocationInclude . parseAttrFilter
+          routingAllocationExclude         = fmap RoutingAllocationExclude . parseAttrFilter
+          routingAllocationRequire         = fmap RoutingAllocationRequire . parseAttrFilter
+          routingAllocationEnable          = pure . RoutingAllocationEnable
+          routingAllocationShardsPerNode   = pure . RoutingAllocationShardsPerNode
+          recoveryInitialShards            = pure . RecoveryInitialShards
+          gcDeletes                        = pure . GCDeletes . ndtJSON
+          ttlDisablePurge                  = pure . TTLDisablePurge
+          translogFSType                   = pure . TranslogFSType
+          compressionSetting               = pure . CompressionSetting
+          compoundFormat                   = pure . IndexCompoundFormat
+          compoundOnFlush                  = pure . IndexCompoundOnFlush
+          warmerEnabled                    = pure . WarmerEnabled
+          blocksReadOnly                   = pure . BlocksReadOnly
+          blocksRead                       = pure . BlocksRead
+          blocksWrite                      = pure . BlocksWrite
+          blocksMetaData                   = pure . BlocksMetaData
+          mappingTotalFieldsLimit          = pure . MappingTotalFieldsLimit
+          analysisSetting                  = pure . AnalysisSetting
+          unassignedNodeLeftDelayedTimeout = pure . UnassignedNodeLeftDelayedTimeout . ndtJSON
 
 data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasLowerBounded Int
@@ -387,13 +392,13 @@ data Compression
 instance ToJSON Compression where
   toJSON x = case x of
     CompressionDefault -> toJSON ("default" :: Text)
-    CompressionBest -> toJSON ("best_compression" :: Text)
+    CompressionBest    -> toJSON ("best_compression" :: Text)
 
 instance FromJSON Compression where
   parseJSON = withText "Compression" $ \t -> case t of
-    "default" -> return CompressionDefault
+    "default"          -> return CompressionDefault
     "best_compression" -> return CompressionBest
-    _ -> fail "invalid compression codec"
+    _                  -> fail "invalid compression codec"
 
 -- | A measure of bytes used for various configurations. You may want
 -- to use smart constructors like 'gigabytes' for larger values.
@@ -694,7 +699,7 @@ and be sure to include the exception body.
 -}
 data EsProtocolException = EsProtocolException
   { esProtoExMessage :: !Text
-  , esProtoExBody :: !LByteString
+  , esProtoExBody    :: !LByteString
   } deriving (Eq, Show)
 
 instance Exception EsProtocolException
@@ -2417,4 +2422,4 @@ instance FromJSON VersionNumber where
       parse t =
         case SemVer.fromText t of
           (Left err) -> fail err
-          (Right v) -> return (VersionNumber v)
+          (Right v)  -> return (VersionNumber v)

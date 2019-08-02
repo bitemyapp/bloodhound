@@ -2,12 +2,12 @@
 
 module Test.Indices where
 
-import Test.Common
-import Test.Import
+import           Test.Common
+import           Test.Import
 
-import qualified Data.List as L
+import qualified Data.List          as L
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as M
+import qualified Data.Map           as M
 spec :: Spec
 spec = do
   describe "Index create/delete API" $ do
@@ -78,6 +78,19 @@ spec = do
       _ <- deleteExampleIndex
       _ <- createExampleIndex
       let updates = MappingTotalFieldsLimit 2500 :| []
+      updateResp <- updateIndexSettings updates testIndex
+      liftIO $ validateStatus updateResp 200
+      getResp <- getIndexSettings testIndex
+      liftIO $
+        getResp `shouldBe` Right (IndexSettingsSummary
+                                    testIndex
+                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
+                                    (NE.toList updates))
+
+    it "allows unassigned.node_left.delayed_timeout to be set" $ when' (atleast es50) $ withTestEnv $ do
+      _ <- deleteExampleIndex
+      _ <- createExampleIndex
+      let updates = UnassignedNodeLeftDelayedTimeout 10 :| []
       updateResp <- updateIndexSettings updates testIndex
       liftIO $ validateStatus updateResp 200
       getResp <- getIndexSettings testIndex
