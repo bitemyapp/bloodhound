@@ -1,0 +1,14 @@
+flags:
+  bloodhound-examples:
+    werror: true
+
+packages:
+  - '.'
+  - './examples'
+
+extra-deps:
+  - git: https://github.com/bitemyapp/quickcheck-arbitrary-template.git
+    commit: bf9cee96a88ecce2ff920ce74c166a38712e5ed2
+  - quickcheck-properties-0.1
+
+resolver: lts-13.30

@@ -1,0 +1,74 @@
+name: bloodhound
+version: '0.17.0.0'
+synopsis: Elasticsearch client library for Haskell
+description: Elasticsearch made awesome for Haskell hackers
+category: Database, Search
+author: Chris Allen
+maintainer: cma@bitemyapp.com
+copyright: 2018 Chris Allen
+license: BSD3
+github: bitemyapp/bloodhound.git
+
+extra-source-files:
+  - README.md
+  - changelog.md
+  - tests/tests.hs
+
+dependencies:
+  - aeson >=0.11.1
+  - base >=4.3 && <5
+  - blaze-builder
+  - bytestring >=0.10.0
+  - containers >=0.5.0.0
+  - exceptions
+  - hashable
+  - http-client >=0.4.30
+  - http-types >=0.8
+  - mtl >=1.0
+  - network-uri >=2.6
+  - scientific >=0.3.0.0
+  - semigroups >=0.15
+  - semver
+  - text >=0.11
+  - time >=1.4
+  - transformers >=0.2
+  - unordered-containers
+  - vector >=0.10.9
+
+library:
+  source-dirs: src
+  ghc-options: -Wall
+  exposed-modules:
+    - Database.Bloodhound
+    - Database.Bloodhound.Client
+    - Database.Bloodhound.Types
+    - Database.Bloodhound.Internal.Aggregation
+    - Database.Bloodhound.Internal.Analysis
+    - Database.Bloodhound.Internal.Client
+    - Database.Bloodhound.Internal.Highlight
+    - Database.Bloodhound.Internal.Newtypes
+    - Database.Bloodhound.Internal.Query
+    - Database.Bloodhound.Internal.Sort
+    - Database.Bloodhound.Internal.StringlyTyped
+    - Database.Bloodhound.Internal.Suggest
+
+tests:
+  bloodhound-tests:
+    source-dirs: tests
+    main: tests.hs
+    ghc-options:
+    - -Wall
+    - -fno-warn-orphans
+    dependencies:
+    - QuickCheck
+    - base
+    - bloodhound
+    - errors
+    - hspec >=1.8
+    - microlens
+    - microlens-aeson
+    - pretty-simple
+    - quickcheck-arbitrary-template
+    - quickcheck-properties
+    - temporary
+    - unix-compat

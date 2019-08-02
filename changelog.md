@@ -1,3 +1,12 @@
+0.17.0.0
+========
+- @bitemyapp
+  - Removed V1 modules and support.
+  - Removed the cabal file, replaced with an Hpack `package.yaml`.
+- @JoseD92
+  - Removed the disused `Seminearring` class.
+  - Added Docker Compose support.
+
 0.16.0.0
 ========
 - @bitemyapp
