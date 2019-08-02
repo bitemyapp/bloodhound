@@ -10,6 +10,11 @@ module Database.V1.Bloodhound.Internal.Client where
 import           Bloodhound.Import
 
 import           Control.Applicative                           as A
+#if defined(MIN_VERSION_GLASGOW_HASKELL)
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+import Control.Monad.Fail (MonadFail)
+#endif
+#endif
 import qualified Data.HashMap.Strict                           as HM
 import           Data.Text                                     (Text)
 import qualified Data.Text                                     as T
@@ -85,6 +90,11 @@ newtype BH m a = BH {
                , MonadFix
                , MonadThrow
                , MonadCatch
+#if defined(MIN_VERSION_GLASGOW_HASKELL)
+#if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
+               , MonadFail
+#endif
+#endif
                , MonadMask)
 
 instance MonadTrans BH where
