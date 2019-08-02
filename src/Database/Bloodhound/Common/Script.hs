@@ -7,7 +7,7 @@ import Bloodhound.Import
 
 import qualified Data.HashMap.Strict as HM
 
-import           Database.V5.Bloodhound.Internal.Newtypes
+import           Database.Bloodhound.Internal.Newtypes
 
 newtype ScriptFields =
   ScriptFields (HM.HashMap ScriptFieldName ScriptFieldValue)
