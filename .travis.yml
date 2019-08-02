@@ -11,7 +11,7 @@ addons:
 
 env:
   matrix:
-    - GHCVER=8.6  ESVER=5.6.0 STACK_YAML=stack.yaml ESFLAG=ES5 DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
+    - GHCVER=8.6  ESVER=5.6.0 STACK_YAML=stack.yaml DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
 
 install:
   # stack
@@ -31,7 +31,7 @@ script:
   - stack update --no-terminal
   - stack build -j2 --fast --no-terminal
   - travis_wait 60 sleep 1800 &
-  - stack test --fast --no-terminal bloodhound:bloodhound-tests --test-arguments="--qc-max-success 500" --flag bloodhound:$ESFLAG
+  - stack test --fast --no-terminal bloodhound:bloodhound-tests --test-arguments="--qc-max-success 500"
 
 cache:
   timeout: 1500
