@@ -834,7 +834,7 @@ versionCtlParams cfg =
 indexDocument :: (ToJSON doc, MonadBH m) => IndexName
                  -> IndexDocumentSettings -> doc -> DocId -> m Reply
 indexDocument (IndexName indexName) cfg document (DocId docId) =
-  bindM2 put url (return body)
+  bindM2 post url (return body)
   where url = addQuery params <$> joinPath [indexName, "_create", docId]
         parentParams = case idsParent cfg of
           Nothing -> []
