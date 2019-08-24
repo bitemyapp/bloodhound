@@ -831,12 +831,11 @@ versionCtlParams cfg =
 -- >>> resp <- runBH' $ indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Location","/twitter/tweet/1"),("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("transfer-encoding","chunked")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":2,\"successful\":1,\"failed\":0},\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
-indexDocument :: (ToJSON doc, MonadBH m) => IndexName -> MappingName
+indexDocument :: (ToJSON doc, MonadBH m) => IndexName
                  -> IndexDocumentSettings -> doc -> DocId -> m Reply
-indexDocument (IndexName indexName)
-  (MappingName mappingName) cfg document (DocId docId) =
+indexDocument (IndexName indexName) cfg document (DocId docId) =
   bindM2 put url (return body)
-  where url = addQuery params <$> joinPath [indexName, mappingName, docId]
+  where url = addQuery params <$> joinPath [indexName, "_create", docId]
         parentParams = case idsParent cfg of
           Nothing -> []
           Just (DocumentParent (DocId p)) -> [ ("parent", Just p) ]

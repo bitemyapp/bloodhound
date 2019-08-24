@@ -63,7 +63,7 @@ main = runBH' $ do
   _ <- putMapping testIndex testMapping TweetMapping
 
   -- create a tweet
-  resp <- indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
+  resp <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
   liftIO (print resp)
   -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 
