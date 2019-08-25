@@ -23,8 +23,8 @@ install:
   - wget --no-check-certificate $DLINK-$ESVER-linux-x86_64.tar.gz
   - tar xzf elasticsearch-$ESVER-linux-x86_64.tar.gz
   # set up a repo for snapshot testing. Required in ES >= 1.6
-  - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVER-linux-x86_64/elasticsearch.yml
-  - ./elasticsearch-$ESVER-linux-x86_64/bin/elasticsearch &
+  - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVER/elasticsearch.yml
+  - ./elasticsearch-$ESVER/bin/elasticsearch &
 
 script:
   - stack setup --no-terminal
