@@ -42,10 +42,10 @@ spec =
       resetIndex
       _ <- putMapping testIndex (MappingName "child") ChildMapping
       _ <- putMapping testIndex (MappingName "parent") ParentMapping
-      _ <- indexDocument testIndex (MappingName "parent") defaultIndexDocumentSettings exampleTweet (DocId "1")
+      _ <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
       let parent = (Just . DocumentParent . DocId) "1"
           ids = IndexDocumentSettings NoVersionControl parent
-      _ <- indexDocument testIndex (MappingName "child") ids otherTweet (DocId "2")
+      _ <- indexDocument testIndex ids otherTweet (DocId "2")
       _ <- refreshIndex testIndex
       exists <- documentExists testIndex (MappingName "child") parent (DocId "2")
       liftIO $ exists `shouldBe` True

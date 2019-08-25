@@ -97,8 +97,8 @@ spec =
       let ltAWeekAgo = UTCTime (fromGregorian 2015 3 10) 0
       let oldDoc = exampleTweet { postDate = ltAMonthAgo }
       let newDoc = exampleTweet { postDate = ltAWeekAgo }
-      _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings oldDoc (DocId "1")
-      _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings newDoc (DocId "2")
+      _ <- indexDocument testIndex defaultIndexDocumentSettings oldDoc (DocId "1")
+      _ <- indexDocument testIndex defaultIndexDocumentSettings newDoc (DocId "2")
       _ <- refreshIndex testIndex
       let thisMonth = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMMonth])
       let thisWeek = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMWeek])

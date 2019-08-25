@@ -191,7 +191,7 @@ insertData = do
 
 insertData' :: IndexDocumentSettings -> BH IO Reply
 insertData' ids = do
-  r <- indexDocument testIndex testMapping ids exampleTweet (DocId "1")
+  r <- indexDocument testIndex ids exampleTweet (DocId "1")
   _ <- refreshIndex testIndex
   return r
 
@@ -203,19 +203,19 @@ updateData = do
 
 insertOther :: BH IO ()
 insertOther = do
-  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings otherTweet (DocId "2")
+  _ <- indexDocument testIndex defaultIndexDocumentSettings otherTweet (DocId "2")
   _ <- refreshIndex testIndex
   return ()
 
 insertExtra :: BH IO ()
 insertExtra = do
-  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings tweetWithExtra (DocId "4")
+  _ <- indexDocument testIndex defaultIndexDocumentSettings tweetWithExtra (DocId "4")
   _ <- refreshIndex testIndex
   return ()
 
 insertWithSpaceInId :: BH IO ()
 insertWithSpaceInId = do
-  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "Hello World")
+  _ <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "Hello World")
   _ <- refreshIndex testIndex
   return ()
 
