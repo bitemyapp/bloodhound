@@ -599,7 +599,7 @@ data UpsertActionMetadata
   deriving (Eq, Show)
 
 buildUpsertActionMetadata :: UpsertActionMetadata -> Pair
-buildUpsertActionMetadata (UA_RetryOnConflict i) = "_retry_on_conflict" .= i
+buildUpsertActionMetadata (UA_RetryOnConflict i) = "retry_on_conflict"  .= i
 buildUpsertActionMetadata (UA_Source b)          = "_source"            .= b
 buildUpsertActionMetadata (UA_Version i)         = "_version"           .= i
 
@@ -2458,4 +2458,4 @@ instance FromJSON VersionNumber where
       parse t =
         case SemVer.fromText t of
           (Left err) -> fail err
-          (Right v) -> return (VersionNumber v)
+          (Right v)  -> return (VersionNumber v)
