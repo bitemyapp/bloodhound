@@ -50,15 +50,10 @@ main = hspec $ do
   Templates.spec
 
   describe "error parsing"  $ do
-    it "can parse EsErrors for < 2.0" $ when' (atmost es16) $ withTestEnv $ do
-      res <- getDocument (IndexName "bogus") (MappingName "also_bogus") (DocId "bogus_as_well")
+    it "can parse EsErrors for >= 2.0" $ withTestEnv $ do
+      res <- getDocument (IndexName "bogus") (DocId "bogus_as_well")
       let errorResp = eitherDecode (responseBody res)
-      liftIO (errorResp `shouldBe` Right (EsError 404 "IndexMissingException[[bogus] missing]"))
-
-    it "can parse EsErrors for >= 2.0" $ when' (atleast es20) $ withTestEnv $ do
-      res <- getDocument (IndexName "bogus") (MappingName "also_bogus") (DocId "bogus_as_well")
-      let errorResp = eitherDecode (responseBody res)
-      liftIO (errorResp `shouldBe` Right (EsError 404 "no such index"))
+      liftIO (errorResp `shouldBe` Right (EsError 404 "no such index [bogus]"))
 
   describe "Monoid (SearchHits a)" $
     prop "abides the monoid laws" $ eq $
@@ -112,7 +107,7 @@ main = hspec $ do
              (Just $ MatchAllQuery Nothing) Nothing)
              { size = Size 1 }
       regular_search <- searchTweet search
-      scan_search' <- scanSearch testIndex testMapping search :: BH IO [Hit Tweet]
+      scan_search' <- scanSearch testIndex search :: BH IO [Hit Tweet]
       let scan_search = map hitSource scan_search'
       liftIO $
         regular_search `shouldBe` Right exampleTweet -- Check that the size restrtiction is being honored

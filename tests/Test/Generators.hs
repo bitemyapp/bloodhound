@@ -52,7 +52,6 @@ arbitraryScore = fmap getPositive <$> arbitrary
 instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
   arbitrary = Hit <$> arbitrary
                   <*> arbitrary
-                  <*> arbitrary
                   <*> arbitraryScore
                   <*> arbitrary
                   <*> return Nothing
@@ -166,7 +165,7 @@ instance Arbitrary Query where
             , QueryFuzzyQuery <$> arbitrary
             , QueryHasChildQuery <$> arbitrary
             , QueryHasParentQuery <$> arbitrary
-            , IdsQuery <$> arbitrary <*> arbitrary
+            , IdsQuery <$> arbitrary
             , QueryIndicesQuery <$> arbitrary
             , MatchAllQuery <$> arbitrary
             , QueryMoreLikeThisQuery <$> arbitrary
@@ -177,7 +176,6 @@ instance Arbitrary Query where
             , QuerySimpleQueryStringQuery <$> arbitrary
             , QueryRangeQuery <$> arbitrary
             , QueryRegexpQuery <$> arbitrary
-            , QueryTemplateQueryInline <$> arbitrary
             ]
   -- TODO: Implement shrink
   -- shrink = genericShrink
@@ -234,8 +232,6 @@ instance Arbitrary TemplateQueryKeyValuePairs where
 
 makeArbitrary ''IndexName
 instance Arbitrary IndexName where arbitrary = arbitraryIndexName
-makeArbitrary ''MappingName
-instance Arbitrary MappingName where arbitrary = arbitraryMappingName
 makeArbitrary ''DocId
 instance Arbitrary DocId where arbitrary = arbitraryDocId
 makeArbitrary ''Version
@@ -250,8 +246,8 @@ makeArbitrary ''ReplicaCount
 instance Arbitrary ReplicaCount where arbitrary = arbitraryReplicaCount
 makeArbitrary ''TemplateName
 instance Arbitrary TemplateName where arbitrary = arbitraryTemplateName
-makeArbitrary ''TemplatePattern
-instance Arbitrary TemplatePattern where arbitrary = arbitraryTemplatePattern
+makeArbitrary ''IndexPattern
+instance Arbitrary IndexPattern where arbitrary = arbitraryIndexPattern
 makeArbitrary ''QueryString
 instance Arbitrary QueryString where arbitrary = arbitraryQueryString
 makeArbitrary ''CacheName
@@ -288,8 +284,8 @@ makeArbitrary ''Fuzziness
 instance Arbitrary Fuzziness where arbitrary = arbitraryFuzziness
 makeArbitrary ''PrefixLength
 instance Arbitrary PrefixLength where arbitrary = arbitraryPrefixLength
-makeArbitrary ''TypeName
-instance Arbitrary TypeName where arbitrary = arbitraryTypeName
+makeArbitrary ''RelationName
+instance Arbitrary RelationName where arbitrary = arbitraryRelationName
 makeArbitrary ''PercentMatch
 instance Arbitrary PercentMatch where arbitrary = arbitraryPercentMatch
 makeArbitrary ''StopWord
@@ -344,6 +340,14 @@ makeArbitrary ''MoreLikeThisQuery
 instance Arbitrary MoreLikeThisQuery where arbitrary = arbitraryMoreLikeThisQuery
 makeArbitrary ''IndicesQuery
 instance Arbitrary IndicesQuery where arbitrary = arbitraryIndicesQuery
+makeArbitrary ''IgnoreUnmapped
+instance Arbitrary IgnoreUnmapped where arbitrary = arbitraryIgnoreUnmapped
+makeArbitrary ''MinChildren
+instance Arbitrary MinChildren where arbitrary = arbitraryMinChildren
+makeArbitrary ''MaxChildren
+instance Arbitrary MaxChildren where arbitrary = arbitraryMaxChildren
+makeArbitrary ''AggregateParentScore
+instance Arbitrary AggregateParentScore where arbitrary = arbitraryAggregateParentScore
 makeArbitrary ''HasParentQuery
 instance Arbitrary HasParentQuery where arbitrary = arbitraryHasParentQuery
 makeArbitrary ''HasChildQuery

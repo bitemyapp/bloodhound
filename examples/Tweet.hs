@@ -60,15 +60,15 @@ main = runBH' $ do
   -- set up index
   _ <- createIndex indexSettings testIndex
   True <- indexExists testIndex
-  _ <- putMapping testIndex testMapping TweetMapping
+  _ <- putMapping testIndex TweetMapping
 
   -- create a tweet
-  resp <- indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
+  resp <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
   liftIO (print resp)
   -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 
   -- bulk load
-  let stream = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON exampleTweet)]
+  let stream = V.fromList [BulkIndex testIndex (DocId "2") (toJSON exampleTweet)]
   _ <- bulk stream
   -- Bulk loads require an index refresh before new data is loaded.
   _ <- refreshIndex testIndex
@@ -83,16 +83,18 @@ main = runBH' $ do
   True <- indexExists aliasName
 
   -- create a template so that if we just write into an index named tweet-2017-01-02, for instance, the index will be automatically created with the given mapping. This is a great idea for any ongoing indices because it makes them much easier to manage and rotate.
-  let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [object ["tweet" .= toJSON TweetMapping]]
+  let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) (toJSON TweetMapping)
   let templateName = TemplateName "tweet-tpl"
-  _ <- putTemplate idxTpl templateName
+  tplResp <- putTemplate idxTpl templateName
+  liftIO (print tplResp)
   True <- templateExists templateName
 
   -- do a search
   let boost = Nothing
   let query = TermQuery (Term "user" "bitemyapp") boost
   let search = mkSearch (Just query) boost
-  _ <- searchByType testIndex testMapping search
+  tweetResp <- searchByIndex testIndex search
+  liftIO (print tweetResp)
 
   -- clean up
   _ <- deleteTemplate templateName
@@ -104,5 +106,4 @@ main = runBH' $ do
     testServer = Server "http://localhost:9200"
     runBH' = withBH defaultManagerSettings testServer
     testIndex = IndexName "twitter"
-    testMapping = MappingName "tweet"
     indexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0)

@@ -255,15 +255,11 @@ instance ToJSON CollectionMode where
 
 data ExecutionHint = Ordinals
                    | GlobalOrdinals
-                   | GlobalOrdinalsHash
-                   | GlobalOrdinalsLowCardinality
                    | Map deriving (Eq, Show)
 
 instance ToJSON ExecutionHint where
   toJSON Ordinals                     = "ordinals"
   toJSON GlobalOrdinals               = "global_ordinals"
-  toJSON GlobalOrdinalsHash           = "global_ordinals_hash"
-  toJSON GlobalOrdinalsLowCardinality = "global_ordinals_low_cardinality"
   toJSON Map                          = "map"
 
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math> for more information.
@@ -433,7 +429,7 @@ data SearchHits a =
 
 instance (FromJSON a) => FromJSON (SearchHits a) where
   parseJSON (Object v) = SearchHits <$>
-                         v .: "total"     <*>
+                         ((v .: "total") >>= (.: "value")) <*>
                          v .: "max_score" <*>
                          v .: "hits"
   parseJSON _          = empty
@@ -450,7 +446,6 @@ type SearchAfterKey = [Aeson.Value]
 
 data Hit a =
   Hit { hitIndex     :: IndexName
-      , hitType      :: MappingName
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
@@ -461,7 +456,6 @@ data Hit a =
 instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
                          v .:  "_index"   <*>
-                         v .:  "_type"    <*>
                          v .:  "_id"      <*>
                          v .:  "_score"   <*>
                          v .:? "_source"  <*>

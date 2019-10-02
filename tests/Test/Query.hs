@@ -108,20 +108,22 @@ spec =
       liftIO $
         myTweet `shouldBe` Right exampleTweet
 
-    it "returns document for for inline template query" $ withTestEnv $ do
-      _ <- insertData
-      let innerQuery = QueryMatchQuery $
-                         mkMatchQuery (FieldName "{{userKey}}")
-                                      (QueryString "{{bitemyappKey}}")
-          templateParams = TemplateQueryKeyValuePairs $ HM.fromList
-                            [ ("userKey", "user")
-                            , ("bitemyappKey", "bitemyapp")
-                            ]
-          templateQuery = QueryTemplateQueryInline $
-                            TemplateQueryInline innerQuery templateParams
-          search = mkSearch (Just templateQuery) Nothing
-      myTweet <- searchTweet search
-      liftIO $ myTweet `shouldBe` Right exampleTweet
+    it "returns document for for inline template query" $ do
+      pendingWith "Template Query is removed in ES7. Implement support for Search Templates"
+      -- withTestEnv $ do
+      --   _ <- insertData
+      --   let innerQuery = QueryMatchQuery $
+      --                     mkMatchQuery (FieldName "{{userKey}}")
+      --                                   (QueryString "{{bitemyappKey}}")
+      --       templateParams = TemplateQueryKeyValuePairs $ HM.fromList
+      --                         [ ("userKey", "user")
+      --                         , ("bitemyappKey", "bitemyapp")
+      --                         ]
+      --       templateQuery = QueryTemplateQueryInline $
+      --                         TemplateQueryInline innerQuery templateParams
+      --       search = mkSearch (Just templateQuery) Nothing
+      --   myTweet <- searchTweet search
+      --   liftIO $ myTweet `shouldBe` Right exampleTweet
 
     it "returns document for wildcard query" $ withTestEnv $ do
       _ <- insertData
