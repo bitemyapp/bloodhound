@@ -12,18 +12,18 @@ import           Bloodhound.Import
 
 #if defined(MIN_VERSION_GLASGOW_HASKELL)
 #if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
-import Control.Monad.Fail (MonadFail)
+import           Control.Monad.Fail                         (MonadFail)
 #endif
 #endif
-import qualified Data.Text           as T
-import qualified Data.Traversable    as DT
-import qualified Data.HashMap.Strict as HM
-import qualified Data.SemVer         as SemVer
-import qualified Data.Vector         as V
+import qualified Data.HashMap.Strict                        as HM
+import qualified Data.SemVer                                as SemVer
+import qualified Data.Text                                  as T
+import qualified Data.Traversable                           as DT
+import qualified Data.Vector                                as V
 import           GHC.Enum
 import           Network.HTTP.Client
-import           Text.Read           (Read(..))
-import qualified Text.Read           as TR
+import           Text.Read                                  (Read (..))
+import qualified Text.Read                                  as TR
 
 import           Database.Bloodhound.Internal.Analysis
 import           Database.Bloodhound.Internal.Newtypes
@@ -398,13 +398,13 @@ data Compression
 instance ToJSON Compression where
   toJSON x = case x of
     CompressionDefault -> toJSON ("default" :: Text)
-    CompressionBest -> toJSON ("best_compression" :: Text)
+    CompressionBest    -> toJSON ("best_compression" :: Text)
 
 instance FromJSON Compression where
   parseJSON = withText "Compression" $ \t -> case t of
-    "default" -> return CompressionDefault
+    "default"          -> return CompressionDefault
     "best_compression" -> return CompressionBest
-    _ -> fail "invalid compression codec"
+    _                  -> fail "invalid compression codec"
 
 -- | A measure of bytes used for various configurations. You may want
 -- to use smart constructors like 'gigabytes' for larger values.
@@ -594,31 +594,17 @@ data Mapping =
 
 data UpsertActionMetadata
   = UA_RetryOnConflict Int
-  | UA_Source Bool
   | UA_Version Int
   deriving (Eq, Show)
 
 buildUpsertActionMetadata :: UpsertActionMetadata -> Pair
 buildUpsertActionMetadata (UA_RetryOnConflict i) = "retry_on_conflict"  .= i
-buildUpsertActionMetadata (UA_Source b)          = "_source"            .= b
 buildUpsertActionMetadata (UA_Version i)         = "_version"           .= i
 
-data UpsertPayloadMetadata
-  = UP_DocAsUpsert Bool
-  | UP_Script Value
-  | UP_Lang Text
-  | UP_Params Value
-  | UP_Upsert Value
-  | UP_Source Bool
+data UpsertPayload
+  = UpsertDoc Value
+  | UpsertScript Bool Script Value
   deriving (Eq, Show)
-
-buildUpsertPayloadMetadata :: UpsertPayloadMetadata -> Pair
-buildUpsertPayloadMetadata (UP_DocAsUpsert a) = "doc_as_upsert" .= a
-buildUpsertPayloadMetadata (UP_Script a)      = "script"        .= a
-buildUpsertPayloadMetadata (UP_Lang a)        = "lang"          .= a
-buildUpsertPayloadMetadata (UP_Params a)      = "params"        .= a
-buildUpsertPayloadMetadata (UP_Upsert a)      = "upsert"        .= a
-buildUpsertPayloadMetadata (UP_Source a)      = "_source"       .= a
 
 data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation for all shards.
@@ -672,7 +658,7 @@ data BulkOperation =
     -- ^ Delete the document
   | BulkUpdate IndexName MappingName DocId Value
     -- ^ Update the document, merging the new value with the existing one.
-  | BulkUpsert IndexName MappingName DocId Value [UpsertActionMetadata] [UpsertPayloadMetadata]
+  | BulkUpsert IndexName MappingName DocId UpsertPayload [UpsertActionMetadata]
     -- ^ Update the document if it already exists, otherwise insert it.
     deriving (Eq, Show)
 
@@ -735,7 +721,7 @@ and be sure to include the exception body.
 -}
 data EsProtocolException = EsProtocolException
   { esProtoExMessage :: !Text
-  , esProtoExBody :: !LByteString
+  , esProtoExBody    :: !LByteString
   } deriving (Eq, Show)
 
 instance Exception EsProtocolException
