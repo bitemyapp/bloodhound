@@ -411,7 +411,7 @@ getSnapshots (SnapshotRepoName repoName) sel =
   where
     url = joinPath ["_snapshot", repoName, snapPath]
     snapPath = case sel of
-      AllSnapshots           -> "_all"
+      AllSnapshots -> "_all"
       SnapshotList (s :| ss) -> T.intercalate "," (renderPath <$> (s:ss))
     renderPath (SnapPattern t)              = t
     renderPath (ExactSnap (SnapshotName t)) = t
@@ -479,9 +479,9 @@ getNodesInfo sel = parseEsResponse =<< get =<< url
   where
     url = joinPath ["_nodes", selectionSeg]
     selectionSeg = case sel of
-      LocalNode          -> "_local"
+      LocalNode -> "_local"
       NodeList (l :| ls) -> T.intercalate "," (selToSeg <$> (l:ls))
-      AllNodes           -> "_all"
+      AllNodes -> "_all"
     selToSeg (NodeByName (NodeName n))            = n
     selToSeg (NodeByFullNodeId (FullNodeId i))    = i
     selToSeg (NodeByHost (Server s))              = s
@@ -497,9 +497,9 @@ getNodesStats sel = parseEsResponse =<< get =<< url
   where
     url = joinPath ["_nodes", selectionSeg, "stats"]
     selectionSeg = case sel of
-      LocalNode          -> "_local"
+      LocalNode -> "_local"
       NodeList (l :| ls) -> T.intercalate "," (selToSeg <$> (l:ls))
-      AllNodes           -> "_all"
+      AllNodes -> "_all"
     selToSeg (NodeByName (NodeName n))            = n
     selToSeg (NodeByFullNodeId (FullNodeId i))    = i
     selToSeg (NodeByHost (Server s))              = s
@@ -620,7 +620,7 @@ deepMerge = LS.foldl' go mempty
   where go acc = LS.foldl' go' acc . HM.toList
         go' acc (k, v) = HM.insertWith merge k v acc
         merge (Object a) (Object b) = Object (deepMerge [a, b])
-        merge _ b                   = b
+        merge _ b = b
 
 
 statusCodeIs :: (Int, Int) -> Reply -> Bool
@@ -827,10 +827,10 @@ putMapping (IndexName indexName) (MappingName mappingName) mapping =
 versionCtlParams :: IndexDocumentSettings -> [(Text, Maybe Text)]
 versionCtlParams cfg =
   case idsVersionControl cfg of
-    NoVersionControl                    -> []
-    InternalVersion v                   -> versionParams v "internal"
-    ExternalGT (ExternalDocVersion v)   -> versionParams v "external_gt"
-    ExternalGTE (ExternalDocVersion v)  -> versionParams v "external_gte"
+    NoVersionControl -> []
+    InternalVersion v -> versionParams v "internal"
+    ExternalGT (ExternalDocVersion v) -> versionParams v "external_gt"
+    ExternalGTE (ExternalDocVersion v) -> versionParams v "external_gte"
     ForceVersion (ExternalDocVersion v) -> versionParams v "force"
   where
     vt = showText . docVersionNumber
@@ -856,7 +856,7 @@ indexDocument (IndexName indexName)
   bindM2 put url (return body)
   where url = addQuery params <$> joinPath [indexName, mappingName, docId]
         parentParams = case idsParent cfg of
-          Nothing                         -> []
+          Nothing -> []
           Just (DocumentParent (DocId p)) -> [ ("parent", Just p) ]
         params = versionCtlParams cfg ++ parentParams
         body = Just (encode document)
@@ -1126,7 +1126,7 @@ scroll' (Just sid) = do
     res <- advanceScroll sid 60
     case res of
       Right SearchResult {..} -> return (hits searchHits, scrollId)
-      Left _                  -> return ([], Nothing)
+      Left _ -> return ([], Nothing)
 
 -- | Use the given scroll to fetch the next page of documents. If there are no
 -- further pages, 'SearchResult.searchHits.hits' will be '[]'.

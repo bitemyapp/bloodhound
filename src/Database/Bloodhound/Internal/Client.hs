@@ -398,13 +398,13 @@ data Compression
 instance ToJSON Compression where
   toJSON x = case x of
     CompressionDefault -> toJSON ("default" :: Text)
-    CompressionBest    -> toJSON ("best_compression" :: Text)
+    CompressionBest -> toJSON ("best_compression" :: Text)
 
 instance FromJSON Compression where
   parseJSON = withText "Compression" $ \t -> case t of
-    "default"          -> return CompressionDefault
+    "default" -> return CompressionDefault
     "best_compression" -> return CompressionBest
-    _                  -> fail "invalid compression codec"
+    _ -> fail "invalid compression codec"
 
 -- | A measure of bytes used for various configurations. You may want
 -- to use smart constructors like 'gigabytes' for larger values.
@@ -721,7 +721,7 @@ and be sure to include the exception body.
 -}
 data EsProtocolException = EsProtocolException
   { esProtoExMessage :: !Text
-  , esProtoExBody    :: !LByteString
+  , esProtoExBody :: !LByteString
   } deriving (Eq, Show)
 
 instance Exception EsProtocolException
@@ -2444,4 +2444,4 @@ instance FromJSON VersionNumber where
       parse t =
         case SemVer.fromText t of
           (Left err) -> fail err
-          (Right v)  -> return (VersionNumber v)
+          (Right v) -> return (VersionNumber v)
