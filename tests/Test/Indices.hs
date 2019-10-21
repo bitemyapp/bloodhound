@@ -2,12 +2,12 @@
 
 module Test.Indices where
 
-import           Test.Common
-import           Test.Import
+import Test.Common
+import Test.Import
 
-import qualified Data.List          as L
+import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map           as M
+import qualified Data.Map as M
 spec :: Spec
 spec = do
   describe "Index create/delete API" $ do
