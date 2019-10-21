@@ -12,18 +12,18 @@ import           Bloodhound.Import
 
 #if defined(MIN_VERSION_GLASGOW_HASKELL)
 #if MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)
-import Control.Monad.Fail (MonadFail)
+import           Control.Monad.Fail                         (MonadFail)
 #endif
 #endif
-import qualified Data.Text           as T
-import qualified Data.Traversable    as DT
-import qualified Data.HashMap.Strict as HM
-import qualified Data.SemVer         as SemVer
-import qualified Data.Vector         as V
+import qualified Data.HashMap.Strict                        as HM
+import qualified Data.SemVer                                as SemVer
+import qualified Data.Text                                  as T
+import qualified Data.Traversable                           as DT
+import qualified Data.Vector                                as V
 import           GHC.Enum
 import           Network.HTTP.Client
-import           Text.Read           (Read(..))
-import qualified Text.Read           as TR
+import           Text.Read                                  (Read (..))
+import qualified Text.Read                                  as TR
 
 import           Database.Bloodhound.Internal.Analysis
 import           Database.Bloodhound.Internal.Newtypes
@@ -592,6 +592,20 @@ data Mapping =
           , mappingFields :: [MappingField] }
   deriving (Eq, Show)
 
+data UpsertActionMetadata
+  = UA_RetryOnConflict Int
+  | UA_Version Int
+  deriving (Eq, Show)
+
+buildUpsertActionMetadata :: UpsertActionMetadata -> Pair
+buildUpsertActionMetadata (UA_RetryOnConflict i) = "retry_on_conflict"  .= i
+buildUpsertActionMetadata (UA_Version i)         = "_version"           .= i
+
+data UpsertPayload
+  = UpsertDoc Value
+  | UpsertScript Bool Script Value
+  deriving (Eq, Show)
+
 data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation for all shards.
                       | AllocPrimaries
@@ -644,6 +658,8 @@ data BulkOperation =
     -- ^ Delete the document
   | BulkUpdate IndexName MappingName DocId Value
     -- ^ Update the document, merging the new value with the existing one.
+  | BulkUpsert IndexName MappingName DocId UpsertPayload [UpsertActionMetadata]
+    -- ^ Update the document if it already exists, otherwise insert it.
     deriving (Eq, Show)
 
 {-| 'EsResult' describes the standard wrapper JSON document that you see in

@@ -35,6 +35,7 @@ module Database.Bloodhound.Client
        , openIndex
        , closeIndex
        , listIndices
+       , catIndices
        , waitForYellowIndex
        -- *** Index Aliases
        , updateIndexAliases
@@ -52,6 +53,7 @@ module Database.Bloodhound.Client
        , getDocument
        , documentExists
        , deleteDocument
+       , deleteByQuery
        -- ** Searching
        , searchAll
        , searchByIndex
@@ -726,6 +728,22 @@ listIndices =
               v -> Left $ "indexVal in listIndices failed on non-string, was: " <> show v
           v -> Left $ "One of the values parsed in listIndices wasn't an object, it was: " <> show v
 
+-- | 'catIndices' returns a list of all index names on a given 'Server' as well as their doc counts
+catIndices :: (MonadThrow m, MonadBH m) => m [(IndexName, Int)]
+catIndices =
+  parse . responseBody =<< get =<< url
+  where
+    url = joinPath ["_cat/indices?format=json"]
+    parse body = either (\msg -> (throwM (EsProtocolException (T.pack msg) body))) return $ do
+      vals <- eitherDecode body
+      forM vals $ \val ->
+        case val of
+          Object obj ->
+            case (HM.lookup "index" obj, HM.lookup "docs.count" obj) of
+              (Just (String txt), Just (String docs)) -> Right ((IndexName txt), read (T.unpack docs))
+              v -> Left $ "indexVal in catIndices failed on non-string, was: " <> show v
+          v -> Left $ "One of the values parsed in catIndices wasn't an object, it was: " <> show v
+
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-aliases.html>
@@ -863,6 +881,17 @@ deleteDocument (IndexName indexName)
   (MappingName mappingName) (DocId docId) =
   delete =<< joinPath [indexName, mappingName, docId]
 
+-- | 'deleteByQuery' performs a deletion on every document that matches a query.
+--
+-- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
+-- >>> _ <- runBH' $ deleteDocument testIndex testMapping query
+deleteByQuery :: MonadBH m => IndexName -> MappingName -> Query -> m Reply
+deleteByQuery (IndexName indexName) (MappingName mappingName) query =
+  bindM2 post url (return body)
+  where
+    url = joinPath [indexName, mappingName, "_delete_by_query"]
+    body = Just (encode $ object [ "query" .= query ])
+
 -- | 'bulk' uses
 --    <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
 --    to perform bulk operations. The 'BulkOperation' data type encodes the
@@ -911,6 +940,14 @@ mkBulkStreamValueAuto operation indexName mappingName =
           object [ "_index" .= indexName
                  , "_type"  .= mappingName]]
 
+mkBulkStreamValueWithMeta :: [UpsertActionMetadata] -> Text -> Text -> Text -> Text -> Value
+mkBulkStreamValueWithMeta meta operation indexName mappingName docId =
+  object [ operation .=
+          object ([ "_index" .= indexName
+                  , "_type"  .= mappingName
+                  , "_id"    .= docId]
+                  <> (buildUpsertActionMetadata <$> meta))]
+
 -- | 'encodeBulkOperation' is a convenience function for dumping a single 'BulkOperation'
 --   into an 'L.ByteString'
 --
@@ -954,6 +991,25 @@ encodeBulkOperation (BulkUpdate (IndexName indexName)
     where metadata = mkBulkStreamValue "update" indexName mappingName docId
           doc = object ["doc" .= value]
           blob = encode metadata `mappend` "\n" `mappend` encode doc
+
+encodeBulkOperation (BulkUpsert (IndexName indexName)
+                (MappingName mappingName)
+                (DocId docId)
+                payload
+                actionMeta) = blob
+    where metadata = mkBulkStreamValueWithMeta actionMeta "update" indexName mappingName docId
+          blob = encode metadata <> "\n" <> encode doc
+          doc = case payload of
+            UpsertDoc value -> object ["doc" .= value, "doc_as_upsert" .= True]
+            UpsertScript scriptedUpsert script value ->
+              let scup = if scriptedUpsert then ["scripted_upsert" .= True] else []
+                  upsert = ["upsert" .= value]
+              in
+                case (object (scup <> upsert), toJSON script) of
+                  (Object obj, Object jscript) -> Object $ jscript <> obj
+                  _ -> error "Impossible happened: serialising Script to Json should always be Object"
+
+
 
 encodeBulkOperation (BulkCreateEncoding (IndexName indexName)
                 (MappingName mappingName)

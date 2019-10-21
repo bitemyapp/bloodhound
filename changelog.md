@@ -6,6 +6,8 @@
 - @JoseD92
   - Removed the disused `Seminearring` class.
   - Added Docker Compose support.
+- @Kheldar, @AlexeyRaga, @dsturnbull
+  - Added support for BulkUpsert operations that allow for additional metadata.
 
 0.16.0.0
 ========
