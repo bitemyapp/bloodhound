@@ -7,6 +7,8 @@
   - Removed the disused `Seminearring` class.
   - Added Docker Compose support.
   - Add support for unassigned.node_left.delayed_timeout index setting
+- @Kheldar, @AlexeyRaga, @dsturnbull
+  - Added support for BulkUpsert operations that allow for additional metadata.
 
 0.16.0.0
 ========
