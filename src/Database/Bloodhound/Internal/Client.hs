@@ -244,6 +244,8 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            | MappingTotalFieldsLimit Int
                            | AnalysisSetting Analysis
                            -- ^ Analysis is not a dynamic setting and can only be performed on a closed index.
+                           | UnassignedNodeLeftDelayedTimeout NominalDiffTime
+                           -- ^ Sets a delay to the allocation of replica shards which become unassigned because a node has left, giving them chance to return. See <https://www.elastic.co/guide/en/elasticsearch/reference/5.6/delayed-allocation.html>
                            deriving (Eq, Show)
 
 attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
@@ -292,6 +294,7 @@ instance ToJSON UpdatableIndexSetting where
   toJSON (BlocksMetaData x) = oPath ("blocks" :| ["metadata"]) x
   toJSON (MappingTotalFieldsLimit x) = oPath ("index" :| ["mapping","total_fields","limit"]) x
   toJSON (AnalysisSetting x) = oPath ("index" :| ["analysis"]) x
+  toJSON (UnassignedNodeLeftDelayedTimeout x) = oPath ("index" :| ["unassigned","node_left","delayed_timeout"]) (NominalDiffTimeJSON x)
 
 instance FromJSON UpdatableIndexSetting where
   parseJSON = withObject "UpdatableIndexSetting" parse
@@ -326,43 +329,45 @@ instance FromJSON UpdatableIndexSetting where
                 <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
                 <|> mappingTotalFieldsLimit `taggedAt` ["index", "mapping", "total_fields", "limit"]
                 <|> analysisSetting `taggedAt` ["index", "analysis"]
+                <|> unassignedNodeLeftDelayedTimeout `taggedAt` ["index", "unassigned", "node_left", "delayed_timeout"]
             where taggedAt f ks = taggedAt' f (Object o) ks
           taggedAt' f v [] =
             f =<< (parseJSON v <|> parseJSON (unStringlyTypeJSON v))
           taggedAt' f v (k:ks) =
             withObject "Object" (\o -> do v' <- o .: k
                                           taggedAt' f v' ks) v
-          numberOfReplicas               = pure . NumberOfReplicas
-          autoExpandReplicas             = pure . AutoExpandReplicas
-          refreshInterval                = pure . RefreshInterval . ndtJSON
-          indexConcurrency               = pure . IndexConcurrency
-          failOnMergeFailure             = pure . FailOnMergeFailure
-          translogFlushThresholdOps      = pure . TranslogFlushThresholdOps
-          translogFlushThresholdSize     = pure . TranslogFlushThresholdSize
-          translogFlushThresholdPeriod   = pure . TranslogFlushThresholdPeriod . ndtJSON
-          translogDisableFlush           = pure . TranslogDisableFlush
-          cacheFilterMaxSize             = pure . CacheFilterMaxSize
-          cacheFilterExpire              = pure . CacheFilterExpire . fmap ndtJSON
-          gatewaySnapshotInterval        = pure . GatewaySnapshotInterval . ndtJSON
-          routingAllocationInclude       = fmap RoutingAllocationInclude . parseAttrFilter
-          routingAllocationExclude       = fmap RoutingAllocationExclude . parseAttrFilter
-          routingAllocationRequire       = fmap RoutingAllocationRequire . parseAttrFilter
-          routingAllocationEnable        = pure . RoutingAllocationEnable
-          routingAllocationShardsPerNode = pure . RoutingAllocationShardsPerNode
-          recoveryInitialShards          = pure . RecoveryInitialShards
-          gcDeletes                      = pure . GCDeletes . ndtJSON
-          ttlDisablePurge                = pure . TTLDisablePurge
-          translogFSType                 = pure . TranslogFSType
-          compressionSetting             = pure . CompressionSetting
-          compoundFormat                 = pure . IndexCompoundFormat
-          compoundOnFlush                = pure . IndexCompoundOnFlush
-          warmerEnabled                  = pure . WarmerEnabled
-          blocksReadOnly                 = pure . BlocksReadOnly
-          blocksRead                     = pure . BlocksRead
-          blocksWrite                    = pure . BlocksWrite
-          blocksMetaData                 = pure . BlocksMetaData
-          mappingTotalFieldsLimit        = pure . MappingTotalFieldsLimit
-          analysisSetting                = pure . AnalysisSetting
+          numberOfReplicas                 = pure . NumberOfReplicas
+          autoExpandReplicas               = pure . AutoExpandReplicas
+          refreshInterval                  = pure . RefreshInterval . ndtJSON
+          indexConcurrency                 = pure . IndexConcurrency
+          failOnMergeFailure               = pure . FailOnMergeFailure
+          translogFlushThresholdOps        = pure . TranslogFlushThresholdOps
+          translogFlushThresholdSize       = pure . TranslogFlushThresholdSize
+          translogFlushThresholdPeriod     = pure . TranslogFlushThresholdPeriod . ndtJSON
+          translogDisableFlush             = pure . TranslogDisableFlush
+          cacheFilterMaxSize               = pure . CacheFilterMaxSize
+          cacheFilterExpire                = pure . CacheFilterExpire . fmap ndtJSON
+          gatewaySnapshotInterval          = pure . GatewaySnapshotInterval . ndtJSON
+          routingAllocationInclude         = fmap RoutingAllocationInclude . parseAttrFilter
+          routingAllocationExclude         = fmap RoutingAllocationExclude . parseAttrFilter
+          routingAllocationRequire         = fmap RoutingAllocationRequire . parseAttrFilter
+          routingAllocationEnable          = pure . RoutingAllocationEnable
+          routingAllocationShardsPerNode   = pure . RoutingAllocationShardsPerNode
+          recoveryInitialShards            = pure . RecoveryInitialShards
+          gcDeletes                        = pure . GCDeletes . ndtJSON
+          ttlDisablePurge                  = pure . TTLDisablePurge
+          translogFSType                   = pure . TranslogFSType
+          compressionSetting               = pure . CompressionSetting
+          compoundFormat                   = pure . IndexCompoundFormat
+          compoundOnFlush                  = pure . IndexCompoundOnFlush
+          warmerEnabled                    = pure . WarmerEnabled
+          blocksReadOnly                   = pure . BlocksReadOnly
+          blocksRead                       = pure . BlocksRead
+          blocksWrite                      = pure . BlocksWrite
+          blocksMetaData                   = pure . BlocksMetaData
+          mappingTotalFieldsLimit          = pure . MappingTotalFieldsLimit
+          analysisSetting                  = pure . AnalysisSetting
+          unassignedNodeLeftDelayedTimeout = pure . UnassignedNodeLeftDelayedTimeout . ndtJSON
 
 data ReplicaBounds = ReplicasBounded Int Int
                    | ReplicasLowerBounded Int

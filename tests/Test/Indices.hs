@@ -87,6 +87,19 @@ spec = do
                                     (IndexSettings (ShardCount 1) (ReplicaCount 0))
                                     (NE.toList updates))
 
+    it "allows unassigned.node_left.delayed_timeout to be set" $ when' (atleast es50) $ withTestEnv $ do
+      _ <- deleteExampleIndex
+      _ <- createExampleIndex
+      let updates = UnassignedNodeLeftDelayedTimeout 10 :| []
+      updateResp <- updateIndexSettings updates testIndex
+      liftIO $ validateStatus updateResp 200
+      getResp <- getIndexSettings testIndex
+      liftIO $
+        getResp `shouldBe` Right (IndexSettingsSummary
+                                    testIndex
+                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
+                                    (NE.toList updates))
+
     it "accepts customer analyzers" $ when' (atleast es50) $ withTestEnv $ do
       _ <- deleteExampleIndex
       let analysis = Analysis
