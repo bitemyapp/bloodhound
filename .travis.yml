@@ -11,7 +11,7 @@ addons:
 
 env:
   matrix:
-    - GHCVER=8.6  ESVER=5.6.0 STACK_YAML=stack.yaml DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
+    - GHCVER=8.6  ESVER=7.4.2 STACK_YAML=stack.yaml DLINK=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch ES_JAVA_OPTS="-Xms500m -Xmx750m"
 
 install:
   # stack
@@ -20,8 +20,8 @@ install:
   - export PATH=~/.local/bin:$PATH
   - stack --no-terminal --version
   # elasticsearch
-  - wget --no-check-certificate $DLINK-$ESVER.tar.gz
-  - tar xzf elasticsearch-$ESVER.tar.gz
+  - wget --no-check-certificate $DLINK-$ESVER-linux-x86_64.tar.gz
+  - tar xzf elasticsearch-$ESVER-linux-x86_64.tar.gz
   # set up a repo for snapshot testing. Required in ES >= 1.6
   - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVER/elasticsearch.yml
   - ./elasticsearch-$ESVER/bin/elasticsearch &

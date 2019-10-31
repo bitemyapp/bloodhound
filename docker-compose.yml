@@ -1,7 +1,7 @@
 version: "2"
 services:
   elasticsearch1:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.4.1
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2
     container_name: elasticsearch1
     environment:
       - node.name=elasticsearch1
@@ -21,7 +21,7 @@ services:
       - esnet
 
   elasticsearch2:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.4.1
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2
     environment:
       - node.name=elasticsearch2
       - cluster.name=docker-cluster
