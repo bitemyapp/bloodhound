@@ -109,6 +109,8 @@ module Database.Bloodhound.Types
        , SearchType(..)
        , SearchResult(..)
        , ScrollId(..)
+       , HitsTotalRelation(..)
+       , HitsTotal(..)
        , SearchHits(..)
        , TrackSortScores
        , From(..)
@@ -153,8 +155,7 @@ module Database.Bloodhound.Types
        , ScriptFieldValue
        , Script(..)
        , ScriptLanguage(..)
-       , ScriptInline(..)
-       , ScriptId(..)
+       , ScriptSource(..)
        , ScriptParams(..)
        , ScriptParamName
        , ScriptParamValue
@@ -166,7 +167,6 @@ module Database.Bloodhound.Types
        , defaultForceMergeIndexSettings
        , TemplateName(..)
        , TemplatePattern(..)
-       , MappingName(..)
        , DocId(..)
        , CacheName(..)
        , CacheKey(..)

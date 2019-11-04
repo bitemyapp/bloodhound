@@ -22,13 +22,6 @@ instance FromJSON HitFields where
 -- Slight misnomer.
 type Score = Maybe Double
 
-{-| 'MappingName' is part of mappings which are how ES describes and schematizes
-    the data in the indices.
--}
-newtype MappingName =
-  MappingName Text
-  deriving (Eq, Show, ToJSON, FromJSON)
-
 newtype ShardId = ShardId { shardId :: Int }
                 deriving (Eq, Show, FromJSON)
 
@@ -39,6 +32,19 @@ newtype ShardId = ShardId { shardId :: Int }
 newtype DocId =
   DocId Text
   deriving (Eq, Show, ToJSON, FromJSON)
+
+{-| 'DocId' is a generic wrapper value for expressing unique Document IDs.
+    Can be set by the user or created by ES itself. Often used in client
+    functions for poking at specific documents.
+    A routing is another document id used to figure the shard to which to
+    assign the given document, see <https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-routing-field.html>
+-}
+{--
+data DocId = DocId {
+  docId   :: Text,
+  routing :: Maybe DocId}
+  deriving (Eq, Show)
+--}
 
 {-| 'FieldName' is used all over the place wherever a specific field within
      a document needs to be specified, usually in 'Query's or 'Filter's.

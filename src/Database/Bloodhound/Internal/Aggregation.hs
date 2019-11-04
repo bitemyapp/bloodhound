@@ -253,17 +253,11 @@ instance ToJSON CollectionMode where
   toJSON BreadthFirst = "breadth_first"
   toJSON DepthFirst   = "depth_first"
 
-data ExecutionHint = Ordinals
-                   | GlobalOrdinals
-                   | GlobalOrdinalsHash
-                   | GlobalOrdinalsLowCardinality
+data ExecutionHint = GlobalOrdinals
                    | Map deriving (Eq, Show)
 
 instance ToJSON ExecutionHint where
-  toJSON Ordinals                     = "ordinals"
   toJSON GlobalOrdinals               = "global_ordinals"
-  toJSON GlobalOrdinalsHash           = "global_ordinals_hash"
-  toJSON GlobalOrdinalsLowCardinality = "global_ordinals_low_cardinality"
   toJSON Map                          = "map"
 
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math> for more information.
@@ -425,11 +419,32 @@ instance (FromJSON a) => FromJSON (TopHitResult a) where
                          v .: "hits"
   parseJSON _          = fail "Failure in FromJSON (TopHitResult a)"
 
+data HitsTotalRelation = HTR_EQ | HTR_GTE deriving (Eq, Show)
+
+instance FromJSON HitsTotalRelation where
+  parseJSON (String "eq")  = pure HTR_EQ
+  parseJSON (String "gte") = pure HTR_GTE
+  parseJSON _              = empty
+
+data HitsTotal =
+  HitsTotal { value    :: Int
+            , relation :: HitsTotalRelation } deriving (Eq, Show)
+
+instance FromJSON HitsTotal where
+  parseJSON (Object v) = HitsTotal <$>
+                         v .: "value"     <*>
+                         v .: "relation"
+  parseJSON _          = empty
+
+instance Semigroup HitsTotal where
+  (HitsTotal ta HTR_EQ)  <> (HitsTotal tb HTR_EQ)  = HitsTotal (ta + tb) HTR_EQ
+  (HitsTotal ta HTR_GTE) <> (HitsTotal tb _)   = HitsTotal (ta + tb) HTR_GTE
+  (HitsTotal ta _)       <> (HitsTotal tb HTR_GTE) = HitsTotal (ta + tb) HTR_GTE
+
 data SearchHits a =
-  SearchHits { hitsTotal :: Int
+  SearchHits { hitsTotal :: HitsTotal
              , maxScore  :: Score
              , hits      :: [Hit a] } deriving (Eq, Show)
-
 
 instance (FromJSON a) => FromJSON (SearchHits a) where
   parseJSON (Object v) = SearchHits <$>
@@ -440,17 +455,16 @@ instance (FromJSON a) => FromJSON (SearchHits a) where
 
 instance Semigroup (SearchHits a) where
   (SearchHits ta ma ha) <> (SearchHits tb mb hb) =
-    SearchHits (ta + tb) (max ma mb) (ha <> hb)
+    SearchHits (ta <> tb) (max ma mb) (ha <> hb)
 
 instance Monoid (SearchHits a) where
-  mempty = SearchHits 0 Nothing mempty
+  mempty = SearchHits (HitsTotal 0 HTR_EQ) Nothing mempty
   mappend = (<>)
 
 type SearchAfterKey = [Aeson.Value]
 
 data Hit a =
   Hit { hitIndex     :: IndexName
-      , hitType      :: MappingName
       , hitDocId     :: DocId
       , hitScore     :: Score
       , hitSource    :: Maybe a
@@ -461,7 +475,6 @@ data Hit a =
 instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
                          v .:  "_index"   <*>
-                         v .:  "_type"    <*>
                          v .:  "_id"      <*>
                          v .:  "_score"   <*>
                          v .:? "_source"  <*>

@@ -13,8 +13,6 @@ testServer  :: Server
 testServer  = Server "http://localhost:9200"
 testIndex   :: IndexName
 testIndex   = IndexName "bloodhound-tests-twitter-1"
-testMapping :: MappingName
-testMapping = MappingName "tweet"
 
 withTestEnv :: BH IO a -> IO a
 withTestEnv = withBH defaultManagerSettings testServer
@@ -118,19 +116,18 @@ data TweetMapping = TweetMapping deriving (Eq, Show)
 
 instance ToJSON TweetMapping where
   toJSON TweetMapping =
-    object ["tweet" .=
-      object ["properties" .=
-        object [ "user"     .= object [ "type"    .= ("string" :: Text)
-                                      , "fielddata" .= True
-                                      ]
-               -- Serializing the date as a date is breaking other tests, mysteriously.
-               -- , "postDate" .= object [ "type"   .= ("date" :: Text)
-               --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
-               , "message"  .= object ["type" .= ("string" :: Text)]
-               , "age"      .= object ["type" .= ("integer" :: Text)]
-               , "location" .= object ["type" .= ("geo_point" :: Text)]
-               , "extra"    .= object ["type" .= ("keyword" :: Text)]
-               ]]]
+    object ["properties" .=
+      object [ "user"     .= object [ "type"    .= ("text" :: Text)
+                                    , "fielddata" .= True
+                                    ]
+             -- Serializing the date as a date is breaking other tests, mysteriously.
+             -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+             --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+             , "message"  .= object ["type" .= ("text" :: Text)]
+             , "age"      .= object ["type" .= ("integer" :: Text)]
+             , "location" .= object ["type" .= ("geo_point" :: Text)]
+             , "extra"    .= object ["type" .= ("keyword" :: Text)]
+             ]]
 
 exampleTweet :: Tweet
 exampleTweet = Tweet { user     = "bitemyapp"
@@ -181,7 +178,7 @@ resetIndex :: BH IO ()
 resetIndex = do
   _ <- deleteExampleIndex
   _ <- createExampleIndex
-  _ <- putMapping testIndex testMapping TweetMapping
+  _ <- putMapping testIndex TweetMapping
   return ()
 
 insertData :: BH IO Reply
@@ -191,31 +188,31 @@ insertData = do
 
 insertData' :: IndexDocumentSettings -> BH IO Reply
 insertData' ids = do
-  r <- indexDocument testIndex testMapping ids exampleTweet (DocId "1")
+  r <- indexDocument testIndex ids exampleTweet (DocId "1")
   _ <- refreshIndex testIndex
   return r
 
 updateData :: BH IO Reply
 updateData = do
-  r <- updateDocument testIndex testMapping defaultIndexDocumentSettings tweetPatch (DocId "1")
+  r <- updateDocument testIndex defaultIndexDocumentSettings tweetPatch (DocId "1")
   _ <- refreshIndex testIndex
   return r
 
 insertOther :: BH IO ()
 insertOther = do
-  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings otherTweet (DocId "2")
+  _ <- indexDocument testIndex defaultIndexDocumentSettings otherTweet (DocId "2")
   _ <- refreshIndex testIndex
   return ()
 
 insertExtra :: BH IO ()
 insertExtra = do
-  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings tweetWithExtra (DocId "4")
+  _ <- indexDocument testIndex defaultIndexDocumentSettings tweetWithExtra (DocId "4")
   _ <- refreshIndex testIndex
   return ()
 
 insertWithSpaceInId :: BH IO ()
 insertWithSpaceInId = do
-  _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "Hello World")
+  _ <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "Hello World")
   _ <- refreshIndex testIndex
   return ()
 

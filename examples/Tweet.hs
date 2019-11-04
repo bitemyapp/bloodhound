@@ -60,15 +60,15 @@ main = runBH' $ do
   -- set up index
   _ <- createIndex indexSettings testIndex
   True <- indexExists testIndex
-  _ <- putMapping testIndex testMapping TweetMapping
+  _ <- putMapping testIndex TweetMapping
 
   -- create a tweet
-  resp <- indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
+  resp <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
   liftIO (print resp)
   -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 
   -- bulk load
-  let stream = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON exampleTweet)]
+  let stream = V.fromList [BulkIndex testIndex (DocId "2") (toJSON exampleTweet)]
   _ <- bulk stream
   -- Bulk loads require an index refresh before new data is loaded.
   _ <- refreshIndex testIndex
@@ -92,7 +92,7 @@ main = runBH' $ do
   let boost = Nothing
   let query = TermQuery (Term "user" "bitemyapp") boost
   let search = mkSearch (Just query) boost
-  _ <- searchByType testIndex testMapping search
+  _ <- searchByIndex testIndex search
 
   -- clean up
   _ <- deleteTemplate templateName
@@ -104,5 +104,4 @@ main = runBH' $ do
     testServer = Server "http://localhost:9200"
     runBH' = withBH defaultManagerSettings testServer
     testIndex = IndexName "twitter"
-    testMapping = MappingName "tweet"
     indexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0)

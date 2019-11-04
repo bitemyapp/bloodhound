@@ -10,6 +10,7 @@ import qualified Data.HashMap.Strict as HM
 spec :: Spec
 spec =
   describe "query API" $ do
+{--
     it "returns document for term query and identity filter" $ withTestEnv $ do
       _ <- insertData
       let query = TermQuery (Term "user" "bitemyapp") Nothing
@@ -107,7 +108,7 @@ spec =
       myTweet <- searchTweet search
       liftIO $
         myTweet `shouldBe` Right exampleTweet
-
+--}
     it "returns document for for inline template query" $ withTestEnv $ do
       _ <- insertData
       let innerQuery = QueryMatchQuery $
@@ -122,7 +123,7 @@ spec =
           search = mkSearch (Just templateQuery) Nothing
       myTweet <- searchTweet search
       liftIO $ myTweet `shouldBe` Right exampleTweet
-
+{--
     it "returns document for wildcard query" $ withTestEnv $ do
       _ <- insertData
       let query = QueryWildcardQuery $ WildcardQuery (FieldName "user") "bitemy*" (Nothing)
@@ -130,3 +131,4 @@ spec =
       myTweet <- searchTweet search
       liftIO $
         myTweet `shouldBe` Right exampleTweet
+--}

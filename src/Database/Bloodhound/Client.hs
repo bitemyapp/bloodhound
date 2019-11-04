@@ -58,7 +58,6 @@ module Database.Bloodhound.Client
        , searchAll
        , searchByIndex
        , searchByIndices
-       , searchByType
        , scanSearch
        , getInitialScroll
        , getInitialSortedScroll
@@ -137,7 +136,6 @@ import           Database.Bloodhound.Types
 -- >>> let testServer = (Server "http://localhost:9200")
 -- >>> let runBH' = withBH defaultManagerSettings testServer
 -- >>> let testIndex = IndexName "twitter"
--- >>> let testMapping = MappingName "tweet"
 -- >>> let defaultIndexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0)
 -- >>> data TweetMapping = TweetMapping deriving (Eq, Show)
 -- >>> _ <- runBH' $ deleteIndex testIndex
@@ -812,16 +810,16 @@ deleteTemplate (TemplateName templateName) =
 -- for documents in indexes.
 --
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings testIndex
--- >>> resp <- runBH' $ putMapping testIndex testMapping TweetMapping
+-- >>> resp <- runBH' $ putMapping testIndex TweetMapping
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("transfer-encoding","chunked")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 putMapping :: (MonadBH m, ToJSON a) => IndexName
-                 -> MappingName -> a -> m Reply
-putMapping (IndexName indexName) (MappingName mappingName) mapping =
+                 -> a -> m Reply
+putMapping (IndexName indexName) mapping =
   bindM2 put url (return body)
-  where url = joinPath [indexName, "_mapping", mappingName]
-        -- "_mapping" and mappingName above were originally transposed
-        -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
+  where url = joinPath [indexName, "_mapping"]
+        -- "_mapping" above is originally transposed
+        -- erroneously. The correct API call is: "/INDEX/_mapping"
         body = Just $ encode mapping
 
 versionCtlParams :: IndexDocumentSettings -> [(Text, Maybe Text)]
@@ -846,15 +844,14 @@ versionCtlParams cfg =
 --   generation. Read more about it here:
 --   https://github.com/bitemyapp/bloodhound/issues/107
 --
--- >>> resp <- runBH' $ indexDocument testIndex testMapping defaultIndexDocumentSettings exampleTweet (DocId "1")
+-- >>> resp <- runBH' $ indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
--- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Location","/twitter/tweet/1"),("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("transfer-encoding","chunked")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":2,\"successful\":1,\"failed\":0},\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
-indexDocument :: (ToJSON doc, MonadBH m) => IndexName -> MappingName
+-- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("content-length","152")], responseBody = "{\"_index\":\"bloodhound-tests-twitter-1\",\"_type\":\"_doc\",\"_id\":\"1\",\"_version\":2,\"result\":\"updated\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+indexDocument :: (ToJSON doc, MonadBH m) => IndexName
                  -> IndexDocumentSettings -> doc -> DocId -> m Reply
-indexDocument (IndexName indexName)
-  (MappingName mappingName) cfg document (DocId docId) =
+indexDocument (IndexName indexName) cfg document (DocId docId) =
   bindM2 put url (return body)
-  where url = addQuery params <$> joinPath [indexName, mappingName, docId]
+  where url = addQuery params <$> joinPath [indexName, "_doc", docId]
         parentParams = case idsParent cfg of
           Nothing -> []
           Just (DocumentParent (DocId p)) -> [ ("parent", Just p) ]
@@ -863,33 +860,30 @@ indexDocument (IndexName indexName)
 
 -- | 'updateDocument' provides a way to perform an partial update of a
 -- an already indexed document.
-updateDocument :: (ToJSON patch, MonadBH m) => IndexName -> MappingName
+updateDocument :: (ToJSON patch, MonadBH m) => IndexName
                   -> IndexDocumentSettings -> patch -> DocId -> m Reply
-updateDocument (IndexName indexName)
-  (MappingName mappingName) cfg patch (DocId docId) =
+updateDocument (IndexName indexName) cfg patch (DocId docId) =
   bindM2 post url (return body)
   where url = addQuery (versionCtlParams cfg) <$>
-              joinPath [indexName, mappingName, docId, "_update"]
+              joinPath [indexName, "_update", docId]
         body = Just (encode $ object ["doc" .= toJSON patch])
 
 -- | 'deleteDocument' is the primary way to delete a single document.
 --
--- >>> _ <- runBH' $ deleteDocument testIndex testMapping (DocId "1")
-deleteDocument :: MonadBH m => IndexName -> MappingName
-                  -> DocId -> m Reply
-deleteDocument (IndexName indexName)
-  (MappingName mappingName) (DocId docId) =
-  delete =<< joinPath [indexName, mappingName, docId]
+-- >>> _ <- runBH' $ deleteDocument testIndex (DocId "1")
+deleteDocument :: MonadBH m => IndexName -> DocId -> m Reply
+deleteDocument (IndexName indexName) (DocId docId) =
+  delete =<< joinPath [indexName, "_doc", docId]
 
 -- | 'deleteByQuery' performs a deletion on every document that matches a query.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
--- >>> _ <- runBH' $ deleteDocument testIndex testMapping query
-deleteByQuery :: MonadBH m => IndexName -> MappingName -> Query -> m Reply
-deleteByQuery (IndexName indexName) (MappingName mappingName) query =
+-- >>> _ <- runBH' $ deleteDocument testIndex query
+deleteByQuery :: MonadBH m => IndexName -> Query -> m Reply
+deleteByQuery (IndexName indexName) query =
   bindM2 post url (return body)
   where
-    url = joinPath [indexName, mappingName, "_delete_by_query"]
+    url = joinPath [indexName, "_delete_by_query"]
     body = Just (encode $ object [ "query" .= query ])
 
 -- | 'bulk' uses
@@ -899,7 +893,7 @@ deleteByQuery (IndexName indexName) (MappingName mappingName) query =
 --    and a 'Server' to 'bulk' in order to send those operations up to your Elasticsearch
 --    server to be performed. I changed from [BulkOperation] to a Vector due to memory overhead.
 --
--- >>> let stream = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))]
+-- >>> let stream = V.fromList [BulkIndex testIndex (DocId "2") (toJSON (BulkTest "blah"))]
 -- >>> _ <- runBH' $ bulk stream
 -- >>> _ <- runBH' $ refreshIndex testIndex
 bulk :: MonadBH m => V.Vector BulkOperation -> m Reply
@@ -912,7 +906,7 @@ bulk bulkOps =
 -- | 'encodeBulkOperations' is a convenience function for dumping a vector of 'BulkOperation'
 --   into an 'L.ByteString'
 --
--- >>> let bulkOps = V.fromList [BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))]
+-- >>> let bulkOps = V.fromList [BulkIndex testIndex (DocId "2") (toJSON (BulkTest "blah"))]
 -- >>> encodeBulkOperations bulkOps
 -- "\n{\"index\":{\"_type\":\"tweet\",\"_id\":\"2\",\"_index\":\"twitter\"}}\n{\"name\":\"blah\"}\n"
 encodeBulkOperations :: V.Vector BulkOperation -> L.ByteString
@@ -927,77 +921,67 @@ encodeBulkOperations stream = collapsed where
 mash :: Builder -> V.Vector L.ByteString -> Builder
 mash = V.foldl' (\b x -> b <> byteString "\n" <> lazyByteString x)
 
-mkBulkStreamValue :: Text -> Text -> Text -> Text -> Value
-mkBulkStreamValue operation indexName mappingName docId =
+mkBulkStreamValue :: Text -> Text -> Text -> Value
+mkBulkStreamValue operation indexName docId =
   object [operation .=
           object [ "_index" .= indexName
-                 , "_type"  .= mappingName
                  , "_id"    .= docId]]
 
-mkBulkStreamValueAuto :: Text -> Text -> Text -> Value
-mkBulkStreamValueAuto operation indexName mappingName =
+mkBulkStreamValueAuto :: Text -> Text -> Value
+mkBulkStreamValueAuto operation indexName =
   object [operation .=
-          object [ "_index" .= indexName
-                 , "_type"  .= mappingName]]
+          object [ "_index" .= indexName]]
 
-mkBulkStreamValueWithMeta :: [UpsertActionMetadata] -> Text -> Text -> Text -> Text -> Value
-mkBulkStreamValueWithMeta meta operation indexName mappingName docId =
+mkBulkStreamValueWithMeta :: [UpsertActionMetadata] -> Text -> Text -> Text -> Value
+mkBulkStreamValueWithMeta meta operation indexName docId =
   object [ operation .=
           object ([ "_index" .= indexName
-                  , "_type"  .= mappingName
                   , "_id"    .= docId]
                   <> (buildUpsertActionMetadata <$> meta))]
 
 -- | 'encodeBulkOperation' is a convenience function for dumping a single 'BulkOperation'
 --   into an 'L.ByteString'
 --
--- >>> let bulkOp = BulkIndex testIndex testMapping (DocId "2") (toJSON (BulkTest "blah"))
+-- >>> let bulkOp = BulkIndex testIndex (DocId "2") (toJSON (BulkTest "blah"))
 -- >>> encodeBulkOperation bulkOp
 -- "{\"index\":{\"_type\":\"tweet\",\"_id\":\"2\",\"_index\":\"twitter\"}}\n{\"name\":\"blah\"}"
 encodeBulkOperation :: BulkOperation -> L.ByteString
 encodeBulkOperation (BulkIndex (IndexName indexName)
-                (MappingName mappingName)
                 (DocId docId) value) = blob
-    where metadata = mkBulkStreamValue "index" indexName mappingName docId
+    where metadata = mkBulkStreamValue "index" indexName docId
           blob = encode metadata `mappend` "\n" `mappend` encode value
 
 encodeBulkOperation (BulkIndexAuto (IndexName indexName)
-                (MappingName mappingName)
                 value) = blob
-    where metadata = mkBulkStreamValueAuto "index" indexName mappingName
+    where metadata = mkBulkStreamValueAuto "index" indexName
           blob = encode metadata `mappend` "\n" `mappend` encode value
 
 encodeBulkOperation (BulkIndexEncodingAuto (IndexName indexName)
-                (MappingName mappingName)
                 encoding) = toLazyByteString blob
-    where metadata = toEncoding (mkBulkStreamValueAuto "index" indexName mappingName)
+    where metadata = toEncoding (mkBulkStreamValueAuto "index" indexName)
           blob = fromEncoding metadata <> "\n" <> fromEncoding encoding
 
 encodeBulkOperation (BulkCreate (IndexName indexName)
-                (MappingName mappingName)
                 (DocId docId) value) = blob
-    where metadata = mkBulkStreamValue "create" indexName mappingName docId
+    where metadata = mkBulkStreamValue "create" indexName docId
           blob = encode metadata `mappend` "\n" `mappend` encode value
 
 encodeBulkOperation (BulkDelete (IndexName indexName)
-                (MappingName mappingName)
                 (DocId docId)) = blob
-    where metadata = mkBulkStreamValue "delete" indexName mappingName docId
+    where metadata = mkBulkStreamValue "delete" indexName docId
           blob = encode metadata
 
 encodeBulkOperation (BulkUpdate (IndexName indexName)
-                (MappingName mappingName)
                 (DocId docId) value) = blob
-    where metadata = mkBulkStreamValue "update" indexName mappingName docId
+    where metadata = mkBulkStreamValue "update" indexName docId
           doc = object ["doc" .= value]
           blob = encode metadata `mappend` "\n" `mappend` encode doc
 
 encodeBulkOperation (BulkUpsert (IndexName indexName)
-                (MappingName mappingName)
                 (DocId docId)
                 payload
                 actionMeta) = blob
-    where metadata = mkBulkStreamValueWithMeta actionMeta "update" indexName mappingName docId
+    where metadata = mkBulkStreamValueWithMeta actionMeta "update" indexName docId
           blob = encode metadata <> "\n" <> encode doc
           doc = case payload of
             UpsertDoc value -> object ["doc" .= value, "doc_as_upsert" .= True]
@@ -1012,33 +996,29 @@ encodeBulkOperation (BulkUpsert (IndexName indexName)
 
 
 encodeBulkOperation (BulkCreateEncoding (IndexName indexName)
-                (MappingName mappingName)
                 (DocId docId) encoding) = toLazyByteString blob
-    where metadata = toEncoding (mkBulkStreamValue "create" indexName mappingName docId)
+    where metadata = toEncoding (mkBulkStreamValue "create" indexName docId)
           blob = fromEncoding metadata <> "\n" <> fromEncoding encoding
 
 -- | 'getDocument' is a straight-forward way to fetch a single document from
---   Elasticsearch using a 'Server', 'IndexName', 'MappingName', and a 'DocId'.
+--   Elasticsearch using a 'Server', 'IndexName', and a 'DocId'.
 --   The 'DocId' is the primary key for your Elasticsearch document.
 --
--- >>> yourDoc <- runBH' $ getDocument testIndex testMapping (DocId "1")
-getDocument :: MonadBH m => IndexName -> MappingName
-               -> DocId -> m Reply
-getDocument (IndexName indexName)
-  (MappingName mappingName) (DocId docId) =
-  get =<< joinPath [indexName, mappingName, docId]
+-- >>> yourDoc <- runBH' $ getDocument testIndex (DocId "1")
+getDocument :: MonadBH m => IndexName -> DocId -> m Reply
+getDocument (IndexName indexName) (DocId docId) =
+  get =<< joinPath [indexName, "_doc", docId]
 
 -- | 'documentExists' enables you to check if a document exists. Returns 'Bool'
 --   in IO
 --
--- >>> exists <- runBH' $ documentExists testIndex testMapping Nothing (DocId "1")
-documentExists :: MonadBH m => IndexName -> MappingName
+-- >>> exists <- runBH' $ documentExists testIndex Nothing (DocId "1")
+documentExists :: MonadBH m => IndexName
                -> Maybe DocumentParent -> DocId -> m Bool
-documentExists (IndexName indexName) (MappingName mappingName)
-               parent (DocId docId) = do
+documentExists (IndexName indexName) parent (DocId docId) = do
   (_, exists) <- existentialQuery =<< url
   return exists
-  where url = addQuery params <$> joinPath [indexName, mappingName, docId]
+  where url = addQuery params <$> joinPath [indexName, "_doc", docId]
         parentParam = fmap (\(DocumentParent (DocId p)) -> p) parent
         params = LS.filter (\(_, v) -> isJust v) [("parent", parentParam)]
 
@@ -1057,7 +1037,7 @@ searchAll = bindM2 dispatchSearch url . return
   where url = joinPath ["_search"]
 
 -- | 'searchByIndex', given a 'Search' and an 'IndexName', will perform that search
---   against all mappings within an index on an Elasticsearch server.
+--   within an index on an Elasticsearch server.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
@@ -1075,29 +1055,16 @@ searchByIndices ixs = bindM2 dispatchSearch url . return
   where url = joinPath [renderedIxs, "_search"]
         renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
 
--- | 'searchByType', given a 'Search', 'IndexName', and 'MappingName', will perform that
---   search against a specific mapping within an index on an Elasticsearch server.
---
--- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
--- >>> let search = mkSearch (Just query) Nothing
--- >>> reply <- runBH' $ searchByType testIndex testMapping search
-searchByType :: MonadBH m => IndexName -> MappingName -> Search
-                -> m Reply
-searchByType (IndexName indexName)
-  (MappingName mappingName) = bindM2 dispatchSearch url . return
-  where url = joinPath [indexName, mappingName, "_search"]
-
 -- | For a given search, request a scroll for efficient streaming of
 -- search results. Note that the search is put into 'SearchTypeScan'
 -- mode and thus results will not be sorted. Combine this with
 -- 'advanceScroll' to efficiently stream through the full result set
 getInitialScroll ::
   (FromJSON a, MonadThrow m, MonadBH m) => IndexName ->
-                                           MappingName ->
                                            Search ->
                                            m (Either EsError (SearchResult a))
-getInitialScroll (IndexName indexName) (MappingName mappingName) search' = do
-    let url = addQuery params <$> joinPath [indexName, mappingName, "_search"]
+getInitialScroll (IndexName indexName) search' = do
+    let url = addQuery params <$> joinPath [indexName, "_search"]
         params = [("scroll", Just "1m")]
         sorting = Just [DefaultSortSpec $ mkSort (FieldName "_doc") Descending]
         search = search' { sortBody = sorting }
@@ -1110,11 +1077,10 @@ getInitialScroll (IndexName indexName) (MappingName mappingName) search' = do
 -- sorting and may be less efficient than 'getInitialScroll'.
 getInitialSortedScroll ::
   (FromJSON a, MonadThrow m, MonadBH m) => IndexName ->
-                                           MappingName ->
                                            Search ->
                                            m (Either EsError (SearchResult a))
-getInitialSortedScroll (IndexName indexName) (MappingName mappingName) search = do
-    let url = addQuery params <$> joinPath [indexName, mappingName, "_search"]
+getInitialSortedScroll (IndexName indexName) search = do
+    let url = addQuery params <$> joinPath [indexName, "_search"]
         params = [("scroll", Just "1m")]
     resp' <- bindM2 dispatchSearch url (return search)
     parseEsResponse resp'
@@ -1163,7 +1129,7 @@ simpleAccumulator oldHits (newHits, msid) = do
     simpleAccumulator (oldHits ++ newHits) (newHits', msid')
 
 -- | 'scanSearch' uses the 'scroll' API of elastic,
--- for a given 'IndexName' and 'MappingName'. Note that this will
+-- for a given 'IndexName'. Note that this will
 -- consume the entire search result set and will be doing O(n) list
 -- appends so this may not be suitable for large result sets. In that
 -- case, 'getInitialScroll' and 'advanceScroll' are good low level
@@ -1172,11 +1138,10 @@ simpleAccumulator oldHits (newHits, msid) = do
 -- that ordering on the search would destroy performance and thus is
 -- ignored.
 scanSearch :: (FromJSON a, MonadBH m, MonadThrow m) => IndexName
-                                                    -> MappingName
                                                     -> Search
                                                     -> m [Hit a]
-scanSearch indexName mappingName search = do
-    initialSearchResult <- getInitialScroll indexName mappingName search
+scanSearch indexName search = do
+    initialSearchResult <- getInitialScroll indexName search
     let (hits', josh) = case initialSearchResult of
                           Right SearchResult {..} -> (hits searchHits, scrollId)
                           Left _ -> ([], Nothing)

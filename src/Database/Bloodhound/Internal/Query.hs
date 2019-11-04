@@ -33,7 +33,7 @@ data Query =
   | QueryFuzzyQuery             FuzzyQuery
   | QueryHasChildQuery          HasChildQuery
   | QueryHasParentQuery         HasParentQuery
-  | IdsQuery                    MappingName [DocId]
+  | IdsQuery                    [DocId]
   | QueryIndicesQuery           IndicesQuery
   | MatchAllQuery               (Maybe Boost)
   | QueryMoreLikeThisQuery      MoreLikeThisQuery
@@ -63,10 +63,9 @@ instance ToJSON Query where
     object [ "terms" .= object conjoined ]
     where conjoined = [fieldName .= terms]
 
-  toJSON (IdsQuery idsQueryMappingName docIds) =
+  toJSON (IdsQuery docIds) =
     object [ "ids" .= object conjoined ]
-    where conjoined = [ "type"   .= idsQueryMappingName
-                      , "values" .= fmap toJSON docIds ]
+    where conjoined = [ "values" .= fmap toJSON docIds ]
 
   toJSON (QueryQueryStringQuery qQueryStringQuery) =
     object [ "query_string" .= qQueryStringQuery ]
@@ -87,7 +86,7 @@ instance ToJSON Query where
     object [ "common" .= commonTermsQuery ]
 
   toJSON (ConstantScoreQuery query boost) =
-    object ["constant_score" .= object ["query" .= query
+    object ["constant_score" .= object ["filter" .= query
                                        , "boost" .= boost]]
 
   toJSON (QueryFunctionScoreQuery functionScoreQuery) =
@@ -190,15 +189,14 @@ instance FromJSON Query where
                                               x:xs -> return (TermsQuery fn (x :| xs))
                                               _ -> fail "Expected non empty list of values"
                            _ -> fail "Expected object with 1 field-named key"
-          idsQuery o = IdsQuery <$> o .: "type"
-                                <*> o .: "values"
+          idsQuery o = IdsQuery <$> o .: "values"
           queryQueryStringQuery = pure . QueryQueryStringQuery
           queryMatchQuery = pure . QueryMatchQuery
           queryMultiMatchQuery = QueryMultiMatchQuery <$> parseJSON v
           queryBoolQuery = pure . QueryBoolQuery
           queryBoostingQuery = pure . QueryBoostingQuery
           queryCommonTermsQuery = pure . QueryCommonTermsQuery
-          constantScoreQuery o = case HM.lookup "query" o of
+          constantScoreQuery o = case HM.lookup "filter" o of
             Just x -> ConstantScoreQuery <$> parseJSON x
                                          <*> o .: "boost"
             _ -> fail "Does not appear to be a ConstantScoreQuery"
