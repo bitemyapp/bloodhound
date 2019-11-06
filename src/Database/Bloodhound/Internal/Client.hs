@@ -16,6 +16,7 @@ import           Control.Monad.Fail                         (MonadFail)
 #endif
 #endif
 import qualified Data.HashMap.Strict                        as HM
+import           Data.Map                                   (Map)
 import qualified Data.SemVer                                as SemVer
 import qualified Data.Text                                  as T
 import qualified Data.Traversable                           as DT
@@ -1080,7 +1081,7 @@ data NodeStats = NodeStats {
     , nodeStatsTransport     :: NodeTransportStats
     , nodeStatsFS            :: NodeFSStats
     , nodeStatsNetwork       :: Maybe NodeNetworkStats
-    , nodeStatsThreadPool    :: NodeThreadPoolsStats
+    , nodeStatsThreadPool    :: Map Text NodeThreadPoolStats
     , nodeStatsJVM           :: NodeJVMStats
     , nodeStatsProcess       :: NodeProcessStats
     , nodeStatsOS            :: NodeOSStats
@@ -1162,26 +1163,6 @@ data NodeNetworkStats = NodeNetworkStats {
     , nodeNetTCPCurrEstab    :: Int
     , nodeNetTCPPassiveOpens :: Int
     , nodeNetTCPActiveOpens  :: Int
-    } deriving (Eq, Show)
-
-data NodeThreadPoolsStats = NodeThreadPoolsStats {
-      nodeThreadPoolsStatsSnapshot          :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsBulk              :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsMerge             :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsGet               :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsManagement        :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsFetchShardStore   :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsOptimize          :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsFlush             :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsSearch            :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsWarmer            :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsGeneric           :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsSuggest           :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsRefresh           :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsIndex             :: NodeThreadPoolStats
-    , nodeThreadPoolsStatsListener          :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsFetchShardStarted :: Maybe NodeThreadPoolStats
-    , nodeThreadPoolsStatsPercolate         :: Maybe NodeThreadPoolStats
     } deriving (Eq, Show)
 
 data NodeThreadPoolStats = NodeThreadPoolStats {
@@ -1324,7 +1305,7 @@ data NodeIndicesStats = NodeIndicesStats {
     , nodeIndicesStatsIndexingIndexCurrent    :: Int
     , nodeIndicesStatsIndexingIndexTime       :: NominalDiffTime
     , nodeIndicesStatsIndexingTotal           :: Int
-    , nodeIndicesStatsStoreThrottleTime       :: NominalDiffTime
+    , nodeIndicesStatsStoreThrottleTime       :: Maybe NominalDiffTime
     , nodeIndicesStatsStoreSize               :: Bytes
     , nodeIndicesStatsDocsDeleted             :: Int
     , nodeIndicesStatsDocsCount               :: Int
@@ -1356,7 +1337,7 @@ data NodeInfo = NodeInfo {
     , nodeInfoHTTP             :: NodeHTTPInfo
     , nodeInfoTransport        :: NodeTransportInfo
     , nodeInfoNetwork          :: Maybe NodeNetworkInfo
-    , nodeInfoThreadPool       :: NodeThreadPoolsInfo
+    , nodeInfoThreadPool       :: Map Text NodeThreadPoolInfo
     , nodeInfoJVM              :: NodeJVMInfo
     , nodeInfoProcess          :: NodeProcessInfo
     , nodeInfoOS               :: NodeOSInfo
@@ -1377,12 +1358,14 @@ data NodePluginInfo = NodePluginInfo {
 
 data NodeHTTPInfo = NodeHTTPInfo {
       nodeHTTPMaxContentLength :: Bytes
-    , nodeHTTPTransportAddress :: BoundTransportAddress
+    , nodeHTTPpublishAddress :: EsAddress
+    , nodeHTTPbound_address :: [EsAddress]
     } deriving (Eq, Show)
 
 data NodeTransportInfo = NodeTransportInfo {
-      nodeTransportProfiles :: [BoundTransportAddress]
-    , nodeTransportAddress  :: BoundTransportAddress
+      nodeTransportProfiles       :: [BoundTransportAddress]
+    , nodeTransportPublishAddress :: EsAddress
+    , nodeTransportBoundAddress   :: [EsAddress]
     } deriving (Eq, Show)
 
 data BoundTransportAddress = BoundTransportAddress {
@@ -1407,24 +1390,9 @@ data NodeNetworkInterface = NodeNetworkInterface {
     , nodeNetIfaceAddress    :: Server
     } deriving (Eq, Show)
 
-data NodeThreadPoolsInfo = NodeThreadPoolsInfo {
-      nodeThreadPoolsRefresh           :: NodeThreadPoolInfo
-    , nodeThreadPoolsManagement        :: NodeThreadPoolInfo
-    , nodeThreadPoolsPercolate         :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsListener          :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsFetchShardStarted :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsSearch            :: NodeThreadPoolInfo
-    , nodeThreadPoolsFlush             :: NodeThreadPoolInfo
-    , nodeThreadPoolsWarmer            :: NodeThreadPoolInfo
-    , nodeThreadPoolsOptimize          :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsBulk              :: NodeThreadPoolInfo
-    , nodeThreadPoolsSuggest           :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsMerge             :: NodeThreadPoolInfo
-    , nodeThreadPoolsSnapshot          :: NodeThreadPoolInfo
-    , nodeThreadPoolsGet               :: NodeThreadPoolInfo
-    , nodeThreadPoolsFetchShardStore   :: Maybe NodeThreadPoolInfo
-    , nodeThreadPoolsIndex             :: NodeThreadPoolInfo
-    , nodeThreadPoolsGeneric           :: NodeThreadPoolInfo
+data ThreadPool = ThreadPool {
+      nodeThreadPoolName :: Text
+    , nodeThreadPoolInfo :: NodeThreadPoolInfo
     } deriving (Eq, Show)
 
 data NodeThreadPoolInfo = NodeThreadPoolInfo {
@@ -1442,6 +1410,7 @@ data ThreadPoolSize = ThreadPoolBounded Int
 data ThreadPoolType = ThreadPoolScaling
                     | ThreadPoolFixed
                     | ThreadPoolCached
+                    | ThreadPoolFixedAutoQueueSize
                     deriving (Eq, Show)
 
 data NodeJVMInfo = NodeJVMInfo {
@@ -1955,26 +1924,6 @@ instance FromJSON NodeNetworkStats where
                          <*> tcp .: "passive_opens"
                          <*> tcp .: "active_opens"
 
-instance FromJSON NodeThreadPoolsStats where
-  parseJSON = withObject "NodeThreadPoolsStats" parse
-    where
-      parse o = NodeThreadPoolsStats <$> o .: "snapshot"
-                                     <*> o .: "bulk"
-                                     <*> o .: "force_merge"
-                                     <*> o .: "get"
-                                     <*> o .: "management"
-                                     <*> o .:? "fetch_shard_store"
-                                     <*> o .:? "optimize"
-                                     <*> o .: "flush"
-                                     <*> o .: "search"
-                                     <*> o .: "warmer"
-                                     <*> o .: "generic"
-                                     <*> o .:? "suggest"
-                                     <*> o .: "refresh"
-                                     <*> o .: "index"
-                                     <*> o .:? "listener"
-                                     <*> o .:? "fetch_shard_started"
-                                     <*> o .:? "percolate"
 instance FromJSON NodeThreadPoolStats where
     parseJSON = withObject "NodeThreadPoolStats" parse
       where
@@ -2170,7 +2119,7 @@ instance FromJSON NodeIndicesStats where
                          <*> indexing .: "index_current"
                          <*> (unMS <$> indexing .: "index_time_in_millis")
                          <*> indexing .: "index_total"
-                         <*> (unMS <$> store .: "throttle_time_in_millis")
+                         <*> (fmap unMS <$> store .:? "throttle_time_in_millis")
                          <*> store .: "size_in_bytes"
                          <*> docs .: "deleted"
                          <*> docs .: "count"
@@ -2230,7 +2179,8 @@ instance FromJSON NodeHTTPInfo where
   parseJSON = withObject "NodeHTTPInfo" parse
     where
       parse o = NodeHTTPInfo <$> o .: "max_content_length_in_bytes"
-                             <*> parseJSON (Object o)
+                             <*> o .: "publish_address"
+                             <*> o .: "bound_address"
 
 instance FromJSON BoundTransportAddress where
   parseJSON = withObject "BoundTransportAddress" parse
@@ -2290,27 +2240,6 @@ instance FromJSON JVMMemoryInfo where
                               <*> o .: "non_heap_init_in_bytes"
                               <*> o .: "heap_max_in_bytes"
                               <*> o .: "heap_init_in_bytes"
-
-instance FromJSON NodeThreadPoolsInfo where
-  parseJSON = withObject "NodeThreadPoolsInfo" parse
-    where
-      parse o = NodeThreadPoolsInfo <$> o .: "refresh"
-                                    <*> o .: "management"
-                                    <*> o .:? "percolate"
-                                    <*> o .:? "listener"
-                                    <*> o .:? "fetch_shard_started"
-                                    <*> o .: "search"
-                                    <*> o .: "flush"
-                                    <*> o .: "warmer"
-                                    <*> o .:? "optimize"
-                                    <*> o .: "bulk"
-                                    <*> o .:? "suggest"
-                                    <*> o .: "force_merge"
-                                    <*> o .: "snapshot"
-                                    <*> o .: "get"
-                                    <*> o .:? "fetch_shard_store"
-                                    <*> o .: "index"
-                                    <*> o .: "generic"
 
 instance FromJSON NodeThreadPoolInfo where
   parseJSON = withObject "NodeThreadPoolInfo" parse
@@ -2399,13 +2328,15 @@ instance FromJSON ThreadPoolType where
       parse "scaling" = return ThreadPoolScaling
       parse "fixed"   = return ThreadPoolFixed
       parse "cached"  = return ThreadPoolCached
+      parse "fixed_auto_queue_size" = return ThreadPoolFixedAutoQueueSize
       parse e         = fail ("Unexpected thread pool type" <> T.unpack e)
 
 instance FromJSON NodeTransportInfo where
   parseJSON = withObject "NodeTransportInfo" parse
     where
       parse o = NodeTransportInfo <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
-                                  <*> parseJSON (Object o)
+                                  <*> o .: "publish_address"
+                                  <*> o .: "bound_address"
       parseProfiles (Object o)  | HM.null o = return []
       parseProfiles v@(Array _) = parseJSON v
       parseProfiles Null        = return []

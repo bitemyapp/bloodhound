@@ -271,7 +271,7 @@ searchTweetHighlight search = do
 searchExpectSource :: Source -> Either EsError Value -> BH IO ()
 searchExpectSource src expected = do
   _ <- insertData
-  let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
+  let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
   let search = (mkSearch (Just query) Nothing) { source = Just src }
   reply <- searchByIndex testIndex search
   result <- parseEsResponse reply

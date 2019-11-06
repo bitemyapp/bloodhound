@@ -49,16 +49,11 @@ main = hspec $ do
   Suggest.spec
   Templates.spec
 
-  describe "error parsing"  $ do
-    it "can parse EsErrors for < 2.0" $ when' (atmost es16) $ withTestEnv $ do
+  describe "error parsing"  $
+    it "can parse EsErrors for >= 2.0" $ withTestEnv $ do
       res <- getDocument (IndexName "bogus") (DocId "bogus_as_well")
       let errorResp = eitherDecode (responseBody res)
-      liftIO (errorResp `shouldBe` Right (EsError 404 "IndexMissingException[[bogus] missing]"))
-
-    it "can parse EsErrors for >= 2.0" $ when' (atleast es20) $ withTestEnv $ do
-      res <- getDocument (IndexName "bogus") (DocId "bogus_as_well")
-      let errorResp = eitherDecode (responseBody res)
-      liftIO (errorResp `shouldBe` Right (EsError 404 "no such index"))
+      liftIO (errorResp `shouldBe` Right (EsError 404 "no such index [bogus]"))
 
   describe "Monoid (SearchHits a)" $
     prop "abides the monoid laws" $ eq $
