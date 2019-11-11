@@ -31,46 +31,25 @@ data Tweet = Tweet { user     :: Text
 $(deriveJSON defaultOptions ''Location)
 $(deriveJSON defaultOptions ''Tweet)
 
-data ParentMapping = ParentMapping deriving (Eq, Show)
+data ConversationMapping = ConversationMapping deriving (Eq, Show)
 
-instance ToJSON ParentMapping where
-  toJSON ParentMapping =
+instance ToJSON ConversationMapping where
+  toJSON ConversationMapping =
     object ["properties" .=
-      object [ "user"     .= object ["type"    .= ("string" :: Text)
-                                    , "fielddata" .= True
-                                    ]
+      object ["reply_join"  .= object [ "type"       .= ("join" :: Text)
+                                      , "relations"  .= object [ "message" .= ("reply" :: Text) ]
+                                      ]
+            , "user"        .= object [ "type"       .= ("text" :: Text)
+                                      , "fielddata"  .= True
+                                      ]
             -- Serializing the date as a date is breaking other tests, mysteriously.
             -- , "postDate" .= object [ "type"   .= ("date" :: Text)
             --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
-            , "message"  .= object ["type" .= ("string" :: Text)]
+            , "message"  .= object ["type" .= ("text" :: Text)]
             , "age"      .= object ["type" .= ("integer" :: Text)]
             , "location" .= object ["type" .= ("geo_point" :: Text)]
             , "extra"    .= object ["type" .= ("keyword" :: Text)]
             ]]
-
-es11 :: SemVer.Version
-es11 = SemVer.version 1 1 0 [] []
-
-es13 :: SemVer.Version
-es13 = SemVer.version 1 3 0 [] []
-
-es12 :: SemVer.Version
-es12 = SemVer.version 1 2 0 [] []
-
-es14 :: SemVer.Version
-es14 = SemVer.version 1 4 0 [] []
-
-es15 :: SemVer.Version
-es15 = SemVer.version 1 5 0 [] []
-
-es16 :: SemVer.Version
-es16 = SemVer.version 1 6 0 [] []
-
-es20 :: SemVer.Version
-es20 = SemVer.version 2 0 0 [] []
-
-es50 :: SemVer.Version
-es50 = SemVer.version 5 0 0 [] []
 
 getServerVersion :: IO (Maybe SemVer.Version)
 getServerVersion = fmap extractVersion <$> withTestEnv getStatus
@@ -93,24 +72,6 @@ validateStatus resp expected =
   where
     actual = NHTS.statusCode (responseStatus resp)
     body = responseBody resp
-
-data ChildMapping = ChildMapping deriving (Eq, Show)
-
-instance ToJSON ChildMapping where
-  toJSON ChildMapping =
-    object ["_parent" .= object ["type" .= ("parent" :: Text)]
-           , "properties" .=
-                object [ "user"     .= object ["type"    .= ("string" :: Text)
-                                              , "fielddata" .= True
-                                              ]
-                  -- Serializing the date as a date is breaking other tests, mysteriously.
-                  -- , "postDate" .= object [ "type"   .= ("date" :: Text)
-                  --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
-                  , "message"  .= object ["type" .= ("string" :: Text)]
-                  , "age"      .= object ["type" .= ("integer" :: Text)]
-                  , "location" .= object ["type" .= ("geo_point" :: Text)]
-                  , "extra"    .= object ["type" .= ("keyword" :: Text)]
-                  ]]
 
 data TweetMapping = TweetMapping deriving (Eq, Show)
 

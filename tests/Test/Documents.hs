@@ -40,12 +40,20 @@ spec =
 
     it "indexes two documents in a parent/child relationship and checks that the child exists" $ withTestEnv $ do
       resetIndex
-      _ <- putMapping testIndex ChildMapping
-      _ <- putMapping testIndex ParentMapping
-      _ <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
-      let parent = (Just . DocumentParent . DocId) "1"
-          ids = IndexDocumentSettings NoVersionControl parent
-      _ <- indexDocument testIndex ids otherTweet (DocId "2")
+      _ <- putMapping testIndex ConversationMapping
+
+      let parentSettings = defaultIndexDocumentSettings { idsJoinRelation = Just (ParentDocument (FieldName "reply_join") (RelationName "message")) }
+      let childSettings = defaultIndexDocumentSettings { idsJoinRelation = Just (ChildDocument (FieldName "reply_join") (RelationName "reply") (DocId "1")) }
+
+      _ <- indexDocument testIndex parentSettings exampleTweet (DocId "1")
+      _ <- indexDocument testIndex childSettings otherTweet (DocId "2")
+
       _ <- refreshIndex testIndex
-      exists <- documentExists testIndex parent (DocId "2")
-      liftIO $ exists `shouldBe` True
+
+      let query = QueryHasParentQuery $ HasParentQuery (RelationName "message") (MatchAllQuery Nothing) Nothing Nothing
+      let search = mkSearch (Just query) Nothing
+
+      resp <- searchByIndex testIndex search
+      parsed <- parseEsResponse resp :: BH IO (Either EsError (SearchResult Value))
+
+      liftIO $ fmap (hitsTotal . searchHits) parsed `shouldBe` Right (HitsTotal 1 HTR_EQ)

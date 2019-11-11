@@ -9,7 +9,7 @@ import           Bloodhound.Import
 import qualified Data.HashMap.Strict as HM
 
 import           Database.Bloodhound.Internal.Newtypes
-import           Database.Bloodhound.Internal.Query (TemplateQueryInline(..), params)
+import           Database.Bloodhound.Internal.Query (Query, TemplateQueryKeyValuePairs)
 
 data Suggest = Suggest
   { suggestText :: Text
@@ -124,27 +124,27 @@ instance FromJSON PhraseSuggesterHighlighter where
                       <*> o .: "post_tag"
 
 data PhraseSuggesterCollate = PhraseSuggesterCollate
-  { phraseSuggesterCollateTemplateQuery :: TemplateQueryInline
+  { phraseSuggesterCollateTemplateQuery :: Query
+  , phraseSuggesterCollateParams :: TemplateQueryKeyValuePairs
   , phraseSuggesterCollatePrune :: Bool
   } deriving (Eq, Show)
 
 instance ToJSON PhraseSuggesterCollate where
   toJSON PhraseSuggesterCollate{..} =
     object [ "query" .= object
-             [ "inline" .= (inline phraseSuggesterCollateTemplateQuery)
+             [ "source" .= phraseSuggesterCollateTemplateQuery
              ]
-           , "params" .= (params phraseSuggesterCollateTemplateQuery)
+           , "params" .= phraseSuggesterCollateParams
            , "prune" .= phraseSuggesterCollatePrune
            ]
 
 instance FromJSON PhraseSuggesterCollate where
   parseJSON (Object o) = do
     query' <- o .: "query"
-    inline' <- query' .: "inline"
+    inline' <- query' .: "source"
     params' <- o .: "params"
     prune' <- o .:? "prune" .!= False
-    return $ PhraseSuggesterCollate
-             (TemplateQueryInline inline' params') prune'
+    return $ PhraseSuggesterCollate inline' params' prune'
   parseJSON x = typeMismatch "PhraseSuggesterCollate" x
 
 data SuggestOptions =

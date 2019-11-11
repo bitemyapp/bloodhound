@@ -57,7 +57,7 @@ spec =
       liftIO $
         fmap aggregations res `shouldBe` Right (Just (M.fromList [ statsAggRes "users" 10000]))
 
-    it "can give collection hint parameters to term aggregations" $ when' (atleast es13) $ withTestEnv $ do
+    it "can give collection hint parameters to term aggregations" $ withTestEnv $ do
       _ <- insertData
       let terms = TermsAgg $ (mkTermsAggregation "user") { termCollectMode = Just BreadthFirst }
       let search = mkAggregateSearch Nothing $ mkAggregations "users" terms

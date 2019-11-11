@@ -107,7 +107,7 @@ spec =
       upsertDocs (UpsertScript False script) batch
       assertDocs batch
 
-    it "script upsert with scripted_upsert" $ withTestEnv $ do
+    it "script upsert with scripted_upsert -- will fail if a bug on elasticsearch is fix, delete patch line" $ withTestEnv $ do
       _ <- insertData
 
       let batch = [(DocId "3", BulkScriptTest "stringer" 0), (DocId "5", BulkScriptTest "sobotka" 3)]
@@ -120,6 +120,9 @@ spec =
 
       -- Without "script_upsert" flag new documents are simply inserted and are not handled by the script
       upsertDocs (UpsertScript True script) batch
+
+      -- if this test fails due to bug fix, delete next line
+      let batch = [(DocId "3", BulkScriptTest "stringer" 2), (DocId "5", BulkScriptTest "sobotka" 3)]
       assertDocs (batch <&> (\(i, v) -> (i, v { bstCounter = bstCounter v + 2 })))
 
     it "inserts all documents we request" $ withTestEnv $ do

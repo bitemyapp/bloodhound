@@ -45,7 +45,6 @@ data Query =
   | QueryRangeQuery             RangeQuery
   | QueryRegexpQuery            RegexpQuery
   | QueryExistsQuery            FieldName
-  | QueryTemplateQueryInline    TemplateQueryInline
   | QueryMatchNoneQuery
   | QueryWildcardQuery          WildcardQuery
   deriving (Eq, Show)
@@ -144,9 +143,6 @@ instance ToJSON Query where
   toJSON QueryMatchNoneQuery =
     object ["match_none" .= object []]
 
-  toJSON (QueryTemplateQueryInline templateQuery) =
-    object [ "template" .= templateQuery ]
-
   toJSON (QueryWildcardQuery query) =
     object [ "wildcard" .= query ]
 
@@ -178,7 +174,6 @@ instance FromJSON Query where
                 <|> queryRangeQuery `taggedWith` "range"
                 <|> queryRegexpQuery `taggedWith` "regexp"
                 <|> querySimpleQueryStringQuery `taggedWith` "simple_query_string"
-                <|> queryTemplateQueryInline `taggedWith` "template"
                 <|> queryWildcardQuery `taggedWith` "wildcard"
             where taggedWith parser k = parser =<< o .: k
           termQuery = fieldTagged $ \(FieldName fn) o ->
@@ -217,7 +212,6 @@ instance FromJSON Query where
           queryRegexpQuery = pure . QueryRegexpQuery
           querySimpleQueryStringQuery = pure . QuerySimpleQueryStringQuery
           -- queryExistsQuery o = QueryExistsQuery <$> o .: "field"
-          queryTemplateQueryInline = pure . QueryTemplateQueryInline
           queryWildcardQuery = pure . QueryWildcardQuery
 
 -- | As of Elastic 2.0, 'Filters' are just 'Queries' housed in a
@@ -646,41 +640,57 @@ instance FromJSON IndicesQuery where
 
 data HasParentQuery =
   HasParentQuery
-  { hasParentQueryType      :: TypeName
+  { hasParentQueryType      :: RelationName
   , hasParentQuery          :: Query
-  , hasParentQueryScoreType :: Maybe ScoreType } deriving (Eq, Show)
+  , hasParentQueryScore     :: Maybe AggregateParentScore
+  , hasParentIgnoreUnmapped :: Maybe IgnoreUnmapped
+  } deriving (Eq, Show)
 
 instance ToJSON HasParentQuery where
-  toJSON (HasParentQuery queryType query scoreType) =
+  toJSON (HasParentQuery queryType query scoreType ignoreUnmapped) =
     omitNulls [ "parent_type" .= queryType
-              , "score_type" .= scoreType
-              , "query" .= query ]
+              , "score" .= scoreType
+              , "query" .= query
+              , "ignore_unmapped" .= ignoreUnmapped
+              ]
 
 instance FromJSON HasParentQuery where
   parseJSON = withObject "HasParentQuery" parse
     where parse o = HasParentQuery
                     <$> o .: "parent_type"
                     <*> o .: "query"
-                    <*> o .:? "score_type"
+                    <*> o .:? "score"
+                    <*> o .:? "ignore_unmapped"
 
 data HasChildQuery =
   HasChildQuery
-  { hasChildQueryType      :: TypeName
-  , hasChildQuery          :: Query
-  , hasChildQueryScoreType :: Maybe ScoreType } deriving (Eq, Show)
+  { hasChildQueryType       :: RelationName
+  , hasChildQuery           :: Query
+  , hasChildQueryScoreType  :: Maybe ScoreType
+  , hasChildIgnoreUnmappped :: Maybe IgnoreUnmapped
+  , hasChildMinChildren     :: Maybe MinChildren
+  , hasChildMaxChildren     :: Maybe MaxChildren
+  } deriving (Eq, Show)
 
 instance ToJSON HasChildQuery where
-  toJSON (HasChildQuery queryType query scoreType) =
+  toJSON (HasChildQuery queryType query scoreType ignoreUnmapped minChildren maxChildren) =
     omitNulls [ "query" .= query
-              , "score_type" .= scoreType
-              , "type"  .= queryType ]
+              , "score_mode" .= scoreType
+              , "type"  .= queryType
+              , "min_children" .= minChildren
+              , "max_children" .= maxChildren
+              , "ignore_unmapped" .= ignoreUnmapped
+              ]
 
 instance FromJSON HasChildQuery where
   parseJSON = withObject "HasChildQuery" parse
     where parse o = HasChildQuery
                     <$> o .: "type"
                     <*> o .: "query"
-                    <*> o .:? "score_type"
+                    <*> o .:? "score_mode"
+                    <*> o .:? "ignore_unmapped"
+                    <*> o .:? "min_children"
+                    <*> o .:? "max_children"
 
 data ScoreType =
     ScoreTypeMax
@@ -1511,23 +1521,6 @@ instance FromJSON TemplateQueryKeyValuePairs where
           getValue _          = Nothing
   parseJSON _          =
     fail "error parsing TemplateQueryKeyValuePairs"
-
-data TemplateQueryInline =
-  TemplateQueryInline { inline :: Query
-                      , params :: TemplateQueryKeyValuePairs
-                      }
-  deriving (Eq, Show)
-
-instance ToJSON TemplateQueryInline where
-  toJSON TemplateQueryInline{..} = object [ "inline" .= inline
-                                          , "params" .= params
-                                          ]
-
-instance FromJSON TemplateQueryInline where
-  parseJSON = withObject "TemplateQueryInline" parse
-    where parse o = TemplateQueryInline
-                    <$> o .: "inline"
-                    <*> o .: "params"
 
 {-| 'BooleanOperator' is the usual And/Or operators with an ES compatible
     JSON encoding baked in. Used all over the place.

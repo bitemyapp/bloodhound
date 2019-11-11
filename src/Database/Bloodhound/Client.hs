@@ -58,6 +58,8 @@ module Database.Bloodhound.Client
        , searchAll
        , searchByIndex
        , searchByIndices
+       , searchByIndexTemplate
+       , searchByIndicesTemplate
        , scanSearch
        , getInitialScroll
        , getInitialSortedScroll
@@ -66,11 +68,16 @@ module Database.Bloodhound.Client
        , mkSearch
        , mkAggregateSearch
        , mkHighlightSearch
+       , mkSearchTemplate
        , bulk
        , pageSearch
        , mkShardCount
        , mkReplicaCount
        , getStatus
+       -- ** Templates
+       , storeSearchTemplate
+       , getSearchTemplate
+       , deleteSearchTemplate
        -- ** Snapshot/Restore
        -- *** Snapshot Repos
        , getSnapshotRepos
@@ -110,9 +117,9 @@ import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Foldable                (toList)
 import qualified Data.HashMap.Strict          as HM
 import           Data.Ix
-import qualified Data.List                    as LS (filter, foldl')
+import qualified Data.List                    as LS (foldl')
 import           Data.List.NonEmpty           (NonEmpty (..))
-import           Data.Maybe                   (catMaybes, fromMaybe, isJust)
+import           Data.Maybe                   (catMaybes, fromMaybe)
 import           Data.Monoid
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
@@ -781,7 +788,7 @@ deleteIndexAlias (IndexAliasName (IndexName name)) = delete =<< url
 --   Explained in further detail at
 --   <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html>
 --
---   >>> let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--   >>> let idxTpl = IndexTemplate (IndexPattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
 --   >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
 putTemplate :: MonadBH m => IndexTemplate -> TemplateName -> m Reply
 putTemplate indexTemplate (TemplateName templateName) =
@@ -799,7 +806,7 @@ templateExists (TemplateName templateName) = do
 
 -- | 'deleteTemplate' is an HTTP DELETE and deletes a template.
 --
---   >>> let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--   >>> let idxTpl = IndexTemplate (IndexPattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
 --   >>> _ <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
 --   >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
 deleteTemplate :: MonadBH m => TemplateName -> m Reply
@@ -813,8 +820,7 @@ deleteTemplate (TemplateName templateName) =
 -- >>> resp <- runBH' $ putMapping testIndex TweetMapping
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("transfer-encoding","chunked")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
-putMapping :: (MonadBH m, ToJSON a) => IndexName
-                 -> a -> m Reply
+putMapping :: (MonadBH m, ToJSON a) => IndexName -> a -> m Reply
 putMapping (IndexName indexName) mapping =
   bindM2 put url (return body)
   where url = joinPath [indexName, "_mapping"]
@@ -851,12 +857,9 @@ indexDocument :: (ToJSON doc, MonadBH m) => IndexName
                  -> IndexDocumentSettings -> doc -> DocId -> m Reply
 indexDocument (IndexName indexName) cfg document (DocId docId) =
   bindM2 put url (return body)
-  where url = addQuery params <$> joinPath [indexName, "_doc", docId]
-        parentParams = case idsParent cfg of
-          Nothing -> []
-          Just (DocumentParent (DocId p)) -> [ ("parent", Just p) ]
-        params = versionCtlParams cfg ++ parentParams
-        body = Just (encode document)
+  where url = addQuery (indexQueryString cfg (DocId docId)) <$> joinPath [indexName, "_doc", docId]
+        jsonBody = encodeDocument cfg document
+        body = Just (encode jsonBody)
 
 -- | 'updateDocument' provides a way to perform an partial update of a
 -- an already indexed document.
@@ -864,16 +867,48 @@ updateDocument :: (ToJSON patch, MonadBH m) => IndexName
                   -> IndexDocumentSettings -> patch -> DocId -> m Reply
 updateDocument (IndexName indexName) cfg patch (DocId docId) =
   bindM2 post url (return body)
-  where url = addQuery (versionCtlParams cfg) <$>
+  where url = addQuery (indexQueryString cfg (DocId docId)) <$>
               joinPath [indexName, "_update", docId]
-        body = Just (encode $ object ["doc" .= toJSON patch])
+        jsonBody = encodeDocument cfg patch
+        body = Just (encode $ object ["doc" .= jsonBody])
+
+{-  From ES docs:
+      Parent and child documents must be indexed on the same shard.
+      This means that the same routing value needs to be provided when getting, deleting, or updating a child document.
+    Parent/Child support in Bloodhound requires MUCH more love.
+    To work it around for now (and to support the existing unit test) we route "parent" documents to their "_id"
+    (which is the default strategy for the ES), and route all child documents to their parens' "_id"
+    However, it may not be flexible enough for some corner cases.
+    Buld operations are completely unaware of "routing" and are probably broken in that matter.
+    Or perhaps they always were, because the old "_parent" would also have this requirement.
+-}
+indexQueryString :: IndexDocumentSettings -> DocId -> [(Text, Maybe Text)]
+indexQueryString cfg (DocId docId) =
+  versionCtlParams cfg <> routeParams
+  where
+    routeParams = case idsJoinRelation cfg of
+      Nothing -> []
+      Just (ParentDocument _ _) -> [("routing", Just docId)]
+      Just (ChildDocument _ _ (DocId pid)) -> [("routing", Just pid)]
+
+encodeDocument :: ToJSON doc => IndexDocumentSettings -> doc -> Value
+encodeDocument cfg document =
+  case idsJoinRelation cfg of
+    Nothing -> toJSON document
+    Just (ParentDocument (FieldName field) name) ->
+      mergeObjects (toJSON document) (object [field .= name])
+    Just (ChildDocument (FieldName field) name parent) ->
+      mergeObjects (toJSON document) (object [field .= object ["name" .= name, "parent" .= parent]])
+  where
+    mergeObjects (Object a) (Object b) = Object (a <> b)
+    mergeObjects _ _ = error "Impossible happened: both document body and join parameters must be objects"
 
 -- | 'deleteDocument' is the primary way to delete a single document.
 --
 -- >>> _ <- runBH' $ deleteDocument testIndex (DocId "1")
 deleteDocument :: MonadBH m => IndexName -> DocId -> m Reply
 deleteDocument (IndexName indexName) (DocId docId) =
-  delete =<< joinPath [indexName, "_doc", docId]
+  delete =<< joinPath [indexName, docId]
 
 -- | 'deleteByQuery' performs a deletion on every document that matches a query.
 --
@@ -1009,18 +1044,10 @@ getDocument :: MonadBH m => IndexName -> DocId -> m Reply
 getDocument (IndexName indexName) (DocId docId) =
   get =<< joinPath [indexName, "_doc", docId]
 
--- | 'documentExists' enables you to check if a document exists. Returns 'Bool'
---   in IO
---
--- >>> exists <- runBH' $ documentExists testIndex Nothing (DocId "1")
-documentExists :: MonadBH m => IndexName
-               -> Maybe DocumentParent -> DocId -> m Bool
-documentExists (IndexName indexName) parent (DocId docId) = do
-  (_, exists) <- existentialQuery =<< url
-  return exists
-  where url = addQuery params <$> joinPath [indexName, "_doc", docId]
-        parentParam = fmap (\(DocumentParent (DocId p)) -> p) parent
-        params = LS.filter (\(_, v) -> isJust v) [("parent", parentParam)]
+-- | 'documentExists' enables you to check if a document exists.
+documentExists :: MonadBH m => IndexName ->  DocId -> m Bool
+documentExists (IndexName indexName) (DocId docId) =
+  fmap snd (existentialQuery =<< joinPath [indexName, "_doc", docId])
 
 dispatchSearch :: MonadBH m => Text -> Search -> m Reply
 dispatchSearch url search = post url' (Just (encode search))
@@ -1054,6 +1081,50 @@ searchByIndices :: MonadBH m => NonEmpty IndexName -> Search -> m Reply
 searchByIndices ixs = bindM2 dispatchSearch url . return
   where url = joinPath [renderedIxs, "_search"]
         renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
+
+dispatchSearchTemplate :: MonadBH m => Text -> SearchTemplate -> m Reply
+dispatchSearchTemplate url search = post url (Just (encode search))
+
+-- | 'searchByIndexTemplate', given a 'SearchTemplate' and an 'IndexName', will perform that search
+--   within an index on an Elasticsearch server.
+--
+-- >>> let query = SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } }, \"size\" : \"{{my_size}}\"}"
+-- >>> let search = mkSearchTemplate (Right query) Nothing
+-- >>> reply <- runBH' $ searchByIndexTemplate testIndex search
+searchByIndexTemplate :: MonadBH m => IndexName -> SearchTemplate -> m Reply
+searchByIndexTemplate (IndexName indexName) = bindM2 dispatchSearchTemplate url . return
+  where url = joinPath [indexName, "_search", "template"]
+
+-- | 'searchByIndicesTemplate' is a variant of 'searchByIndexTemplate' that executes a
+--   'SearchTemplate' over many indices. This is much faster than using
+--   'mapM' to 'searchByIndexTemplate' over a collection since it only
+--   causes a single HTTP request to be emitted.
+searchByIndicesTemplate :: MonadBH m => NonEmpty IndexName -> SearchTemplate -> m Reply
+searchByIndicesTemplate ixs = bindM2 dispatchSearchTemplate url . return
+  where url = joinPath [renderedIxs, "_search", "template"]
+        renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
+
+-- | 'storeSearchTemplate', saves a 'SearchTemplateSource' to be used later.
+storeSearchTemplate :: MonadBH m => SearchTemplateId -> SearchTemplateSource -> m Reply
+storeSearchTemplate (SearchTemplateId tid) ts =
+  url >>= flip post (Just (encode json))
+  where
+    url = joinPath ["_scripts", tid]
+    json = Object $ HM.fromList ["script" .= Object ("lang" .= String "mustache" <> "source" .= ts) ]
+
+-- | 'getSearchTemplate', get info of an stored 'SearchTemplateSource'.
+getSearchTemplate :: MonadBH m => SearchTemplateId -> m Reply 
+getSearchTemplate (SearchTemplateId tid) =
+  url >>= get
+  where
+    url = joinPath ["_scripts", tid]
+
+-- | 'storeSearchTemplate', 
+deleteSearchTemplate :: MonadBH m => SearchTemplateId -> m Reply 
+deleteSearchTemplate (SearchTemplateId tid) =
+  url >>= delete
+  where
+    url = joinPath ["_scripts", tid]
 
 -- | For a given search, request a scroll for efficient streaming of
 -- search results. Note that the search is put into 'SearchTypeScan'
@@ -1177,6 +1248,11 @@ mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSear
 -- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
 mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing Nothing
+
+-- | 'mkSearchTemplate' is a helper function for defaulting additional fields of a 'SearchTemplate'
+--   to Nothing. Use record update syntax if you want to add things.
+mkSearchTemplate :: Either SearchTemplateId SearchTemplateSource -> TemplateQueryKeyValuePairs -> SearchTemplate
+mkSearchTemplate id params = SearchTemplate id params Nothing Nothing
 
 -- | 'pageSearch' is a helper function that takes a search and assigns the from
 --    and size fields for the search. The from parameter defines the offset

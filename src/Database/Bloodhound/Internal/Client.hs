@@ -16,7 +16,7 @@ import           Control.Monad.Fail                         (MonadFail)
 #endif
 #endif
 import qualified Data.HashMap.Strict                        as HM
-import           Data.Map                                   (Map)
+import           Data.Map.Strict                            (Map)
 import qualified Data.SemVer                                as SemVer
 import qualified Data.Text                                  as T
 import qualified Data.Traversable                           as DT
@@ -557,22 +557,22 @@ newtype FieldDefinition = FieldDefinition
 
 {-| An 'IndexTemplate' defines a template that will automatically be
     applied to new indices created. The templates include both
-    'IndexSettings' and mappings, and a simple 'TemplatePattern' that
+    'IndexSettings' and mappings, and a simple 'IndexPattern' that
     controls if the template will be applied to the index created.
     Specify mappings as follows: @[toJSON TweetMapping, ...]@
 
     https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html
 -}
 data IndexTemplate =
-  IndexTemplate { templatePattern  :: TemplatePattern
+  IndexTemplate { templatePattern  :: IndexPattern
                 , templateSettings :: Maybe IndexSettings
-                , templateMappings :: [Value]
+                , templateMappings :: Value
                 }
 
 instance ToJSON IndexTemplate where
   toJSON (IndexTemplate p s m) = merge
-    (object [ "template" .= p
-            , "mappings" .= foldl' merge (object []) m
+    (object [ "index_patterns" .= p
+            , "mappings" .= m
             ])
     (toJSON s)
    where
@@ -593,9 +593,8 @@ data MappingField =
     having a mapping, and keeping different kinds of documents separated
     if possible.
 -}
-data Mapping =
-  Mapping { typeName      :: TypeName
-          , mappingFields :: [MappingField] }
+newtype Mapping =
+  Mapping { mappingFields :: [MappingField] }
   deriving (Eq, Show)
 
 data UpsertActionMetadata
@@ -905,10 +904,10 @@ data VersionControl = NoVersionControl
                     -- care, as this could result in data loss.
                     deriving (Eq, Show, Ord)
 
-{-| 'DocumentParent' is used to specify a parent document.
--}
-newtype DocumentParent = DocumentParent DocId
-  deriving (Eq, Show)
+data JoinRelation
+  = ParentDocument FieldName RelationName
+  | ChildDocument FieldName RelationName DocId
+  deriving (Show, Eq)
 
 {-| 'IndexDocumentSettings' are special settings supplied when indexing
 a document. For the best backwards compatiblity when new fields are
@@ -916,7 +915,7 @@ added, you should probably prefer to start with 'defaultIndexDocumentSettings'
 -}
 data IndexDocumentSettings =
   IndexDocumentSettings { idsVersionControl :: VersionControl
-                        , idsParent         :: Maybe DocumentParent
+                        , idsJoinRelation   :: Maybe JoinRelation
                         } deriving (Eq, Show)
 
 {-| Reasonable default settings. Chooses no version control and no parent.
@@ -959,9 +958,9 @@ data NodeSelector =
 -}
 newtype TemplateName = TemplateName Text deriving (Eq, Show, ToJSON, FromJSON)
 
-{-| 'TemplatePattern' represents a pattern which is matched against index names
+{-| 'IndexPattern' represents a pattern which is matched against index names
 -}
-newtype TemplatePattern = TemplatePattern Text deriving (Eq, Show, ToJSON, FromJSON)
+newtype IndexPattern = IndexPattern Text deriving (Eq, Show, ToJSON, FromJSON)
 
 -- | Username type used for HTTP Basic authentication. See 'basicAuthHook'.
 newtype EsUsername = EsUsername { esUsername :: Text } deriving (Read, Show, Eq)

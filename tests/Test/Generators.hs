@@ -185,7 +185,6 @@ instance Arbitrary Query where
             , QuerySimpleQueryStringQuery <$> arbitrary
             , QueryRangeQuery <$> arbitrary
             , QueryRegexpQuery <$> arbitrary
-            , QueryTemplateQueryInline <$> arbitrary
             ]
   -- TODO: Implement shrink
   -- shrink = genericShrink
@@ -256,8 +255,8 @@ makeArbitrary ''ReplicaCount
 instance Arbitrary ReplicaCount where arbitrary = arbitraryReplicaCount
 makeArbitrary ''TemplateName
 instance Arbitrary TemplateName where arbitrary = arbitraryTemplateName
-makeArbitrary ''TemplatePattern
-instance Arbitrary TemplatePattern where arbitrary = arbitraryTemplatePattern
+makeArbitrary ''IndexPattern
+instance Arbitrary IndexPattern where arbitrary = arbitraryIndexPattern
 makeArbitrary ''QueryString
 instance Arbitrary QueryString where arbitrary = arbitraryQueryString
 makeArbitrary ''CacheName
@@ -294,8 +293,8 @@ makeArbitrary ''Fuzziness
 instance Arbitrary Fuzziness where arbitrary = arbitraryFuzziness
 makeArbitrary ''PrefixLength
 instance Arbitrary PrefixLength where arbitrary = arbitraryPrefixLength
-makeArbitrary ''TypeName
-instance Arbitrary TypeName where arbitrary = arbitraryTypeName
+makeArbitrary ''RelationName
+instance Arbitrary RelationName where arbitrary = arbitraryRelationName
 makeArbitrary ''PercentMatch
 instance Arbitrary PercentMatch where arbitrary = arbitraryPercentMatch
 makeArbitrary ''StopWord
@@ -350,6 +349,14 @@ makeArbitrary ''MoreLikeThisQuery
 instance Arbitrary MoreLikeThisQuery where arbitrary = arbitraryMoreLikeThisQuery
 makeArbitrary ''IndicesQuery
 instance Arbitrary IndicesQuery where arbitrary = arbitraryIndicesQuery
+makeArbitrary ''IgnoreUnmapped
+instance Arbitrary IgnoreUnmapped where arbitrary = arbitraryIgnoreUnmapped
+makeArbitrary ''MinChildren
+instance Arbitrary MinChildren where arbitrary = arbitraryMinChildren
+makeArbitrary ''MaxChildren
+instance Arbitrary MaxChildren where arbitrary = arbitraryMaxChildren
+makeArbitrary ''AggregateParentScore
+instance Arbitrary AggregateParentScore where arbitrary = arbitraryAggregateParentScore
 makeArbitrary ''HasParentQuery
 instance Arbitrary HasParentQuery where arbitrary = arbitraryHasParentQuery
 makeArbitrary ''HasChildQuery
@@ -489,8 +496,6 @@ makeArbitrary ''FsSnapshotRepo
 instance Arbitrary FsSnapshotRepo where arbitrary = arbitraryFsSnapshotRepo
 makeArbitrary ''SnapshotRepoName
 instance Arbitrary SnapshotRepoName where arbitrary = arbitrarySnapshotRepoName
-makeArbitrary ''TemplateQueryInline
-instance Arbitrary TemplateQueryInline where arbitrary = arbitraryTemplateQueryInline
 makeArbitrary ''DirectGeneratorSuggestModeTypes
 instance Arbitrary DirectGeneratorSuggestModeTypes where arbitrary = arbitraryDirectGeneratorSuggestModeTypes
 makeArbitrary ''DirectGenerators

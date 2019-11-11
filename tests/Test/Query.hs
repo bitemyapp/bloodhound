@@ -10,7 +10,6 @@ import qualified Data.HashMap.Strict as HM
 spec :: Spec
 spec =
   describe "query API" $ do
-{--
     it "returns document for term query and identity filter" $ withTestEnv $ do
       _ <- insertData
       let query = TermQuery (Term "user" "bitemyapp") Nothing
@@ -108,22 +107,41 @@ spec =
       myTweet <- searchTweet search
       liftIO $
         myTweet `shouldBe` Right exampleTweet
---}
-    it "returns document for for inline template query" $ withTestEnv $ do
+
+    it "returns document for template query" $ withTestEnv $ do
       _ <- insertData
-      let innerQuery = QueryMatchQuery $
-                         mkMatchQuery (FieldName "{{userKey}}")
-                                      (QueryString "{{bitemyappKey}}")
+      let query = SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } } }"
           templateParams = TemplateQueryKeyValuePairs $ HM.fromList
-                            [ ("userKey", "user")
-                            , ("bitemyappKey", "bitemyapp")
-                            ]
-          templateQuery = QueryTemplateQueryInline $
-                            TemplateQueryInline innerQuery templateParams
-          search = mkSearch (Just templateQuery) Nothing
-      myTweet <- searchTweet search
+            [ ("my_field", "user")
+            , ("my_value", "bitemyapp")
+            ]
+          search = mkSearchTemplate (Right query) templateParams
+      response <- parseEsResponse =<< searchByIndexTemplate testIndex search
+      let myTweet = grabFirst response
       liftIO $ myTweet `shouldBe` Right exampleTweet
-{--
+
+    it "can save, use, read and delete template queries" $ withTestEnv $ do
+      _ <- insertData
+      let query = SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } } }"
+          templateParams = TemplateQueryKeyValuePairs $ HM.fromList
+            [ ("my_field", "user")
+            , ("my_value", "bitemyapp")
+            ]
+          tid = SearchTemplateId "myTemplate"
+          search = mkSearchTemplate (Left tid) templateParams
+      _ <- storeSearchTemplate tid query
+      r1 <- getSearchTemplate tid
+      let t1 = eitherDecode $ responseBody r1 :: Either String GetTemplateScript
+      liftIO $ t1 `shouldBe` Right (GetTemplateScript {getTemplateScriptLang = Just "mustache", getTemplateScriptSource = Just (SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } } }"), getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = True})
+      response <- parseEsResponse =<< searchByIndexTemplate testIndex search
+      _ <- deleteSearchTemplate tid
+      r2 <- getSearchTemplate tid
+      let myTweet = grabFirst response
+          t2 = eitherDecode $ responseBody r2 :: Either String GetTemplateScript
+      liftIO $ do
+        t2 `shouldBe` Right (GetTemplateScript {getTemplateScriptLang = Nothing, getTemplateScriptSource = Nothing, getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = False})
+        myTweet `shouldBe` Right exampleTweet
+
     it "returns document for wildcard query" $ withTestEnv $ do
       _ <- insertData
       let query = QueryWildcardQuery $ WildcardQuery (FieldName "user") "bitemy*" (Nothing)
@@ -131,4 +149,3 @@ spec =
       myTweet <- searchTweet search
       liftIO $
         myTweet `shouldBe` Right exampleTweet
---}
