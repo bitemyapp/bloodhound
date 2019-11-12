@@ -16,21 +16,17 @@ newtype ScriptFields =
 type ScriptFieldName = Text
 type ScriptFieldValue = Value
 
+data ScriptSource = ScriptId Text
+  | ScriptInline Text deriving (Eq, Show)
+
 data Script =
   Script { scriptLanguage :: Maybe ScriptLanguage
-         , scriptInline   :: Maybe ScriptInline
-         , scriptStored   :: Maybe ScriptId
+         , scriptSource   :: ScriptSource
          , scriptParams   :: Maybe ScriptParams
          } deriving (Eq, Show)
 
 newtype ScriptLanguage =
   ScriptLanguage Text deriving (Eq, Show, FromJSON, ToJSON)
-
-newtype ScriptInline =
-  ScriptInline Text deriving (Eq, Show, FromJSON, ToJSON)
-
-newtype ScriptId =
-  ScriptId Text deriving (Eq, Show, FromJSON, ToJSON)
 
 newtype ScriptParams =
   ScriptParams (HM.HashMap ScriptParamName ScriptParamValue)
@@ -154,21 +150,29 @@ instance FromJSON ScriptFields where
   parseJSON _          = fail "error parsing ScriptFields"
 
 instance ToJSON Script where
-  toJSON (Script lang inline stored params) =
-    object [ "script" .= omitNulls base ]
-    where base = [ "lang"   .= lang
-                 , "inline" .= inline
-                 , "stored" .= stored
-                 , "params" .= params ]
+  toJSON script =
+    object [ "script" .= omitNulls (base script) ]
+    where
+      base (Script lang (ScriptInline source) params) =
+        ["lang" .= lang, "source" .= source, "params" .= params]
+      base (Script lang (ScriptId id) params) =
+        ["lang" .= lang, "id" .= id, "params" .= params]
 
 instance FromJSON Script where
   parseJSON = withObject "Script" parse
-    where parse o = o .: "script" >>= \o' ->
-                      Script
-                      <$> o' .:? "lang"
-                      <*> o' .:? "inline"
-                      <*> o' .:? "stored"
-                      <*> o' .:? "params"
+    where 
+      parseSource o = do
+        inline <- o .:? "source"
+        id <- o .:? "id"
+        return $ case (inline,id) of
+          (Just x,Nothing) -> ScriptInline x
+          (Nothing,Just x) -> ScriptId x
+          (Nothing,Nothing) -> error "Script has to be either stored or inlined"
+          (Just _,Just _) -> error "Script can't both be stored and inlined at the same time"
+      parse o = o .: "script" >>= \o' -> Script
+        <$> o' .:? "lang"
+        <*> parseSource o'
+        <*> o' .:? "params"
 
 instance ToJSON ScriptParams where
   toJSON (ScriptParams x) = Object x

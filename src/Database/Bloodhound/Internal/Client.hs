@@ -16,6 +16,7 @@ import           Control.Monad.Fail                         (MonadFail)
 #endif
 #endif
 import qualified Data.HashMap.Strict                        as HM
+import           Data.Map.Strict                            (Map)
 import qualified Data.SemVer                                as SemVer
 import qualified Data.Text                                  as T
 import qualified Data.Traversable                           as DT
@@ -24,7 +25,6 @@ import           GHC.Enum
 import           Network.HTTP.Client
 import           Text.Read                                  (Read (..))
 import qualified Text.Read                                  as TR
-import           Data.Map.Strict                            (Map)
 
 import           Database.Bloodhound.Internal.Analysis
 import           Database.Bloodhound.Internal.Newtypes
@@ -593,7 +593,7 @@ data MappingField =
     having a mapping, and keeping different kinds of documents separated
     if possible.
 -}
-data Mapping =
+newtype Mapping =
   Mapping { mappingFields :: [MappingField] }
   deriving (Eq, Show)
 
@@ -1357,12 +1357,14 @@ data NodePluginInfo = NodePluginInfo {
 
 data NodeHTTPInfo = NodeHTTPInfo {
       nodeHTTPMaxContentLength :: Bytes
-    , nodeHTTPTransportAddress :: BoundTransportAddress
+    , nodeHTTPpublishAddress :: EsAddress
+    , nodeHTTPbound_address :: [EsAddress]
     } deriving (Eq, Show)
 
 data NodeTransportInfo = NodeTransportInfo {
-      nodeTransportProfiles :: [BoundTransportAddress]
-    , nodeTransportAddress  :: BoundTransportAddress
+      nodeTransportProfiles       :: [BoundTransportAddress]
+    , nodeTransportPublishAddress :: EsAddress
+    , nodeTransportBoundAddress   :: [EsAddress]
     } deriving (Eq, Show)
 
 data BoundTransportAddress = BoundTransportAddress {
@@ -1493,12 +1495,14 @@ data NodeProcessInfo = NodeProcessInfo {
 data ShardResult =
   ShardResult { shardTotal       :: Int
               , shardsSuccessful :: Int
+              , shardsSkipped    :: Int
               , shardsFailed     :: Int } deriving (Eq, Show)
 
 instance FromJSON ShardResult where
   parseJSON (Object v) = ShardResult       <$>
                          v .: "total"      <*>
                          v .: "successful" <*>
+                         v .: "skipped"    <*>
                          v .: "failed"
   parseJSON _          = empty
 
@@ -2174,7 +2178,8 @@ instance FromJSON NodeHTTPInfo where
   parseJSON = withObject "NodeHTTPInfo" parse
     where
       parse o = NodeHTTPInfo <$> o .: "max_content_length_in_bytes"
-                             <*> parseJSON (Object o)
+                             <*> o .: "publish_address"
+                             <*> o .: "bound_address"
 
 instance FromJSON BoundTransportAddress where
   parseJSON = withObject "BoundTransportAddress" parse
@@ -2329,7 +2334,8 @@ instance FromJSON NodeTransportInfo where
   parseJSON = withObject "NodeTransportInfo" parse
     where
       parse o = NodeTransportInfo <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
-                                  <*> parseJSON (Object o)
+                                  <*> o .: "publish_address"
+                                  <*> o .: "bound_address"
       parseProfiles (Object o)  | HM.null o = return []
       parseProfiles v@(Array _) = parseJSON v
       parseProfiles Null        = return []

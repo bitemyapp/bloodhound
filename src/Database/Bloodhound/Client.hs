@@ -58,6 +58,8 @@ module Database.Bloodhound.Client
        , searchAll
        , searchByIndex
        , searchByIndices
+       , searchByIndexTemplate
+       , searchByIndicesTemplate
        , scanSearch
        , getInitialScroll
        , getInitialSortedScroll
@@ -66,11 +68,16 @@ module Database.Bloodhound.Client
        , mkSearch
        , mkAggregateSearch
        , mkHighlightSearch
+       , mkSearchTemplate
        , bulk
        , pageSearch
        , mkShardCount
        , mkReplicaCount
        , getStatus
+       -- ** Templates
+       , storeSearchTemplate
+       , getSearchTemplate
+       , deleteSearchTemplate
        -- ** Snapshot/Restore
        -- *** Snapshot Repos
        , getSnapshotRepos
@@ -817,8 +824,8 @@ putMapping :: (MonadBH m, ToJSON a) => IndexName -> a -> m Reply
 putMapping (IndexName indexName) mapping =
   bindM2 put url (return body)
   where url = joinPath [indexName, "_mapping"]
-        -- "_mapping" and mappingName above were originally transposed
-        -- erroneously. The correct API call is: "/INDEX/_mapping/MAPPING_NAME"
+        -- "_mapping" above is originally transposed
+        -- erroneously. The correct API call is: "/INDEX/_mapping"
         body = Just $ encode mapping
 
 versionCtlParams :: IndexDocumentSettings -> [(Text, Maybe Text)]
@@ -845,7 +852,7 @@ versionCtlParams cfg =
 --
 -- >>> resp <- runBH' $ indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
--- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Location","/twitter/tweet/1"),("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("transfer-encoding","chunked")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":2,\"successful\":1,\"failed\":0},\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+-- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("content-length","152")], responseBody = "{\"_index\":\"bloodhound-tests-twitter-1\",\"_type\":\"_doc\",\"_id\":\"1\",\"_version\":2,\"result\":\"updated\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 indexDocument :: (ToJSON doc, MonadBH m) => IndexName
                  -> IndexDocumentSettings -> doc -> DocId -> m Reply
 indexDocument (IndexName indexName) cfg document (DocId docId) =
@@ -898,7 +905,6 @@ encodeDocument cfg document =
   where
     mergeObjects (Object a) (Object b) = Object (a <> b)
     mergeObjects _ _ = error "Impossible happened: both document body and join parameters must be objects"
-
 
 -- | 'deleteDocument' is the primary way to delete a single document.
 --
@@ -1055,7 +1061,7 @@ searchAll = bindM2 dispatchSearch url . return
   where url = joinPath ["_search"]
 
 -- | 'searchByIndex', given a 'Search' and an 'IndexName', will perform that search
---   against all mappings within an index on an Elasticsearch server.
+--   within an index on an Elasticsearch server.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
@@ -1072,6 +1078,50 @@ searchByIndices :: MonadBH m => NonEmpty IndexName -> Search -> m Reply
 searchByIndices ixs = bindM2 dispatchSearch url . return
   where url = joinPath [renderedIxs, "_search"]
         renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
+
+dispatchSearchTemplate :: MonadBH m => Text -> SearchTemplate -> m Reply
+dispatchSearchTemplate url search = post url (Just (encode search))
+
+-- | 'searchByIndexTemplate', given a 'SearchTemplate' and an 'IndexName', will perform that search
+--   within an index on an Elasticsearch server.
+--
+-- >>> let query = SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } }, \"size\" : \"{{my_size}}\"}"
+-- >>> let search = mkSearchTemplate (Right query) Nothing
+-- >>> reply <- runBH' $ searchByIndexTemplate testIndex search
+searchByIndexTemplate :: MonadBH m => IndexName -> SearchTemplate -> m Reply
+searchByIndexTemplate (IndexName indexName) = bindM2 dispatchSearchTemplate url . return
+  where url = joinPath [indexName, "_search", "template"]
+
+-- | 'searchByIndicesTemplate' is a variant of 'searchByIndexTemplate' that executes a
+--   'SearchTemplate' over many indices. This is much faster than using
+--   'mapM' to 'searchByIndexTemplate' over a collection since it only
+--   causes a single HTTP request to be emitted.
+searchByIndicesTemplate :: MonadBH m => NonEmpty IndexName -> SearchTemplate -> m Reply
+searchByIndicesTemplate ixs = bindM2 dispatchSearchTemplate url . return
+  where url = joinPath [renderedIxs, "_search", "template"]
+        renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
+
+-- | 'storeSearchTemplate', saves a 'SearchTemplateSource' to be used later.
+storeSearchTemplate :: MonadBH m => SearchTemplateId -> SearchTemplateSource -> m Reply
+storeSearchTemplate (SearchTemplateId tid) ts =
+  url >>= flip post (Just (encode json))
+  where
+    url = joinPath ["_scripts", tid]
+    json = Object $ HM.fromList ["script" .= Object ("lang" .= String "mustache" <> "source" .= ts) ]
+
+-- | 'getSearchTemplate', get info of an stored 'SearchTemplateSource'.
+getSearchTemplate :: MonadBH m => SearchTemplateId -> m Reply 
+getSearchTemplate (SearchTemplateId tid) =
+  url >>= get
+  where
+    url = joinPath ["_scripts", tid]
+
+-- | 'storeSearchTemplate', 
+deleteSearchTemplate :: MonadBH m => SearchTemplateId -> m Reply 
+deleteSearchTemplate (SearchTemplateId tid) =
+  url >>= delete
+  where
+    url = joinPath ["_scripts", tid]
 
 -- | For a given search, request a scroll for efficient streaming of
 -- search results. Note that the search is put into 'SearchTypeScan'
@@ -1195,6 +1245,11 @@ mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSear
 -- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
 mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing Nothing
+
+-- | 'mkSearchTemplate' is a helper function for defaulting additional fields of a 'SearchTemplate'
+--   to Nothing. Use record update syntax if you want to add things.
+mkSearchTemplate :: Either SearchTemplateId SearchTemplateSource -> TemplateQueryKeyValuePairs -> SearchTemplate
+mkSearchTemplate id params = SearchTemplate id params Nothing Nothing
 
 -- | 'pageSearch' is a helper function that takes a search and assigns the from
 --    and size fields for the search. The from parameter defines the offset

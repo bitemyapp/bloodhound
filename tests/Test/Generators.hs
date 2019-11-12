@@ -62,9 +62,18 @@ instance Arbitrary HitFields where
   arbitrary = pure (HitFields M.empty)
   shrink = const []
 
+instance Arbitrary HitsTotalRelation where
+  arbitrary = oneof [pure HTR_EQ, pure HTR_GTE]
+
+instance Arbitrary HitsTotal where
+  arbitrary = do
+    tot <- getPositive <$> arbitrary
+    relation <- arbitrary
+    return $ HitsTotal tot relation
+
 instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
-    tot <- getPositive <$> arbitrary
+    tot <- arbitrary
     score <- arbitraryScore
     hs <- arbitrary
     return $ SearchHits tot score hs
@@ -487,8 +496,6 @@ makeArbitrary ''FsSnapshotRepo
 instance Arbitrary FsSnapshotRepo where arbitrary = arbitraryFsSnapshotRepo
 makeArbitrary ''SnapshotRepoName
 instance Arbitrary SnapshotRepoName where arbitrary = arbitrarySnapshotRepoName
-makeArbitrary ''TemplateQueryInline
-instance Arbitrary TemplateQueryInline where arbitrary = arbitraryTemplateQueryInline
 makeArbitrary ''DirectGeneratorSuggestModeTypes
 instance Arbitrary DirectGeneratorSuggestModeTypes where arbitrary = arbitraryDirectGeneratorSuggestModeTypes
 makeArbitrary ''DirectGenerators
@@ -519,10 +526,8 @@ makeArbitrary ''Script
 instance Arbitrary Script where arbitrary = arbitraryScript
 makeArbitrary ''ScriptLanguage
 instance Arbitrary ScriptLanguage where arbitrary = arbitraryScriptLanguage
-makeArbitrary ''ScriptInline
-instance Arbitrary ScriptInline where arbitrary = arbitraryScriptInline
-makeArbitrary ''ScriptId
-instance Arbitrary ScriptId where arbitrary = arbitraryScriptId
+makeArbitrary ''ScriptSource
+instance Arbitrary ScriptSource where arbitrary = arbitraryScriptSource
 makeArbitrary ''ScoreMode
 instance Arbitrary ScoreMode where arbitrary = arbitraryScoreMode
 makeArbitrary ''BoostMode
