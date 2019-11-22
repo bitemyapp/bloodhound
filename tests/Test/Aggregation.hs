@@ -97,7 +97,7 @@ spec =
       let ags = mkAggregations "date_ranges" (DateRangeAgg agg)
       let search = mkAggregateSearch Nothing ags
       res <- searchTweets search
-      liftIO $ hitsTotal . searchHits <$> res `shouldBe` Right 2
+      liftIO $ hitsTotal . searchHits <$> res `shouldBe` Right (HitsTotal 2 HTR_EQ)
       let bucks = do magrs <- fmapL show (aggregations <$> res)
                      agrs <- note "no aggregations returned" magrs
                      rawBucks <- note "no date_ranges aggregation" $ M.lookup "date_ranges" agrs

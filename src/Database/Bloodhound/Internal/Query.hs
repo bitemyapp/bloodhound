@@ -1522,23 +1522,6 @@ instance FromJSON TemplateQueryKeyValuePairs where
   parseJSON _          =
     fail "error parsing TemplateQueryKeyValuePairs"
 
-data TemplateQueryInline =
-  TemplateQueryInline { inline :: Query
-                      , params :: TemplateQueryKeyValuePairs
-                      }
-  deriving (Eq, Show)
-
-instance ToJSON TemplateQueryInline where
-  toJSON TemplateQueryInline{..} = object [ "inline" .= inline
-                                          , "params" .= params
-                                          ]
-
-instance FromJSON TemplateQueryInline where
-  parseJSON = withObject "TemplateQueryInline" parse
-    where parse o = TemplateQueryInline
-                    <$> o .: "inline"
-                    <*> o .: "params"
-
 {-| 'BooleanOperator' is the usual And/Or operators with an ES compatible
     JSON encoding baked in. Used all over the place.
 -}

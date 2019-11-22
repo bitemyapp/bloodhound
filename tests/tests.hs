@@ -49,7 +49,7 @@ main = hspec $ do
   Suggest.spec
   Templates.spec
 
-  describe "error parsing"  $ do
+  describe "error parsing"  $
     it "can parse EsErrors for >= 2.0" $ withTestEnv $ do
       res <- getDocument (IndexName "bogus") (DocId "bogus_as_well")
       let errorResp = eitherDecode (responseBody res)

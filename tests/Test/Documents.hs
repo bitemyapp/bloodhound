@@ -24,7 +24,7 @@ spec =
       liftIO $ fmap getSource newTweet `shouldBe` Right (Just exampleTweet)
 
     it "produces a parseable result when looking up a bogus document" $ withTestEnv $ do
-      doc <- getDocument testIndex  (DocId "bogus")
+      doc <- getDocument testIndex (DocId "bogus")
       let noTweet = eitherDecode
                     (responseBody doc) :: Either String (EsResult Tweet)
       liftIO $ fmap foundResult noTweet `shouldBe` Right Nothing
@@ -56,4 +56,4 @@ spec =
       resp <- searchByIndex testIndex search
       parsed <- parseEsResponse resp :: BH IO (Either EsError (SearchResult Value))
 
-      liftIO $ fmap (hitsTotal . searchHits) parsed `shouldBe` (Right 1)
+      liftIO $ fmap (hitsTotal . searchHits) parsed `shouldBe` Right (HitsTotal 1 HTR_EQ)
