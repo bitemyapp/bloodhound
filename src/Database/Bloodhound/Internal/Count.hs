@@ -5,6 +5,7 @@ where
 
 import           Data.Aeson
 import           Database.Bloodhound.Internal.Query
+import           Numeric.Natural
 
 newtype CountQuery = CountQuery { countQuery :: Query }
   deriving (Eq, Show)
@@ -13,7 +14,7 @@ instance ToJSON CountQuery where
   toJSON (CountQuery q) =
     object ["query" .= q]
 
-data CountResponse = CountResponse { crCount  :: Int
+data CountResponse = CountResponse { crCount  :: Natural
                                    , crShards :: CountShards
                                    }
   deriving (Eq, Show)
