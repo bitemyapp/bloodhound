@@ -7,8 +7,10 @@ module Database.V5.Bloodhound.Internal.Query
   , module Database.V5.Bloodhound.Internal.Query
   ) where
 
+import           Prelude             hiding (fail)
 import           Bloodhound.Import
 
+import           Control.Monad.Fail  (MonadFail(..))
 import           Data.Char           (isNumber)
 import qualified Data.HashMap.Strict as HM
 import           Data.List           (nub)
@@ -1617,7 +1619,7 @@ functionScoreFunctionsPair (FunctionScoreSingle fn)
 functionScoreFunctionsPair (FunctionScoreMultiple componentFns) =
   ("functions", toJSON componentFns)
 
-fieldTagged :: Monad m => (FieldName -> Object -> m a) -> Object -> m a
+fieldTagged :: (Monad m, MonadFail m) => (FieldName -> Object -> m a) -> Object -> m a
 fieldTagged f o = case HM.toList o of
                     [(k, Object o')] -> f (FieldName k) o'
                     _ -> fail "Expected object with 1 field-named key"
