@@ -24,13 +24,14 @@ instance FromJSON CountResponse where
     withObject "CountResponse" $
       \o ->
         CountResponse
-          <$> o .: "count"
-          <*> o .: "_shards"
+          <$> o
+          .: "count"
+          <*> o
+          .: "_shards"
 
 data CountShards = CountShards
   { csTotal :: Int,
     csSuccessful :: Int,
-    csSkipped :: Int,
     csFailed :: Int
   }
   deriving (Eq, Show)
@@ -40,7 +41,9 @@ instance FromJSON CountShards where
     withObject "CountShards" $
       \o ->
         CountShards
-          <$> o .: "total"
-          <*> o .: "successful"
-          <*> o .: "skipped"
-          <*> o .: "failed"
+          <$> o
+          .: "total"
+          <*> o
+          .: "successful"
+          <*> o
+          .: "failed"
