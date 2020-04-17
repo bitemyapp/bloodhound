@@ -94,28 +94,40 @@ instance FromJSON CharFilterDefinition where
         <$> m .: "pattern" <*> m .: "replacement" <*> m .:? "flags"
       _ -> fail ("unrecognized character filter type: " ++ T.unpack t)
 
-newtype TokenizerDefinition =
-  TokenizerDefinitionNgram Ngram
+data TokenizerDefinition
+  = TokenizerDefinitionNgram Ngram
+  | TokenizerDefinitionEdgeNgram Ngram
   deriving (Eq,Show, Generic)
 
 instance ToJSON TokenizerDefinition where
-  toJSON x = case x of
-    TokenizerDefinitionNgram (Ngram minGram maxGram tokenChars) -> object
-      [ "type" .= ("ngram" :: Text)
-      , "min_gram" .= minGram
-      , "max_gram" .= maxGram
-      , "token_chars" .= tokenChars
-      ]
+  toJSON x =
+    case x of
+      TokenizerDefinitionNgram ngram ->
+        object (["type" .= ("ngram" :: Text)] <> ngramToObject ngram)
+      TokenizerDefinitionEdgeNgram ngram ->
+        object (["type" .= ("edge_ngram" :: Text)] <> ngramToObject ngram)
+    where
+      ngramToObject (Ngram minGram maxGram tokenChars) =
+        [ "min_gram" .= minGram
+        , "max_gram" .= maxGram
+        , "token_chars" .= tokenChars
+        ]
 
 instance FromJSON TokenizerDefinition where
   parseJSON = withObject "TokenizerDefinition" $ \m -> do
     typ <- m .: "type" :: Parser Text
     case typ of
-      "ngram" -> fmap TokenizerDefinitionNgram $ Ngram
-        <$> fmap unStringlyTypedInt (m .: "min_gram")
-        <*> fmap unStringlyTypedInt (m .: "max_gram")
-        <*> m .: "token_chars"
-      _ -> fail "invalid TokenizerDefinition"
+      "ngram" ->
+        TokenizerDefinitionNgram <$> parseNgram m
+      "edge_ngram" ->
+        TokenizerDefinitionEdgeNgram <$> parseNgram m
+      _ -> fail $ "invalid TokenizerDefinition type: " <> T.unpack typ
+      where
+        parseNgram m =
+          Ngram
+            <$> fmap unStringlyTypedInt (m .: "min_gram")
+            <*> fmap unStringlyTypedInt (m .: "max_gram")
+            <*> m .: "token_chars"
 
 data Ngram = Ngram
   { ngramMinGram :: Int
