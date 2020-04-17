@@ -31,10 +31,17 @@ instance ToJSON Analysis where
 instance FromJSON Analysis where
   parseJSON = withObject "Analysis" $ \m ->
     Analysis
-      <$> m .: "analyzer"
-      <*> m .:? "tokenizer" .!= M.empty
-      <*> m .:? "filter" .!= M.empty
-      <*> m .:? "char_filter" .!= M.empty
+      <$> m
+      .: "analyzer"
+      <*> m
+      .:? "tokenizer"
+      .!= M.empty
+      <*> m
+      .:? "filter"
+      .!= M.empty
+      <*> m
+      .:? "char_filter"
+      .!= M.empty
 
 newtype Tokenizer
   = Tokenizer Text
@@ -100,9 +107,12 @@ instance FromJSON CharFilterDefinition where
             _ -> fail "mapping is not of the format key => value"
       "pattern_replace" ->
         CharFilterDefinitionPatternReplace
-          <$> m .: "pattern"
-          <*> m .: "replacement"
-          <*> m .:? "flags"
+          <$> m
+          .: "pattern"
+          <*> m
+          .: "replacement"
+          <*> m
+          .:? "flags"
       _ -> fail ("unrecognized character filter type: " ++ T.unpack t)
 
 data TokenizerDefinition
@@ -138,7 +148,8 @@ instance FromJSON TokenizerDefinition where
         Ngram
           <$> fmap unStringlyTypedInt (m .: "min_gram")
           <*> fmap unStringlyTypedInt (m .: "max_gram")
-          <*> m .: "token_chars"
+          <*> m
+          .: "token_chars"
 
 data Ngram = Ngram
   { ngramMinGram :: Int,
@@ -268,7 +279,8 @@ instance FromJSON TokenFilterDefinition where
           <$> m .:? "language"
       "snowball" ->
         TokenFilterDefinitionSnowball
-          <$> m .: "language"
+          <$> m
+          .: "language"
       "shingle" ->
         fmap TokenFilterDefinitionShingle $
           Shingle
@@ -280,7 +292,8 @@ instance FromJSON TokenFilterDefinition where
             <*> m .:? "filler_token" .!= "_"
       "stemmer" ->
         TokenFilterDefinitionStemmer
-          <$> m .: "language"
+          <$> m
+          .: "language"
       "stop" -> do
         stop <- m .: "stopwords"
         stop' <- case stop of
@@ -296,7 +309,8 @@ instance FromJSON TokenFilterDefinition where
       "edge_ngram" ->
         TokenFilterDefinitionEdgeNgram
           <$> ngramFilterFromJSONObject m
-          <*> m .: "side"
+          <*> m
+          .: "side"
       "ngram" -> TokenFilterDefinitionNgram <$> ngramFilterFromJSONObject m
       "truncate" -> TokenFilterTruncate <$> m .:? "length" .!= 10
       _ -> fail ("unrecognized token filter type: " ++ T.unpack t)
@@ -314,8 +328,12 @@ ngramFilterToPairs (NgramFilter minGram maxGram) =
 ngramFilterFromJSONObject :: Object -> Parser NgramFilter
 ngramFilterFromJSONObject o =
   NgramFilter
-    <$> o .: "min_gram" .!= 1
-    <*> o .: "max_gram" .!= 2
+    <$> o
+    .: "min_gram"
+    .!= 1
+    <*> o
+    .: "max_gram"
+    .!= 2
 
 data EdgeNgramFilterSide
   = EdgeNgramFilterSideFront
