@@ -426,6 +426,8 @@ module Database.Bloodhound.Types
        , TokenFilterDefinition(..)
        , CharFilterDefinition(..)
        , Ngram(..)
+       , NgramFilter(..)
+       , EdgeNgramFilterSide(..)
        , TokenChar(..)
        , Shingle(..)
        , Language(..)
