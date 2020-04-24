@@ -591,21 +591,21 @@ instance (FromJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) =
     SearchResult
       <$> v
-        .: "took"
+      .: "took"
       <*> v
-        .: "timed_out"
+      .: "timed_out"
       <*> v
-        .: "_shards"
+      .: "_shards"
       <*> v
-        .: "hits"
+      .: "hits"
       <*> v
-        .:? "aggregations"
+      .:? "aggregations"
       <*> v
-        .:? "_scroll_id"
+      .:? "_scroll_id"
       <*> v
-        .:? "suggest"
+      .:? "suggest"
       <*> v
-        .:? "pit_id"
+      .:? "pit_id"
   parseJSON _ = empty
 
 newtype ScrollId
@@ -709,15 +709,15 @@ instance FromJSON GetTemplateScript where
       ( \s ->
           GetTemplateScript
             <$> s
-              .:? "lang"
+            .:? "lang"
             <*> s
-              .:? "source"
+            .:? "source"
             <*> s
-              .:? "options"
+            .:? "options"
             <*> v
-              .: "_id"
+            .: "_id"
             <*> v
-              .: "found"
+            .: "found"
       )
       script
   parseJSON _ = empty

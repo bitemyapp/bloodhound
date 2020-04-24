@@ -319,7 +319,7 @@ data NgramFilter = NgramFilter
   { ngramFilterMinGram :: Int,
     ngramFilterMaxGram :: Int
   }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show)
 
 ngramFilterToPairs :: NgramFilter -> [Pair]
 ngramFilterToPairs (NgramFilter minGram maxGram) =
