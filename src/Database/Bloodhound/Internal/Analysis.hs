@@ -172,6 +172,7 @@ data TokenFilterDefinition
   | TokenFilterDefinitionStop (Either Language [StopWord])
   | TokenFilterDefinitionEdgeNgram NgramFilter (Maybe EdgeNgramFilterSide)
   | TokenFilterDefinitionNgram NgramFilter
+  | TokenFilterTruncate Int
   deriving (Eq, Show, Generic)
 
 instance ToJSON TokenFilterDefinition where
@@ -223,6 +224,10 @@ instance ToJSON TokenFilterDefinition where
       (["type" .= ("ngram" :: Text)]
        <> ngramFilterToPairs ngram
       )
+    TokenFilterTruncate n -> object
+      [ "type" .= ("truncate" :: Text)
+      , "length" .= n
+      ]
 
 instance FromJSON TokenFilterDefinition where
   parseJSON = withObject "TokenFilterDefinition" $ \m -> do
@@ -259,8 +264,8 @@ instance FromJSON TokenFilterDefinition where
       "edge_ngram" -> TokenFilterDefinitionEdgeNgram
         <$> ngramFilterFromJSONObject m
         <*> m .: "side"
-      "ngram" -> TokenFilterDefinitionNgram
-        <$> ngramFilterFromJSONObject m
+      "ngram" -> TokenFilterDefinitionNgram <$> ngramFilterFromJSONObject m
+      "truncate" -> TokenFilterTruncate <$> m .:? "length" .!= 10
       _ -> fail ("unrecognized token filter type: " ++ T.unpack t)
 
 data NgramFilter
