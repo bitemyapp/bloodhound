@@ -168,6 +168,8 @@ data TokenFilterDefinition
   | TokenFilterDefinitionShingle Shingle
   | TokenFilterDefinitionStemmer Language
   | TokenFilterDefinitionStop (Either Language [StopWord])
+  | TokenFilterDefinitionEdgeNgram NgramFilter (Maybe EdgeNgramFilterSide)
+  | TokenFilterDefinitionNgram NgramFilter
   deriving (Eq, Show)
 
 instance ToJSON TokenFilterDefinition where
@@ -209,6 +211,16 @@ instance ToJSON TokenFilterDefinition where
           Left lang -> String $ "_" <> languageToText lang <> "_"
           Right stops -> toJSON stops
       ]
+    TokenFilterDefinitionEdgeNgram ngram side -> object
+      ([ "type" .= ("edge_ngram" :: Text)
+       , "side" .= side
+       ]
+       <> ngramFilterToPairs ngram
+      )
+    TokenFilterDefinitionNgram ngram -> object
+      (["type" .= ("ngram" :: Text)]
+       <> ngramFilterToPairs ngram
+      )
 
 instance FromJSON TokenFilterDefinition where
   parseJSON = withObject "TokenFilterDefinition" $ \m -> do
@@ -242,7 +254,44 @@ instance FromJSON TokenFilterDefinition where
             . T.dropEnd 1 $ lang
           _ -> Right <$> parseJSON stop
         return (TokenFilterDefinitionStop stop')
+      "edge_ngram" -> TokenFilterDefinitionEdgeNgram
+        <$> ngramFilterFromJSONObject m
+        <*> m .: "side"
+      "ngram" -> TokenFilterDefinitionNgram
+        <$> ngramFilterFromJSONObject m
       _ -> fail ("unrecognized token filter type: " ++ T.unpack t)
+
+data NgramFilter
+  = NgramFilter { ngramFilterMinGram :: Int
+                , ngramFilterMaxGram :: Int
+                }
+    deriving (Eq, Show)
+
+ngramFilterToPairs :: NgramFilter -> [Pair]
+ngramFilterToPairs (NgramFilter minGram maxGram) =
+  ["min_gram" .= minGram, "max_gram" .= maxGram]
+
+ngramFilterFromJSONObject :: Object -> Parser NgramFilter
+ngramFilterFromJSONObject o =
+  NgramFilter
+    <$> o .: "min_gram" .!= 1
+    <*> o .: "max_gram" .!= 2
+
+data EdgeNgramFilterSide
+  = EdgeNgramFilterSideFront
+  | EdgeNgramFilterSideBack
+  deriving (Eq, Show)
+
+instance ToJSON EdgeNgramFilterSide where
+  toJSON EdgeNgramFilterSideFront = String "front"
+  toJSON EdgeNgramFilterSideBack = String "back"
+
+instance FromJSON EdgeNgramFilterSide where
+  parseJSON = withText "EdgeNgramFilterSide" $ \t ->
+    case t of
+      "front" -> pure EdgeNgramFilterSideFront
+      "back" -> pure EdgeNgramFilterSideBack
+      _ -> fail $ "EdgeNgramFilterSide can only be 'front' or 'back', found: " <> T.unpack t
 
 -- | The set of languages that can be passed to various analyzers,
 --   filters, etc. in Elasticsearch. Most data types in this module
