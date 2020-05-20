@@ -765,7 +765,7 @@ reindex req = do
 
 reindexAsync :: (MonadBH m, MonadThrow m) => ReindexRequest -> m (Either EsError TaskNodeId)
 reindexAsync req = do
-  url <- addQuery [("wait_for_completion", Just "true")] <$> joinPath ["_reindex"]
+  url <- addQuery [("wait_for_completion", Just "false")] <$> joinPath ["_reindex"]
   parseEsResponse =<< post url (Just (encode req))
 
 getTask :: (MonadBH m, MonadThrow m, FromJSON a) => TaskNodeId -> m (Either EsError (TaskResponse a))
