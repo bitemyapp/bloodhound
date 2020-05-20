@@ -133,14 +133,13 @@ mkReindexRequest src dst =
                  , reindexScript = Nothing
                  }
 
-data ReindexResponse = ReindexResponse { reindexResponseTook             :: Int
+data ReindexResponse = ReindexResponse { reindexResponseTook             :: Maybe Int
                                        , reindexResponseUpdated          :: Int
                                        , reindexResponseCreated          :: Int
                                        , reindexResponseBatches          :: Int
                                        , reindexResponseVersionConflicts :: Int
-                                       , reindexResponseRetries          :: Int
                                        , reindexResponseThrottledMillis  :: Int
-                                       , reindexResponseFailures         :: Int
+                                       , reindexResponseFailures         :: Maybe Int
                                        }
                      deriving (Show, Eq, Generic)
                      deriving (FromJSON, ToJSON)
