@@ -433,6 +433,17 @@ module Database.Bloodhound.Types
     getEndpoint,
     BHResponse (..),
     ParsedEsResponse,
+    ReindexRequest (..),
+    ReindexSource (..),
+    ReindexDest (..),
+    ReindexConflicts (..),
+    ReindexScript (..),
+    VersionType (..),
+    ReindexOpType (..),
+    ReindexResponse (..),
+    TaskResponse (..),
+    TaskNodeId (..),
+    Task (..),
   )
 where
 
