@@ -21,7 +21,7 @@ data ReindexRequest = ReindexRequest { reindexConflicts :: Maybe ReindexConflict
                       deriving (Show, Eq, Generic)
                       deriving (FromJSON, ToJSON)
                       via CustomJSON '[ OmitNothingFields
-                                      , FieldLabelModifier (StripPrefix "reindexRequest", CamelToSnake)
+                                      , FieldLabelModifier (StripPrefix "reindex", CamelToSnake)
                                       ] ReindexRequest
 
 data ReindexConflicts = ReindexAbortOnConflicts
