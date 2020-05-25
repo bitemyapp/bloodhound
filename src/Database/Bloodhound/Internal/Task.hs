@@ -11,6 +11,7 @@ import           Deriving.Aeson
 data TaskResponse a = TaskResponse { taskResponseCompleted :: Bool
                                    , taskResponseTask      :: Task a
                                    , taskResponseReponse   :: Maybe a
+                                   , taskResponseError     :: Maybe Object
                                    }
               deriving (Show, Eq, Generic)
               deriving (FromJSON)
