@@ -22,6 +22,7 @@ import Test.Import
 import qualified Test.Indices as Indices
 import qualified Test.JSON as JSON
 import qualified Test.Query as Query
+import qualified Test.Reindex as Reindex
 import qualified Test.Script as Script
 import qualified Test.Snapshots as Snapshots
 import qualified Test.Sorting as Sorting
@@ -46,6 +47,7 @@ main = hspec $ do
   Suggest.spec
   Templates.spec
   Count.spec
+  Reindex.spec
 
   describe "error parsing" $
     it "can parse EsErrors for >= 2.0" $

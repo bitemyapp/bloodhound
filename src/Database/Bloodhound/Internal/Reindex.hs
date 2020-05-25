@@ -139,7 +139,6 @@ data ReindexResponse = ReindexResponse { reindexResponseTook             :: Mayb
                                        , reindexResponseBatches          :: Int
                                        , reindexResponseVersionConflicts :: Int
                                        , reindexResponseThrottledMillis  :: Int
-                                       , reindexResponseFailures         :: Maybe Int
                                        }
                      deriving (Show, Eq, Generic)
                      deriving (FromJSON, ToJSON)
