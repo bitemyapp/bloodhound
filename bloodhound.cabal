@@ -1,5 +1,5 @@
 name:                bloodhound
-version:             0.16.0.0
+version:             0.16.0.1
 synopsis:            Elasticsearch client library for Haskell
 description:         Elasticsearch made awesome for Haskell hackers
 homepage:            https://github.com/bitemyapp/bloodhound
@@ -67,18 +67,18 @@ library
                        aeson            >= 0.11.1,
                        blaze-builder,
                        bytestring       >= 0.10.0  && <0.11,
-                       containers       >= 0.5.0.0 && <0.6,
+                       containers       >= 0.5.0.0 && <0.7,
                        exceptions,
                        hashable,
-                       http-client      >= 0.4.30  && <0.6,
+                       http-client      >= 0.4.30  && <0.7,
                        http-types       >= 0.8     && <0.13,
                        mtl              >= 1.0     && <2.3,
                        network-uri      >= 2.6     && <2.7,
                        scientific       >= 0.3.0.0 && <0.4.0.0,
-                       semigroups       >= 0.15    && <0.19,
+                       semigroups       >= 0.15    && <0.20,
                        semver,
                        text             >= 0.11    && <1.3,
-                       time             >= 1.4     && <1.9,
+                       time             >= 1.4     && <2.0,
                        transformers     >= 0.2     && <0.6,
                        unordered-containers,
                        vector           >= 0.10.9  && <0.13

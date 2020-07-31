@@ -1,0 +1,2 @@
+packages: .
+allow-newer: quickcheck-arbitrary-template:template-haskell

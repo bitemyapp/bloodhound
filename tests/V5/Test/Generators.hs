@@ -183,7 +183,7 @@ instance Arbitrary Query where
 
 instance Arbitrary Filter where
   arbitrary =
-    Filter <$> arbitrary 
+    Filter <$> arbitrary
   shrink (Filter q) =
     Filter <$> shrink q
 
@@ -210,9 +210,12 @@ instance Arbitrary NodeAttrName where
 instance Arbitrary NodeAttrFilter where
   arbitrary = do
     n <- arbitrary
-    s:ss <- listOf1 (listOf1 arbitraryAlphaNum)
-    let ts = T.pack <$> s :| ss
-    return (NodeAttrFilter n ts)
+    xs <- listOf1 (listOf1 arbitraryAlphaNum)
+    case xs of
+      [] -> error "Failed to generate non-empty list of arbitraryAlphaNum"
+      (s:ss) ->
+        let ts = T.pack <$> s :| ss
+        in return (NodeAttrFilter n ts)
 
 instance Arbitrary VersionNumber where
   arbitrary = do

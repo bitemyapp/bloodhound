@@ -48,8 +48,11 @@ spec = do
         let noCompression = FsSnapshotRepo r1n (T.unpack dir) False Nothing Nothing Nothing
         resp <- updateSnapshotRepo defaultSnapshotRepoUpdateSettings noCompression
         liftIO (validateStatus resp 200)
-        Right [roundtrippedNoCompression] <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| []))
-        liftIO (roundtrippedNoCompression `shouldBe` toGSnapshotRepo noCompression)
+        res <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| []))
+        case res of
+          Right [roundtrippedNoCompression] ->
+            liftIO (roundtrippedNoCompression `shouldBe` toGSnapshotRepo noCompression)
+          _ -> error "Expected Right [roundtrippedNoCompression]"
 
     -- verify came around in 1.4 it seems
     it "can verify existing repos" $ when' canSnapshot $ when' (atleast es14) $ withTestEnv $ do
@@ -135,14 +138,17 @@ getRepoPaths = withTestEnv $ do
   let tUrl = s <> "/" <> "_nodes"
   initReq <- parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack tUrl))
   let req = setRequestIgnoreStatus $ initReq { method = NHTM.methodGet }
-  Right (Object o) <- parseEsResponse =<< liftIO (httpLbs req (bhManager bhe))
-  return $ fromMaybe mempty $ do
-    Object nodes <- HM.lookup "nodes" o
-    Object firstNode <- snd <$> headMay (HM.toList nodes)
-    Object settings <- HM.lookup "settings" firstNode
-    Object path <- HM.lookup "path" settings
-    Array repo <- HM.lookup "repo" path
-    return [ T.unpack t | String t <- V.toList repo]
+  res <- parseEsResponse =<< liftIO (httpLbs req (bhManager bhe))
+  case res of
+    Right (Object o) ->
+      return $ fromMaybe mempty $ do
+        Object nodes <- HM.lookup "nodes" o
+        Object firstNode <- snd <$> headMay (HM.toList nodes)
+        Object settings <- HM.lookup "settings" firstNode
+        Object path <- HM.lookup "path" settings
+        Array repo <- HM.lookup "repo" path
+        return [ T.unpack t | String t <- V.toList repo]
+    _ -> error "Expected Right (Object o)"
 
 -- | 1.5 and earlier don't care about repo paths
 canSnapshot :: IO Bool
