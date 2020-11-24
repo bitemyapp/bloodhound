@@ -619,14 +619,12 @@ instance FromJSON TimeUnits where
   parseJSON (String "nanos") = pure $ TimeUnitNanoseconds
   parseJSON _          = empty
 
-data SearchTemplate =
-  SearchTemplate {
-      searchTemplate                      :: Either SearchTemplateId SearchTemplateSource,
-      params                              :: TemplateQueryKeyValuePairs,
-      explainSearchTemplate               :: Maybe Bool,
-      profileSearchTemplate               :: Maybe Bool
-    }
-  deriving (Eq, Show)
+data SearchTemplate = SearchTemplate {
+    searchTemplate                      :: Either SearchTemplateId SearchTemplateSource
+    , params                              :: TemplateQueryKeyValuePairs
+    , explainSearchTemplate               :: Maybe Bool
+    , profileSearchTemplate               :: Maybe Bool
+  } deriving (Eq, Show)
 
 instance ToJSON SearchTemplate where
   toJSON SearchTemplate{..} = omitNulls [ 
@@ -653,8 +651,9 @@ instance FromJSON GetTemplateScript where
         s .:? "lang"    <*>
         s .:? "source"  <*>
         s .:? "options" <*>
-        v .: "_id"          <*>
+        v .: "_id"      <*>
         v .: "found"
       )
       script
   parseJSON _          = empty
+
