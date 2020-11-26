@@ -7,8 +7,7 @@ packages:
   - './examples'
 
 extra-deps:
-  - git: https://github.com/bitemyapp/quickcheck-arbitrary-template.git
-    commit: 783f9b78ce0170479985c9c60e1b56af131be53d
+  - quickcheck-arbitrary-template-0.2.1.1
   - quickcheck-properties-0.1
 
 resolver: lts-16.10
