@@ -34,7 +34,7 @@ packages:
     hackage: quickcheck-properties-0.1
 snapshots:
 - completed:
-    size: 507208
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/11/6.yaml
-    sha256: 99d52f009dc5a53ac61ffc4e6044f910ca7b28b4596b6962135a48e8c7d3d093
-  original: lts-11.6
+    size: 527836
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/11/22.yaml
+    sha256: 341870ac98d8a9f8f77c4adf2e9e0b22063e264a7fbeb4c85b7af5f380dac60e
+  original: lts-11.22

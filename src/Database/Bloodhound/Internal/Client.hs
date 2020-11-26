@@ -11,7 +11,7 @@ module Database.Bloodhound.Internal.Client where
 import           Bloodhound.Import
 
 #if defined(MIN_VERSION_GLASGOW_HASKELL)
-#if MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)
+#if MIN_VERSION_GLASGOW_HASKELL(8,2,0,0)
 import           Control.Monad.Fail                         (MonadFail)
 #endif
 #endif
