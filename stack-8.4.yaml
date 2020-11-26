@@ -11,5 +11,8 @@ packages:
 #   - http-types-0.12.1
 #   - quickcheck-arbitrary-template-0.2.0.0
 #   - quickcheck-properties-0.1
+extra-deps:
+- quickcheck-arbitrary-template-0.2.1.1@sha256:0c6afbac65f2c8bbb4984bfbe7f85459c37ccab34c74605b62275c55ecc36b45,1963
+- quickcheck-properties-0.1@sha256:3bd0890e84ec4cf1c1e6e475152c2c0d7c85915a051cf4e8bf9ec70c32df735c,1268
 
 resolver: lts-12.6
