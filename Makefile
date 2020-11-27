@@ -93,26 +93,26 @@ build-8.6:
 upload:
 	stack upload --no-signature .
 
-# Create ES5 instance
+# Create ES instance
 
 ## Run test environment
-compose-ES5:
+compose:
 	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml up
 
 ## Run test environment in detach mode
-compose-ES5-detach-up:
+compose-detach-up:
 	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml up -d
 
 ## Close test environment if run on detach mode
-compose-ES5-detach-down:
+compose-detach-down:
 	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml down
 
 ## build the docker compose images
 compose-build:
 	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml build
 
-## Spawn bash shell in ES5 test container
-ES5-shell:
+## Spawn bash shell in test container
+compose-shell:
 	@LOCAL_USER_ID=${LOCAL_USER_ID} docker-compose -f docker-compose.yml exec elasticsearch1 bash
 
 help:
