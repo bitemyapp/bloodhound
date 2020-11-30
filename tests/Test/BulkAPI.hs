@@ -1,9 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 module Test.BulkAPI (spec) where
 
 import           Data.Function       ((&))
+#if MIN_VERSION_base(4,11,0)
 import           Data.Functor        ((<&>))
+#endif
 
 import           Test.Common
 import           Test.Import

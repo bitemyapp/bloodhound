@@ -10,4 +10,4 @@ extra-deps:
   - quickcheck-arbitrary-template-0.2.1.1
   - quickcheck-properties-0.1
 
-resolver: lts-13.30
+resolver: lts-16.10

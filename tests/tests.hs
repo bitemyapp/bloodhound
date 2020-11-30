@@ -32,6 +32,7 @@ import qualified Test.Sorting as Sorting
 import qualified Test.SourceFiltering as SourceFiltering
 import qualified Test.Suggest as Suggest
 import qualified Test.Templates as Templates
+import qualified Test.Count as Count
 
 main :: IO ()
 main = hspec $ do
@@ -48,6 +49,7 @@ main = hspec $ do
   SourceFiltering.spec
   Suggest.spec
   Templates.spec
+  Count.spec
 
   describe "error parsing"  $
     it "can parse EsErrors for >= 2.0" $ withTestEnv $ do

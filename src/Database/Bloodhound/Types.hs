@@ -390,6 +390,9 @@ module Database.Bloodhound.Types
        , TopHitsAggregation(..)
        , StatisticsAggregation(..)
        , SearchAfterKey
+       , CountQuery (..)
+       , CountResponse (..)
+       , CountShards (..)
 
        , Highlights(..)
        , FieldHighlight(..)
@@ -428,6 +431,7 @@ import           Bloodhound.Import
 import           Database.Bloodhound.Internal.Aggregation
 import           Database.Bloodhound.Internal.Analysis
 import           Database.Bloodhound.Internal.Client
+import Database.Bloodhound.Internal.Count
 import           Database.Bloodhound.Internal.Highlight
 import           Database.Bloodhound.Internal.Newtypes
 import           Database.Bloodhound.Internal.Query

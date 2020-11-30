@@ -103,6 +103,8 @@ module Database.Bloodhound.Client
        , isSuccess
        , isCreated
        , parseEsResponse
+       -- * Count
+       , countByIndex
        )
        where
 
@@ -1300,3 +1302,8 @@ basicAuthHook (EsUsername u) (EsPassword p) = return . applyBasicAuth u' p'
 boolQP :: Bool -> Text
 boolQP True  = "true"
 boolQP False = "false"
+
+countByIndex :: (MonadBH m, MonadThrow m) => IndexName -> CountQuery -> m (Either EsError CountResponse)
+countByIndex (IndexName indexName) q = do
+  url <- joinPath [indexName, "_count"]
+  parseEsResponse =<< post url (Just (encode q))
