@@ -52,7 +52,7 @@ spec = do
         liftIO (roundtrippedNoCompression `shouldBe` toGSnapshotRepo noCompression)
 
     -- verify came around in 1.4 it seems
-    it "can verify existing repos" $ when' canSnapshot $ when' (atleast es14) $ withTestEnv $ do
+    it "can verify existing repos" $ when' canSnapshot $ withTestEnv $ do
       let r1n = SnapshotRepoName "bloodhound-repo1"
       withSnapshotRepo r1n $ \_ -> do
         res <- verifySnapshotRepo r1n
@@ -107,14 +107,11 @@ spec = do
           let pat = RestoreRenamePattern "bloodhound-tests-twitter-(\\d+)"
           let replace = RRTLit "restored-" :| [RRSubWholeMatch]
           let expectedIndex = IndexName "restored-bloodhound-tests-twitter-1"
-          oldEnoughForOverrides <- liftIO (atleast es15)
           let overrides = RestoreIndexSettings { restoreOverrideReplicas = Just (ReplicaCount 0) }
           let settings = defaultSnapshotRestoreSettings { snapRestoreWaitForCompletion = True
                                                         , snapRestoreRenamePattern = Just pat
                                                         , snapRestoreRenameReplacement = Just replace
-                                                        , snapRestoreIndexSettingsOverrides = if oldEnoughForOverrides
-                                                                                              then Just overrides
-                                                                                              else Nothing
+                                                        , snapRestoreIndexSettingsOverrides = Just overrides
                                                         }
           -- have to close an index to restore it
           let go = do
@@ -147,9 +144,8 @@ getRepoPaths = withTestEnv $ do
 -- | 1.5 and earlier don't care about repo paths
 canSnapshot :: IO Bool
 canSnapshot = do
-  caresAboutRepos <- atleast es16
   repoPaths <- getRepoPaths
-  return (not caresAboutRepos || not (null repoPaths))
+  return (not (null repoPaths))
 
 withSnapshotRepo
     :: ( MonadMask m

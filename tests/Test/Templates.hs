@@ -9,7 +9,7 @@ spec :: Spec
 spec =
   describe "template API" $ do
     it "can create a template" $ withTestEnv $ do
-      let idxTpl = IndexTemplate (TemplatePattern "tweet-*") (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+      let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) (toJSON TweetMapping)
       resp <- putTemplate idxTpl (TemplateName "tweet-tpl")
       liftIO $ validateStatus resp 200
 

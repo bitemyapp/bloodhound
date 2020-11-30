@@ -57,25 +57,16 @@ spec =
       liftIO $
         fmap aggregations res `shouldBe` Right (Just (M.fromList [ statsAggRes "users" 10000]))
 
-    it "can give collection hint parameters to term aggregations" $ when' (atleast es13) $ withTestEnv $ do
+    it "can give collection hint parameters to term aggregations" $ withTestEnv $ do
       _ <- insertData
       let terms = TermsAgg $ (mkTermsAggregation "user") { termCollectMode = Just BreadthFirst }
       let search = mkAggregateSearch Nothing $ mkAggregations "users" terms
       searchExpectAggs search
       searchValidBucketAgg search "users" toTerms
 
-    -- One of these fails with 1.7.3
-    it "can give execution hint parameters to term aggregations" $ when' (atmost es11) $ withTestEnv $ do
+    it "can give execution hint parameters to term aggregations" $ withTestEnv $ do
       _ <- insertData
-      searchTermsAggHint [Map, Ordinals]
-
-    it "can give execution hint parameters to term aggregations" $ when' (is es12) $ withTestEnv $ do
-      _ <- insertData
-      searchTermsAggHint [GlobalOrdinals, GlobalOrdinalsHash, GlobalOrdinalsLowCardinality, Map, Ordinals]
-
-    it "can give execution hint parameters to term aggregations" $ when' (atleast es12) $ withTestEnv $ do
-      _ <- insertData
-      searchTermsAggHint [GlobalOrdinals, GlobalOrdinalsHash, GlobalOrdinalsLowCardinality, Map]
+      searchTermsAggHint [GlobalOrdinals, Map]
     -- One of the above.
 
     it "can execute value_count aggregations" $ withTestEnv $ do
@@ -97,8 +88,8 @@ spec =
       let ltAWeekAgo = UTCTime (fromGregorian 2015 3 10) 0
       let oldDoc = exampleTweet { postDate = ltAMonthAgo }
       let newDoc = exampleTweet { postDate = ltAWeekAgo }
-      _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings oldDoc (DocId "1")
-      _ <- indexDocument testIndex testMapping defaultIndexDocumentSettings newDoc (DocId "2")
+      _ <- indexDocument testIndex defaultIndexDocumentSettings oldDoc (DocId "1")
+      _ <- indexDocument testIndex defaultIndexDocumentSettings newDoc (DocId "2")
       _ <- refreshIndex testIndex
       let thisMonth = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMMonth])
       let thisWeek = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMWeek])
@@ -106,7 +97,7 @@ spec =
       let ags = mkAggregations "date_ranges" (DateRangeAgg agg)
       let search = mkAggregateSearch Nothing ags
       res <- searchTweets search
-      liftIO $ hitsTotal . searchHits <$> res `shouldBe` Right 2
+      liftIO $ hitsTotal . searchHits <$> res `shouldBe` Right (HitsTotal 2 HTR_EQ)
       let bucks = do magrs <- fmapL show (aggregations <$> res)
                      agrs <- note "no aggregations returned" magrs
                      rawBucks <- note "no date_ranges aggregation" $ M.lookup "date_ranges" agrs

@@ -74,7 +74,7 @@ spec = do
                                     (IndexSettings (ShardCount 1) (ReplicaCount 0))
                                     (NE.toList updates))
 
-    it "allows total fields to be set" $ when' (atleast es50) $ withTestEnv $ do
+    it "allows total fields to be set" $ withTestEnv $ do
       _ <- deleteExampleIndex
       _ <- createExampleIndex
       let updates = MappingTotalFieldsLimit 2500 :| []
@@ -87,7 +87,7 @@ spec = do
                                     (IndexSettings (ShardCount 1) (ReplicaCount 0))
                                     (NE.toList updates))
 
-    it "allows unassigned.node_left.delayed_timeout to be set" $ when' (atleast es50) $ withTestEnv $ do
+    it "allows unassigned.node_left.delayed_timeout to be set" $ withTestEnv $ do
       _ <- deleteExampleIndex
       _ <- createExampleIndex
       let updates = UnassignedNodeLeftDelayedTimeout 10 :| []
@@ -100,7 +100,7 @@ spec = do
                                     (IndexSettings (ShardCount 1) (ReplicaCount 0))
                                     (NE.toList updates))
 
-    it "accepts customer analyzers" $ when' (atleast es50) $ withTestEnv $ do
+    it "accepts customer analyzers" $ withTestEnv $ do
       _ <- deleteExampleIndex
       let analysis = Analysis
             (M.singleton "ex_analyzer"
@@ -153,7 +153,7 @@ spec = do
                                     updates
                                  )
 
-    it "accepts default compression codec" $ when' (atleast es50) $ withTestEnv $ do
+    it "accepts default compression codec" $ withTestEnv $ do
       _ <- deleteExampleIndex
       let updates = [CompressionSetting CompressionDefault]
       createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
@@ -162,7 +162,7 @@ spec = do
       liftIO $ getResp `shouldBe` Right
         (IndexSettingsSummary testIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) updates)
 
-    it "accepts best compression codec" $ when' (atleast es50) $ withTestEnv $ do
+    it "accepts best compression codec" $ withTestEnv $ do
       _ <- deleteExampleIndex
       let updates = [CompressionSetting CompressionBest]
       createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex

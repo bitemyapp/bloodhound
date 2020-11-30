@@ -17,8 +17,7 @@ spec =
           sfv = toJSON $
             Script
             (Just (ScriptLanguage "painless"))
-            (Just (ScriptInline "doc['age'].value * 2"))
-            Nothing
+            (ScriptInline "doc['age'].value * 2")
             Nothing
           sf = ScriptFields $
             HM.fromList [("test1", sfv)]

@@ -48,7 +48,7 @@ instance FromJSON BulkScriptTest where
 assertDocs :: (FromJSON a, Show a, Eq a) => [(DocId, a)] -> BH IO ()
 assertDocs as = do
   let (ids, docs) = unzip as
-  res <- ids &   traverse (getDocument testIndex testMapping)
+  res <- ids &   traverse (getDocument testIndex)
              <&> traverse (fmap getSource . eitherDecode . responseBody)
 
   liftIO $ res `shouldBe` Right (Just <$> docs)
@@ -58,7 +58,7 @@ upsertDocs :: (ToJSON a, Show a, Eq a)
   -> [(DocId, a)]
   -> BH IO ()
 upsertDocs f as = do
-  let batch = as <&> (\(id_, doc) -> BulkUpsert testIndex testMapping id_ (f $ toJSON doc) []) & V.fromList
+  let batch = as <&> (\(id_, doc) -> BulkUpsert testIndex id_ (f $ toJSON doc) []) & V.fromList
   bulk batch >> refreshIndex testIndex >> pure ()
 
 spec :: Spec
@@ -88,8 +88,7 @@ spec =
 
       let script = Script
                     { scriptLanguage = Just $ ScriptLanguage "painless"
-                    , scriptInline = Just $ ScriptInline "ctx._source.counter += params.count"
-                    , scriptStored = Nothing
+                    , scriptSource = ScriptInline "ctx._source.counter += params.count"
                     , scriptParams = Just $ ScriptParams $ HM.fromList [("count", Number 2)]
                     }
 
@@ -103,8 +102,7 @@ spec =
 
       let script = Script
                     { scriptLanguage = Just $ ScriptLanguage "painless"
-                    , scriptInline = Just $ ScriptInline "ctx._source.counter += params.count"
-                    , scriptStored = Nothing
+                    , scriptSource = ScriptInline "ctx._source.counter += params.count"
                     , scriptParams = Just $ ScriptParams $ HM.fromList [("count", Number 2)]
                     }
 
@@ -112,47 +110,44 @@ spec =
       upsertDocs (UpsertScript False script) batch
       assertDocs batch
 
-    it "script upsert with scripted_upsert" $ withTestEnv $ do
+    it "script upsert with scripted_upsert -- will fail if a bug on elasticsearch is fix, delete patch line" $ withTestEnv $ do
       _ <- insertData
 
       let batch = [(DocId "3", BulkScriptTest "stringer" 0), (DocId "5", BulkScriptTest "sobotka" 3)]
 
       let script = Script
                     { scriptLanguage = Just $ ScriptLanguage "painless"
-                    , scriptInline = Just $ ScriptInline "ctx._source.counter += params.count"
-                    , scriptStored = Nothing
+                    , scriptSource = ScriptInline "ctx._source.counter += params.count"
                     , scriptParams = Just $ ScriptParams $ HM.fromList [("count", Number 2)]
                     }
 
       -- Without "script_upsert" flag new documents are simply inserted and are not handled by the script
       upsertDocs (UpsertScript True script) batch
+
+      -- if this test fails due to a bug in ES7: https://github.com/elastic/elasticsearch/issues/48670, delete next line when it is solved.
+      let batch = [(DocId "3", BulkScriptTest "stringer" 2), (DocId "5", BulkScriptTest "sobotka" 3)]
       assertDocs (batch <&> (\(i, v) -> (i, v { bstCounter = bstCounter v + 2 })))
 
     it "inserts all documents we request" $ withTestEnv $ do
       _ <- insertData
-      let firstTest = BulkTest "blah"
-      let secondTest = BulkTest "bloo"
-      let thirdTest = BulkTest "graffle"
-      let fourthTest = BulkTest "garabadoo"
-      let fifthTest = BulkTest "serenity"
-      let firstDoc = BulkIndex testIndex
-                     testMapping (DocId "2") (toJSON firstTest)
-      let secondDoc = BulkCreate testIndex
-                     testMapping (DocId "3") (toJSON secondTest)
-      let thirdDoc = BulkCreateEncoding testIndex
-                     testMapping (DocId "4") (toEncoding thirdTest)
-      let fourthDoc = BulkIndexAuto testIndex
-                      testMapping (toJSON fourthTest)
-      let fifthDoc = BulkIndexEncodingAuto testIndex
-                     testMapping (toEncoding fifthTest)
+      let firstTest   = BulkTest "blah"
+      let secondTest  = BulkTest "bloo"
+      let thirdTest   = BulkTest "graffle"
+      let fourthTest  = BulkTest "garabadoo"
+      let fifthTest   = BulkTest "serenity"
+      let firstDoc    = BulkIndex testIndex (DocId "2") (toJSON firstTest)
+      let secondDoc   = BulkCreate testIndex (DocId "3") (toJSON secondTest)
+      let thirdDoc    = BulkCreateEncoding testIndex (DocId "4") (toEncoding thirdTest)
+      let fourthDoc   = BulkIndexAuto testIndex (toJSON fourthTest)
+      let fifthDoc    = BulkIndexEncodingAuto testIndex (toEncoding fifthTest)
       let stream = V.fromList [firstDoc, secondDoc, thirdDoc, fourthDoc, fifthDoc]
       _ <- bulk stream
       -- liftIO $ pPrint bulkResp
       _ <- refreshIndex testIndex
       -- liftIO $ pPrint refreshResp
-      fDoc <- getDocument testIndex testMapping (DocId "2")
-      sDoc <- getDocument testIndex testMapping (DocId "3")
-      tDoc <- getDocument testIndex testMapping (DocId "4")
+      fDoc <- getDocument testIndex (DocId "2")
+      sDoc <- getDocument testIndex (DocId "3")
+      tDoc <- getDocument testIndex (DocId "4")
       -- note that we cannot query for fourthDoc and fifthDoc since we
       -- do not know their autogenerated ids.
       let maybeFirst =
@@ -183,7 +178,7 @@ spec =
           liftIO $ expectationFailure ("Expected a script-transformed result but got: " <> show e)
         (Right sr) -> do
           liftIO $
-            hitsTotal (searchHits sr) `shouldBe` 6
+            hitsTotal (searchHits sr) `shouldBe` HitsTotal 6 HTR_EQ
           let nameList :: [Text]
               nameList =
                 hits (searchHits sr)

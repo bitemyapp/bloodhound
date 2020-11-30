@@ -22,13 +22,6 @@ instance FromJSON HitFields where
 -- Slight misnomer.
 type Score = Maybe Double
 
-{-| 'MappingName' is part of mappings which are how ES describes and schematizes
-    the data in the indices.
--}
-newtype MappingName =
-  MappingName Text
-  deriving (Eq, Show, ToJSON, FromJSON)
-
 newtype ShardId = ShardId { shardId :: Int }
                 deriving (Eq, Show, FromJSON)
 
@@ -47,9 +40,12 @@ newtype FieldName =
   FieldName Text
   deriving (Eq, Read, Show, ToJSON, FromJSON)
 
-newtype TypeName =
-  TypeName Text
-  deriving (Eq, Show, ToJSON, FromJSON)
+{- | 'RelationName' describes a relation role between parend and child Documents
+     in a Join relarionship: https://www.elastic.co/guide/en/elasticsearch/reference/current/parent-join.html
+-}
+newtype RelationName =
+  RelationName Text
+  deriving (Eq, Read, Show, ToJSON, FromJSON)
 
 {-| 'QueryString' is used to wrap query text bodies, be they human written or not.
 -}
@@ -154,6 +150,22 @@ newtype MinWordLength = MinWordLength Int  deriving (Eq, Show, FromJSON, ToJSON)
 newtype PhraseSlop      = PhraseSlop      Int deriving (Eq, Show, FromJSON, ToJSON)
 newtype MinDocFrequency = MinDocFrequency Int deriving (Eq, Show, FromJSON, ToJSON)
 newtype MaxDocFrequency = MaxDocFrequency Int deriving (Eq, Show, FromJSON, ToJSON)
+
+-- | Indicates whether the relevance score of a matching parent document is aggregated into its child documents.
+newtype AggregateParentScore = AggregateParentScore Bool deriving (Eq, Show, FromJSON, ToJSON)
+
+-- | Indicates whether to ignore an unmapped parent_type and not return any documents instead of an error.
+newtype IgnoreUnmapped  = IgnoreUnmapped Bool deriving (Eq, Show, FromJSON, ToJSON)
+
+{-| Maximum number of child documents that match the query allowed for a returned parent document.
+    If the parent document exceeds this limit, it is excluded from the search results.
+-}
+newtype MinChildren     = MinChildren Int     deriving (Eq, Show, FromJSON, ToJSON)
+
+{-| Minimum number of child documents that match the query required to match the query for a returned parent document.
+    If the parent document does not meet this limit, it is excluded from the search results.
+-}
+newtype MaxChildren     = MaxChildren Int     deriving (Eq, Show, FromJSON, ToJSON)
 
 -- | Newtype wrapper to parse ES's concerning tendency to in some APIs return a floating point number of milliseconds since epoch ಠ_ಠ
 newtype POSIXMS = POSIXMS { posixMS :: UTCTime }
