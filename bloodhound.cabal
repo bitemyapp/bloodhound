@@ -1,0 +1,130 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.2.
+--
+-- see: https://github.com/sol/hpack
+
+name:           bloodhound
+version:        0.17.0.0
+synopsis:       Elasticsearch client library for Haskell
+description:    Elasticsearch made awesome for Haskell hackers
+category:       Database, Search
+homepage:       https://github.com/bitemyapp/bloodhound.git#readme
+bug-reports:    https://github.com/bitemyapp/bloodhound.git/issues
+author:         Chris Allen
+maintainer:     cma@bitemyapp.com
+copyright:      2018 Chris Allen
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    changelog.md
+    tests/tests.hs
+
+source-repository head
+  type: git
+  location: https://github.com/bitemyapp/bloodhound.git
+
+library
+  exposed-modules:
+      Database.Bloodhound
+      Database.Bloodhound.Client
+      Database.Bloodhound.Types
+      Database.Bloodhound.Internal.Aggregation
+      Database.Bloodhound.Internal.Analysis
+      Database.Bloodhound.Internal.Client
+      Database.Bloodhound.Internal.Highlight
+      Database.Bloodhound.Internal.Newtypes
+      Database.Bloodhound.Internal.Query
+      Database.Bloodhound.Internal.Sort
+      Database.Bloodhound.Internal.StringlyTyped
+      Database.Bloodhound.Internal.Suggest
+  other-modules:
+      Bloodhound.Import
+      Database.Bloodhound.Common.Script
+      Database.Bloodhound.Internal.Count
+      Paths_bloodhound
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  build-depends:
+      aeson >=0.11.1
+    , base >=4.3 && <5
+    , blaze-builder
+    , bytestring >=0.10.0
+    , containers >=0.5.0.0
+    , exceptions
+    , hashable
+    , http-client >=0.4.30
+    , http-types >=0.8
+    , mtl >=1.0
+    , network-uri >=2.6
+    , scientific >=0.3.0.0
+    , semigroups >=0.15
+    , semver
+    , text >=0.11
+    , time >=1.4
+    , transformers >=0.2
+    , unordered-containers
+    , vector >=0.10.9
+  default-language: Haskell2010
+
+test-suite bloodhound-tests
+  type: exitcode-stdio-1.0
+  main-is: tests.hs
+  other-modules:
+      Test.Aggregation
+      Test.ApproxEq
+      Test.BulkAPI
+      Test.Common
+      Test.Count
+      Test.Documents
+      Test.Generators
+      Test.Highlights
+      Test.Import
+      Test.Indices
+      Test.JSON
+      Test.Query
+      Test.Script
+      Test.Snapshots
+      Test.Sorting
+      Test.SourceFiltering
+      Test.Suggest
+      Test.Templates
+      Paths_bloodhound
+  hs-source-dirs:
+      tests
+  ghc-options: -Wall -fno-warn-orphans
+  build-depends:
+      QuickCheck
+    , aeson >=0.11.1
+    , base
+    , blaze-builder
+    , bloodhound
+    , bytestring >=0.10.0
+    , containers >=0.5.0.0
+    , errors
+    , exceptions
+    , hashable
+    , hspec >=1.8
+    , http-client >=0.4.30
+    , http-types >=0.8
+    , microlens
+    , microlens-aeson
+    , mtl >=1.0
+    , network-uri >=2.6
+    , pretty-simple
+    , quickcheck-arbitrary-template
+    , quickcheck-properties
+    , scientific >=0.3.0.0
+    , semigroups >=0.15
+    , semver
+    , temporary
+    , text >=0.11
+    , time >=1.4
+    , transformers >=0.2
+    , unix-compat
+    , unordered-containers
+    , vector >=0.10.9
+  default-language: Haskell2010
