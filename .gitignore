@@ -19,4 +19,3 @@ bloodhound.iml
 examples/bloodhound-examples.cabal
 /.ghc.environment.*
 .hspec-failures
-bloodhound.cabal
