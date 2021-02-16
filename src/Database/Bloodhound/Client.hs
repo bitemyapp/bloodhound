@@ -913,7 +913,7 @@ encodeDocument cfg document =
 -- >>> _ <- runBH' $ deleteDocument testIndex (DocId "1")
 deleteDocument :: MonadBH m => IndexName -> DocId -> m Reply
 deleteDocument (IndexName indexName) (DocId docId) =
-  delete =<< joinPath [indexName, docId]
+  delete =<< joinPath [indexName, "_doc", docId]
 
 -- | 'deleteByQuery' performs a deletion on every document that matches a query.
 --
