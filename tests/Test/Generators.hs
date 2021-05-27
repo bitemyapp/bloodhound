@@ -451,6 +451,10 @@ makeArbitrary ''TokenizerDefinition
 instance Arbitrary TokenizerDefinition where arbitrary = arbitraryTokenizerDefinition
 makeArbitrary ''TokenFilter
 instance Arbitrary TokenFilter where arbitrary = arbitraryTokenFilter
+makeArbitrary ''EdgeNgramFilterSide
+instance Arbitrary EdgeNgramFilterSide where arbitrary = arbitraryEdgeNgramFilterSide
+makeArbitrary ''NgramFilter
+instance Arbitrary NgramFilter where arbitrary = arbitraryNgramFilter
 makeArbitrary ''TokenFilterDefinition
 instance Arbitrary TokenFilterDefinition where arbitrary = arbitraryTokenFilterDefinition
 makeArbitrary ''Language
