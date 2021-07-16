@@ -71,7 +71,7 @@ spec = do
       liftIO $
         getResp `shouldBe` Right (IndexSettingsSummary
                                     testIndex
-                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
+                                    (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits)
                                     (NE.toList updates))
 
     it "allows total fields to be set" $ withTestEnv $ do
@@ -84,7 +84,7 @@ spec = do
       liftIO $
         getResp `shouldBe` Right (IndexSettingsSummary
                                     testIndex
-                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
+                                    (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits)
                                     (NE.toList updates))
 
     it "allows unassigned.node_left.delayed_timeout to be set" $ withTestEnv $ do
@@ -97,7 +97,7 @@ spec = do
       liftIO $
         getResp `shouldBe` Right (IndexSettingsSummary
                                     testIndex
-                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
+                                    (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits)
                                     (NE.toList updates))
 
     it "accepts customer analyzers" $ withTestEnv $ do
@@ -149,7 +149,7 @@ spec = do
       liftIO $
         getResp `shouldBe` Right (IndexSettingsSummary
                                     testIndex
-                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
+                                    (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits)
                                     updates
                                  )
 
@@ -160,7 +160,7 @@ spec = do
       liftIO $ validateStatus createResp 200
       getResp <- getIndexSettings testIndex
       liftIO $ getResp `shouldBe` Right
-        (IndexSettingsSummary testIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) updates)
+        (IndexSettingsSummary testIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) updates)
 
     it "accepts best compression codec" $ withTestEnv $ do
       _ <- deleteExampleIndex
@@ -169,7 +169,7 @@ spec = do
       liftIO $ validateStatus createResp 200
       getResp <- getIndexSettings testIndex
       liftIO $ getResp `shouldBe` Right
-        (IndexSettingsSummary testIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) updates)
+        (IndexSettingsSummary testIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) updates)
 
 
   describe "Index Optimization" $ do
