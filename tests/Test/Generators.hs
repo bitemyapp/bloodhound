@@ -441,6 +441,8 @@ makeArbitrary ''BoolMatch
 instance Arbitrary BoolMatch where arbitrary = arbitraryBoolMatch
 makeArbitrary ''Term
 instance Arbitrary Term where arbitrary = arbitraryTerm
+makeArbitrary ''IndexMappingsLimits
+instance Arbitrary IndexMappingsLimits where arbitrary = arbitraryIndexMappingsLimits
 makeArbitrary ''IndexSettings
 instance Arbitrary IndexSettings where arbitrary = arbitraryIndexSettings
 makeArbitrary ''TokenChar

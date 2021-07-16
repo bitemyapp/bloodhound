@@ -29,6 +29,7 @@
 module Database.Bloodhound.Types
        ( defaultCache
        , defaultIndexSettings
+       , defaultIndexMappingsLimits
        , defaultIndexDocumentSettings
        , mkSort
        , showText
@@ -67,6 +68,7 @@ module Database.Bloodhound.Types
        , Status(..)
        , Existence(..)
        , NullValue(..)
+       , IndexMappingsLimits (..)
        , IndexSettings(..)
        , UpdatableIndexSetting(..)
        , IndexSettingsSummary(..)
