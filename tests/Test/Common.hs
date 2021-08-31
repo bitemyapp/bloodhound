@@ -110,6 +110,16 @@ tweetWithExtra = Tweet { user     = "bitemyapp"
                        , location = Location 40.12 (-71.34)
                        , extra = Just "blah blah" }
 
+exampleTweetWithAge :: Int -> Tweet
+exampleTweetWithAge age = Tweet { user     = "bitemyapp"
+                                , postDate = UTCTime
+                                            (ModifiedJulianDay 55000)
+                                            (secondsToDiffTime 10)
+                                , message  = "Use haskell!"
+                                , age      = age
+                                , location = Location 40.12 (-71.34)
+                                , extra = Nothing }
+
 newAge :: Int
 newAge = 31337
 
@@ -150,6 +160,13 @@ insertData = do
 insertData' :: IndexDocumentSettings -> BH IO Reply
 insertData' ids = do
   r <- indexDocument testIndex ids exampleTweet (DocId "1")
+  _ <- refreshIndex testIndex
+  return r
+
+insertTweetWithDocId :: Tweet -> Text -> BH IO Reply
+insertTweetWithDocId tweet docId = do
+  let ids = defaultIndexDocumentSettings
+  r <- indexDocument testIndex ids tweet (DocId docId)
   _ <- refreshIndex testIndex
   return r
 

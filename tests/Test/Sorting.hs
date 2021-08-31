@@ -15,7 +15,7 @@ spec =
       let search = Search Nothing
                    Nothing (Just [sortSpec]) Nothing Nothing
                    False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing
-                   Nothing Nothing
+                   Nothing Nothing Nothing
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $

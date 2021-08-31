@@ -64,6 +64,9 @@ module Database.Bloodhound.Client
        , getInitialScroll
        , getInitialSortedScroll
        , advanceScroll
+       , pitSearch
+       , openPointInTime
+       , closePointInTime
        , refreshIndex
        , mkSearch
        , mkAggregateSearch
@@ -277,6 +280,8 @@ withBH ms s f = do
 -- Shortcut functions for HTTP methods
 delete :: MonadBH m => Text -> m Reply
 delete = flip (dispatch NHTM.methodDelete) Nothing
+delete' :: MonadBH m => Text -> Maybe L.ByteString -> m Reply
+delete' = dispatch NHTM.methodDelete
 get    :: MonadBH m => Text -> m Reply
 get    = flip (dispatch NHTM.methodGet) Nothing
 head   :: MonadBH m => Text -> m Reply
@@ -1186,16 +1191,16 @@ advanceScroll (ScrollId sid) scroll = do
                               , "scroll_id" .= sid
                               ]
 
-simpleAccumulator ::
+scanAccumulator ::
   (FromJSON a, MonadBH m, MonadThrow m) =>
                                 [Hit a] ->
                                 ([Hit a], Maybe ScrollId) ->
                                 m ([Hit a], Maybe ScrollId)
-simpleAccumulator oldHits (newHits, Nothing) = return (oldHits ++ newHits, Nothing)
-simpleAccumulator oldHits ([], _) = return (oldHits, Nothing)
-simpleAccumulator oldHits (newHits, msid) = do
+scanAccumulator oldHits (newHits, Nothing) = return (oldHits ++ newHits, Nothing)
+scanAccumulator oldHits ([], _) = return (oldHits, Nothing)
+scanAccumulator oldHits (newHits, msid) = do
     (newHits', msid') <- scroll' msid
-    simpleAccumulator (oldHits ++ newHits) (newHits', msid')
+    scanAccumulator (oldHits ++ newHits) (newHits', msid')
 
 -- | 'scanSearch' uses the 'scroll' API of elastic,
 -- for a given 'IndexName'. Note that this will
@@ -1214,8 +1219,56 @@ scanSearch indexName search = do
     let (hits', josh) = case initialSearchResult of
                           Right SearchResult {..} -> (hits searchHits, scrollId)
                           Left _ -> ([], Nothing)
-    (totalHits, _) <- simpleAccumulator [] (hits', josh)
+    (totalHits, _) <- scanAccumulator [] (hits', josh)
     return totalHits
+
+pitAccumulator
+  :: (FromJSON a, MonadBH m, MonadThrow m) => Search -> [Hit a] -> m [Hit a]
+pitAccumulator search oldHits = do
+  resp   <- searchAll search
+  parsed <- parseEsResponse resp
+  case parsed of
+    Left  _            -> return []
+    Right searchResult -> case hits (searchHits searchResult) of
+      []      -> return oldHits
+      newHits -> case (hitSort $ last newHits, pitId searchResult) of
+        (Nothing, Nothing) ->
+          error "no point in time (PIT) ID or last sort value"
+        (Just _       , Nothing    ) -> error "no point in time (PIT) ID"
+        (Nothing      , _     ) -> return (oldHits <> newHits)
+        (Just lastSort, Just pitId') -> do
+          let newSearch = search { pointInTime = Just (PointInTime pitId' "1m")
+                                 , searchAfterKey = Just lastSort
+                                 }
+          pitAccumulator newSearch (oldHits <> newHits)
+
+-- | 'pitSearch' uses the point in time (PIT) API of elastic, for a given
+-- 'IndexName'. Requires Elasticsearch >=7.10. Note that this will consume the
+-- entire search result set and will be doing O(n) list appends so this may
+-- not be suitable for large result sets. In that case, the point in time API
+-- should be used directly with `openPointInTime` and `closePointInTime`.
+--
+-- Note that 'pitSearch' utilizes the 'search_after' parameter under the hood,
+-- which requires a non-empty 'sortBody' field in the provided 'Search' value.
+-- Otherwise, 'pitSearch' will fail to return all matching documents.
+--
+-- For more information see
+-- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
+pitSearch
+  :: (FromJSON a, MonadBH m, MonadThrow m) => IndexName -> Search -> m [Hit a]
+pitSearch indexName search = do
+  openResp <- openPointInTime indexName
+  case openResp of
+    Left  _                            -> return []
+    Right OpenPointInTimeResponse {..} -> do
+      let searchPIT = search { pointInTime = Just (PointInTime oPitId "1m") }
+      hits      <- pitAccumulator searchPIT []
+      closeResp <- closePointInTime $ ClosePointInTime oPitId
+      case closeResp of
+        Left _ -> return []
+        Right (ClosePointInTimeResponse False _) ->
+          error "failed to close point in time (PIT)"
+        Right (ClosePointInTimeResponse True _) -> return hits
 
 -- | 'mkSearch' is a helper function for defaulting additional fields of a 'Search'
 --   to Nothing in case you only care about your 'Query' and 'Filter'. Use record update
@@ -1226,7 +1279,7 @@ scanSearch indexName search = do
 -- >>> mkSearch (Just query) Nothing
 -- Search {queryBody = Just (TermQuery (Term {termField = "user", termValue = "bitemyapp"}) Nothing), filterBody = Nothing, searchAfterKey = Nothing, sortBody = Nothing, aggBody = Nothing, highlight = Nothing, trackSortScores = False, from = From 0, size = Size 10, searchType = SearchTypeQueryThenFetch, fields = Nothing, source = Nothing}
 mkSearch :: Maybe Query -> Maybe Filter -> Search
-mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing Nothing
+mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing Nothing Nothing
 
 -- | 'mkAggregateSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -1236,7 +1289,7 @@ mkSearch query filter = Search query filter Nothing Nothing Nothing False (From 
 -- TermsAgg (TermsAggregation {term = Left "user", termInclude = Nothing, termExclude = Nothing, termOrder = Nothing, termMinDocCount = Nothing, termSize = Nothing, termShardSize = Nothing, termCollectMode = Just BreadthFirst, termExecutionHint = Nothing, termAggs = Nothing})
 -- >>> let myAggregation = mkAggregateSearch Nothing $ mkAggregations "users" terms
 mkAggregateSearch :: Maybe Query -> Aggregations -> Search
-mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing Nothing
+mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSearchAggs) Nothing False (From 0) (Size 0) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing Nothing Nothing
 
 -- | 'mkHighlightSearch' is a helper function that defaults everything in a 'Search' except for
 --   the 'Query' and the 'Aggregation'.
@@ -1245,7 +1298,7 @@ mkAggregateSearch query mkSearchAggs = Search query Nothing Nothing (Just mkSear
 -- >>> let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
 -- >>> let search = mkHighlightSearch (Just query) testHighlight
 mkHighlightSearch :: Maybe Query -> Highlights -> Search
-mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing Nothing
+mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing (Just searchHighlights) False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing Nothing Nothing Nothing
 
 -- | 'mkSearchTemplate' is a helper function for defaulting additional fields of a 'SearchTemplate'
 --   to Nothing. Use record update syntax if you want to add things.
@@ -1306,3 +1359,29 @@ countByIndex :: (MonadBH m, MonadThrow m) => IndexName -> CountQuery -> m (Eithe
 countByIndex (IndexName indexName) q = do
   url <- joinPath [indexName, "_count"]
   parseEsResponse =<< post url (Just (encode q))
+
+-- | 'openPointInTime' opens a point in time for an index given an 'IndexName'. 
+-- Note that the point in time should be closed with 'closePointInTime' as soon 
+-- as it is no longer needed.
+--
+-- For more information see
+-- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
+openPointInTime
+  :: (MonadBH m, MonadThrow m)
+  => IndexName
+  -> m (Either EsError OpenPointInTimeResponse)
+openPointInTime (IndexName indexName) = do
+  url <- joinPath [indexName, "_pit?keep_alive=1m"]
+  parseEsResponse =<< post url Nothing
+
+-- | 'closePointInTime' closes a point in time given a 'ClosePointInTime'.
+--
+-- For more information see
+-- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
+closePointInTime
+  :: (MonadBH m, MonadThrow m)
+  => ClosePointInTime
+  -> m (Either EsError ClosePointInTimeResponse)
+closePointInTime q = do
+  url <- joinPath ["_pit"]
+  parseEsResponse =<< delete' url (Just (encode q))

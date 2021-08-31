@@ -394,6 +394,10 @@ module Database.Bloodhound.Types
        , CountQuery (..)
        , CountResponse (..)
        , CountShards (..)
+       , PointInTime(..)
+       , OpenPointInTimeResponse (..)
+       , ClosePointInTime (..)
+       , ClosePointInTimeResponse (..)
 
        , Highlights(..)
        , FieldHighlight(..)
@@ -438,6 +442,7 @@ import           Database.Bloodhound.Internal.Newtypes
 import           Database.Bloodhound.Internal.Query
 import           Database.Bloodhound.Internal.Sort
 import           Database.Bloodhound.Internal.Suggest
+import           Database.Bloodhound.Internal.PointInTime
 import qualified Data.HashMap.Strict as HM
 
 {-| 'unpackId' is a silly convenience function that gets used once.
@@ -462,13 +467,14 @@ data Search = Search { queryBody       :: Maybe Query
                      , scriptFields    :: Maybe ScriptFields
                      , source          :: Maybe Source
                      , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
+                     , pointInTime     :: Maybe PointInTime
                      } deriving (Eq, Show)
 
 
 instance ToJSON Search where
   toJSON (Search mquery sFilter sort searchAggs
           highlight sTrackSortScores sFrom sSize _ sAfter sFields
-          sScriptFields sSource sSuggest) =
+          sScriptFields sSource sSuggest pPointInTime) =
     omitNulls [ "query"         .= query'
               , "sort"          .= sort
               , "aggregations"  .= searchAggs
@@ -480,7 +486,8 @@ instance ToJSON Search where
               , "fields"        .= sFields
               , "script_fields" .= sScriptFields
               , "_source"       .= sSource
-              , "suggest"       .= sSuggest]
+              , "suggest"       .= sSuggest
+              , "pit"           .= pPointInTime]
 
     where query' = case sFilter of
                     Nothing -> mquery
@@ -545,6 +552,7 @@ data SearchResult a =
                -- ^ Only one Suggestion request / response per
                --   Search is supported.
                , suggest      :: Maybe NamedSuggestionResponse
+               , pitId        :: Maybe Text
                }
   deriving (Eq, Show)
 
@@ -556,7 +564,8 @@ instance (FromJSON a) => FromJSON (SearchResult a) where
                          v .:  "hits"         <*>
                          v .:? "aggregations" <*>
                          v .:? "_scroll_id"   <*>
-                         v .:? "suggest"
+                         v .:? "suggest"      <*>
+                         v .:? "pit_id"
   parseJSON _          = empty
 
 newtype ScrollId =
