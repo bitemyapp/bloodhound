@@ -1,0 +1,17 @@
+flags:
+  bloodhound-examples:
+    werror: true
+
+packages:
+  - "."
+  - "./examples"
+
+extra-deps:
+  - quickcheck-arbitrary-template-0.2.1.1
+  - quickcheck-properties-0.1
+
+resolver: lts-18.14
+
+nix:
+  enable: true
+  packages: [zlib]
