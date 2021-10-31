@@ -1,5 +1,5 @@
 name: bloodhound
-version: '0.17.0.0'
+version: "0.18.0.0"
 synopsis: Elasticsearch client library for Haskell
 description: Elasticsearch made awesome for Haskell hackers
 category: Database, Search
@@ -15,7 +15,7 @@ extra-source-files:
   - tests/tests.hs
 
 dependencies:
-  - aeson >=0.11.1
+  - aeson >=0.11.1 && < 2
   - base >=4.3 && <5
   - blaze-builder
   - bytestring >=0.10.0
@@ -57,18 +57,18 @@ tests:
     source-dirs: tests
     main: tests.hs
     ghc-options:
-    - -Wall
-    - -fno-warn-orphans
+      - -Wall
+      - -fno-warn-orphans
     dependencies:
-    - QuickCheck
-    - base
-    - bloodhound
-    - errors
-    - hspec >=1.8
-    - microlens
-    - microlens-aeson
-    - pretty-simple
-    - quickcheck-arbitrary-template
-    - quickcheck-properties
-    - temporary
-    - unix-compat
+      - QuickCheck
+      - base
+      - bloodhound
+      - errors
+      - hspec >=1.8
+      - microlens
+      - microlens-aeson
+      - pretty-simple
+      - quickcheck-arbitrary-template
+      - quickcheck-properties
+      - temporary
+      - unix-compat

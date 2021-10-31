@@ -1,3 +1,20 @@
+0.18.0.0
+========
+- @WraithM
+  - Fix deleteDocument endpoint
+- @iivanbakel
+  - Support ES7
+- @wireapp
+  - Support GHC 8.8
+  - Support GHC 8.4
+  - Support GHC 8.2.2
+  - Support GHC 8.0
+  - Implement API Count
+- @bitemyapp
+  - Add BulkUpsert
+- @JoseD92
+  - Add support for unassigned.node_left.delayed_timeout index setting
+
 0.17.0.0
 ========
 - @bitemyapp
