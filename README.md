@@ -3,6 +3,10 @@ Bloodhound [![TravisCI](https://travis-ci.org/bitemyapp/bloodhound.svg)](https:/
 
 ![Bloodhound (dog)](./bloodhound.jpg)
 
+⚠ Maintainers Needed ⚠
+========================
+The original maintainers of the project don't currently have time to adquately maintain the project. If you actively use this project and would like maintianer access and Hackage upload rights, please reach out on GitHub.
+
 Elasticsearch client and query DSL for Haskell
 ==============================================
 
