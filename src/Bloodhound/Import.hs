@@ -25,13 +25,14 @@ import           Control.Monad.Reader      as X (MonadReader (..),
 import           Control.Monad.State       as X (MonadState)
 import           Control.Monad.Writer      as X (MonadWriter)
 import           Data.Aeson                as X
+import           Data.Aeson.Key            as X
+import qualified Data.Aeson.KeyMap         as X
 import           Data.Aeson.Types          as X (Pair, Parser, emptyObject,
                                                  parseEither, parseMaybe,
                                                  typeMismatch)
 import           Data.Bifunctor            as X (first)
 import           Data.Char                 as X (isNumber)
 import           Data.Hashable             as X (Hashable)
-import qualified Data.HashMap.Strict       as HM
 import           Data.List                 as X (foldl', intercalate, nub)
 import           Data.List.NonEmpty        as X (NonEmpty (..), toList)
 import           Data.Maybe                as X (catMaybes, fromMaybe,
@@ -64,7 +65,7 @@ parseReadText = maybe mzero return . readMay . T.unpack
 showText :: Show a => a -> Text
 showText = T.pack . show
 
-omitNulls :: [(Text, Value)] -> Value
+omitNulls :: [(Key, Value)] -> Value
 omitNulls = object . filter notNull where
   notNull (_, Null)    = False
   notNull (_, Array a) = (not . V.null) a
@@ -74,10 +75,10 @@ parseNEJSON :: (FromJSON a) => [Value] -> Parser (NonEmpty a)
 parseNEJSON []     = fail "Expected non-empty list"
 parseNEJSON (x:xs) = DT.mapM parseJSON (x :| xs)
 
-deleteSeveral :: (Eq k, Hashable k) => [k] -> HM.HashMap k v -> HM.HashMap k v
-deleteSeveral ks hm = foldr HM.delete hm ks
+deleteSeveral :: [Key] -> X.KeyMap v -> X.KeyMap v
+deleteSeveral ks km = foldr X.delete km ks
 
-oPath :: ToJSON a => NonEmpty Text -> a -> Value
+oPath :: ToJSON a => NonEmpty Key -> a -> Value
 oPath (k :| []) v   = object [k .= v]
 oPath (k:| (h:t)) v = object [k .= oPath (h :| t) v]
 

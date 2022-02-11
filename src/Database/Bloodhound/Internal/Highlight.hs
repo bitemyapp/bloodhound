@@ -29,9 +29,9 @@ data FieldHighlight =
 
 instance ToJSON FieldHighlight where
     toJSON (FieldHighlight (FieldName fName) (Just fSettings)) =
-        object [ fName .= fSettings ]
+        object [ fromText fName .= fSettings ]
     toJSON (FieldHighlight (FieldName fName) Nothing) =
-        object [ fName .= emptyObject ]
+        object [ fromText fName .= emptyObject ]
 
 data HighlightSettings =
     Plain PlainHighlight

@@ -4,16 +4,14 @@
 module Database.Bloodhound.Common.Script where
 
 import Bloodhound.Import
-
-import qualified Data.HashMap.Strict as HM
+import Data.Aeson.KeyMap
 
 import           Database.Bloodhound.Internal.Newtypes
 
 newtype ScriptFields =
-  ScriptFields (HM.HashMap ScriptFieldName ScriptFieldValue)
+  ScriptFields (KeyMap ScriptFieldValue)
   deriving (Eq, Show)
 
-type ScriptFieldName = Text
 type ScriptFieldValue = Value
 
 data ScriptSource = ScriptId Text
@@ -29,10 +27,9 @@ newtype ScriptLanguage =
   ScriptLanguage Text deriving (Eq, Show, FromJSON, ToJSON)
 
 newtype ScriptParams =
-  ScriptParams (HM.HashMap ScriptParamName ScriptParamValue)
+  ScriptParams (KeyMap ScriptParamValue)
   deriving (Eq, Show)
 
-type ScriptParamName = Text
 type ScriptParamValue = Value
 
 data BoostMode =
@@ -124,7 +121,7 @@ instance FromJSON ScoreMode where
           parse "min"      = pure ScoreModeMin
           parse sm         = fail ("Unexpected ScoreMode: " <> show sm)
 
-functionScoreFunctionPair :: FunctionScoreFunction -> (Text, Value)
+functionScoreFunctionPair :: FunctionScoreFunction -> (Key, Value)
 functionScoreFunctionPair (FunctionScoreFunctionScript functionScoreScript) =
   ("script_score", toJSON functionScoreScript)
 functionScoreFunctionPair (FunctionScoreFunctionRandom seed) =
@@ -155,16 +152,16 @@ instance ToJSON Script where
     where
       base (Script lang (ScriptInline source) params) =
         ["lang" .= lang, "source" .= source, "params" .= params]
-      base (Script lang (ScriptId id) params) =
-        ["lang" .= lang, "id" .= id, "params" .= params]
+      base (Script lang (ScriptId id_) params) =
+        ["lang" .= lang, "id" .= id_, "params" .= params]
 
 instance FromJSON Script where
   parseJSON = withObject "Script" parse
     where 
       parseSource o = do
         inline <- o .:? "source"
-        id <- o .:? "id"
-        return $ case (inline,id) of
+        id_ <- o .:? "id"
+        return $ case (inline,id_) of
           (Just x,Nothing) -> ScriptInline x
           (Nothing,Just x) -> ScriptId x
           (Nothing,Nothing) -> error "Script has to be either stored or inlined"

@@ -7,7 +7,7 @@ module Database.Bloodhound.Internal.Aggregation where
 import           Bloodhound.Import
 
 import qualified Data.Aeson as Aeson
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.KeyMap as X
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
@@ -17,12 +17,12 @@ import           Database.Bloodhound.Internal.Newtypes
 import           Database.Bloodhound.Internal.Query
 import           Database.Bloodhound.Internal.Sort
 
-type Aggregations = M.Map Text Aggregation
+type Aggregations = M.Map Key Aggregation
 
 emptyAggregations :: Aggregations
 emptyAggregations = M.empty
 
-mkAggregations :: Text -> Aggregation -> Aggregations
+mkAggregations :: Key -> Aggregation -> Aggregations
 mkAggregations name aggregation = M.insert name aggregation emptyAggregations
 
 data Aggregation = TermsAgg TermsAggregation
@@ -203,7 +203,7 @@ mkStatsAggregation = StatisticsAggregation Basic
 mkExtendedStatsAggregation :: FieldName -> StatisticsAggregation
 mkExtendedStatsAggregation = StatisticsAggregation Extended
 
-type AggregationResults = M.Map Text Value
+type AggregationResults = M.Map Key Value
 
 class BucketAggregation a where
   key :: a -> BucketValue
@@ -244,7 +244,7 @@ data TermOrder = TermOrder
 
 instance ToJSON TermOrder where
   toJSON (TermOrder termSortField termSortOrder) =
-    object [termSortField .= termSortOrder]
+    object [fromText termSortField .= termSortOrder]
 
 data CollectionMode = BreadthFirst
                     | DepthFirst deriving (Eq, Show)
@@ -377,30 +377,30 @@ instance BucketAggregation DateRangeResult where
   docCount = dateRangeDocCount
   aggs = dateRangeAggs
 
-toTerms :: Text -> AggregationResults -> Maybe (Bucket TermsResult)
+toTerms :: Key -> AggregationResults -> Maybe (Bucket TermsResult)
 toTerms = toAggResult
 
-toDateHistogram :: Text -> AggregationResults -> Maybe (Bucket DateHistogramResult)
+toDateHistogram :: Key -> AggregationResults -> Maybe (Bucket DateHistogramResult)
 toDateHistogram = toAggResult
 
-toMissing :: Text -> AggregationResults -> Maybe MissingResult
+toMissing :: Key -> AggregationResults -> Maybe MissingResult
 toMissing = toAggResult
 
-toTopHits :: (FromJSON a) => Text -> AggregationResults -> Maybe (TopHitResult a)
+toTopHits :: (FromJSON a) => Key -> AggregationResults -> Maybe (TopHitResult a)
 toTopHits = toAggResult
 
-toAggResult :: (FromJSON a) => Text -> AggregationResults -> Maybe a
+toAggResult :: (FromJSON a) => Key -> AggregationResults -> Maybe a
 toAggResult t a = M.lookup t a >>= deserialize
   where deserialize = parseMaybe parseJSON
 
 -- Try to get an AggregationResults when we don't know the
 -- field name. We filter out the known keys to try to minimize the noise.
-getNamedSubAgg :: Object -> [Text] -> Maybe AggregationResults
+getNamedSubAgg :: Object -> [Key] -> Maybe AggregationResults
 getNamedSubAgg o knownKeys = maggRes
-  where unknownKeys = HM.filterWithKey (\k _ -> k `notElem` knownKeys) o
+  where unknownKeys = X.filterWithKey (\k _ -> k `notElem` knownKeys) o
         maggRes
-          | HM.null unknownKeys = Nothing
-          | otherwise           = Just . M.fromList $ HM.toList unknownKeys
+          | X.null unknownKeys = Nothing
+          | otherwise           = Just . M.fromList $ X.toList unknownKeys
 
 data MissingResult = MissingResult
   { missingDocCount :: Int

@@ -114,10 +114,11 @@ import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Data.Aeson
-import           Data.ByteString.Lazy.Builder
+import           Data.Aeson.Key
+import qualified Data.Aeson.KeyMap            as X
+import           Data.ByteString.Builder
 import qualified Data.ByteString.Lazy.Char8   as L
 import           Data.Foldable                (toList)
-import qualified Data.HashMap.Strict          as HM
 import           Data.Ix
 import qualified Data.List                    as LS (foldl')
 import           Data.List.NonEmpty           (NonEmpty (..))
@@ -326,10 +327,10 @@ newtype GSRs = GSRs { unGSRs :: [GenericSnapshotRepo] }
 instance FromJSON GSRs where
   parseJSON = withObject "Collection of GenericSnapshotRepo" parse
     where
-      parse = fmap GSRs . mapM (uncurry go) . HM.toList
+      parse = fmap GSRs . mapM (uncurry go) . X.toList
       go rawName = withObject "GenericSnapshotRepo" $ \o ->
-        GenericSnapshotRepo (SnapshotRepoName rawName) <$> o .: "type"
-                                                       <*> o .: "settings"
+        GenericSnapshotRepo (SnapshotRepoName $ toText rawName) <$> o .: "type"
+                                                                <*> o .: "settings"
 
 
 -- | Create or update a snapshot repo
@@ -539,7 +540,7 @@ createIndexWith updates shards (IndexName indexName) =
   where url = joinPath [indexName]
         body = encode $ object
           ["settings" .= deepMerge
-            ( HM.singleton "index.number_of_shards" (toJSON shards) :
+            ( X.singleton "index.number_of_shards" (toJSON shards) :
               [u | Object u <- toJSON <$> updates]
             )
           ]
@@ -623,10 +624,8 @@ forceMergeIndex ixs ForceMergeIndexSettings {..} =
 
 
 deepMerge :: [Object] -> Object
-deepMerge = LS.foldl' go mempty
-  where go acc = LS.foldl' go' acc . HM.toList
-        go' acc (k, v) = HM.insertWith merge k v acc
-        merge (Object a) (Object b) = Object (deepMerge [a, b])
+deepMerge = LS.foldl' (X.unionWith merge) mempty
+  where merge (Object a) (Object b) = Object (deepMerge [a, b])
         merge _ b = b
 
 
@@ -730,7 +729,7 @@ listIndices =
       forM vals $ \val ->
         case val of
           Object obj ->
-            case HM.lookup "index" obj of
+            case X.lookup "index" obj of
               (Just (String txt)) -> Right (IndexName txt)
               v -> Left $ "indexVal in listIndices failed on non-string, was: " <> show v
           v -> Left $ "One of the values parsed in listIndices wasn't an object, it was: " <> show v
@@ -746,7 +745,7 @@ catIndices =
       forM vals $ \val ->
         case val of
           Object obj ->
-            case (HM.lookup "index" obj, HM.lookup "docs.count" obj) of
+            case (X.lookup "index" obj, X.lookup "docs.count" obj) of
               (Just (String txt), Just (String docs)) -> Right ((IndexName txt), read (T.unpack docs))
               v -> Left $ "indexVal in catIndices failed on non-string, was: " <> show v
           v -> Left $ "One of the values parsed in catIndices wasn't an object, it was: " <> show v
@@ -901,9 +900,9 @@ encodeDocument cfg document =
   case idsJoinRelation cfg of
     Nothing -> toJSON document
     Just (ParentDocument (FieldName field) name) ->
-      mergeObjects (toJSON document) (object [field .= name])
+      mergeObjects (toJSON document) (object [fromText field .= name])
     Just (ChildDocument (FieldName field) name parent) ->
-      mergeObjects (toJSON document) (object [field .= object ["name" .= name, "parent" .= parent]])
+      mergeObjects (toJSON document) (object [fromText field .= object ["name" .= name, "parent" .= parent]])
   where
     mergeObjects (Object a) (Object b) = Object (a <> b)
     mergeObjects _ _ = error "Impossible happened: both document body and join parameters must be objects"
@@ -963,18 +962,18 @@ mash = V.foldl' (\b x -> b <> byteString "\n" <> lazyByteString x)
 
 mkBulkStreamValue :: Text -> Text -> Text -> Value
 mkBulkStreamValue operation indexName docId =
-  object [operation .=
+  object [fromText operation .=
           object [ "_index" .= indexName
                  , "_id"    .= docId]]
 
 mkBulkStreamValueAuto :: Text -> Text -> Value
 mkBulkStreamValueAuto operation indexName =
-  object [operation .=
+  object [fromText operation .=
           object [ "_index" .= indexName ]]
 
 mkBulkStreamValueWithMeta :: [UpsertActionMetadata] -> Text -> Text -> Text -> Value
 mkBulkStreamValueWithMeta meta operation indexName docId =
-  object [ operation .=
+  object [ fromText operation .=
           object ([ "_index" .= indexName
                   , "_id"    .= docId]
                   <> (buildUpsertActionMetadata <$> meta))]
@@ -1106,10 +1105,10 @@ searchByIndicesTemplate ixs = bindM2 dispatchSearchTemplate url . return
 -- | 'storeSearchTemplate', saves a 'SearchTemplateSource' to be used later.
 storeSearchTemplate :: MonadBH m => SearchTemplateId -> SearchTemplateSource -> m Reply
 storeSearchTemplate (SearchTemplateId tid) ts =
-  url >>= flip post (Just (encode json))
+  url >>= flip post (Just (encode json_))
   where
     url = joinPath ["_scripts", tid]
-    json = Object $ HM.fromList ["script" .= Object ("lang" .= String "mustache" <> "source" .= ts) ]
+    json_ = Object $ X.fromList ["script" .= Object ("lang" .= String "mustache" <> "source" .= ts) ]
 
 -- | 'getSearchTemplate', get info of an stored 'SearchTemplateSource'.
 getSearchTemplate :: MonadBH m => SearchTemplateId -> m Reply 
@@ -1251,7 +1250,7 @@ mkHighlightSearch query searchHighlights = Search query Nothing Nothing Nothing 
 -- | 'mkSearchTemplate' is a helper function for defaulting additional fields of a 'SearchTemplate'
 --   to Nothing. Use record update syntax if you want to add things.
 mkSearchTemplate :: Either SearchTemplateId SearchTemplateSource -> TemplateQueryKeyValuePairs -> SearchTemplate
-mkSearchTemplate id params = SearchTemplate id params Nothing Nothing
+mkSearchTemplate id_ params = SearchTemplate id_ params Nothing Nothing
 
 -- | 'pageSearch' is a helper function that takes a search and assigns the from
 --    and size fields for the search. The from parameter defines the offset

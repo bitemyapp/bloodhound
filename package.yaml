@@ -15,7 +15,7 @@ extra-source-files:
   - tests/tests.hs
 
 dependencies:
-  - aeson >=0.11.1 && < 2
+  - aeson >=0.11.1
   - base >=4.3 && <5
   - blaze-builder
   - bytestring >=0.10.0
@@ -66,7 +66,7 @@ tests:
       - errors
       - hspec >=1.8
       - microlens
-      - microlens-aeson
+      - microlens-aeson >= 2.4
       - pretty-simple
       - quickcheck-arbitrary-template
       - quickcheck-properties

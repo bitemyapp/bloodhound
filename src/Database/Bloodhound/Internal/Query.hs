@@ -9,10 +9,8 @@ module Database.Bloodhound.Internal.Query
 
 import           Bloodhound.Import
 
-import           Control.Monad.Fail  (MonadFail)
-import           Data.Char           (isNumber)
+import qualified Data.Aeson.KeyMap   as X
 import qualified Data.HashMap.Strict as HM
-import           Data.List           (nub)
 import qualified Data.Text           as T
 
 import           Database.Bloodhound.Common.Script as X
@@ -20,7 +18,7 @@ import           Database.Bloodhound.Internal.Newtypes
 
 data Query =
     TermQuery                   Term (Maybe Boost)
-  | TermsQuery                  Text (NonEmpty Text)
+  | TermsQuery                  Key (NonEmpty Text)
   | QueryMatchQuery             MatchQuery
   | QueryMultiMatchQuery        MultiMatchQuery
   | QueryBoolQuery              BoolQuery
@@ -178,7 +176,7 @@ instance FromJSON Query where
                 <|> queryWildcardQuery `taggedWith` "wildcard"
             where taggedWith parser k = parser =<< o .: k
           termQuery = fieldTagged $ \(FieldName fn) o ->
-                        TermQuery <$> (Term fn <$> o .: "value") <*> o .:? "boost"
+                        TermQuery <$> (Term (fromText fn) <$> o .: "value") <*> o .:? "boost"
           termsQuery o = case HM.toList o of
                            [(fn, vs)] -> do vals <- parseJSON vs
                                             case vals of
@@ -192,7 +190,7 @@ instance FromJSON Query where
           queryBoolQuery = pure . QueryBoolQuery
           queryBoostingQuery = pure . QueryBoostingQuery
           queryCommonTermsQuery = pure . QueryCommonTermsQuery
-          constantScoreQuery o = case HM.lookup "filter" o of
+          constantScoreQuery o = case X.lookup "filter" o of
             Just x -> ConstantScoreQuery <$> parseJSON x
                                          <*> o .: "boost"
             _ -> fail "Does not appear to be a ConstantScoreQuery"
@@ -237,7 +235,7 @@ instance ToJSON RegexpQuery where
   toJSON (RegexpQuery (FieldName rqQueryField)
           (Regexp regexpQueryQuery) rqQueryFlags
           rqQueryBoost) =
-   object [ rqQueryField .= omitNulls base ]
+   object [ fromText rqQueryField .= omitNulls base ]
    where base = [ "value" .= regexpQueryQuery
                 , "flags" .= rqQueryFlags
                 , "boost" .= rqQueryBoost ]
@@ -252,14 +250,14 @@ instance FromJSON RegexpQuery where
 
 data WildcardQuery =
   WildcardQuery { wildcardQueryField :: FieldName
-                , wildcardQuery      :: Text
+                , wildcardQuery      :: Key
                 , wildcardQueryBoost :: Maybe Boost
               } deriving (Eq, Show)
 
 instance ToJSON WildcardQuery where
   toJSON (WildcardQuery (FieldName wcQueryField)
          (wcQueryQuery) wcQueryBoost) =
-   object [ wcQueryField .= omitNulls base ]
+   object [ fromText wcQueryField .= omitNulls base ]
    where base = [ "value" .= wcQueryQuery
                 , "boost" .= wcQueryBoost ]
 
@@ -277,7 +275,7 @@ data RangeQuery =
 
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) range boost) =
-    object [ fieldName .= object conjoined ]
+    object [ fromText fieldName .= object conjoined ]
     where
       conjoined = ("boost" .= boost) : rangeValueToPair range
 
@@ -473,7 +471,7 @@ data PrefixQuery =
 
 instance ToJSON PrefixQuery where
   toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =
-    object [ fieldName .= omitNulls base ]
+    object [ fromText fieldName .= omitNulls base ]
     where base = [ "value" .= queryValue
                  , "boost" .= boost ]
 
@@ -526,7 +524,7 @@ instance ToJSON MoreLikeThisFieldQuery where
   toJSON (MoreLikeThisFieldQuery text (FieldName fieldName)
           percent mtf mqt stopwords mindf maxdf
           minwl maxwl boostTerms boost analyzer) =
-    object [ fieldName .= omitNulls base ]
+    object [ fromText fieldName .= omitNulls base ]
     where base = [ "like_text" .= text
                  , "percent_terms_to_match" .= percent
                  , "min_term_freq" .= mtf
@@ -726,7 +724,7 @@ data FuzzyQuery =
 instance ToJSON FuzzyQuery where
   toJSON (FuzzyQuery (FieldName fieldName) queryText
           prefixLength maxEx fuzziness boost) =
-    object [ fieldName .= omitNulls base ]
+    object [ fromText fieldName .= omitNulls base ]
     where base = [ "value"          .= queryText
                  , "fuzziness"      .= fuzziness
                  , "prefix_length"  .= prefixLength
@@ -761,7 +759,7 @@ instance ToJSON FuzzyLikeFieldQuery where
   toJSON (FuzzyLikeFieldQuery (FieldName fieldName)
           fieldText maxTerms ignoreFreq fuzziness prefixLength
           boost analyzer) =
-    object [ fieldName .=
+    object [ fromText fieldName .=
              omitNulls [ "like_text"       .= fieldText
                        , "max_query_terms" .= maxTerms
                        , "ignore_tf"       .= ignoreFreq
@@ -865,7 +863,7 @@ instance ToJSON MatchQuery where
           analyzer maxExpansions lenient boost
           minShouldMatch mqFuzziness
          ) =
-    object [ fieldName .= omitNulls base ]
+    object [ fromText fieldName .= omitNulls base ]
     where base = [ "query" .= mqQueryString
                  , "operator" .= booleanOperator
                  , "zero_terms_query" .= zeroTermsQuery
@@ -1063,7 +1061,7 @@ instance ToJSON CommonTermsQuery where
   toJSON (CommonTermsQuery (FieldName fieldName)
           (QueryString query) cf lfo hfo msm
           boost analyzer disableCoord) =
-    object [fieldName .= omitNulls base ]
+    object [fromText fieldName .= omitNulls base ]
     where base = [ "query"              .= query
                  , "cutoff_frequency"   .= cf
                  , "low_freq_operator"  .= lfo
@@ -1300,7 +1298,7 @@ rangeValueToPair rv = case rv of
   RangeDoubleGteLt (GreaterThanEq l) (LessThan g)    -> ["gte" .= l, "lt"  .= g]
   RangeDoubleGtLt (GreaterThan l) (LessThan g)       -> ["gt"  .= l, "lt"  .= g]
 
-data Term = Term { termField :: Text
+data Term = Term { termField :: Key
                  , termValue :: Text } deriving (Eq, Show)
 
 instance ToJSON Term where
@@ -1389,14 +1387,14 @@ data GeoBoundingBoxConstraint =
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON (GeoBoundingBoxConstraint
           (FieldName gbbcGeoBBField) gbbcConstraintBox cache type') =
-    object [gbbcGeoBBField .= gbbcConstraintBox
+    object [fromText gbbcGeoBBField .= gbbcConstraintBox
            , "_cache"  .= cache
            , "type" .= type']
 
 instance FromJSON GeoBoundingBoxConstraint where
   parseJSON = withObject "GeoBoundingBoxConstraint" parse
-    where parse o = case HM.toList (deleteSeveral ["type", "_cache"] o) of
-                      [(fn, v)] -> GeoBoundingBoxConstraint (FieldName fn)
+    where parse o = case X.toList (deleteSeveral ["type", "_cache"] o) of
+                      [(fn, v)] -> GeoBoundingBoxConstraint (FieldName $ toText fn)
                                    <$> parseJSON v
                                    <*> o .:? "_cache" .!= defaultCache
                                    <*> o .: "type"
@@ -1408,7 +1406,7 @@ data GeoPoint =
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
-    object [ geoPointField  .= geoPointLatLon ]
+    object [ fromText geoPointField  .= geoPointLatLon ]
 
 data DistanceUnit = Miles
                   | Yards
@@ -1504,20 +1502,18 @@ data DistanceRange =
   DistanceRange { distanceFrom :: Distance
                 , distanceTo   :: Distance } deriving (Eq, Show)
 
-type TemplateQueryKey = Text
 type TemplateQueryValue = Text
 
 newtype TemplateQueryKeyValuePairs =
-  TemplateQueryKeyValuePairs (HM.HashMap TemplateQueryKey TemplateQueryValue)
+  TemplateQueryKeyValuePairs (X.KeyMap TemplateQueryValue)
   deriving (Eq, Show)
 
 instance ToJSON TemplateQueryKeyValuePairs where
-  toJSON (TemplateQueryKeyValuePairs x) =
-    Object $ HM.map toJSON x
+  toJSON (TemplateQueryKeyValuePairs x) = Object $ String <$> x
 
 instance FromJSON TemplateQueryKeyValuePairs where
   parseJSON (Object o) =
-    pure . TemplateQueryKeyValuePairs $ HM.mapMaybe getValue o
+    pure . TemplateQueryKeyValuePairs $ X.mapMaybe getValue o
     where getValue (String x) = Just x
           getValue _          = Nothing
   parseJSON _          =
@@ -1606,15 +1602,15 @@ instance FromJSON ComponentFunctionScoreFunction where
                     <*> parseFunctionScoreFunction o
                     <*> o .:? "weight"
 
-functionScoreFunctionsPair :: FunctionScoreFunctions -> (Text, Value)
+functionScoreFunctionsPair :: FunctionScoreFunctions -> (Key, Value)
 functionScoreFunctionsPair (FunctionScoreSingle fn)
   = functionScoreFunctionPair fn
 functionScoreFunctionsPair (FunctionScoreMultiple componentFns) =
   ("functions", toJSON componentFns)
 
 fieldTagged :: (Monad m, MonadFail m)=> (FieldName -> Object -> m a) -> Object -> m a
-fieldTagged f o = case HM.toList o of
-                    [(k, Object o')] -> f (FieldName k) o'
+fieldTagged f o = case X.toList o of
+                    [(k, Object o')] -> f (FieldName $ toText k) o'
                     _ -> fail "Expected object with 1 field-named key"
 
 -- | Fuzziness value as a number or 'AUTO'.

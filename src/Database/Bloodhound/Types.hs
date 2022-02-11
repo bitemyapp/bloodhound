@@ -151,13 +151,11 @@ module Database.Bloodhound.Types
        , RegexpFlag(..)
        , FieldName(..)
        , ScriptFields(..)
-       , ScriptFieldName
        , ScriptFieldValue
        , Script(..)
        , ScriptLanguage(..)
        , ScriptSource(..)
        , ScriptParams(..)
-       , ScriptParamName
        , ScriptParamValue
        , IndexName(..)
        , IndexSelection(..)

@@ -3,15 +3,10 @@
 
 module Test.BulkAPI (spec) where
 
-import           Data.Function       ((&))
-#if MIN_VERSION_base(4,11,0)
-import           Data.Functor        ((<&>))
-#endif
-
 import           Test.Common
 import           Test.Import
 
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.KeyMap   as X
 import qualified Data.Vector         as V
 import qualified Lens.Micro.Aeson    as LMA
 
@@ -89,7 +84,7 @@ spec =
       let script = Script
                     { scriptLanguage = Just $ ScriptLanguage "painless"
                     , scriptSource = ScriptInline "ctx._source.counter += params.count"
-                    , scriptParams = Just $ ScriptParams $ HM.fromList [("count", Number 2)]
+                    , scriptParams = Just $ ScriptParams $ X.fromList [("count", Number 2)]
                     }
 
       upsertDocs (UpsertScript False script) batch
@@ -103,7 +98,7 @@ spec =
       let script = Script
                     { scriptLanguage = Just $ ScriptLanguage "painless"
                     , scriptSource = ScriptInline "ctx._source.counter += params.count"
-                    , scriptParams = Just $ ScriptParams $ HM.fromList [("count", Number 2)]
+                    , scriptParams = Just $ ScriptParams $ X.fromList [("count", Number 2)]
                     }
 
       -- Without "script_upsert" flag new documents are simply inserted and are not handled by the script
@@ -118,14 +113,13 @@ spec =
       let script = Script
                     { scriptLanguage = Just $ ScriptLanguage "painless"
                     , scriptSource = ScriptInline "ctx._source.counter += params.count"
-                    , scriptParams = Just $ ScriptParams $ HM.fromList [("count", Number 2)]
+                    , scriptParams = Just $ ScriptParams $ X.fromList [("count", Number 2)]
                     }
 
       -- Without "script_upsert" flag new documents are simply inserted and are not handled by the script
       upsertDocs (UpsertScript True script) batch
 
       -- if this test fails due to a bug in ES7: https://github.com/elastic/elasticsearch/issues/48670, delete next line when it is solved.
-      let batch = [(DocId "3", BulkScriptTest "stringer" 2), (DocId "5", BulkScriptTest "sobotka" 3)]
       assertDocs (batch <&> (\(i, v) -> (i, v { bstCounter = bstCounter v + 2 })))
 
     it "inserts all documents we request" $ withTestEnv $ do

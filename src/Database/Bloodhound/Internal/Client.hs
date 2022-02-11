@@ -10,11 +10,7 @@ module Database.Bloodhound.Internal.Client where
 
 import           Bloodhound.Import
 
-#if defined(MIN_VERSION_GLASGOW_HASKELL)
-#if MIN_VERSION_GLASGOW_HASKELL(8,0,0,0)
-import           Control.Monad.Fail                         (MonadFail)
-#endif
-#endif
+import qualified Data.Aeson.KeyMap                          as X
 import qualified Data.HashMap.Strict                        as HM
 import           Data.Map.Strict                            (Map)
 import qualified Data.SemVer                                as SemVer
@@ -250,17 +246,17 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            deriving (Eq, Show)
 
 attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
-attrFilterJSON fs = object [ n .= T.intercalate "," (toList vs)
+attrFilterJSON fs = object [ fromText n .= T.intercalate "," (toList vs)
                            | NodeAttrFilter (NodeAttrName n) vs <- toList fs]
 
 parseAttrFilter :: Value -> Parser (NonEmpty NodeAttrFilter)
 parseAttrFilter = withObject "NonEmpty NodeAttrFilter" parse
-  where parse o = case HM.toList o of
+  where parse o = case X.toList o of
                     []   -> fail "Expected non-empty list of NodeAttrFilters"
                     x:xs -> DT.mapM (uncurry parse') (x :| xs)
         parse' n = withText "Text" $ \t ->
           case T.splitOn "," t of
-            fv:fvs -> return (NodeAttrFilter (NodeAttrName n) (fv :| fvs))
+            fv:fvs -> return (NodeAttrFilter (NodeAttrName $ toText n) (fv :| fvs))
             []     -> fail "Expected non-empty list of filter values"
 
 instance ToJSON UpdatableIndexSetting where
@@ -519,15 +515,15 @@ parseSettings o = do
   -- slice the index object into singleton hashmaps and try to parse each
   parses <- forM (HM.toList o') $ \(k, v) -> do
     -- blocks are now nested into the "index" key, which is not how they're serialized
-    let atRoot = Object (HM.singleton k v)
-    let atIndex = Object (HM.singleton "index" atRoot)
+    let atRoot = Object (X.singleton k v)
+    let atIndex = Object (X.singleton "index" atRoot)
     optional (parseJSON atRoot <|> parseJSON atIndex)
   return (catMaybes parses)
 
 instance FromJSON IndexSettingsSummary where
   parseJSON = withObject "IndexSettingsSummary" parse
-    where parse o = case HM.toList o of
-                      [(ixn, v@(Object o'))] -> IndexSettingsSummary (IndexName ixn)
+    where parse o = case X.toList o of
+                      [(ixn, v@(Object o'))] -> IndexSettingsSummary (IndexName $ toText ixn)
                                                 <$> parseJSON v
                                                 <*> (fmap (filter (not . redundant)) . parseSettings =<< o' .: "settings")
                       _ -> fail "Expected single-key object with index name"
@@ -576,7 +572,7 @@ instance ToJSON IndexTemplate where
             ])
     (toJSON s)
    where
-     merge (Object o1) (Object o2) = toJSON $ HM.union o1 o2
+     merge (Object o1) (Object o2) = toJSON $ X.union o1 o2
      merge o           Null        = o
      merge _           _           = undefined
 
@@ -774,11 +770,11 @@ newtype IndexAliasesSummary =
 
 instance FromJSON IndexAliasesSummary where
   parseJSON = withObject "IndexAliasesSummary" parse
-    where parse o = IndexAliasesSummary . mconcat <$> mapM (uncurry go) (HM.toList o)
+    where parse o = IndexAliasesSummary . mconcat <$> mapM (uncurry go) (X.toList o)
           go ixn = withObject "index aliases" $ \ia -> do
                      aliases <- ia .:? "aliases" .!= mempty
                      forM (HM.toList aliases) $ \(aName, v) -> do
-                       let indexAlias = IndexAlias (IndexName ixn) (IndexAliasName (IndexName aName))
+                       let indexAlias = IndexAlias (IndexName $ toText ixn) (IndexAliasName (IndexName $ toText aName))
                        IndexAliasSummary indexAlias <$> parseJSON v
 
 
@@ -796,7 +792,7 @@ instance ToJSON IndexAlias where
 
 instance ToJSON IndexAliasCreate where
   toJSON IndexAliasCreate {..} = Object (filterObj <> routingObj)
-    where filterObj = maybe mempty (HM.singleton "filter" . toJSON) aliasCreateFilter
+    where filterObj = maybe mempty (X.singleton "filter" . toJSON) aliasCreateFilter
           Object routingObj = maybe (Object mempty) toJSON aliasCreateRouting
 
 instance ToJSON AliasRouting where
@@ -1469,7 +1465,7 @@ data NodeOSInfo = NodeOSInfo {
       nodeOSRefreshInterval     :: NominalDiffTime
     , nodeOSName                :: Text
     , nodeOSArch                :: Text
-    , nodeOSVersion             :: VersionNumber
+    , nodeOSVersion             :: Text -- semver breaks on "5.10.60.1-microsoft-standard-WSL2"
     , nodeOSAvailableProcessors :: Int
     , nodeOSAllocatedProcessors :: Int
     } deriving (Eq, Show)
@@ -2336,7 +2332,7 @@ instance FromJSON NodeTransportInfo where
       parse o = NodeTransportInfo <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
                                   <*> o .: "publish_address"
                                   <*> o .: "bound_address"
-      parseProfiles (Object o)  | HM.null o = return []
+      parseProfiles (Object o)  | X.null o = return []
       parseProfiles v@(Array _) = parseJSON v
       parseProfiles Null        = return []
       parseProfiles _           = fail "Could not parse profiles"
@@ -2382,3 +2378,4 @@ instance FromJSON VersionNumber where
         case SemVer.fromText t of
           (Left err) -> fail err
           (Right v) -> return (VersionNumber v)
+

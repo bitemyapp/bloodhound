@@ -203,7 +203,7 @@ searchExpectAggs search = do
     (result >>= aggregations >>= isEmpty) `shouldBe` Just False
 
 searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) =>
-                        Search -> Text -> (Text -> AggregationResults -> Maybe (Bucket a)) -> BH IO ()
+                        Search -> Key -> (Key -> AggregationResults -> Maybe (Bucket a)) -> BH IO ()
 searchValidBucketAgg search aggKey extractor = do
   reply <- searchByIndex testIndex search
   let bucketDocs = docCount . head . buckets
@@ -236,9 +236,9 @@ searchExpectSource src expected = do
   let search = (mkSearch (Just query) Nothing) { source = Just src }
   reply <- searchByIndex testIndex search
   result <- parseEsResponse reply
-  let value = grabFirst result
+  let value_ = grabFirst result
   liftIO $
-    value `shouldBe` expected
+    value_ `shouldBe` expected
 
 atleast :: SemVer.Version -> IO Bool
 atleast v = getServerVersion >>= \x -> return $ x >= Just v

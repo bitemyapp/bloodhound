@@ -6,7 +6,7 @@ module Database.Bloodhound.Internal.Suggest where
 
 import           Bloodhound.Import
 
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.KeyMap as X
 
 import           Database.Bloodhound.Internal.Newtypes
 import           Database.Bloodhound.Internal.Query (Query, TemplateQueryKeyValuePairs)
@@ -20,21 +20,21 @@ data Suggest = Suggest
 instance ToJSON Suggest where
   toJSON Suggest{..} =
     object [ "text" .= suggestText
-           , suggestName .= suggestType
+           , fromText suggestName .= suggestType
            ]
 
 instance FromJSON Suggest where
   parseJSON (Object o) = do
     suggestText' <- o .: "text"
     let dropTextList =
-            HM.toList
-          $ HM.filterWithKey (\x _ -> x /= "text") o
+            X.toList
+          $ X.filterWithKey (\x _ -> x /= "text") o
     suggestName' <-
       case dropTextList of
         [(x, _)] -> return x
         _ -> fail "error parsing Suggest field name"
     suggestType' <- o .: suggestName'
-    return $ Suggest suggestText' suggestName' suggestType'
+    return $ Suggest suggestText' (toText suggestName') suggestType'
   parseJSON x = typeMismatch "Suggest" x
 
 data SuggestType =
@@ -187,11 +187,11 @@ data NamedSuggestionResponse = NamedSuggestionResponse
 
 instance FromJSON NamedSuggestionResponse where
   parseJSON (Object o) = do
-    suggestionName' <- case HM.toList o of
+    suggestionName' <- case X.toList o of
                         [(x, _)] -> return x
                         _ -> fail "error parsing NamedSuggestionResponse name"
     suggestionResponses' <- o .: suggestionName'
-    return $ NamedSuggestionResponse suggestionName' suggestionResponses'
+    return $ NamedSuggestionResponse (toText suggestionName') suggestionResponses'
 
   parseJSON x = typeMismatch "NamedSuggestionResponse" x
 

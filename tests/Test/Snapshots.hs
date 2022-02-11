@@ -6,9 +6,8 @@ module Test.Snapshots (spec) where
 import Test.Common
 import Test.Import
 
-import Data.Maybe (fromMaybe)
+import qualified Data.Aeson.KeyMap as X
 import qualified Data.List as L
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Network.HTTP.Types.Method as NHTM
@@ -44,7 +43,7 @@ spec = do
     it "creates and updates with updateSnapshotRepo" $ when' canSnapshot $ withTestEnv $ do
       let r1n = SnapshotRepoName "bloodhound-repo1"
       withSnapshotRepo r1n $ \r1 -> do
-        let Just (String dir) = HM.lookup "location" (gSnapshotRepoSettingsObject (gSnapshotRepoSettings r1))
+        let Just (String dir) = X.lookup "location" (gSnapshotRepoSettingsObject (gSnapshotRepoSettings r1))
         let noCompression = FsSnapshotRepo r1n (T.unpack dir) False Nothing Nothing Nothing
         resp <- updateSnapshotRepo defaultSnapshotRepoUpdateSettings noCompression
         liftIO (validateStatus resp 200)
@@ -134,11 +133,11 @@ getRepoPaths = withTestEnv $ do
   let req = setRequestIgnoreStatus $ initReq { method = NHTM.methodGet }
   Right (Object o) <- parseEsResponse =<< liftIO (httpLbs req (bhManager bhe))
   return $ fromMaybe mempty $ do
-    Object nodes <- HM.lookup "nodes" o
-    Object firstNode <- snd <$> headMay (HM.toList nodes)
-    Object settings <- HM.lookup "settings" firstNode
-    Object path <- HM.lookup "path" settings
-    Array repo <- HM.lookup "repo" path
+    Object nodes <- X.lookup "nodes" o
+    Object firstNode <- snd <$> headMay (X.toList nodes)
+    Object settings <- X.lookup "settings" firstNode
+    Object path <- X.lookup "path" settings
+    Array repo <- X.lookup "repo" path
     return [ T.unpack t | String t <- V.toList repo]
 
 -- | 1.5 and earlier don't care about repo paths

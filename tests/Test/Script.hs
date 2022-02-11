@@ -5,7 +5,7 @@ module Test.Script where
 import Test.Common
 import Test.Import
 
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.KeyMap as X
 import qualified Data.Map as M
 
 spec :: Spec
@@ -20,7 +20,7 @@ spec =
             (ScriptInline "doc['age'].value * 2")
             Nothing
           sf = ScriptFields $
-            HM.fromList [("test1", sfv)]
+            X.fromList [("test1", sfv)]
           search' = mkSearch (Just query) Nothing
           search = search' { scriptFields = Just sf }
       resp <- searchByIndex testIndex search

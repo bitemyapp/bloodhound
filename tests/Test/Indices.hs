@@ -6,8 +6,15 @@ import Test.Common
 import Test.Import
 
 import qualified Data.List as L
-import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
+
+checkHasSettings :: [UpdatableIndexSetting] -> BH IO ()
+checkHasSettings settings = do
+  currentSettingsE <- getIndexSettings testIndex
+  case currentSettingsE of
+    Left err -> fail $ "could not get index settings: " <> show err
+    Right (IndexSettingsSummary _ _ currentSettings) -> liftIO $ L.intersect currentSettings settings `shouldBe` settings
+
 spec :: Spec
 spec = do
   describe "Index create/delete API" $ do
@@ -67,12 +74,7 @@ spec = do
       let updates = BlocksWrite False :| []
       updateResp <- updateIndexSettings updates testIndex
       liftIO $ validateStatus updateResp 200
-      getResp <- getIndexSettings testIndex
-      liftIO $
-        getResp `shouldBe` Right (IndexSettingsSummary
-                                    testIndex
-                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
-                                    (NE.toList updates))
+      checkHasSettings [BlocksWrite False]
 
     it "allows total fields to be set" $ withTestEnv $ do
       _ <- deleteExampleIndex
@@ -80,12 +82,7 @@ spec = do
       let updates = MappingTotalFieldsLimit 2500 :| []
       updateResp <- updateIndexSettings updates testIndex
       liftIO $ validateStatus updateResp 200
-      getResp <- getIndexSettings testIndex
-      liftIO $
-        getResp `shouldBe` Right (IndexSettingsSummary
-                                    testIndex
-                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
-                                    (NE.toList updates))
+      checkHasSettings [MappingTotalFieldsLimit 2500]
 
     it "allows unassigned.node_left.delayed_timeout to be set" $ withTestEnv $ do
       _ <- deleteExampleIndex
@@ -93,12 +90,7 @@ spec = do
       let updates = UnassignedNodeLeftDelayedTimeout 10 :| []
       updateResp <- updateIndexSettings updates testIndex
       liftIO $ validateStatus updateResp 200
-      getResp <- getIndexSettings testIndex
-      liftIO $
-        getResp `shouldBe` Right (IndexSettingsSummary
-                                    testIndex
-                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
-                                    (NE.toList updates))
+      checkHasSettings [UnassignedNodeLeftDelayedTimeout 10]
 
     it "accepts customer analyzers" $ withTestEnv $ do
       _ <- deleteExampleIndex
@@ -145,31 +137,21 @@ spec = do
           updates = [AnalysisSetting analysis]
       createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
       liftIO $ validateStatus createResp 200
-      getResp <- getIndexSettings testIndex
-      liftIO $
-        getResp `shouldBe` Right (IndexSettingsSummary
-                                    testIndex
-                                    (IndexSettings (ShardCount 1) (ReplicaCount 0))
-                                    updates
-                                 )
+      checkHasSettings updates
 
     it "accepts default compression codec" $ withTestEnv $ do
       _ <- deleteExampleIndex
       let updates = [CompressionSetting CompressionDefault]
       createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
       liftIO $ validateStatus createResp 200
-      getResp <- getIndexSettings testIndex
-      liftIO $ getResp `shouldBe` Right
-        (IndexSettingsSummary testIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) updates)
+      checkHasSettings updates
 
     it "accepts best compression codec" $ withTestEnv $ do
       _ <- deleteExampleIndex
       let updates = [CompressionSetting CompressionBest]
       createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
       liftIO $ validateStatus createResp 200
-      getResp <- getIndexSettings testIndex
-      liftIO $ getResp `shouldBe` Right
-        (IndexSettingsSummary testIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) updates)
+      checkHasSettings updates
 
 
   describe "Index Optimization" $ do

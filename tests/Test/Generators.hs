@@ -9,7 +9,7 @@ import           Database.Bloodhound
 
 import           Test.Import
 
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.KeyMap   as X
 import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
@@ -68,8 +68,8 @@ instance Arbitrary HitsTotalRelation where
 instance Arbitrary HitsTotal where
   arbitrary = do
     tot <- getPositive <$> arbitrary
-    relation <- arbitrary
-    return $ HitsTotal tot relation
+    relation_ <- arbitrary
+    return $ HitsTotal tot relation_
 
 instance (Arbitrary a, Typeable a) => Arbitrary (SearchHits a) where
   arbitrary = reduceSize $ do
@@ -129,14 +129,14 @@ instance Arbitrary a => Arbitrary (NonEmpty a) where
 instance Arbitrary ScriptFields where
   arbitrary =
     pure $ ScriptFields $
-      HM.fromList []
+      X.fromList []
 
   shrink = const []
 
 instance Arbitrary ScriptParams where
   arbitrary =
     pure $ ScriptParams $
-      HM.fromList [ ("a", Number 42)
+      X.fromList [ ("a", Number 42)
                   , ("b", String "forty two")
                   ]
 
@@ -236,8 +236,8 @@ instance Arbitrary VersionNumber where
       posInt = getPositive <$> arbitrary
 
 instance Arbitrary TemplateQueryKeyValuePairs where
-  arbitrary = TemplateQueryKeyValuePairs . HM.fromList <$> arbitrary
-  shrink (TemplateQueryKeyValuePairs x) = map (TemplateQueryKeyValuePairs . HM.fromList) . shrink $ HM.toList x
+  arbitrary = TemplateQueryKeyValuePairs . X.fromList <$> arbitrary
+  shrink (TemplateQueryKeyValuePairs x) = map (TemplateQueryKeyValuePairs . X.fromList) . shrink $ X.toList x
 
 makeArbitrary ''IndexName
 instance Arbitrary IndexName where arbitrary = arbitraryIndexName

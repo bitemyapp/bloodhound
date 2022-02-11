@@ -5,7 +5,7 @@ module Test.Query where
 import Test.Common
 import Test.Import
 
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.KeyMap as X
 
 spec :: Spec
 spec =
@@ -111,7 +111,7 @@ spec =
     it "returns document for template query" $ withTestEnv $ do
       _ <- insertData
       let query = SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } } }"
-          templateParams = TemplateQueryKeyValuePairs $ HM.fromList
+          templateParams = TemplateQueryKeyValuePairs $ X.fromList
             [ ("my_field", "user")
             , ("my_value", "bitemyapp")
             ]
@@ -123,7 +123,7 @@ spec =
     it "can save, use, read and delete template queries" $ withTestEnv $ do
       _ <- insertData
       let query = SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } } }"
-          templateParams = TemplateQueryKeyValuePairs $ HM.fromList
+          templateParams = TemplateQueryKeyValuePairs $ X.fromList
             [ ("my_field", "user")
             , ("my_value", "bitemyapp")
             ]
