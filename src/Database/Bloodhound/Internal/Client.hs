@@ -13,6 +13,7 @@ import           Bloodhound.Import
 import qualified Data.Aeson.KeyMap                          as X
 import qualified Data.HashMap.Strict                        as HM
 import           Data.Map.Strict                            (Map)
+import           Data.Maybe                                 (mapMaybe)
 import qualified Data.SemVer                                as SemVer
 import qualified Data.Text                                  as T
 import qualified Data.Traversable                           as DT
@@ -139,13 +140,14 @@ instance FromJSON Status where
 
 data IndexSettings = IndexSettings
   { indexShards   :: ShardCount
-  , indexReplicas :: ReplicaCount }
+  , indexReplicas :: ReplicaCount
+  , indexMappingsLimits :: IndexMappingsLimits }
   deriving (Eq, Show)
 
 instance ToJSON IndexSettings where
-  toJSON (IndexSettings s r) = object ["settings" .=
+  toJSON (IndexSettings s r l) = object ["settings" .=
                                  object ["index" .=
-                                   object ["number_of_shards" .= s, "number_of_replicas" .= r]
+                                   object ["number_of_shards" .= s, "number_of_replicas" .= r, "mapping" .= l]
                                  ]
                                ]
 
@@ -155,14 +157,49 @@ instance FromJSON IndexSettings where
                        i <- s .: "index"
                        IndexSettings <$> i .: "number_of_shards"
                                      <*> i .: "number_of_replicas"
+                                     <*> i .:? "mapping" .!= defaultIndexMappingsLimits
 
 {-| 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and
     2 replicas. -}
 defaultIndexSettings :: IndexSettings
-defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2)
+defaultIndexSettings =  IndexSettings (ShardCount 3) (ReplicaCount 2) defaultIndexMappingsLimits
 -- defaultIndexSettings is exported by Database.Bloodhound as well
 -- no trailing slashes in servers, library handles building the path.
 
+
+{-| 'IndexMappingsLimits is used to configure index's limits.
+   <https://www.elastic.co/guide/en/elasticsearch/reference/master/mapping-settings-limit.html>
+-}
+
+data IndexMappingsLimits = IndexMappingsLimits
+  { indexMappingsLimitDepth :: Maybe Int
+  , indexMappingsLimitNestedFields :: Maybe Int
+  , indexMappingsLimitNestedObjects :: Maybe Int
+  , indexMappingsLimitFieldNameLength :: Maybe Int }
+  deriving (Eq, Show)
+
+instance ToJSON IndexMappingsLimits where
+  toJSON (IndexMappingsLimits d f o n) = object $
+                                            mapMaybe go
+                                              [ ("depth.limit", d)
+                                              , ("nested_fields.limit", f)
+                                              , ("nested_objects.limit", o)
+                                              , ("field_name_length.limit", n)]
+    where go (name, value) = (name .=) <$> value
+
+instance FromJSON IndexMappingsLimits where
+  parseJSON = withObject "IndexMappingsLimits" $ \o ->
+                IndexMappingsLimits
+                  <$> o .:?? "depth"
+                  <*> o .:?? "nested_fields"
+                  <*> o .:?? "nested_objects"
+                  <*> o .:?? "field_name_length"
+    where o .:?? name = optional $ do
+            f <- o .: name
+            f .: "limit"
+
+defaultIndexMappingsLimits :: IndexMappingsLimits
+defaultIndexMappingsLimits =  IndexMappingsLimits Nothing Nothing Nothing Nothing
 
 {-| 'ForceMergeIndexSettings' is used to configure index optimization. See
     <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-forcemerge.html>

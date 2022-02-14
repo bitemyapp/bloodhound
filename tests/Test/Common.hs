@@ -58,7 +58,7 @@ getServerVersion = fmap extractVersion <$> withTestEnv getStatus
 
 createExampleIndex :: (MonadBH m) => m Reply
 createExampleIndex =
-  createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) testIndex
+  createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) testIndex
 
 deleteExampleIndex :: (MonadBH m) => m Reply
 deleteExampleIndex =
