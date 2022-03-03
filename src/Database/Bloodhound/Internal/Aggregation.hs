@@ -412,7 +412,7 @@ instance FromJSON MissingResult where
 
 data TopHitResult a = TopHitResult
   { tarHits :: (SearchHits a)
-  } deriving Show
+  } deriving (Eq, Show)
 
 instance (FromJSON a) => FromJSON (TopHitResult a) where
   parseJSON (Object v) = TopHitResult <$>
@@ -470,7 +470,8 @@ data Hit a =
       , hitSource    :: Maybe a
       , hitSort      :: Maybe SearchAfterKey
       , hitFields    :: Maybe HitFields
-      , hitHighlight :: Maybe HitHighlight } deriving (Eq, Show)
+      , hitHighlight :: Maybe HitHighlight
+      , hitInnerHits :: Maybe (X.KeyMap (TopHitResult Value)) } deriving (Eq, Show)
 
 instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) = Hit <$>
@@ -480,5 +481,7 @@ instance (FromJSON a) => FromJSON (Hit a) where
                          v .:? "_source"  <*>
                          v .:? "sort"     <*>
                          v .:? "fields"   <*>
-                         v .:? "highlight"
+                         v .:? "highlight" <*>
+                         v .:? "inner_hits"
   parseJSON _          = empty
+

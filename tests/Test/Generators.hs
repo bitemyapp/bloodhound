@@ -572,3 +572,6 @@ instance Arbitrary UpdatableIndexSetting' where
       sameAttrName a b =
         nodeAttrFilterName a == nodeAttrFilterName b
   shrink (UpdatableIndexSetting' x) = map UpdatableIndexSetting' (shrink x)
+
+makeArbitrary ''InnerHits
+instance Arbitrary InnerHits where arbitrary = arbitraryInnerHits

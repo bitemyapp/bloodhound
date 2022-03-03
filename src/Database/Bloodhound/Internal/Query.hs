@@ -486,13 +486,16 @@ data NestedQuery =
   NestedQuery
   { nestedQueryPath      :: QueryPath
   , nestedQueryScoreType :: ScoreType
-  , nestedQuery          :: Query } deriving (Eq, Show)
+  , nestedQuery          :: Query
+  , nestedQueryInnerHits :: Maybe InnerHits } deriving (Eq, Show)
 
 instance ToJSON NestedQuery where
-  toJSON (NestedQuery nqPath nqScoreType nqQuery) =
-    object [ "path"       .= nqPath
-           , "score_mode" .= nqScoreType
-           , "query"      .= nqQuery ]
+  toJSON (NestedQuery nqPath nqScoreType nqQuery nqInnerHits) =
+    omitNulls [ "path"       .= nqPath
+              , "score_mode" .= nqScoreType
+              , "query"      .= nqQuery
+              , "inner_hits" .= nqInnerHits
+              ]
 
 instance FromJSON NestedQuery where
   parseJSON = withObject "NestedQuery" parse
@@ -500,6 +503,7 @@ instance FromJSON NestedQuery where
                     <$> o .: "path"
                     <*> o .: "score_mode"
                     <*> o .: "query"
+                    <*> o .:? "inner_hits"
 
 data MoreLikeThisFieldQuery =
   MoreLikeThisFieldQuery
@@ -1626,3 +1630,20 @@ instance ToJSON Fuzziness where
 instance FromJSON Fuzziness where
   parseJSON (String "AUTO") = return FuzzinessAuto
   parseJSON v               = Fuzziness <$> parseJSON v
+
+data InnerHits = InnerHits
+  { innerHitsFrom :: Maybe Integer
+  , innerHitsSize :: Maybe Integer
+  } deriving (Eq, Show)
+
+instance ToJSON InnerHits where
+  toJSON (InnerHits ihFrom ihSize) =
+    omitNulls [ "from" .= ihFrom
+              , "size" .= ihSize
+              ]
+
+instance FromJSON InnerHits where
+  parseJSON = withObject "InnerHits" parse
+    where parse o = InnerHits
+                    <$> o .:? "from"
+                    <*> o .:? "size"

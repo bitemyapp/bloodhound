@@ -246,6 +246,7 @@ module Database.Bloodhound.Types
        , MinChildren(..)
        , MaxChildren(..)
        , ScoreType(..)
+       , InnerHits(..)
        , Score
        , Cache
        , RelationName(..)
