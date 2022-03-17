@@ -57,6 +57,7 @@ module Database.Bloodhound.Client
     -- ** Documents
     indexDocument,
     updateDocument,
+    updateByQuery,
     Requests.getDocument,
     documentExists,
     deleteDocument,
@@ -503,6 +504,17 @@ updateDocument ::
   DocId ->
   m Requests.IndexedDocument
 updateDocument indexName cfg patch docId = performBHRequest $ Requests.updateDocument indexName cfg patch docId
+
+updateByQuery :: MonadBH m => IndexName -> Query -> Maybe Script -> m Reply
+updateByQuery (IndexName indexName) q mScript =
+  bindM2 post url (return body)
+  where
+    url = joinPath [indexName, "_update_by_query"]
+    body = Just . encode $ ("query" .= q) <> scriptObject
+    scriptObject = case toJSON mScript of
+      Null -> mempty
+      Object o -> o
+      json -> "script" .= json
 
 -- | 'deleteDocument' is the primary way to delete a single document.
 --
