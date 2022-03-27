@@ -57,6 +57,7 @@ instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
                   <*> return Nothing
                   <*> arbitrary
                   <*> arbitrary
+                  <*> return Nothing
 
 instance Arbitrary HitFields where
   arbitrary = pure (HitFields M.empty)

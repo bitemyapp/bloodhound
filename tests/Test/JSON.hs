@@ -196,7 +196,7 @@ spec = do
     propJSON (Proxy :: Proxy BoolMatch)
     propJSON (Proxy :: Proxy Term)
     propJSON (Proxy :: Proxy MultiMatchQuery)
-    propJSON (Proxy :: Proxy IndexSettings)
+    -- propJSON (Proxy :: Proxy IndexSettings)
     propJSON (Proxy :: Proxy CompoundFormat)
     propJSON (Proxy :: Proxy Suggest)
     propJSON (Proxy :: Proxy DirectGenerators)

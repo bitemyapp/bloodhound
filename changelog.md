@@ -1,6 +1,16 @@
+0.19.0.0
+========
+- @aveltras
+  - Add InnerHits
+  - Add GHC 9.2.1 support (aeson 2 support)
+- @blackheaven
+  - Add Index mappings limits
+  - Taking maintainer role
+  - Drop GHC 8.0 - 8.8 support
+
 0.18.0.0
 ========
-- @WraithM
+- @blackheaven
   - Fix deleteDocument endpoint
 - @iivanbakel
   - Support ES7

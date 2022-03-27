@@ -1,0 +1,15 @@
+flags:
+  bloodhound-examples:
+    werror: true
+
+packages:
+  - "."
+  - "./examples"
+
+# extra-deps:
+
+resolver: nightly-2022-03-27
+
+nix:
+  enable: true
+  packages: [zlib]

@@ -1,10 +1,10 @@
 name: bloodhound
-version: "0.18.0.0"
+version: "0.19.0.0"
 synopsis: Elasticsearch client library for Haskell
 description: Elasticsearch made awesome for Haskell hackers
 category: Database, Search
 author: Chris Allen
-maintainer: cma@bitemyapp.com
+maintainer: gautier.difolco@gmail.com
 copyright: 2018 Chris Allen
 license: BSD3
 github: bitemyapp/bloodhound.git
@@ -16,7 +16,7 @@ extra-source-files:
 
 dependencies:
   - aeson >=0.11.1
-  - base >=4.3 && <5
+  - base >=4.14 && <5
   - blaze-builder
   - bytestring >=0.10.0
   - containers >=0.5.0.0
