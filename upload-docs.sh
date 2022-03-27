@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 user=$1
@@ -10,7 +10,7 @@ if [ ! -f "$cabal_file" ]; then
 fi
 
 pkg=bloodhound
-ver=0.7.0.1
+ver=0.19.0.0
 
 if [ -z "$pkg" ]; then
   echo "Unable to determine package name"
