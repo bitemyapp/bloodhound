@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
@@ -7,6 +8,7 @@ import           Bloodhound.Import
 
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
+import           GHC.Generics
 
 import           Database.Bloodhound.Internal.Newtypes
 import           Database.Bloodhound.Internal.StringlyTyped
@@ -16,7 +18,7 @@ data Analysis = Analysis
   , analysisTokenizer :: M.Map Text TokenizerDefinition
   , analysisTokenFilter :: M.Map Text TokenFilterDefinition
   , analysisCharFilter :: M.Map Text CharFilterDefinition
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON Analysis where
   toJSON (Analysis analyzer tokenizer tokenFilter charFilter) = object
@@ -35,13 +37,13 @@ instance FromJSON Analysis where
 
 newtype Tokenizer =
   Tokenizer Text
-  deriving (Eq, Show, ToJSON, FromJSON)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 data AnalyzerDefinition = AnalyzerDefinition
   { analyzerDefinitionTokenizer :: Maybe Tokenizer
   , analyzerDefinitionFilter :: [TokenFilter]
   , analyzerDefinitionCharFilter :: [CharFilter]
-  } deriving (Eq,Show)
+  } deriving (Eq,Show, Generic)
 
 instance ToJSON AnalyzerDefinition where
   toJSON (AnalyzerDefinition tokenizer tokenFilter charFilter) =
@@ -94,7 +96,7 @@ instance FromJSON CharFilterDefinition where
 
 newtype TokenizerDefinition =
   TokenizerDefinitionNgram Ngram
-  deriving (Eq,Show)
+  deriving (Eq,Show, Generic)
 
 instance ToJSON TokenizerDefinition where
   toJSON x = case x of
@@ -119,7 +121,7 @@ data Ngram = Ngram
   { ngramMinGram :: Int
   , ngramMaxGram :: Int
   , ngramTokenChars :: [TokenChar]
-  } deriving (Eq,Show)
+  } deriving (Eq,Show, Generic)
 
 data TokenChar =
     TokenLetter
@@ -127,7 +129,7 @@ data TokenChar =
   | TokenWhitespace
   | TokenPunctuation
   | TokenSymbol
-  deriving (Eq,Show)
+  deriving (Eq,Show, Generic)
 
 instance ToJSON TokenChar where
   toJSON t = String $ case t of
@@ -156,7 +158,7 @@ data TokenFilterDefinition
   | TokenFilterDefinitionShingle Shingle
   | TokenFilterDefinitionStemmer Language
   | TokenFilterDefinitionStop (Either Language [StopWord])
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON TokenFilterDefinition where
   toJSON x = case x of
@@ -276,7 +278,7 @@ data Language
   | Swedish
   | Thai
   | Turkish
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON Language where
   toJSON = String . languageToText
@@ -376,4 +378,4 @@ data Shingle = Shingle
   , shingleOutputUnigramsIfNoShingles :: Bool
   , shingleTokenSeparator :: Text
   , shingleFillerToken :: Text
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)

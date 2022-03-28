@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -22,6 +23,7 @@ import           GHC.Enum
 import           Network.HTTP.Client
 import           Text.Read                                  (Read (..))
 import qualified Text.Read                                  as TR
+import           GHC.Generics
 
 import           Database.Bloodhound.Internal.Analysis
 import           Database.Bloodhound.Internal.Newtypes
@@ -102,7 +104,7 @@ data Version = Version { number         :: VersionNumber
                        , build_date     :: UTCTime
                        , build_snapshot :: Bool
                        , lucene_version :: VersionNumber }
-     deriving (Eq, Show)
+     deriving (Eq, Show, Generic)
 
 -- | Traditional software versioning number
 newtype VersionNumber = VersionNumber
@@ -142,7 +144,7 @@ data IndexSettings = IndexSettings
   { indexShards   :: ShardCount
   , indexReplicas :: ReplicaCount
   , indexMappingsLimits :: IndexMappingsLimits }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON IndexSettings where
   toJSON (IndexSettings s r l) = object ["settings" .=
@@ -176,7 +178,7 @@ data IndexMappingsLimits = IndexMappingsLimits
   , indexMappingsLimitNestedFields :: Maybe Int
   , indexMappingsLimitNestedObjects :: Maybe Int
   , indexMappingsLimitFieldNameLength :: Maybe Int }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON IndexMappingsLimits where
   toJSON (IndexMappingsLimits d f o n) = object $
@@ -280,7 +282,7 @@ data UpdatableIndexSetting = NumberOfReplicas ReplicaCount
                            -- ^ Analysis is not a dynamic setting and can only be performed on a closed index.
                            | UnassignedNodeLeftDelayedTimeout NominalDiffTime
                            -- ^ Sets a delay to the allocation of replica shards which become unassigned because a node has left, giving them chance to return. See <https://www.elastic.co/guide/en/elasticsearch/reference/5.6/delayed-allocation.html>
-                           deriving (Eq, Show)
+                           deriving (Eq, Show, Generic)
 
 attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
 attrFilterJSON fs = object [ fromText n .= T.intercalate "," (toList vs)
@@ -432,7 +434,7 @@ data Compression
     -- ^ Compress with DEFLATE. Elastic
     --   <https://www.elastic.co/blog/elasticsearch-storage-the-true-story-2.0 blogs>
     --   that this can reduce disk use by 15%-25%.
-  deriving (Eq,Show)
+  deriving (Eq,Show, Generic)
 
 instance ToJSON Compression where
   toJSON x = case x of
@@ -458,7 +460,7 @@ instance FromJSON Compression where
 -- Bytes 9000
 newtype Bytes =
   Bytes Int
-  deriving (Eq, Show, Ord, ToJSON, FromJSON)
+  deriving (Eq, Show, Generic, Ord, ToJSON, FromJSON)
 
 gigabytes :: Int -> Bytes
 gigabytes n = megabytes (1000 * n)
@@ -473,7 +475,7 @@ kilobytes n = Bytes (1000 * n)
 
 
 data FSType = FSSimple
-            | FSBuffered deriving (Eq, Show)
+            | FSBuffered deriving (Eq, Show, Generic)
 
 instance ToJSON FSType where
   toJSON FSSimple   = "simple"
@@ -490,7 +492,7 @@ data InitialShardCount = QuorumShards
                        | FullShards
                        | FullMinus1Shards
                        | ExplicitShards Int
-                       deriving (Eq, Show)
+                       deriving (Eq, Show, Generic)
 
 instance FromJSON InitialShardCount where
   parseJSON v = withText "InitialShardCount" parseText v
@@ -518,7 +520,7 @@ newtype NodeAttrName = NodeAttrName Text deriving (Eq, Ord, Show)
 data CompoundFormat = CompoundFileFormat Bool
                     | MergeSegmentVsTotalIndex Double
                     -- ^ percentage between 0 and 1 where 0 is false, 1 is true
-                    deriving (Eq, Show)
+                    deriving (Eq, Show, Generic)
 
 instance ToJSON CompoundFormat where
   toJSON (CompoundFileFormat x)       = Bool x
@@ -652,7 +654,7 @@ data AllocationPolicy = AllocAll
                       -- ^ Allows shard allocation only for primary shards for new indices.
                       | AllocNone
                       -- ^ No shard allocation is allowed
-                      deriving (Eq, Show)
+                      deriving (Eq, Show, Generic)
 
 instance ToJSON AllocationPolicy where
   toJSON AllocAll          = String "all"
@@ -784,7 +786,7 @@ data AliasRouting =
 
 newtype SearchAliasRouting =
   SearchAliasRouting (NonEmpty RoutingValue)
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON SearchAliasRouting where
   toJSON (SearchAliasRouting rvs) = toJSON (T.intercalate "," (routingValue <$> toList rvs))
@@ -795,7 +797,7 @@ instance FromJSON SearchAliasRouting where
 
 newtype IndexAliasRouting =
   IndexAliasRouting RoutingValue
-  deriving (Eq, Show, ToJSON, FromJSON)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 newtype RoutingValue =
   RoutingValue { routingValue :: Text }
@@ -989,11 +991,11 @@ data NodeSelector =
 
 {-| 'TemplateName' is used to describe which template to query/create/delete
 -}
-newtype TemplateName = TemplateName Text deriving (Eq, Show, ToJSON, FromJSON)
+newtype TemplateName = TemplateName Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 {-| 'IndexPattern' represents a pattern which is matched against index names
 -}
-newtype IndexPattern = IndexPattern Text deriving (Eq, Show, ToJSON, FromJSON)
+newtype IndexPattern = IndexPattern Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | Username type used for HTTP Basic authentication. See 'basicAuthHook'.
 newtype EsUsername = EsUsername { esUsername :: Text } deriving (Read, Show, Eq)
@@ -1018,7 +1020,7 @@ data SnapshotRepoPattern =
 -- | The unique name of a snapshot repository.
 newtype SnapshotRepoName =
   SnapshotRepoName { snapshotRepoName :: Text }
-  deriving (Eq, Ord, Show, ToJSON, FromJSON)
+  deriving (Eq, Ord, Show, Generic, ToJSON, FromJSON)
 
 
 -- | A generic representation of a snapshot repo. This is what gets
@@ -1351,7 +1353,7 @@ newtype EsAddress = EsAddress { esAddress :: Text }
 
 -- | Typically a 7 character hex string.
 newtype BuildHash = BuildHash { buildHash :: Text }
-                 deriving (Eq, Ord, Show, FromJSON, ToJSON)
+                 deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
 
 newtype PluginName = PluginName { pluginName :: Text }
                  deriving (Eq, Ord, Show, FromJSON)
@@ -1630,7 +1632,7 @@ data FsSnapshotRepo = FsSnapshotRepo {
     -- ^ Throttle node restore rate. If not supplied, defaults to 40mb/sec
     , fsrMaxSnapshotBytesPerSec :: Maybe Bytes
     -- ^ Throttle node snapshot rate. If not supplied, defaults to 40mb/sec
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
 
 
 instance SnapshotRepo FsSnapshotRepo where

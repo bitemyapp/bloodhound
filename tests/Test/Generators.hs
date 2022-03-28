@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE TemplateHaskell            #-}
 
 module Test.Generators where
 
@@ -15,8 +14,8 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.SemVer as SemVer
-import           Test.QuickCheck.TH.Generators
 
+import           Generic.Random
 import           Test.ApproxEq
 
 instance Arbitrary NominalDiffTime where
@@ -240,231 +239,119 @@ instance Arbitrary TemplateQueryKeyValuePairs where
   arbitrary = TemplateQueryKeyValuePairs . X.fromList <$> arbitrary
   shrink (TemplateQueryKeyValuePairs x) = map (TemplateQueryKeyValuePairs . X.fromList) . shrink $ X.toList x
 
-makeArbitrary ''IndexName
-instance Arbitrary IndexName where arbitrary = arbitraryIndexName
-makeArbitrary ''DocId
-instance Arbitrary DocId where arbitrary = arbitraryDocId
-makeArbitrary ''Version
-instance Arbitrary Version where arbitrary = arbitraryVersion
-makeArbitrary ''BuildHash
-instance Arbitrary BuildHash where arbitrary = arbitraryBuildHash
-makeArbitrary ''IndexAliasRouting
-instance Arbitrary IndexAliasRouting where arbitrary = arbitraryIndexAliasRouting
-makeArbitrary ''ShardCount
-instance Arbitrary ShardCount where arbitrary = arbitraryShardCount
-makeArbitrary ''ReplicaCount
-instance Arbitrary ReplicaCount where arbitrary = arbitraryReplicaCount
-makeArbitrary ''TemplateName
-instance Arbitrary TemplateName where arbitrary = arbitraryTemplateName
-makeArbitrary ''IndexPattern
-instance Arbitrary IndexPattern where arbitrary = arbitraryIndexPattern
-makeArbitrary ''QueryString
-instance Arbitrary QueryString where arbitrary = arbitraryQueryString
-makeArbitrary ''CacheName
-instance Arbitrary CacheName where arbitrary = arbitraryCacheName
-makeArbitrary ''CacheKey
-instance Arbitrary CacheKey where arbitrary = arbitraryCacheKey
-makeArbitrary ''Existence
-instance Arbitrary Existence where arbitrary = arbitraryExistence
-makeArbitrary ''CutoffFrequency
-instance Arbitrary CutoffFrequency where arbitrary = arbitraryCutoffFrequency
-makeArbitrary ''Analyzer
-instance Arbitrary Analyzer where arbitrary = arbitraryAnalyzer
-makeArbitrary ''MaxExpansions
-instance Arbitrary MaxExpansions where arbitrary = arbitraryMaxExpansions
-makeArbitrary ''Lenient
-instance Arbitrary Lenient where arbitrary = arbitraryLenient
-makeArbitrary ''Tiebreaker
-instance Arbitrary Tiebreaker where arbitrary = arbitraryTiebreaker
-makeArbitrary ''Boost
-instance Arbitrary Boost where arbitrary = arbitraryBoost
-makeArbitrary ''BoostTerms
-instance Arbitrary BoostTerms where arbitrary = arbitraryBoostTerms
-makeArbitrary ''MinimumMatch
-instance Arbitrary MinimumMatch where arbitrary = arbitraryMinimumMatch
-makeArbitrary ''DisableCoord
-instance Arbitrary DisableCoord where arbitrary = arbitraryDisableCoord
-makeArbitrary ''IgnoreTermFrequency
-instance Arbitrary IgnoreTermFrequency where arbitrary = arbitraryIgnoreTermFrequency
-makeArbitrary ''MinimumTermFrequency
-instance Arbitrary MinimumTermFrequency where arbitrary = arbitraryMinimumTermFrequency
-makeArbitrary ''MaxQueryTerms
-instance Arbitrary MaxQueryTerms where arbitrary = arbitraryMaxQueryTerms
-makeArbitrary ''Fuzziness
-instance Arbitrary Fuzziness where arbitrary = arbitraryFuzziness
-makeArbitrary ''PrefixLength
-instance Arbitrary PrefixLength where arbitrary = arbitraryPrefixLength
-makeArbitrary ''RelationName
-instance Arbitrary RelationName where arbitrary = arbitraryRelationName
-makeArbitrary ''PercentMatch
-instance Arbitrary PercentMatch where arbitrary = arbitraryPercentMatch
-makeArbitrary ''StopWord
-instance Arbitrary StopWord where arbitrary = arbitraryStopWord
-makeArbitrary ''QueryPath
-instance Arbitrary QueryPath where arbitrary = arbitraryQueryPath
-makeArbitrary ''AllowLeadingWildcard
-instance Arbitrary AllowLeadingWildcard where arbitrary = arbitraryAllowLeadingWildcard
-makeArbitrary ''LowercaseExpanded
-instance Arbitrary LowercaseExpanded where arbitrary = arbitraryLowercaseExpanded
-makeArbitrary ''EnablePositionIncrements
-instance Arbitrary EnablePositionIncrements where arbitrary = arbitraryEnablePositionIncrements
-makeArbitrary ''AnalyzeWildcard
-instance Arbitrary AnalyzeWildcard where arbitrary = arbitraryAnalyzeWildcard
-makeArbitrary ''GeneratePhraseQueries
-instance Arbitrary GeneratePhraseQueries where arbitrary = arbitraryGeneratePhraseQueries
-makeArbitrary ''Locale
-instance Arbitrary Locale where arbitrary = arbitraryLocale
-makeArbitrary ''MaxWordLength
-instance Arbitrary MaxWordLength where arbitrary = arbitraryMaxWordLength
-makeArbitrary ''MinWordLength
-instance Arbitrary MinWordLength where arbitrary = arbitraryMinWordLength
-makeArbitrary ''PhraseSlop
-instance Arbitrary PhraseSlop where arbitrary = arbitraryPhraseSlop
-makeArbitrary ''MinDocFrequency
-instance Arbitrary MinDocFrequency where arbitrary = arbitraryMinDocFrequency
-makeArbitrary ''MaxDocFrequency
-instance Arbitrary MaxDocFrequency where arbitrary = arbitraryMaxDocFrequency
-makeArbitrary ''Regexp
-instance Arbitrary Regexp where arbitrary = arbitraryRegexp
-makeArbitrary ''SimpleQueryStringQuery
-instance Arbitrary SimpleQueryStringQuery where arbitrary = arbitrarySimpleQueryStringQuery
-makeArbitrary ''FieldOrFields
-instance Arbitrary FieldOrFields where arbitrary = arbitraryFieldOrFields
-makeArbitrary ''SimpleQueryFlag
-instance Arbitrary SimpleQueryFlag where arbitrary = arbitrarySimpleQueryFlag
-makeArbitrary ''RegexpQuery
-instance Arbitrary RegexpQuery where arbitrary = arbitraryRegexpQuery
-makeArbitrary ''QueryStringQuery
-instance Arbitrary QueryStringQuery where arbitrary = arbitraryQueryStringQuery
-makeArbitrary ''RangeQuery
-instance Arbitrary RangeQuery where arbitrary = arbitraryRangeQuery
-makeArbitrary ''RangeValue
-instance Arbitrary RangeValue where arbitrary = arbitraryRangeValue
-makeArbitrary ''PrefixQuery
-instance Arbitrary PrefixQuery where arbitrary = arbitraryPrefixQuery
-makeArbitrary ''NestedQuery
-instance Arbitrary NestedQuery where arbitrary = arbitraryNestedQuery
-makeArbitrary ''MoreLikeThisFieldQuery
-instance Arbitrary MoreLikeThisFieldQuery where arbitrary = arbitraryMoreLikeThisFieldQuery
-makeArbitrary ''MoreLikeThisQuery
-instance Arbitrary MoreLikeThisQuery where arbitrary = arbitraryMoreLikeThisQuery
-makeArbitrary ''IndicesQuery
-instance Arbitrary IndicesQuery where arbitrary = arbitraryIndicesQuery
-makeArbitrary ''IgnoreUnmapped
-instance Arbitrary IgnoreUnmapped where arbitrary = arbitraryIgnoreUnmapped
-makeArbitrary ''MinChildren
-instance Arbitrary MinChildren where arbitrary = arbitraryMinChildren
-makeArbitrary ''MaxChildren
-instance Arbitrary MaxChildren where arbitrary = arbitraryMaxChildren
-makeArbitrary ''AggregateParentScore
-instance Arbitrary AggregateParentScore where arbitrary = arbitraryAggregateParentScore
-makeArbitrary ''HasParentQuery
-instance Arbitrary HasParentQuery where arbitrary = arbitraryHasParentQuery
-makeArbitrary ''HasChildQuery
-instance Arbitrary HasChildQuery where arbitrary = arbitraryHasChildQuery
-makeArbitrary ''FuzzyQuery
-instance Arbitrary FuzzyQuery where arbitrary = arbitraryFuzzyQuery
-makeArbitrary ''FuzzyLikeFieldQuery
-instance Arbitrary FuzzyLikeFieldQuery where arbitrary = arbitraryFuzzyLikeFieldQuery
-makeArbitrary ''FuzzyLikeThisQuery
-instance Arbitrary FuzzyLikeThisQuery where arbitrary = arbitraryFuzzyLikeThisQuery
-makeArbitrary ''DisMaxQuery
-instance Arbitrary DisMaxQuery where arbitrary = arbitraryDisMaxQuery
-makeArbitrary ''CommonTermsQuery
-instance Arbitrary CommonTermsQuery where arbitrary = arbitraryCommonTermsQuery
-makeArbitrary ''DistanceRange
-instance Arbitrary DistanceRange where arbitrary = arbitraryDistanceRange
-makeArbitrary ''MultiMatchQuery
-instance Arbitrary MultiMatchQuery where arbitrary = arbitraryMultiMatchQuery
-makeArbitrary ''LessThanD
-instance Arbitrary LessThanD where arbitrary = arbitraryLessThanD
-makeArbitrary ''LessThanEqD
-instance Arbitrary LessThanEqD where arbitrary = arbitraryLessThanEqD
-makeArbitrary ''GreaterThanD
-instance Arbitrary GreaterThanD where arbitrary = arbitraryGreaterThanD
-makeArbitrary ''GreaterThanEqD
-instance Arbitrary GreaterThanEqD where arbitrary = arbitraryGreaterThanEqD
-makeArbitrary ''LessThan
-instance Arbitrary LessThan where arbitrary = arbitraryLessThan
-makeArbitrary ''LessThanEq
-instance Arbitrary LessThanEq where arbitrary = arbitraryLessThanEq
-makeArbitrary ''GreaterThan
-instance Arbitrary GreaterThan where arbitrary = arbitraryGreaterThan
-makeArbitrary ''GreaterThanEq
-instance Arbitrary GreaterThanEq where arbitrary = arbitraryGreaterThanEq
-makeArbitrary ''GeoPoint
-instance Arbitrary GeoPoint where arbitrary = arbitraryGeoPoint
-makeArbitrary ''NullValue
-instance Arbitrary NullValue where arbitrary = arbitraryNullValue
-makeArbitrary ''MinimumMatchHighLow
-instance Arbitrary MinimumMatchHighLow where arbitrary = arbitraryMinimumMatchHighLow
-makeArbitrary ''CommonMinimumMatch
-instance Arbitrary CommonMinimumMatch where arbitrary = arbitraryCommonMinimumMatch
-makeArbitrary ''BoostingQuery
-instance Arbitrary BoostingQuery where arbitrary = arbitraryBoostingQuery
-makeArbitrary ''BoolQuery
-instance Arbitrary BoolQuery where arbitrary = arbitraryBoolQuery
-makeArbitrary ''MatchQuery
-instance Arbitrary MatchQuery where arbitrary = arbitraryMatchQuery
-makeArbitrary ''MultiMatchQueryType
-instance Arbitrary MultiMatchQueryType where arbitrary = arbitraryMultiMatchQueryType
-makeArbitrary ''BooleanOperator
-instance Arbitrary BooleanOperator where arbitrary = arbitraryBooleanOperator
-makeArbitrary ''ZeroTermsQuery
-instance Arbitrary ZeroTermsQuery where arbitrary = arbitraryZeroTermsQuery
-makeArbitrary ''MatchQueryType
-instance Arbitrary MatchQueryType where arbitrary = arbitraryMatchQueryType
-makeArbitrary ''SearchAliasRouting
-instance Arbitrary SearchAliasRouting where arbitrary = arbitrarySearchAliasRouting
-makeArbitrary ''ScoreType
-instance Arbitrary ScoreType where arbitrary = arbitraryScoreType
-makeArbitrary ''Distance
-instance Arbitrary Distance where arbitrary = arbitraryDistance
-makeArbitrary ''DistanceUnit
-instance Arbitrary DistanceUnit where arbitrary = arbitraryDistanceUnit
-makeArbitrary ''DistanceType
-instance Arbitrary DistanceType where arbitrary = arbitraryDistanceType
-makeArbitrary ''OptimizeBbox
-instance Arbitrary OptimizeBbox where arbitrary = arbitraryOptimizeBbox
-makeArbitrary ''GeoBoundingBoxConstraint
-instance Arbitrary GeoBoundingBoxConstraint where arbitrary = arbitraryGeoBoundingBoxConstraint
-makeArbitrary ''GeoFilterType
-instance Arbitrary GeoFilterType where arbitrary = arbitraryGeoFilterType
-makeArbitrary ''GeoBoundingBox
-instance Arbitrary GeoBoundingBox where arbitrary = arbitraryGeoBoundingBox
-makeArbitrary ''LatLon
-instance Arbitrary LatLon where arbitrary = arbitraryLatLon
-makeArbitrary ''RangeExecution
-instance Arbitrary RangeExecution where arbitrary = arbitraryRangeExecution
-makeArbitrary ''RegexpFlag
-instance Arbitrary RegexpFlag where arbitrary = arbitraryRegexpFlag
-makeArbitrary ''BoolMatch
-instance Arbitrary BoolMatch where arbitrary = arbitraryBoolMatch
-makeArbitrary ''Term
-instance Arbitrary Term where arbitrary = arbitraryTerm
-makeArbitrary ''IndexMappingsLimits
-instance Arbitrary IndexMappingsLimits where arbitrary = arbitraryIndexMappingsLimits
-makeArbitrary ''IndexSettings
-instance Arbitrary IndexSettings where arbitrary = arbitraryIndexSettings
-makeArbitrary ''TokenChar
-instance Arbitrary TokenChar where arbitrary = arbitraryTokenChar
-makeArbitrary ''Ngram
-instance Arbitrary Ngram where arbitrary = arbitraryNgram
-makeArbitrary ''TokenizerDefinition
-instance Arbitrary TokenizerDefinition where arbitrary = arbitraryTokenizerDefinition
-makeArbitrary ''TokenFilter
-instance Arbitrary TokenFilter where arbitrary = arbitraryTokenFilter
-makeArbitrary ''TokenFilterDefinition
-instance Arbitrary TokenFilterDefinition where arbitrary = arbitraryTokenFilterDefinition
-makeArbitrary ''Language
-instance Arbitrary Language where arbitrary = arbitraryLanguage
-makeArbitrary ''Shingle
-instance Arbitrary Shingle where arbitrary = arbitraryShingle
+instance Arbitrary IndexName where arbitrary = genericArbitraryU
+instance Arbitrary DocId where arbitrary = genericArbitraryU
+instance Arbitrary Version where arbitrary = genericArbitraryU
+instance Arbitrary BuildHash where arbitrary = genericArbitraryU
+instance Arbitrary IndexAliasRouting where arbitrary = genericArbitraryU
+instance Arbitrary ShardCount where arbitrary = genericArbitraryU
+instance Arbitrary ReplicaCount where arbitrary = genericArbitraryU
+instance Arbitrary TemplateName where arbitrary = genericArbitraryU
+instance Arbitrary IndexPattern where arbitrary = genericArbitraryU
+instance Arbitrary QueryString where arbitrary = genericArbitraryU
+instance Arbitrary CacheName where arbitrary = genericArbitraryU
+instance Arbitrary CacheKey where arbitrary = genericArbitraryU
+instance Arbitrary Existence where arbitrary = genericArbitraryU
+instance Arbitrary CutoffFrequency where arbitrary = genericArbitraryU
+instance Arbitrary Analyzer where arbitrary = genericArbitraryU
+instance Arbitrary MaxExpansions where arbitrary = genericArbitraryU
+instance Arbitrary Lenient where arbitrary = genericArbitraryU
+instance Arbitrary Tiebreaker where arbitrary = genericArbitraryU
+instance Arbitrary Boost where arbitrary = genericArbitraryU
+instance Arbitrary BoostTerms where arbitrary = genericArbitraryU
+instance Arbitrary MinimumMatch where arbitrary = genericArbitraryU
+instance Arbitrary DisableCoord where arbitrary = genericArbitraryU
+instance Arbitrary IgnoreTermFrequency where arbitrary = genericArbitraryU
+instance Arbitrary MinimumTermFrequency where arbitrary = genericArbitraryU
+instance Arbitrary MaxQueryTerms where arbitrary = genericArbitraryU
+instance Arbitrary Fuzziness where arbitrary = genericArbitraryU
+instance Arbitrary PrefixLength where arbitrary = genericArbitraryU
+instance Arbitrary RelationName where arbitrary = genericArbitraryU
+instance Arbitrary PercentMatch where arbitrary = genericArbitraryU
+instance Arbitrary StopWord where arbitrary = genericArbitraryU
+instance Arbitrary QueryPath where arbitrary = genericArbitraryU
+instance Arbitrary AllowLeadingWildcard where arbitrary = genericArbitraryU
+instance Arbitrary LowercaseExpanded where arbitrary = genericArbitraryU
+instance Arbitrary EnablePositionIncrements where arbitrary = genericArbitraryU
+instance Arbitrary AnalyzeWildcard where arbitrary = genericArbitraryU
+instance Arbitrary GeneratePhraseQueries where arbitrary = genericArbitraryU
+instance Arbitrary Locale where arbitrary = genericArbitraryU
+instance Arbitrary MaxWordLength where arbitrary = genericArbitraryU
+instance Arbitrary MinWordLength where arbitrary = genericArbitraryU
+instance Arbitrary PhraseSlop where arbitrary = genericArbitraryU
+instance Arbitrary MinDocFrequency where arbitrary = genericArbitraryU
+instance Arbitrary MaxDocFrequency where arbitrary = genericArbitraryU
+instance Arbitrary Regexp where arbitrary = genericArbitraryU
+instance Arbitrary SimpleQueryStringQuery where arbitrary = genericArbitraryU
+instance Arbitrary FieldOrFields where arbitrary = genericArbitraryU
+instance Arbitrary SimpleQueryFlag where arbitrary = genericArbitraryU
+instance Arbitrary RegexpQuery where arbitrary = genericArbitraryU
+instance Arbitrary QueryStringQuery where arbitrary = genericArbitraryU
+instance Arbitrary RangeQuery where arbitrary = genericArbitraryU
+instance Arbitrary RangeValue where arbitrary = genericArbitraryU
+instance Arbitrary PrefixQuery where arbitrary = genericArbitraryU
+instance Arbitrary NestedQuery where arbitrary = genericArbitraryU
+instance Arbitrary MoreLikeThisFieldQuery where arbitrary = genericArbitraryU
+instance Arbitrary MoreLikeThisQuery where arbitrary = genericArbitraryU
+instance Arbitrary IndicesQuery where arbitrary = genericArbitraryU
+instance Arbitrary IgnoreUnmapped where arbitrary = genericArbitraryU
+instance Arbitrary MinChildren where arbitrary = genericArbitraryU
+instance Arbitrary MaxChildren where arbitrary = genericArbitraryU
+instance Arbitrary AggregateParentScore where arbitrary = genericArbitraryU
+instance Arbitrary HasParentQuery where arbitrary = genericArbitraryU
+instance Arbitrary HasChildQuery where arbitrary = genericArbitraryU
+instance Arbitrary FuzzyQuery where arbitrary = genericArbitraryU
+instance Arbitrary FuzzyLikeFieldQuery where arbitrary = genericArbitraryU
+instance Arbitrary FuzzyLikeThisQuery where arbitrary = genericArbitraryU
+instance Arbitrary DisMaxQuery where arbitrary = genericArbitraryU
+instance Arbitrary CommonTermsQuery where arbitrary = genericArbitraryU
+instance Arbitrary DistanceRange where arbitrary = genericArbitraryU
+instance Arbitrary MultiMatchQuery where arbitrary = genericArbitraryU
+instance Arbitrary LessThanD where arbitrary = genericArbitraryU
+instance Arbitrary LessThanEqD where arbitrary = genericArbitraryU
+instance Arbitrary GreaterThanD where arbitrary = genericArbitraryU
+instance Arbitrary GreaterThanEqD where arbitrary = genericArbitraryU
+instance Arbitrary LessThan where arbitrary = genericArbitraryU
+instance Arbitrary LessThanEq where arbitrary = genericArbitraryU
+instance Arbitrary GreaterThan where arbitrary = genericArbitraryU
+instance Arbitrary GreaterThanEq where arbitrary = genericArbitraryU
+instance Arbitrary GeoPoint where arbitrary = genericArbitraryU
+instance Arbitrary NullValue where arbitrary = genericArbitraryU
+instance Arbitrary MinimumMatchHighLow where arbitrary = genericArbitraryU
+instance Arbitrary CommonMinimumMatch where arbitrary = genericArbitraryU
+instance Arbitrary BoostingQuery where arbitrary = genericArbitraryU
+instance Arbitrary BoolQuery where arbitrary = genericArbitraryU
+instance Arbitrary MatchQuery where arbitrary = genericArbitraryU
+instance Arbitrary MultiMatchQueryType where arbitrary = genericArbitraryU
+instance Arbitrary BooleanOperator where arbitrary = genericArbitraryU
+instance Arbitrary ZeroTermsQuery where arbitrary = genericArbitraryU
+instance Arbitrary MatchQueryType where arbitrary = genericArbitraryU
+instance Arbitrary SearchAliasRouting where arbitrary = genericArbitraryU
+instance Arbitrary ScoreType where arbitrary = genericArbitraryU
+instance Arbitrary Distance where arbitrary = genericArbitraryU
+instance Arbitrary DistanceUnit where arbitrary = genericArbitraryU
+instance Arbitrary DistanceType where arbitrary = genericArbitraryU
+instance Arbitrary OptimizeBbox where arbitrary = genericArbitraryU
+instance Arbitrary GeoBoundingBoxConstraint where arbitrary = genericArbitraryU
+instance Arbitrary GeoFilterType where arbitrary = genericArbitraryU
+instance Arbitrary GeoBoundingBox where arbitrary = genericArbitraryU
+instance Arbitrary LatLon where arbitrary = genericArbitraryU
+instance Arbitrary RangeExecution where arbitrary = genericArbitraryU
+instance Arbitrary RegexpFlag where arbitrary = genericArbitraryU
+instance Arbitrary BoolMatch where arbitrary = genericArbitraryU
+instance Arbitrary Term where arbitrary = genericArbitraryU
+instance Arbitrary IndexMappingsLimits where arbitrary = genericArbitraryU
+instance Arbitrary IndexSettings where arbitrary = genericArbitraryU
+instance Arbitrary TokenChar where arbitrary = genericArbitraryU
+instance Arbitrary Ngram where arbitrary = genericArbitraryU
+instance Arbitrary TokenizerDefinition where arbitrary = genericArbitraryU
+instance Arbitrary TokenFilter where arbitrary = genericArbitraryU
+instance Arbitrary TokenFilterDefinition where arbitrary = genericArbitraryU
+instance Arbitrary Language where arbitrary = genericArbitraryU
+instance Arbitrary Shingle where arbitrary = genericArbitraryU
 
-makeArbitrary ''CharFilter
-instance Arbitrary CharFilter where arbitrary = arbitraryCharFilter
-makeArbitrary ''AnalyzerDefinition
-instance Arbitrary AnalyzerDefinition where arbitrary = arbitraryAnalyzerDefinition
+instance Arbitrary CharFilter where arbitrary = genericArbitraryU
+instance Arbitrary AnalyzerDefinition where arbitrary = genericArbitraryU
 
 -- TODO: This should have a proper generator that doesn't
 -- create garbage that has to be filtered out.
@@ -479,78 +366,44 @@ instance Arbitrary CharFilterDefinition where
               M.map T.strip
             . M.mapKeys (T.replace "=>" "" . T.strip)
 
-makeArbitrary ''Analysis
-instance Arbitrary Analysis where arbitrary = arbitraryAnalysis
-makeArbitrary ''Tokenizer
-instance Arbitrary Tokenizer where arbitrary = arbitraryTokenizer
-makeArbitrary ''Compression
-instance Arbitrary Compression where arbitrary = arbitraryCompression
-makeArbitrary ''Bytes
-instance Arbitrary Bytes where arbitrary = arbitraryBytes
-makeArbitrary ''AllocationPolicy
-instance Arbitrary AllocationPolicy where arbitrary = arbitraryAllocationPolicy
-makeArbitrary ''InitialShardCount
-instance Arbitrary InitialShardCount where arbitrary = arbitraryInitialShardCount
-makeArbitrary ''FSType
-instance Arbitrary FSType where arbitrary = arbitraryFSType
-makeArbitrary ''CompoundFormat
-instance Arbitrary CompoundFormat where arbitrary = arbitraryCompoundFormat
-makeArbitrary ''FsSnapshotRepo
-instance Arbitrary FsSnapshotRepo where arbitrary = arbitraryFsSnapshotRepo
-makeArbitrary ''SnapshotRepoName
-instance Arbitrary SnapshotRepoName where arbitrary = arbitrarySnapshotRepoName
-makeArbitrary ''DirectGeneratorSuggestModeTypes
-instance Arbitrary DirectGeneratorSuggestModeTypes where arbitrary = arbitraryDirectGeneratorSuggestModeTypes
-makeArbitrary ''DirectGenerators
-instance Arbitrary DirectGenerators where arbitrary = arbitraryDirectGenerators
-makeArbitrary ''PhraseSuggesterCollate
-instance Arbitrary PhraseSuggesterCollate where arbitrary = arbitraryPhraseSuggesterCollate
-makeArbitrary ''PhraseSuggesterHighlighter
-instance Arbitrary PhraseSuggesterHighlighter where arbitrary = arbitraryPhraseSuggesterHighlighter
-makeArbitrary ''Size
-instance Arbitrary Size where arbitrary = arbitrarySize
-makeArbitrary ''PhraseSuggester
-instance Arbitrary PhraseSuggester where arbitrary = arbitraryPhraseSuggester
-makeArbitrary ''SuggestType
-instance Arbitrary SuggestType where arbitrary = arbitrarySuggestType
-makeArbitrary ''Suggest
-instance Arbitrary Suggest where arbitrary = arbitrarySuggest
+instance Arbitrary Analysis where arbitrary = genericArbitraryU
+instance Arbitrary Tokenizer where arbitrary = genericArbitraryU
+instance Arbitrary Compression where arbitrary = genericArbitraryU
+instance Arbitrary Bytes where arbitrary = genericArbitraryU
+instance Arbitrary AllocationPolicy where arbitrary = genericArbitraryU
+instance Arbitrary InitialShardCount where arbitrary = genericArbitraryU
+instance Arbitrary FSType where arbitrary = genericArbitraryU
+instance Arbitrary CompoundFormat where arbitrary = genericArbitraryU
+instance Arbitrary FsSnapshotRepo where arbitrary = genericArbitraryU
+instance Arbitrary SnapshotRepoName where arbitrary = genericArbitraryU
+instance Arbitrary DirectGeneratorSuggestModeTypes where arbitrary = genericArbitraryU
+instance Arbitrary DirectGenerators where arbitrary = genericArbitraryU
+instance Arbitrary PhraseSuggesterCollate where arbitrary = genericArbitraryU
+instance Arbitrary PhraseSuggesterHighlighter where arbitrary = genericArbitraryU
+instance Arbitrary Size where arbitrary = genericArbitraryU
+instance Arbitrary PhraseSuggester where arbitrary = genericArbitraryU
+instance Arbitrary SuggestType where arbitrary = genericArbitraryU
+instance Arbitrary Suggest where arbitrary = genericArbitraryU
 
-makeArbitrary ''FunctionScoreQuery
-instance Arbitrary FunctionScoreQuery where arbitrary = arbitraryFunctionScoreQuery
+instance Arbitrary FunctionScoreQuery where arbitrary = genericArbitraryU
 
-makeArbitrary ''FunctionScoreFunction
-instance Arbitrary FunctionScoreFunction where arbitrary = arbitraryFunctionScoreFunction
-makeArbitrary ''FunctionScoreFunctions
-instance Arbitrary FunctionScoreFunctions where arbitrary = arbitraryFunctionScoreFunctions
-makeArbitrary ''ComponentFunctionScoreFunction
-instance Arbitrary ComponentFunctionScoreFunction where arbitrary = arbitraryComponentFunctionScoreFunction
-makeArbitrary ''Script
-instance Arbitrary Script where arbitrary = arbitraryScript
-makeArbitrary ''ScriptLanguage
-instance Arbitrary ScriptLanguage where arbitrary = arbitraryScriptLanguage
-makeArbitrary ''ScriptSource
-instance Arbitrary ScriptSource where arbitrary = arbitraryScriptSource
-makeArbitrary ''ScoreMode
-instance Arbitrary ScoreMode where arbitrary = arbitraryScoreMode
-makeArbitrary ''BoostMode
-instance Arbitrary BoostMode where arbitrary = arbitraryBoostMode
-makeArbitrary ''Seed
-instance Arbitrary Seed where arbitrary = arbitrarySeed
-makeArbitrary ''FieldValueFactor
-instance Arbitrary FieldValueFactor where arbitrary = arbitraryFieldValueFactor
-makeArbitrary ''Weight
-instance Arbitrary Weight where arbitrary = arbitraryWeight
-makeArbitrary ''Factor
-instance Arbitrary Factor where arbitrary = arbitraryFactor
-makeArbitrary ''FactorMissingFieldValue
-instance Arbitrary FactorMissingFieldValue where arbitrary = arbitraryFactorMissingFieldValue
-makeArbitrary ''FactorModifier
-instance Arbitrary FactorModifier where arbitrary = arbitraryFactorModifier
+instance Arbitrary FunctionScoreFunction where arbitrary = genericArbitraryU
+instance Arbitrary FunctionScoreFunctions where arbitrary = genericArbitraryU
+instance Arbitrary ComponentFunctionScoreFunction where arbitrary = genericArbitraryU
+instance Arbitrary Script where arbitrary = genericArbitraryU
+instance Arbitrary ScriptLanguage where arbitrary = genericArbitraryU
+instance Arbitrary ScriptSource where arbitrary = genericArbitraryU
+instance Arbitrary ScoreMode where arbitrary = genericArbitraryU
+instance Arbitrary BoostMode where arbitrary = genericArbitraryU
+instance Arbitrary Seed where arbitrary = genericArbitraryU
+instance Arbitrary FieldValueFactor where arbitrary = genericArbitraryU
+instance Arbitrary Weight where arbitrary = genericArbitraryU
+instance Arbitrary Factor where arbitrary = genericArbitraryU
+instance Arbitrary FactorMissingFieldValue where arbitrary = genericArbitraryU
+instance Arbitrary FactorModifier where arbitrary = genericArbitraryU
 
-makeArbitrary ''UpdatableIndexSetting
 instance Arbitrary UpdatableIndexSetting where
-  arbitrary = resize 10 arbitraryUpdatableIndexSetting
+  arbitrary = resize 10 genericArbitraryU
 
 newtype UpdatableIndexSetting' =
   UpdatableIndexSetting' UpdatableIndexSetting
@@ -574,5 +427,4 @@ instance Arbitrary UpdatableIndexSetting' where
         nodeAttrFilterName a == nodeAttrFilterName b
   shrink (UpdatableIndexSetting' x) = map UpdatableIndexSetting' (shrink x)
 
-makeArbitrary ''InnerHits
-instance Arbitrary InnerHits where arbitrary = arbitraryInnerHits
+instance Arbitrary InnerHits where arbitrary = genericArbitraryU

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -12,6 +13,7 @@ import           Bloodhound.Import
 import qualified Data.Aeson.KeyMap   as X
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text           as T
+import           GHC.Generics
 
 import           Database.Bloodhound.Common.Script as X
 import           Database.Bloodhound.Internal.Newtypes
@@ -46,7 +48,7 @@ data Query =
   | QueryExistsQuery            FieldName
   | QueryMatchNoneQuery
   | QueryWildcardQuery          WildcardQuery
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON Query where
   toJSON (TermQuery (Term termQueryField termQueryValue) boost) =
@@ -229,7 +231,7 @@ data RegexpQuery =
               , regexpQuery      :: Regexp
               , regexpQueryFlags :: RegexpFlags
               , regexpQueryBoost :: Maybe Boost
-              } deriving (Eq, Show)
+              } deriving (Eq, Show, Generic)
 
 instance ToJSON RegexpQuery where
   toJSON (RegexpQuery (FieldName rqQueryField)
@@ -252,7 +254,7 @@ data WildcardQuery =
   WildcardQuery { wildcardQueryField :: FieldName
                 , wildcardQuery      :: Key
                 , wildcardQueryBoost :: Maybe Boost
-              } deriving (Eq, Show)
+              } deriving (Eq, Show, Generic)
 
 instance ToJSON WildcardQuery where
   toJSON (WildcardQuery (FieldName wcQueryField)
@@ -271,7 +273,7 @@ instance FromJSON WildcardQuery where
 data RangeQuery =
   RangeQuery { rangeQueryField :: FieldName
              , rangeQueryRange :: RangeValue
-             , rangeQueryBoost :: Boost } deriving (Eq, Show)
+             , rangeQueryBoost :: Boost } deriving (Eq, Show, Generic)
 
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) range boost) =
@@ -298,7 +300,7 @@ data SimpleQueryStringQuery =
     , simpleQueryStringFlags             :: Maybe (NonEmpty SimpleQueryFlag)
     , simpleQueryStringLowercaseExpanded :: Maybe LowercaseExpanded
     , simpleQueryStringLocale            :: Maybe Locale
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
 
 
 instance ToJSON SimpleQueryStringQuery where
@@ -336,7 +338,7 @@ data SimpleQueryFlag =
   | SimpleQueryWhitespace
   | SimpleQueryFuzzy
   | SimpleQueryNear
-  | SimpleQuerySlop deriving (Eq, Show)
+  | SimpleQuerySlop deriving (Eq, Show, Generic)
 
 instance ToJSON SimpleQueryFlag where
   toJSON SimpleQueryAll        = "ALL"
@@ -388,7 +390,7 @@ data QueryStringQuery =
   , queryStringMinimumShouldMatch       :: Maybe MinimumMatch
   , queryStringLenient                  :: Maybe Lenient
   , queryStringLocale                   :: Maybe Locale
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 
 instance ToJSON QueryStringQuery where
@@ -451,7 +453,7 @@ mkQueryStringQuery qs =
   Nothing Nothing
 
 data FieldOrFields = FofField   FieldName
-                   | FofFields (NonEmpty FieldName) deriving (Eq, Show)
+                   | FofFields (NonEmpty FieldName) deriving (Eq, Show, Generic)
 
 instance ToJSON FieldOrFields where
   toJSON (FofField fieldName) =
@@ -467,7 +469,7 @@ data PrefixQuery =
   PrefixQuery
   { prefixQueryField       :: FieldName
   , prefixQueryPrefixValue :: Text
-  , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Show)
+  , prefixQueryBoost       :: Maybe Boost } deriving (Eq, Show, Generic)
 
 instance ToJSON PrefixQuery where
   toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =
@@ -487,7 +489,7 @@ data NestedQuery =
   { nestedQueryPath      :: QueryPath
   , nestedQueryScoreType :: ScoreType
   , nestedQuery          :: Query
-  , nestedQueryInnerHits :: Maybe InnerHits } deriving (Eq, Show)
+  , nestedQueryInnerHits :: Maybe InnerHits } deriving (Eq, Show, Generic)
 
 instance ToJSON NestedQuery where
   toJSON (NestedQuery nqPath nqScoreType nqQuery nqInnerHits) =
@@ -521,7 +523,7 @@ data MoreLikeThisFieldQuery =
   , moreLikeThisFieldBoostTerms      :: Maybe BoostTerms
   , moreLikeThisFieldBoost           :: Maybe Boost
   , moreLikeThisFieldAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 
 instance ToJSON MoreLikeThisFieldQuery where
@@ -578,7 +580,7 @@ data MoreLikeThisQuery =
   , moreLikeThisBoostTerms      :: Maybe BoostTerms
   , moreLikeThisBoost           :: Maybe Boost
   , moreLikeThisAnalyzer        :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 
 instance ToJSON MoreLikeThisQuery where
@@ -625,7 +627,7 @@ data IndicesQuery =
   { indicesQueryIndices :: [IndexName]
   , indicesQuery        :: Query
     -- default "all"
-  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Show)
+  , indicesQueryNoMatch :: Maybe Query } deriving (Eq, Show, Generic)
 
 
 instance ToJSON IndicesQuery where
@@ -647,7 +649,7 @@ data HasParentQuery =
   , hasParentQuery          :: Query
   , hasParentQueryScore     :: Maybe AggregateParentScore
   , hasParentIgnoreUnmapped :: Maybe IgnoreUnmapped
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON HasParentQuery where
   toJSON (HasParentQuery queryType query scoreType ignoreUnmapped) =
@@ -673,7 +675,7 @@ data HasChildQuery =
   , hasChildIgnoreUnmappped :: Maybe IgnoreUnmapped
   , hasChildMinChildren     :: Maybe MinChildren
   , hasChildMaxChildren     :: Maybe MaxChildren
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON HasChildQuery where
   toJSON (HasChildQuery queryType query scoreType ignoreUnmapped minChildren maxChildren) =
@@ -699,7 +701,7 @@ data ScoreType =
     ScoreTypeMax
   | ScoreTypeSum
   | ScoreTypeAvg
-  | ScoreTypeNone deriving (Eq, Show)
+  | ScoreTypeNone deriving (Eq, Show, Generic)
 
 instance ToJSON ScoreType where
   toJSON ScoreTypeMax  = "max"
@@ -722,7 +724,7 @@ data FuzzyQuery =
              , fuzzyQueryMaxExpansions :: MaxExpansions
              , fuzzyQueryFuzziness     :: Fuzziness
              , fuzzyQueryBoost         :: Maybe Boost
-             } deriving (Eq, Show)
+             } deriving (Eq, Show, Generic)
 
 
 instance ToJSON FuzzyQuery where
@@ -756,7 +758,7 @@ data FuzzyLikeFieldQuery =
   , fuzzyLikeFieldPrefixLength        :: PrefixLength
   , fuzzyLikeFieldBoost               :: Boost
   , fuzzyLikeFieldAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 
 instance ToJSON FuzzyLikeFieldQuery where
@@ -794,7 +796,7 @@ data FuzzyLikeThisQuery =
   , fuzzyLikePrefixLength        :: PrefixLength
   , fuzzyLikeBoost               :: Boost
   , fuzzyLikeAnalyzer            :: Maybe Analyzer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 
 instance ToJSON FuzzyLikeThisQuery where
@@ -827,7 +829,7 @@ data DisMaxQuery =
                 -- default 0.0
               , disMaxTiebreaker :: Tiebreaker
               , disMaxBoost      :: Maybe Boost
-              } deriving (Eq, Show)
+              } deriving (Eq, Show, Generic)
 
 
 instance ToJSON DisMaxQuery where
@@ -857,7 +859,7 @@ data MatchQuery = MatchQuery
   , matchQueryBoost              :: Maybe Boost
   , matchQueryMinimumShouldMatch :: Maybe Text
   , matchQueryFuzziness          :: Maybe Fuzziness
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 
 instance ToJSON MatchQuery where
@@ -905,7 +907,7 @@ mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothi
 
 data MatchQueryType =
     MatchPhrase
-  | MatchPhrasePrefix deriving (Eq, Show)
+  | MatchPhrasePrefix deriving (Eq, Show, Generic)
 
 instance ToJSON MatchQueryType where
   toJSON MatchPhrase       = "phrase"
@@ -928,7 +930,7 @@ data MultiMatchQuery = MultiMatchQuery
   , multiMatchQueryAnalyzer        :: Maybe Analyzer
   , multiMatchQueryMaxExpansions   :: Maybe MaxExpansions
   , multiMatchQueryLenient         :: Maybe Lenient
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON MultiMatchQuery where
   toJSON (MultiMatchQuery fields (QueryString query) boolOp
@@ -975,7 +977,7 @@ data MultiMatchQueryType =
   | MultiMatchMostFields
   | MultiMatchCrossFields
   | MultiMatchPhrase
-  | MultiMatchPhrasePrefix deriving (Eq, Show)
+  | MultiMatchPhrasePrefix deriving (Eq, Show, Generic)
 
 instance ToJSON MultiMatchQueryType where
   toJSON MultiMatchBestFields   = "best_fields"
@@ -1001,7 +1003,7 @@ data BoolQuery =
             , boolQueryMinimumShouldMatch :: Maybe MinimumMatch
             , boolQueryBoost              :: Maybe Boost
             , boolQueryDisableCoord       :: Maybe DisableCoord
-            } deriving (Eq, Show)
+            } deriving (Eq, Show, Generic)
 
 
 instance ToJSON BoolQuery where
@@ -1033,7 +1035,7 @@ mkBoolQuery must filt mustNot should =
 data BoostingQuery =
   BoostingQuery { positiveQuery :: Query
                 , negativeQuery :: Query
-                , negativeBoost :: Boost } deriving (Eq, Show)
+                , negativeBoost :: Boost } deriving (Eq, Show, Generic)
 
 instance ToJSON BoostingQuery where
   toJSON (BoostingQuery bqPositiveQuery bqNegativeQuery bqNegativeBoost) =
@@ -1058,7 +1060,7 @@ data CommonTermsQuery =
                    , commonBoost              :: Maybe Boost
                    , commonAnalyzer           :: Maybe Analyzer
                    , commonDisableCoord       :: Maybe DisableCoord
-                   } deriving (Eq, Show)
+                   } deriving (Eq, Show, Generic)
 
 
 instance ToJSON CommonTermsQuery where
@@ -1091,7 +1093,7 @@ instance FromJSON CommonTermsQuery where
 data CommonMinimumMatch =
     CommonMinimumMatchHighLow MinimumMatchHighLow
   | CommonMinimumMatch        MinimumMatch
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 
 instance ToJSON CommonMinimumMatch where
@@ -1111,11 +1113,11 @@ instance FromJSON CommonMinimumMatch where
 
 data MinimumMatchHighLow =
   MinimumMatchHighLow { lowFreq  :: MinimumMatch
-                      , highFreq :: MinimumMatch } deriving (Eq, Show)
+                      , highFreq :: MinimumMatch } deriving (Eq, Show, Generic)
 
 data ZeroTermsQuery =
     ZeroTermsNone
-  | ZeroTermsAll deriving (Eq, Show)
+  | ZeroTermsAll deriving (Eq, Show, Generic)
 
 instance ToJSON ZeroTermsQuery where
   toJSON ZeroTermsNone = String "none"
@@ -1128,7 +1130,7 @@ instance FromJSON ZeroTermsQuery where
           parse q      = fail ("Unexpected ZeroTermsQuery: " <> show q)
 
 data RangeExecution = RangeExecutionIndex
-                    | RangeExecutionFielddata deriving (Eq, Show)
+                    | RangeExecutionFielddata deriving (Eq, Show, Generic)
 
 -- index for smaller ranges, fielddata for longer ranges
 instance ToJSON RangeExecution where
@@ -1142,11 +1144,11 @@ instance FromJSON RangeExecution where
           parse "fielddata" = pure RangeExecutionFielddata
           parse t           = error ("Unrecognized RangeExecution " <> show t)
 
-newtype Regexp = Regexp Text deriving (Eq, Show, FromJSON)
+newtype Regexp = Regexp Text deriving (Eq, Show, Generic, FromJSON)
 
 data RegexpFlags = AllRegexpFlags
                  | NoRegexpFlags
-                 | SomeRegexpFlags (NonEmpty RegexpFlag) deriving (Eq, Show)
+                 | SomeRegexpFlags (NonEmpty RegexpFlag) deriving (Eq, Show, Generic)
 
 instance ToJSON RegexpFlags where
   toJSON AllRegexpFlags              = String "ALL"
@@ -1171,7 +1173,7 @@ data RegexpFlag = AnyString
                 | Complement
                 | Empty
                 | Intersection
-                | Interval deriving (Eq, Show)
+                | Interval deriving (Eq, Show, Generic)
 
 instance FromJSON RegexpFlag where
   parseJSON = withText "RegexpFlag" parse
@@ -1183,15 +1185,15 @@ instance FromJSON RegexpFlag where
           parse "INTERVAL"     = pure Interval
           parse f              = fail ("Unknown RegexpFlag: " <> show f)
 
-newtype LessThan = LessThan Double deriving (Eq, Show)
-newtype LessThanEq = LessThanEq Double deriving (Eq, Show)
-newtype GreaterThan = GreaterThan Double deriving (Eq, Show)
-newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Show)
+newtype LessThan = LessThan Double deriving (Eq, Show, Generic)
+newtype LessThanEq = LessThanEq Double deriving (Eq, Show, Generic)
+newtype GreaterThan = GreaterThan Double deriving (Eq, Show, Generic)
+newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Show, Generic)
 
-newtype LessThanD = LessThanD UTCTime deriving (Eq, Show)
-newtype LessThanEqD = LessThanEqD UTCTime deriving (Eq, Show)
-newtype GreaterThanD = GreaterThanD UTCTime deriving (Eq, Show)
-newtype GreaterThanEqD = GreaterThanEqD UTCTime deriving (Eq, Show)
+newtype LessThanD = LessThanD UTCTime deriving (Eq, Show, Generic)
+newtype LessThanEqD = LessThanEqD UTCTime deriving (Eq, Show, Generic)
+newtype GreaterThanD = GreaterThanD UTCTime deriving (Eq, Show, Generic)
+newtype GreaterThanEqD = GreaterThanEqD UTCTime deriving (Eq, Show, Generic)
 
 data RangeValue = RangeDateLte LessThanEqD
                 | RangeDateLt LessThanD
@@ -1209,7 +1211,7 @@ data RangeValue = RangeDateLte LessThanEqD
                 | RangeDoubleGteLte GreaterThanEq LessThanEq
                 | RangeDoubleGteLt GreaterThanEq LessThan
                 | RangeDoubleGtLte GreaterThan LessThanEq
-                deriving (Eq, Show)
+                deriving (Eq, Show, Generic)
 
 
 parseRangeValue :: ( FromJSON t4
@@ -1303,7 +1305,7 @@ rangeValueToPair rv = case rv of
   RangeDoubleGtLt (GreaterThan l) (LessThan g)       -> ["gt"  .= l, "lt"  .= g]
 
 data Term = Term { termField :: Key
-                 , termValue :: Text } deriving (Eq, Show)
+                 , termValue :: Text } deriving (Eq, Show, Generic)
 
 instance ToJSON Term where
   toJSON (Term field value) = object ["term" .= object
@@ -1318,7 +1320,7 @@ instance FromJSON Term where
 
 data BoolMatch = MustMatch    Term  Cache
                | MustNotMatch Term  Cache
-               | ShouldMatch [Term] Cache deriving (Eq, Show)
+               | ShouldMatch [Term] Cache deriving (Eq, Show, Generic)
 
 
 instance ToJSON BoolMatch where
@@ -1341,7 +1343,7 @@ instance FromJSON BoolMatch where
 
 -- "memory" or "indexed"
 data GeoFilterType = GeoFilterMemory
-                   | GeoFilterIndexed deriving (Eq, Show)
+                   | GeoFilterIndexed deriving (Eq, Show, Generic)
 
 instance ToJSON GeoFilterType where
   toJSON GeoFilterMemory  = String "memory"
@@ -1354,7 +1356,7 @@ instance FromJSON GeoFilterType where
           parse t         = fail ("Unrecognized GeoFilterType: " <> show t)
 
 data LatLon = LatLon { lat :: Double
-                     , lon :: Double } deriving (Eq, Show)
+                     , lon :: Double } deriving (Eq, Show, Generic)
 
 instance ToJSON LatLon where
   toJSON (LatLon lLat lLon) =
@@ -1368,7 +1370,7 @@ instance FromJSON LatLon where
 
 data GeoBoundingBox =
   GeoBoundingBox { topLeft     :: LatLon
-                 , bottomRight :: LatLon } deriving (Eq, Show)
+                 , bottomRight :: LatLon } deriving (Eq, Show, Generic)
 
 instance ToJSON GeoBoundingBox where
   toJSON (GeoBoundingBox gbbTopLeft gbbBottomRight) =
@@ -1386,7 +1388,7 @@ data GeoBoundingBoxConstraint =
                            , constraintBox     :: GeoBoundingBox
                            , bbConstraintcache :: Cache
                            , geoType           :: GeoFilterType
-                           } deriving (Eq, Show)
+                           } deriving (Eq, Show, Generic)
 
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON (GeoBoundingBoxConstraint
@@ -1406,7 +1408,7 @@ instance FromJSON GeoBoundingBoxConstraint where
 
 data GeoPoint =
   GeoPoint { geoField :: FieldName
-           , latLon   :: LatLon} deriving (Eq, Show)
+           , latLon   :: LatLon} deriving (Eq, Show, Generic)
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
@@ -1420,7 +1422,7 @@ data DistanceUnit = Miles
                   | Meters
                   | Centimeters
                   | Millimeters
-                  | NauticalMiles deriving (Eq, Show)
+                  | NauticalMiles deriving (Eq, Show, Generic)
 
 instance ToJSON DistanceUnit where
   toJSON Miles         = String "mi"
@@ -1448,7 +1450,7 @@ instance FromJSON DistanceUnit where
 
 data DistanceType = Arc
                   | SloppyArc -- doesn't exist <1.0
-                  | Plane deriving (Eq, Show)
+                  | Plane deriving (Eq, Show, Generic)
 
 instance ToJSON DistanceType where
   toJSON Arc       = String "arc"
@@ -1463,7 +1465,7 @@ instance FromJSON DistanceType where
           parse t            = fail ("Unrecognized DistanceType: " <> show t)
 
 data OptimizeBbox = OptimizeGeoFilterType GeoFilterType
-                  | NoOptimizeBbox deriving (Eq, Show)
+                  | NoOptimizeBbox deriving (Eq, Show, Generic)
 
 
 instance ToJSON OptimizeBbox where
@@ -1479,7 +1481,7 @@ instance FromJSON OptimizeBbox where
 
 data Distance =
   Distance { coefficient :: Double
-           , unit        :: DistanceUnit } deriving (Eq, Show)
+           , unit        :: DistanceUnit } deriving (Eq, Show, Generic)
 
 
 instance ToJSON Distance where
@@ -1504,7 +1506,7 @@ instance FromJSON Distance where
 
 data DistanceRange =
   DistanceRange { distanceFrom :: Distance
-                , distanceTo   :: Distance } deriving (Eq, Show)
+                , distanceTo   :: Distance } deriving (Eq, Show, Generic)
 
 type TemplateQueryValue = Text
 
@@ -1526,7 +1528,7 @@ instance FromJSON TemplateQueryKeyValuePairs where
 {-| 'BooleanOperator' is the usual And/Or operators with an ES compatible
     JSON encoding baked in. Used all over the place.
 -}
-data BooleanOperator = And | Or deriving (Eq, Show)
+data BooleanOperator = And | Or deriving (Eq, Show, Generic)
 
 instance ToJSON BooleanOperator where
   toJSON And = String "and"
@@ -1554,7 +1556,7 @@ data FunctionScoreQuery =
                      , functionScoreBoostMode :: Maybe BoostMode
                      , functionScoreMinScore  :: Score
                      , functionScoreScoreMode :: Maybe ScoreMode
-                     } deriving (Eq, Show)
+                     } deriving (Eq, Show, Generic)
 
 instance ToJSON FunctionScoreQuery where
   toJSON (FunctionScoreQuery query boost fns maxBoost boostMode minScore scoreMode) =
@@ -1584,13 +1586,13 @@ instance FromJSON FunctionScoreQuery where
 
 data FunctionScoreFunctions =
   FunctionScoreSingle FunctionScoreFunction
-  | FunctionScoreMultiple (NonEmpty ComponentFunctionScoreFunction) deriving (Eq, Show)
+  | FunctionScoreMultiple (NonEmpty ComponentFunctionScoreFunction) deriving (Eq, Show, Generic)
 
 data ComponentFunctionScoreFunction =
   ComponentFunctionScoreFunction { componentScoreFunctionFilter :: Maybe Filter
                                  , componentScoreFunction       :: FunctionScoreFunction
                                  , componentScoreFunctionWeight :: Maybe Weight
-                                 } deriving (Eq, Show)
+                                 } deriving (Eq, Show, Generic)
 
 instance ToJSON ComponentFunctionScoreFunction where
   toJSON (ComponentFunctionScoreFunction filter' fn weight) =
@@ -1621,7 +1623,7 @@ fieldTagged f o = case X.toList o of
 -- See:
 -- https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#fuzziness
 data Fuzziness = Fuzziness Double | FuzzinessAuto
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON Fuzziness where
   toJSON (Fuzziness n) = toJSON n
@@ -1634,7 +1636,7 @@ instance FromJSON Fuzziness where
 data InnerHits = InnerHits
   { innerHitsFrom :: Maybe Integer
   , innerHitsSize :: Maybe Integer
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON InnerHits where
   toJSON (InnerHits ihFrom ihSize) =

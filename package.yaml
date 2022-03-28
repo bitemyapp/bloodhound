@@ -64,11 +64,11 @@ tests:
       - base
       - bloodhound
       - errors
+      - generic-random
       - hspec >=1.8
       - microlens
       - microlens-aeson >= 2.4
       - pretty-simple
-      - quickcheck-arbitrary-template
       - quickcheck-properties
       - temporary
       - unix-compat

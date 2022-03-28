@@ -7,6 +7,7 @@
   - Add Index mappings limits
   - Taking maintainer role
   - Drop GHC 8.0 - 8.8 support
+  - Use generic-random instead of quickcheck-arbitrary-template
 
 0.18.0.0
 ========

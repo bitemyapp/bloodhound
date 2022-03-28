@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -7,6 +8,7 @@ module Database.Bloodhound.Internal.Suggest where
 import           Bloodhound.Import
 
 import qualified Data.Aeson.KeyMap as X
+import           GHC.Generics
 
 import           Database.Bloodhound.Internal.Newtypes
 import           Database.Bloodhound.Internal.Query (Query, TemplateQueryKeyValuePairs)
@@ -15,7 +17,7 @@ data Suggest = Suggest
   { suggestText :: Text
   , suggestName :: Text
   , suggestType :: SuggestType
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON Suggest where
   toJSON Suggest{..} =
@@ -39,7 +41,7 @@ instance FromJSON Suggest where
 
 data SuggestType =
   SuggestTypePhraseSuggester PhraseSuggester
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON SuggestType where
   toJSON (SuggestTypePhraseSuggester x) =
@@ -64,7 +66,7 @@ data PhraseSuggester = PhraseSuggester
   , phraseSuggesterHighlight :: Maybe PhraseSuggesterHighlighter
   , phraseSuggesterCollate :: Maybe PhraseSuggesterCollate
   , phraseSuggesterCandidateGenerators :: [DirectGenerators]
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON PhraseSuggester where
   toJSON PhraseSuggester{..} =
@@ -109,7 +111,7 @@ data PhraseSuggesterHighlighter =
   PhraseSuggesterHighlighter { phraseSuggesterHighlighterPreTag :: Text
                              , phraseSuggesterHighlighterPostTag :: Text
                              }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON PhraseSuggesterHighlighter where
   toJSON PhraseSuggesterHighlighter{..} =
@@ -127,7 +129,7 @@ data PhraseSuggesterCollate = PhraseSuggesterCollate
   { phraseSuggesterCollateTemplateQuery :: Query
   , phraseSuggesterCollateParams :: TemplateQueryKeyValuePairs
   , phraseSuggesterCollatePrune :: Bool
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON PhraseSuggesterCollate where
   toJSON PhraseSuggesterCollate{..} =
@@ -198,7 +200,7 @@ instance FromJSON NamedSuggestionResponse where
 data DirectGeneratorSuggestModeTypes = DirectGeneratorSuggestModeMissing
                                 | DirectGeneratorSuggestModePopular
                                 | DirectGeneratorSuggestModeAlways
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance ToJSON DirectGeneratorSuggestModeTypes where
   toJSON DirectGeneratorSuggestModeMissing = "missing"
@@ -229,7 +231,7 @@ data DirectGenerators = DirectGenerators
   , directGeneratorMaxTermFreq :: Maybe Double
   , directGeneratorPreFilter :: Maybe Text
   , directGeneratorPostFilter :: Maybe Text
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON DirectGenerators where
   toJSON DirectGenerators{..} =

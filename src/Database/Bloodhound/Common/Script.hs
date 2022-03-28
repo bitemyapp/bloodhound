@@ -1,10 +1,13 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
 module Database.Bloodhound.Common.Script where
 
-import Bloodhound.Import
-import Data.Aeson.KeyMap
+import           Bloodhound.Import
+
+import           Data.Aeson.KeyMap
+import           GHC.Generics
 
 import           Database.Bloodhound.Internal.Newtypes
 
@@ -15,16 +18,16 @@ newtype ScriptFields =
 type ScriptFieldValue = Value
 
 data ScriptSource = ScriptId Text
-  | ScriptInline Text deriving (Eq, Show)
+  | ScriptInline Text deriving (Eq, Show, Generic)
 
 data Script =
   Script { scriptLanguage :: Maybe ScriptLanguage
          , scriptSource   :: ScriptSource
          , scriptParams   :: Maybe ScriptParams
-         } deriving (Eq, Show)
+         } deriving (Eq, Show, Generic)
 
 newtype ScriptLanguage =
-  ScriptLanguage Text deriving (Eq, Show, FromJSON, ToJSON)
+  ScriptLanguage Text deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
 newtype ScriptParams =
   ScriptParams (KeyMap ScriptParamValue)
@@ -38,7 +41,7 @@ data BoostMode =
   | BoostModeSum
   | BoostModeAvg
   | BoostModeMax
-  | BoostModeMin deriving (Eq, Show)
+  | BoostModeMin deriving (Eq, Show, Generic)
 
 data ScoreMode =
     ScoreModeMultiply
@@ -46,29 +49,29 @@ data ScoreMode =
   | ScoreModeAvg
   | ScoreModeFirst
   | ScoreModeMax
-  | ScoreModeMin deriving (Eq, Show)
+  | ScoreModeMin deriving (Eq, Show, Generic)
 
 data FunctionScoreFunction =
     FunctionScoreFunctionScript Script
   | FunctionScoreFunctionRandom Seed
   | FunctionScoreFunctionFieldValueFactor FieldValueFactor
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 newtype Weight =
-  Weight Float deriving (Eq, Show, FromJSON, ToJSON)
+  Weight Float deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
 newtype Seed =
-  Seed Float deriving (Eq, Show, FromJSON, ToJSON)
+  Seed Float deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
 data FieldValueFactor =
   FieldValueFactor { fieldValueFactorField    :: FieldName
                    , fieldValueFactor         :: Maybe Factor
                    , fieldValueFactorModifier :: Maybe FactorModifier
                    , fieldValueFactorMissing  :: Maybe FactorMissingFieldValue
-                   } deriving (Eq, Show)
+                   } deriving (Eq, Show, Generic)
 
 newtype Factor =
-  Factor Float deriving (Eq, Show, FromJSON, ToJSON)
+  Factor Float deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
 data FactorModifier =
   FactorModifierNone
@@ -80,10 +83,10 @@ data FactorModifier =
   | FactorModifierLn2p
   | FactorModifierSquare
   | FactorModifierSqrt
-  | FactorModifierReciprocal deriving (Eq, Show)
+  | FactorModifierReciprocal deriving (Eq, Show, Generic)
 
 newtype FactorMissingFieldValue =
-  FactorMissingFieldValue Float deriving (Eq, Show, FromJSON, ToJSON)
+  FactorMissingFieldValue Float deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
 instance ToJSON BoostMode where
   toJSON BoostModeMultiply = "multiply"
