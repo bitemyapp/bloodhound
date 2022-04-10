@@ -1,3 +1,13 @@
+0.19.1.0
+========
+- @TristanCacqueray
+  - Fix aeson 2 min bound dependency
+- @andrewthad
+  - Support `edge_ngram` tokenizer and token, `ngram` and `edge_ngram` token filters
+  - Support sum aggregation
+- @mirokuratczyk
+  - Point in time (PIT) API support
+
 0.19.0.0
 ========
 - @aveltras
