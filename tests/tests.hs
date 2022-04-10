@@ -160,10 +160,23 @@ main = hspec $ do
       let
         sortSpec = DefaultSortSpec $ mkSort (FieldName "user") Ascending
         searchAfterKey = [Aeson.toJSON ("bitemyapp" :: String)]
-        search = Search Nothing
-                 Nothing (Just [sortSpec]) Nothing Nothing
-                 False (From 0) (Size 10) SearchTypeQueryThenFetch (Just searchAfterKey)
-                 Nothing Nothing Nothing Nothing Nothing
+        search = Search
+                  { queryBody       = Nothing
+                  , filterBody      = Nothing
+                  , sortBody        = Just [sortSpec]
+                  , aggBody         = Nothing
+                  , highlight       = Nothing
+                  , trackSortScores = False
+                  , from            = From 0
+                  , size            = Size 10
+                  , searchType      = SearchTypeDfsQueryThenFetch
+                  , searchAfterKey  = Just searchAfterKey
+                  , fields          = Nothing
+                  , scriptFields    = Nothing
+                  , source          = Nothing
+                  , suggestBody     = Nothing
+                  , pointInTime     = Nothing
+                  }
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $

@@ -12,10 +12,23 @@ spec =
       _ <- insertData
       _ <- insertOther
       let sortSpec = DefaultSortSpec $ mkSort (FieldName "age") Ascending
-      let search = Search Nothing
-                   Nothing (Just [sortSpec]) Nothing Nothing
-                   False (From 0) (Size 10) SearchTypeQueryThenFetch Nothing Nothing Nothing
-                   Nothing Nothing Nothing
+      let search = Search
+                    { queryBody       = Nothing
+                    , filterBody      = Nothing
+                    , sortBody        = Just [sortSpec]
+                    , aggBody         = Nothing
+                    , highlight       = Nothing
+                    , trackSortScores = False
+                    , from            = From 0
+                    , size            = Size 10
+                    , searchType      = SearchTypeDfsQueryThenFetch
+                    , searchAfterKey  = Nothing
+                    , fields          = Nothing
+                    , scriptFields    = Nothing
+                    , source          = Nothing
+                    , suggestBody     = Nothing
+                    , pointInTime     = Nothing
+                    }
       result <- searchTweets search
       let myTweet = grabFirst result
       liftIO $
