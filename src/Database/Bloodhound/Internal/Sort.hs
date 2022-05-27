@@ -10,7 +10,7 @@ import Database.Bloodhound.Internal.Query
 
 -- | 'SortMode' prescribes how to handle sorting array/multi-valued fields.
 --
--- http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_sort_mode_option
+-- http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#_sort_mode_option
 data SortMode
   = SortMin
   | SortMax
@@ -38,7 +38,7 @@ type Sort = [SortSpec]
 --    'DistanceUnit' to express "nearness" to a single geographical point as a
 --    sort specification.
 --
--- <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
+-- <http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 data SortSpec
   = DefaultSortSpec DefaultSort
   | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit
@@ -78,7 +78,7 @@ instance ToJSON SortSpec where
 --
 --    The `ignoreUnmapped`, when `Just` field is used to set the elastic 'unmapped_type'
 --
--- <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
+-- <http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 data DefaultSort = DefaultSort
   { sortFieldName :: FieldName,
     sortOrder :: SortOrder,
@@ -93,7 +93,7 @@ data DefaultSort = DefaultSort
 -- | 'SortOrder' is 'Ascending' or 'Descending', as you might expect. These get
 --    encoded into "asc" or "desc" when turned into JSON.
 --
--- <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
+-- <http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 data SortOrder
   = Ascending
   | Descending
@@ -106,7 +106,7 @@ instance ToJSON SortOrder where
 -- | 'Missing' prescribes how to handle missing fields. A missing field can be
 --    sorted last, first, or using a custom value as a substitute.
 --
--- <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_missing_values>
+-- <http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#_missing_values>
 data Missing
   = LastMissing
   | FirstMissing

@@ -744,14 +744,14 @@ openOrCloseIndexes oci (IndexName indexName) =
     url = joinPath [indexName, ociString]
 
 -- | 'openIndex' opens an index given a 'Server' and an 'IndexName'. Explained in further detail at
---   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
+--   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> reply <- runBH' $ openIndex testIndex
 openIndex :: MonadBH m => IndexName -> m Reply
 openIndex = openOrCloseIndexes OpenIndex
 
 -- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at
---   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
+--   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> reply <- runBH' $ closeIndex testIndex
 closeIndex :: MonadBH m => IndexName -> m Reply
@@ -985,7 +985,7 @@ deleteByQuery (IndexName indexName) query =
     body = Just (encode $ object ["query" .= query])
 
 -- | 'bulk' uses
---    <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
+--    <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
 --    to perform bulk operations. The 'BulkOperation' data type encodes the
 --    index\/update\/delete\/create operations. You pass a 'V.Vector' of 'BulkOperation's
 --    and a 'Server' to 'bulk' in order to send those operations up to your Elasticsearch

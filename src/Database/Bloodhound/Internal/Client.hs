@@ -112,7 +112,7 @@ newtype VersionNumber = VersionNumber
 -- | 'Status' is a data type for describing the JSON body returned by
 --    Elasticsearch when you query its status. This was deprecated in 1.2.0.
 --
---   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-status.html#indices-status>
+--   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-status.html#indices-status>
 data Status = Status
   { name :: Text,
     cluster_name :: Text,
@@ -135,7 +135,7 @@ instance FromJSON Status where
 -- | 'IndexSettings' is used to configure the shards and replicas when
 --    you create an Elasticsearch Index.
 --
---   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-create-index.html>
+--   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html>
 data IndexSettings = IndexSettings
   { indexShards :: ShardCount,
     indexReplicas :: ReplicaCount,
@@ -602,7 +602,7 @@ type Reply = Network.HTTP.Client.Response LByteString
 
 -- | 'OpenCloseIndex' is a sum type for opening and closing indices.
 --
---   <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-open-close.html>
+--   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 data OpenCloseIndex = OpenIndex | CloseIndex deriving (Eq, Show)
 
 data FieldType
@@ -706,7 +706,7 @@ instance FromJSON AllocationPolicy where
 -- | 'BulkOperation' is a sum type for expressing the four kinds of bulk
 --    operation index, create, delete, and update. 'BulkIndex' behaves like an
 --    "upsert", 'BulkCreate' will fail if a document already exists at the DocId.
---    Consult the <http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-bulk.html#docs-bulk Bulk API documentation>
+--    Consult the <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html#docs-bulk Bulk API documentation>
 --    for further explanation.
 --    Warning: Bulk operations suffixed with @Auto@ rely on Elasticsearch to
 --    generate the id. Often, people use auto-generated identifiers when
