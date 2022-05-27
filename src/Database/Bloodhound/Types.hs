@@ -1,12 +1,13 @@
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NamedFieldPuns             #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE UndecidableInstances #-}
 
+{- ORMOLU_DISABLE -}
 -------------------------------------------------------------------------------
 -- |
 -- Module : Database.Bloodhound.Types
@@ -23,485 +24,500 @@
 -- properties. 'Query's support human-written textual queries, such as fuzzy
 -- queries.
 -------------------------------------------------------------------------------
-
-
-
+{- ORMOLU_ENABLE -}
 module Database.Bloodhound.Types
-       ( defaultCache
-       , defaultIndexSettings
-       , defaultIndexMappingsLimits
-       , defaultIndexDocumentSettings
-       , mkSort
-       , showText
-       , unpackId
-       , mkMatchQuery
-       , mkMultiMatchQuery
-       , mkBoolQuery
-       , mkRangeQuery
-       , mkQueryStringQuery
-       , mkAggregations
-       , mkTermsAggregation
-       , mkTermsScriptAggregation
-       , mkDateHistogram
-       , mkCardinalityAggregation
-       , mkDocVersion
-       , mkStatsAggregation
-       , mkExtendedStatsAggregation
-       , docVersionNumber
-       , toMissing
-       , toTerms
-       , toDateHistogram
-       , toTopHits
-       , omitNulls
-       , BH(..)
-       , runBH
-       , BHEnv
-       , bhServer
-       , bhManager
-       , bhRequestHook
-       , mkBHEnv
-       , MonadBH(..)
-       , Version(..)
-       , VersionNumber(..)
-       , MaybeNA(..)
-       , BuildHash(..)
-       , Status(..)
-       , Existence(..)
-       , NullValue(..)
-       , IndexMappingsLimits (..)
-       , IndexSettings(..)
-       , UpdatableIndexSetting(..)
-       , IndexSettingsSummary(..)
-       , AllocationPolicy(..)
-       , Compression(..)
-       , ReplicaBounds(..)
-       , Bytes(..)
-       , gigabytes
-       , megabytes
-       , kilobytes
-       , FSType(..)
-       , InitialShardCount(..)
-       , NodeAttrFilter(..)
-       , NodeAttrName(..)
-       , CompoundFormat(..)
-       , IndexTemplate(..)
-       , Server(..)
-       , Reply
-       , EsResult(..)
-       , EsResultFound(..)
-       , EsError(..)
-       , EsProtocolException(..)
-       , IndexAlias(..)
-       , IndexAliasName(..)
-       , IndexAliasAction(..)
-       , IndexAliasCreate(..)
-       , IndexAliasSummary(..)
-       , IndexAliasesSummary(..)
-       , AliasRouting(..)
-       , SearchAliasRouting(..)
-       , IndexAliasRouting(..)
-       , RoutingValue(..)
-       , DocVersion
-       , ExternalDocVersion(..)
-       , VersionControl(..)
-       , JoinRelation(..)
-       , IndexDocumentSettings(..)
-       , Query(..)
-       , Search(..)
-       , SearchType(..)
-       , SearchResult(..)
-       , ScrollId(..)
-       , HitsTotalRelation(..)
-       , HitsTotal(..)
-       , SearchHits(..)
-       , TrackSortScores
-       , From(..)
-       , Size(..)
-       , Source(..)
-       , PatternOrPatterns(..)
-       , Include(..)
-       , Exclude(..)
-       , Pattern(..)
-       , ShardResult(..)
-       , Hit(..)
-       , HitFields(..)
-       , Filter(..)
-       , BoolMatch(..)
-       , Term(..)
-       , GeoPoint(..)
-       , GeoBoundingBoxConstraint(..)
-       , GeoBoundingBox(..)
-       , GeoFilterType(..)
-       , Distance(..)
-       , DistanceUnit(..)
-       , DistanceType(..)
-       , DistanceRange(..)
-       , OptimizeBbox(..)
-       , LatLon(..)
-       , RangeValue(..)
-       , RangeExecution(..)
-       , LessThan(..)
-       , LessThanEq(..)
-       , GreaterThan(..)
-       , GreaterThanEq(..)
-       , LessThanD(..)
-       , LessThanEqD(..)
-       , GreaterThanD(..)
-       , GreaterThanEqD(..)
-       , Regexp(..)
-       , RegexpFlags(..)
-       , RegexpFlag(..)
-       , FieldName(..)
-       , ScriptFields(..)
-       , ScriptFieldValue
-       , Script(..)
-       , ScriptLanguage(..)
-       , ScriptSource(..)
-       , ScriptParams(..)
-       , ScriptParamValue
-       , IndexName(..)
-       , IndexSelection(..)
-       , NodeSelection(..)
-       , NodeSelector(..)
-       , ForceMergeIndexSettings(..)
-       , defaultForceMergeIndexSettings
-       , TemplateName(..)
-       , IndexPattern(..)
-       , DocId(..)
-       , CacheName(..)
-       , CacheKey(..)
-       , BulkOperation(..)
-       , ReplicaCount(..)
-       , ShardCount(..)
-       , Sort
-       , SortMode(..)
-       , SortOrder(..)
-       , SortSpec(..)
-       , DefaultSort(..)
-       , Missing(..)
-       , OpenCloseIndex(..)
-       , Method
-       , Boost(..)
-       , MatchQuery(..)
-       , MultiMatchQuery(..)
-       , BoolQuery(..)
-       , BoostingQuery(..)
-       , CommonTermsQuery(..)
-       , FunctionScoreQuery(..)
-       , BoostMode(..)
-       , ScoreMode(..)
-       , FunctionScoreFunctions(..)
-       , ComponentFunctionScoreFunction(..)
-       , FunctionScoreFunction(..)
-       , Weight(..)
-       , Seed(..)
-       , FieldValueFactor(..)
-       , Factor(..)
-       , FactorModifier(..)
-       , FactorMissingFieldValue(..)
-       , DisMaxQuery(..)
-       , FuzzyLikeThisQuery(..)
-       , FuzzyLikeFieldQuery(..)
-       , FuzzyQuery(..)
-       , HasChildQuery(..)
-       , HasParentQuery(..)
-       , IndicesQuery(..)
-       , MoreLikeThisQuery(..)
-       , MoreLikeThisFieldQuery(..)
-       , NestedQuery(..)
-       , PrefixQuery(..)
-       , QueryStringQuery(..)
-       , SimpleQueryStringQuery(..)
-       , RangeQuery(..)
-       , RegexpQuery(..)
-       , QueryString(..)
-       , SearchTemplateId(..)
-       , SearchTemplateSource(..)
-       , SearchTemplate(..)
-       , GetTemplateScript(..)
-       , TemplateQueryKeyValuePairs(..)
-       , WildcardQuery(..)
-       , BooleanOperator(..)
-       , ZeroTermsQuery(..)
-       , CutoffFrequency(..)
-       , Analyzer(..)
-       , Tokenizer(..)
-       , TokenFilter(..)
-       , CharFilter(..)
-       , MaxExpansions(..)
-       , Lenient(..)
-       , MatchQueryType(..)
-       , MultiMatchQueryType(..)
-       , Tiebreaker(..)
-       , MinimumMatch(..)
-       , DisableCoord(..)
-       , CommonMinimumMatch(..)
-       , MinimumMatchHighLow(..)
-       , PrefixLength(..)
-       , Fuzziness(..)
-       , IgnoreTermFrequency(..)
-       , MaxQueryTerms(..)
-       , AggregateParentScore(..)
-       , IgnoreUnmapped(..)
-       , MinChildren(..)
-       , MaxChildren(..)
-       , ScoreType(..)
-       , InnerHits(..)
-       , Score
-       , Cache
-       , RelationName(..)
-       , BoostTerms(..)
-       , MaxWordLength(..)
-       , MinWordLength(..)
-       , MaxDocFrequency(..)
-       , MinDocFrequency(..)
-       , PhraseSlop(..)
-       , StopWord(..)
-       , QueryPath(..)
-       , MinimumTermFrequency(..)
-       , PercentMatch(..)
-       , FieldDefinition(..)
-       , MappingField(..)
-       , Mapping(..)
-       , UpsertActionMetadata(..)
-       , buildUpsertActionMetadata
-       , UpsertPayload(..)
-       , AllowLeadingWildcard(..)
-       , LowercaseExpanded(..)
-       , GeneratePhraseQueries(..)
-       , Locale(..)
-       , AnalyzeWildcard(..)
-       , EnablePositionIncrements(..)
-       , SimpleQueryFlag(..)
-       , FieldOrFields(..)
-       , Monoid(..)
-       , ToJSON(..)
-       , Interval(..)
-       , TimeInterval(..)
-       , ExecutionHint(..)
-       , CollectionMode(..)
-       , TermOrder(..)
-       , TermInclusion(..)
-       , SnapshotRepoSelection(..)
-       , GenericSnapshotRepo(..)
-       , SnapshotRepo(..)
-       , SnapshotRepoConversionError(..)
-       , SnapshotRepoType(..)
-       , GenericSnapshotRepoSettings(..)
-       , SnapshotRepoUpdateSettings(..)
-       , defaultSnapshotRepoUpdateSettings
-       , SnapshotRepoName(..)
-       , SnapshotRepoPattern(..)
-       , SnapshotVerification(..)
-       , SnapshotNodeVerification(..)
-       , FullNodeId(..)
-       , NodeName(..)
-       , ClusterName(..)
-       , NodesInfo(..)
-       , NodesStats(..)
-       , NodeStats(..)
-       , NodeBreakersStats(..)
-       , NodeBreakerStats(..)
-       , NodeHTTPStats(..)
-       , NodeTransportStats(..)
-       , NodeFSStats(..)
-       , NodeDataPathStats(..)
-       , NodeFSTotalStats(..)
-       , NodeNetworkStats(..)
-       , NodeThreadPoolStats(..)
-       , NodeJVMStats(..)
-       , JVMBufferPoolStats(..)
-       , JVMGCStats(..)
-       , JVMPoolStats(..)
-       , NodeProcessStats(..)
-       , NodeOSStats(..)
-       , LoadAvgs(..)
-       , NodeIndicesStats(..)
-       , EsAddress(..)
-       , PluginName(..)
-       , NodeInfo(..)
-       , NodePluginInfo(..)
-       , NodeHTTPInfo(..)
-       , NodeTransportInfo(..)
-       , BoundTransportAddress(..)
-       , NodeNetworkInfo(..)
-       , MacAddress(..)
-       , NetworkInterfaceName(..)
-       , NodeNetworkInterface(..)
-       , NodeThreadPoolInfo(..)
-       , ThreadPoolSize(..)
-       , ThreadPoolType(..)
-       , NodeJVMInfo(..)
-       , JVMMemoryPool(..)
-       , JVMGCCollector(..)
-       , JVMMemoryInfo(..)
-       , PID(..)
-       , NodeOSInfo(..)
-       , CPUInfo(..)
-       , NodeProcessInfo(..)
-       , FsSnapshotRepo(..)
-       , SnapshotCreateSettings(..)
-       , defaultSnapshotCreateSettings
-       , SnapshotSelection(..)
-       , SnapshotPattern(..)
-       , SnapshotInfo(..)
-       , SnapshotShardFailure(..)
-       , ShardId(..)
-       , SnapshotName(..)
-       , SnapshotState(..)
-       , SnapshotRestoreSettings(..)
-       , defaultSnapshotRestoreSettings
-       , RestoreRenamePattern(..)
-       , RestoreRenameToken(..)
-       , RRGroupRefNum
-       , rrGroupRefNum
-       , mkRRGroupRefNum
-       , RestoreIndexSettings(..)
-       , Suggest(..)
-       , SuggestType(..)
-       , PhraseSuggester(..)
-       , PhraseSuggesterHighlighter(..)
-       , PhraseSuggesterCollate(..)
-       , mkPhraseSuggester
-       , SuggestOptions(..)
-       , SuggestResponse(..)
-       , NamedSuggestionResponse(..)
-       , DirectGenerators(..)
-       , mkDirectGenerators
-       , DirectGeneratorSuggestModeTypes (..)
+  ( defaultCache,
+    defaultIndexSettings,
+    defaultIndexMappingsLimits,
+    defaultIndexDocumentSettings,
+    mkSort,
+    showText,
+    unpackId,
+    mkMatchQuery,
+    mkMultiMatchQuery,
+    mkBoolQuery,
+    mkRangeQuery,
+    mkQueryStringQuery,
+    mkAggregations,
+    mkTermsAggregation,
+    mkTermsScriptAggregation,
+    mkDateHistogram,
+    mkCardinalityAggregation,
+    mkDocVersion,
+    mkStatsAggregation,
+    mkExtendedStatsAggregation,
+    docVersionNumber,
+    toMissing,
+    toTerms,
+    toDateHistogram,
+    toTopHits,
+    omitNulls,
+    BH (..),
+    runBH,
+    BHEnv,
+    bhServer,
+    bhManager,
+    bhRequestHook,
+    mkBHEnv,
+    MonadBH (..),
+    Version (..),
+    VersionNumber (..),
+    MaybeNA (..),
+    BuildHash (..),
+    Status (..),
+    Existence (..),
+    NullValue (..),
+    IndexMappingsLimits (..),
+    IndexSettings (..),
+    UpdatableIndexSetting (..),
+    IndexSettingsSummary (..),
+    AllocationPolicy (..),
+    Compression (..),
+    ReplicaBounds (..),
+    Bytes (..),
+    gigabytes,
+    megabytes,
+    kilobytes,
+    FSType (..),
+    InitialShardCount (..),
+    NodeAttrFilter (..),
+    NodeAttrName (..),
+    CompoundFormat (..),
+    IndexTemplate (..),
+    Server (..),
+    Reply,
+    EsResult (..),
+    EsResultFound (..),
+    EsError (..),
+    EsProtocolException (..),
+    IndexAlias (..),
+    IndexAliasName (..),
+    IndexAliasAction (..),
+    IndexAliasCreate (..),
+    IndexAliasSummary (..),
+    IndexAliasesSummary (..),
+    AliasRouting (..),
+    SearchAliasRouting (..),
+    IndexAliasRouting (..),
+    RoutingValue (..),
+    DocVersion,
+    ExternalDocVersion (..),
+    VersionControl (..),
+    JoinRelation (..),
+    IndexDocumentSettings (..),
+    Query (..),
+    Search (..),
+    SearchType (..),
+    SearchResult (..),
+    ScrollId (..),
+    HitsTotalRelation (..),
+    HitsTotal (..),
+    SearchHits (..),
+    TrackSortScores,
+    From (..),
+    Size (..),
+    Source (..),
+    PatternOrPatterns (..),
+    Include (..),
+    Exclude (..),
+    Pattern (..),
+    ShardResult (..),
+    Hit (..),
+    HitFields (..),
+    Filter (..),
+    BoolMatch (..),
+    Term (..),
+    GeoPoint (..),
+    GeoBoundingBoxConstraint (..),
+    GeoBoundingBox (..),
+    GeoFilterType (..),
+    Distance (..),
+    DistanceUnit (..),
+    DistanceType (..),
+    DistanceRange (..),
+    OptimizeBbox (..),
+    LatLon (..),
+    RangeValue (..),
+    RangeExecution (..),
+    LessThan (..),
+    LessThanEq (..),
+    GreaterThan (..),
+    GreaterThanEq (..),
+    LessThanD (..),
+    LessThanEqD (..),
+    GreaterThanD (..),
+    GreaterThanEqD (..),
+    Regexp (..),
+    RegexpFlags (..),
+    RegexpFlag (..),
+    FieldName (..),
+    ScriptFields (..),
+    ScriptFieldValue,
+    Script (..),
+    ScriptLanguage (..),
+    ScriptSource (..),
+    ScriptParams (..),
+    ScriptParamValue,
+    IndexName (..),
+    IndexSelection (..),
+    NodeSelection (..),
+    NodeSelector (..),
+    ForceMergeIndexSettings (..),
+    defaultForceMergeIndexSettings,
+    TemplateName (..),
+    IndexPattern (..),
+    DocId (..),
+    CacheName (..),
+    CacheKey (..),
+    BulkOperation (..),
+    ReplicaCount (..),
+    ShardCount (..),
+    Sort,
+    SortMode (..),
+    SortOrder (..),
+    SortSpec (..),
+    DefaultSort (..),
+    Missing (..),
+    OpenCloseIndex (..),
+    Method,
+    Boost (..),
+    MatchQuery (..),
+    MultiMatchQuery (..),
+    BoolQuery (..),
+    BoostingQuery (..),
+    CommonTermsQuery (..),
+    FunctionScoreQuery (..),
+    BoostMode (..),
+    ScoreMode (..),
+    FunctionScoreFunctions (..),
+    ComponentFunctionScoreFunction (..),
+    FunctionScoreFunction (..),
+    Weight (..),
+    Seed (..),
+    FieldValueFactor (..),
+    Factor (..),
+    FactorModifier (..),
+    FactorMissingFieldValue (..),
+    DisMaxQuery (..),
+    FuzzyLikeThisQuery (..),
+    FuzzyLikeFieldQuery (..),
+    FuzzyQuery (..),
+    HasChildQuery (..),
+    HasParentQuery (..),
+    IndicesQuery (..),
+    MoreLikeThisQuery (..),
+    MoreLikeThisFieldQuery (..),
+    NestedQuery (..),
+    PrefixQuery (..),
+    QueryStringQuery (..),
+    SimpleQueryStringQuery (..),
+    RangeQuery (..),
+    RegexpQuery (..),
+    QueryString (..),
+    SearchTemplateId (..),
+    SearchTemplateSource (..),
+    SearchTemplate (..),
+    GetTemplateScript (..),
+    TemplateQueryKeyValuePairs (..),
+    WildcardQuery (..),
+    BooleanOperator (..),
+    ZeroTermsQuery (..),
+    CutoffFrequency (..),
+    Analyzer (..),
+    Tokenizer (..),
+    TokenFilter (..),
+    CharFilter (..),
+    MaxExpansions (..),
+    Lenient (..),
+    MatchQueryType (..),
+    MultiMatchQueryType (..),
+    Tiebreaker (..),
+    MinimumMatch (..),
+    DisableCoord (..),
+    CommonMinimumMatch (..),
+    MinimumMatchHighLow (..),
+    PrefixLength (..),
+    Fuzziness (..),
+    IgnoreTermFrequency (..),
+    MaxQueryTerms (..),
+    AggregateParentScore (..),
+    IgnoreUnmapped (..),
+    MinChildren (..),
+    MaxChildren (..),
+    ScoreType (..),
+    InnerHits (..),
+    Score,
+    Cache,
+    RelationName (..),
+    BoostTerms (..),
+    MaxWordLength (..),
+    MinWordLength (..),
+    MaxDocFrequency (..),
+    MinDocFrequency (..),
+    PhraseSlop (..),
+    StopWord (..),
+    QueryPath (..),
+    MinimumTermFrequency (..),
+    PercentMatch (..),
+    FieldDefinition (..),
+    MappingField (..),
+    Mapping (..),
+    UpsertActionMetadata (..),
+    buildUpsertActionMetadata,
+    UpsertPayload (..),
+    AllowLeadingWildcard (..),
+    LowercaseExpanded (..),
+    GeneratePhraseQueries (..),
+    Locale (..),
+    AnalyzeWildcard (..),
+    EnablePositionIncrements (..),
+    SimpleQueryFlag (..),
+    FieldOrFields (..),
+    Monoid (..),
+    ToJSON (..),
+    Interval (..),
+    TimeInterval (..),
+    ExecutionHint (..),
+    CollectionMode (..),
+    TermOrder (..),
+    TermInclusion (..),
+    SnapshotRepoSelection (..),
+    GenericSnapshotRepo (..),
+    SnapshotRepo (..),
+    SnapshotRepoConversionError (..),
+    SnapshotRepoType (..),
+    GenericSnapshotRepoSettings (..),
+    SnapshotRepoUpdateSettings (..),
+    defaultSnapshotRepoUpdateSettings,
+    SnapshotRepoName (..),
+    SnapshotRepoPattern (..),
+    SnapshotVerification (..),
+    SnapshotNodeVerification (..),
+    FullNodeId (..),
+    NodeName (..),
+    ClusterName (..),
+    NodesInfo (..),
+    NodesStats (..),
+    NodeStats (..),
+    NodeBreakersStats (..),
+    NodeBreakerStats (..),
+    NodeHTTPStats (..),
+    NodeTransportStats (..),
+    NodeFSStats (..),
+    NodeDataPathStats (..),
+    NodeFSTotalStats (..),
+    NodeNetworkStats (..),
+    NodeThreadPoolStats (..),
+    NodeJVMStats (..),
+    JVMBufferPoolStats (..),
+    JVMGCStats (..),
+    JVMPoolStats (..),
+    NodeProcessStats (..),
+    NodeOSStats (..),
+    LoadAvgs (..),
+    NodeIndicesStats (..),
+    EsAddress (..),
+    PluginName (..),
+    NodeInfo (..),
+    NodePluginInfo (..),
+    NodeHTTPInfo (..),
+    NodeTransportInfo (..),
+    BoundTransportAddress (..),
+    NodeNetworkInfo (..),
+    MacAddress (..),
+    NetworkInterfaceName (..),
+    NodeNetworkInterface (..),
+    NodeThreadPoolInfo (..),
+    ThreadPoolSize (..),
+    ThreadPoolType (..),
+    NodeJVMInfo (..),
+    JVMMemoryPool (..),
+    JVMGCCollector (..),
+    JVMMemoryInfo (..),
+    PID (..),
+    NodeOSInfo (..),
+    CPUInfo (..),
+    NodeProcessInfo (..),
+    FsSnapshotRepo (..),
+    SnapshotCreateSettings (..),
+    defaultSnapshotCreateSettings,
+    SnapshotSelection (..),
+    SnapshotPattern (..),
+    SnapshotInfo (..),
+    SnapshotShardFailure (..),
+    ShardId (..),
+    SnapshotName (..),
+    SnapshotState (..),
+    SnapshotRestoreSettings (..),
+    defaultSnapshotRestoreSettings,
+    RestoreRenamePattern (..),
+    RestoreRenameToken (..),
+    RRGroupRefNum,
+    rrGroupRefNum,
+    mkRRGroupRefNum,
+    RestoreIndexSettings (..),
+    Suggest (..),
+    SuggestType (..),
+    PhraseSuggester (..),
+    PhraseSuggesterHighlighter (..),
+    PhraseSuggesterCollate (..),
+    mkPhraseSuggester,
+    SuggestOptions (..),
+    SuggestResponse (..),
+    NamedSuggestionResponse (..),
+    DirectGenerators (..),
+    mkDirectGenerators,
+    DirectGeneratorSuggestModeTypes (..),
+    Aggregation (..),
+    Aggregations,
+    AggregationResults,
+    BucketValue (..),
+    Bucket (..),
+    BucketAggregation (..),
+    TermsAggregation (..),
+    MissingAggregation (..),
+    ValueCountAggregation (..),
+    FilterAggregation (..),
+    CardinalityAggregation (..),
+    DateHistogramAggregation (..),
+    DateRangeAggregation (..),
+    DateRangeAggRange (..),
+    DateMathExpr (..),
+    DateMathAnchor (..),
+    DateMathModifier (..),
+    DateMathUnit (..),
+    TopHitsAggregation (..),
+    StatisticsAggregation (..),
+    SearchAfterKey,
+    CountQuery (..),
+    CountResponse (..),
+    CountShards (..),
+    PointInTime (..),
+    OpenPointInTimeResponse (..),
+    ClosePointInTime (..),
+    ClosePointInTimeResponse (..),
+    SumAggregation (..),
+    Highlights (..),
+    FieldHighlight (..),
+    HighlightSettings (..),
+    PlainHighlight (..),
+    PostingsHighlight (..),
+    FastVectorHighlight (..),
+    CommonHighlight (..),
+    NonPostings (..),
+    HighlightEncoder (..),
+    HighlightTag (..),
+    HitHighlight,
+    MissingResult (..),
+    TermsResult (..),
+    DateHistogramResult (..),
+    DateRangeResult (..),
+    TopHitResult (..),
+    EsUsername (..),
+    EsPassword (..),
+    Analysis (..),
+    AnalyzerDefinition (..),
+    TokenizerDefinition (..),
+    TokenFilterDefinition (..),
+    CharFilterDefinition (..),
+    Ngram (..),
+    NgramFilter (..),
+    EdgeNgramFilterSide (..),
+    TokenChar (..),
+    Shingle (..),
+    Language (..),
+  )
+where
 
-       , Aggregation(..)
-       , Aggregations
-       , AggregationResults
-       , BucketValue(..)
-       , Bucket(..)
-       , BucketAggregation(..)
-       , TermsAggregation(..)
-       , MissingAggregation(..)
-       , ValueCountAggregation(..)
-       , FilterAggregation(..)
-       , CardinalityAggregation(..)
-       , DateHistogramAggregation(..)
-       , DateRangeAggregation(..)
-       , DateRangeAggRange(..)
-       , DateMathExpr(..)
-       , DateMathAnchor(..)
-       , DateMathModifier(..)
-       , DateMathUnit(..)
-       , TopHitsAggregation(..)
-       , StatisticsAggregation(..)
-       , SearchAfterKey
-       , CountQuery (..)
-       , CountResponse (..)
-       , CountShards (..)
-       , PointInTime(..)
-       , OpenPointInTimeResponse (..)
-       , ClosePointInTime (..)
-       , ClosePointInTimeResponse (..)
-       , SumAggregation(..)
-
-       , Highlights(..)
-       , FieldHighlight(..)
-       , HighlightSettings(..)
-       , PlainHighlight(..)
-       , PostingsHighlight(..)
-       , FastVectorHighlight(..)
-       , CommonHighlight(..)
-       , NonPostings(..)
-       , HighlightEncoder(..)
-       , HighlightTag(..)
-       , HitHighlight
-
-       , MissingResult(..)
-       , TermsResult(..)
-       , DateHistogramResult(..)
-       , DateRangeResult(..)
-       , TopHitResult(..)
-
-       , EsUsername(..)
-       , EsPassword(..)
-
-       , Analysis(..)
-       , AnalyzerDefinition(..)
-       , TokenizerDefinition(..)
-       , TokenFilterDefinition(..)
-       , CharFilterDefinition(..)
-       , Ngram(..)
-       , NgramFilter(..)
-       , EdgeNgramFilterSide(..)
-       , TokenChar(..)
-       , Shingle(..)
-       , Language(..)
-       ) where
-
-import           Bloodhound.Import
-
-import           Database.Bloodhound.Internal.Aggregation
-import           Database.Bloodhound.Internal.Analysis
-import           Database.Bloodhound.Internal.Client
-import Database.Bloodhound.Internal.Count
-import           Database.Bloodhound.Internal.Highlight
-import           Database.Bloodhound.Internal.Newtypes
-import           Database.Bloodhound.Internal.Query
-import           Database.Bloodhound.Internal.Sort
-import           Database.Bloodhound.Internal.Suggest
-import           Database.Bloodhound.Internal.PointInTime
+import Bloodhound.Import
 import qualified Data.HashMap.Strict as HM
+import Database.Bloodhound.Internal.Aggregation
+import Database.Bloodhound.Internal.Analysis
+import Database.Bloodhound.Internal.Client
+import Database.Bloodhound.Internal.Count
+import Database.Bloodhound.Internal.Highlight
+import Database.Bloodhound.Internal.Newtypes
+import Database.Bloodhound.Internal.PointInTime
+import Database.Bloodhound.Internal.Query
+import Database.Bloodhound.Internal.Sort
+import Database.Bloodhound.Internal.Suggest
 
-{-| 'unpackId' is a silly convenience function that gets used once.
--}
+-- | 'unpackId' is a silly convenience function that gets used once.
 unpackId :: DocId -> Text
 unpackId (DocId docId) = docId
 
 type TrackSortScores = Bool
 
-data Search = Search { queryBody       :: Maybe Query
-                     , filterBody      :: Maybe Filter
-                     , sortBody        :: Maybe Sort
-                     , aggBody         :: Maybe Aggregations
-                     , highlight       :: Maybe Highlights
-                       -- default False
-                     , trackSortScores :: TrackSortScores
-                     , from            :: From
-                     , size            :: Size
-                     , searchType      :: SearchType
-                     , searchAfterKey  :: Maybe SearchAfterKey
-                     , fields          :: Maybe [FieldName]
-                     , scriptFields    :: Maybe ScriptFields
-                     , source          :: Maybe Source
-                     , suggestBody     :: Maybe Suggest -- ^ Only one Suggestion request / response per Search is supported.
-                     , pointInTime     :: Maybe PointInTime
-                     } deriving (Eq, Show)
-
+data Search = Search
+  { queryBody :: Maybe Query,
+    filterBody :: Maybe Filter,
+    sortBody :: Maybe Sort,
+    aggBody :: Maybe Aggregations,
+    highlight :: Maybe Highlights,
+    -- default False
+    trackSortScores :: TrackSortScores,
+    from :: From,
+    size :: Size,
+    searchType :: SearchType,
+    searchAfterKey :: Maybe SearchAfterKey,
+    fields :: Maybe [FieldName],
+    scriptFields :: Maybe ScriptFields,
+    source :: Maybe Source,
+    -- | Only one Suggestion request / response per Search is supported.
+    suggestBody :: Maybe Suggest,
+    pointInTime :: Maybe PointInTime
+  }
+  deriving (Eq, Show)
 
 instance ToJSON Search where
-  toJSON (Search mquery sFilter sort searchAggs
-          highlight sTrackSortScores sFrom sSize _ sAfter sFields
-          sScriptFields sSource sSuggest pPointInTime) =
-    omitNulls [ "query"         .= query'
-              , "sort"          .= sort
-              , "aggregations"  .= searchAggs
-              , "highlight"     .= highlight
-              , "from"          .= sFrom
-              , "size"          .= sSize
-              , "track_scores"  .= sTrackSortScores
-              , "search_after"  .= sAfter
-              , "fields"        .= sFields
-              , "script_fields" .= sScriptFields
-              , "_source"       .= sSource
-              , "suggest"       .= sSuggest
-              , "pit"           .= pPointInTime]
+  toJSON
+    ( Search
+        mquery
+        sFilter
+        sort
+        searchAggs
+        highlight
+        sTrackSortScores
+        sFrom
+        sSize
+        _
+        sAfter
+        sFields
+        sScriptFields
+        sSource
+        sSuggest
+        pPointInTime
+      ) =
+      omitNulls
+        [ "query" .= query',
+          "sort" .= sort,
+          "aggregations" .= searchAggs,
+          "highlight" .= highlight,
+          "from" .= sFrom,
+          "size" .= sSize,
+          "track_scores" .= sTrackSortScores,
+          "search_after" .= sAfter,
+          "fields" .= sFields,
+          "script_fields" .= sScriptFields,
+          "_source" .= sSource,
+          "suggest" .= sSuggest,
+          "pit" .= pPointInTime
+        ]
+      where
+        query' = case sFilter of
+          Nothing -> mquery
+          Just x ->
+            Just
+              . QueryBoolQuery
+              $ mkBoolQuery
+                (maybeToList mquery)
+                [x]
+                []
+                []
 
-    where query' = case sFilter of
-                    Nothing -> mquery
-                    Just x ->
-                        Just
-                      . QueryBoolQuery
-                      $ mkBoolQuery (maybeToList mquery)
-                        [x] [] []
-
-data SearchType = SearchTypeQueryThenFetch
-                | SearchTypeDfsQueryThenFetch
+data SearchType
+  = SearchTypeQueryThenFetch
+  | SearchTypeDfsQueryThenFetch
   deriving (Eq, Show)
 
 instance ToJSON SearchType where
@@ -511,27 +527,30 @@ instance ToJSON SearchType where
 instance FromJSON SearchType where
   parseJSON (String "query_then_fetch") = pure $ SearchTypeQueryThenFetch
   parseJSON (String "dfs_query_then_fetch") = pure $ SearchTypeDfsQueryThenFetch
-  parseJSON _          = empty
+  parseJSON _ = empty
 
-data Source =
-    NoSource
+data Source
+  = NoSource
   | SourcePatterns PatternOrPatterns
   | SourceIncludeExclude Include Exclude
-    deriving (Eq, Show)
+  deriving (Eq, Show)
 
 instance ToJSON Source where
-    toJSON NoSource                         = toJSON False
-    toJSON (SourcePatterns patterns)        = toJSON patterns
-    toJSON (SourceIncludeExclude incl excl) = object [ "includes" .= incl, "excludes" .= excl ]
+  toJSON NoSource = toJSON False
+  toJSON (SourcePatterns patterns) = toJSON patterns
+  toJSON (SourceIncludeExclude incl excl) = object ["includes" .= incl, "excludes" .= excl]
 
-data PatternOrPatterns = PopPattern   Pattern
-                       | PopPatterns [Pattern] deriving (Eq, Read, Show)
+data PatternOrPatterns
+  = PopPattern Pattern
+  | PopPatterns [Pattern]
+  deriving (Eq, Read, Show)
 
 instance ToJSON PatternOrPatterns where
-  toJSON (PopPattern pattern)   = toJSON pattern
+  toJSON (PopPattern pattern) = toJSON pattern
   toJSON (PopPatterns patterns) = toJSON patterns
 
 data Include = Include [Pattern] deriving (Eq, Read, Show)
+
 data Exclude = Exclude [Pattern] deriving (Eq, Read, Show)
 
 instance ToJSON Include where
@@ -545,34 +564,35 @@ newtype Pattern = Pattern Text deriving (Eq, Read, Show)
 instance ToJSON Pattern where
   toJSON (Pattern pattern) = toJSON pattern
 
-data SearchResult a =
-  SearchResult { took         :: Int
-               , timedOut     :: Bool
-               , shards       :: ShardResult
-               , searchHits   :: SearchHits a
-               , aggregations :: Maybe AggregationResults
-               , scrollId     :: Maybe ScrollId
-               -- ^ Only one Suggestion request / response per
-               --   Search is supported.
-               , suggest      :: Maybe NamedSuggestionResponse
-               , pitId        :: Maybe Text
-               }
+data SearchResult a = SearchResult
+  { took :: Int,
+    timedOut :: Bool,
+    shards :: ShardResult,
+    searchHits :: SearchHits a,
+    aggregations :: Maybe AggregationResults,
+    -- | Only one Suggestion request / response per
+    --   Search is supported.
+    scrollId :: Maybe ScrollId,
+    suggest :: Maybe NamedSuggestionResponse,
+    pitId :: Maybe Text
+  }
   deriving (Eq, Show)
 
 instance (FromJSON a) => FromJSON (SearchResult a) where
-  parseJSON (Object v) = SearchResult <$>
-                         v .:  "took"         <*>
-                         v .:  "timed_out"    <*>
-                         v .:  "_shards"      <*>
-                         v .:  "hits"         <*>
-                         v .:? "aggregations" <*>
-                         v .:? "_scroll_id"   <*>
-                         v .:? "suggest"      <*>
-                         v .:? "pit_id"
-  parseJSON _          = empty
+  parseJSON (Object v) =
+    SearchResult
+      <$> v .: "took"
+      <*> v .: "timed_out"
+      <*> v .: "_shards"
+      <*> v .: "hits"
+      <*> v .:? "aggregations"
+      <*> v .:? "_scroll_id"
+      <*> v .:? "suggest"
+      <*> v .:? "pit_id"
+  parseJSON _ = empty
 
-newtype ScrollId =
-  ScrollId Text
+newtype ScrollId
+  = ScrollId Text
   deriving (Eq, Show, Ord, ToJSON, FromJSON)
 
 newtype SearchTemplateId = SearchTemplateId Text deriving (Eq, Show)
@@ -587,9 +607,10 @@ instance ToJSON SearchTemplateSource where
 
 instance FromJSON SearchTemplateSource where
   parseJSON (String s) = pure $ SearchTemplateSource s
-  parseJSON _          = empty
+  parseJSON _ = empty
 
-data ExpandWildcards = ExpandWildcardsAll
+data ExpandWildcards
+  = ExpandWildcardsAll
   | ExpandWildcardsOpen
   | ExpandWildcardsClosed
   | ExpandWildcardsNone
@@ -606,9 +627,10 @@ instance FromJSON ExpandWildcards where
   parseJSON (String "open") = pure $ ExpandWildcardsOpen
   parseJSON (String "closed") = pure $ ExpandWildcardsClosed
   parseJSON (String "none") = pure $ ExpandWildcardsNone
-  parseJSON _          = empty
+  parseJSON _ = empty
 
-data TimeUnits = TimeUnitDays 
+data TimeUnits
+  = TimeUnitDays
   | TimeUnitHours
   | TimeUnitMinutes
   | TimeUnitSeconds
@@ -629,48 +651,51 @@ instance ToJSON TimeUnits where
 instance FromJSON TimeUnits where
   parseJSON (String "d") = pure $ TimeUnitDays
   parseJSON (String "h") = pure $ TimeUnitHours
-  parseJSON ( String "m") = pure $ TimeUnitMinutes
+  parseJSON (String "m") = pure $ TimeUnitMinutes
   parseJSON (String "s") = pure $ TimeUnitSeconds
   parseJSON (String "ms") = pure $ TimeUnitMilliseconds
   parseJSON (String "micros") = pure $ TimeUnitMicroseconds
   parseJSON (String "nanos") = pure $ TimeUnitNanoseconds
-  parseJSON _          = empty
+  parseJSON _ = empty
 
-data SearchTemplate = SearchTemplate {
-    searchTemplate                      :: Either SearchTemplateId SearchTemplateSource
-    , params                              :: TemplateQueryKeyValuePairs
-    , explainSearchTemplate               :: Maybe Bool
-    , profileSearchTemplate               :: Maybe Bool
-  } deriving (Eq, Show)
+data SearchTemplate = SearchTemplate
+  { searchTemplate :: Either SearchTemplateId SearchTemplateSource,
+    params :: TemplateQueryKeyValuePairs,
+    explainSearchTemplate :: Maybe Bool,
+    profileSearchTemplate :: Maybe Bool
+  }
+  deriving (Eq, Show)
 
 instance ToJSON SearchTemplate where
-  toJSON SearchTemplate{..} = omitNulls [ 
-    either ("id" .=) ("source" .=) searchTemplate
-    , "params" .= params
-    , "explain" .= explainSearchTemplate
-    , "profile" .= profileSearchTemplate
-    ]
+  toJSON SearchTemplate {..} =
+    omitNulls
+      [ either ("id" .=) ("source" .=) searchTemplate,
+        "params" .= params,
+        "explain" .= explainSearchTemplate,
+        "profile" .= profileSearchTemplate
+      ]
 
-data GetTemplateScript = GetTemplateScript {
-    getTemplateScriptLang      :: Maybe Text
-    , getTemplateScriptSource  :: Maybe SearchTemplateSource
-    , getTemplateScriptOptions :: Maybe (HM.HashMap Text Text)
-    , getTemplateScriptId      :: Text
-    , getTemplateScriptFound   :: Bool
-  } deriving (Eq, Show)
+data GetTemplateScript = GetTemplateScript
+  { getTemplateScriptLang :: Maybe Text,
+    getTemplateScriptSource :: Maybe SearchTemplateSource,
+    getTemplateScriptOptions :: Maybe (HM.HashMap Text Text),
+    getTemplateScriptId :: Text,
+    getTemplateScriptFound :: Bool
+  }
+  deriving (Eq, Show)
 
 instance FromJSON GetTemplateScript where
   parseJSON (Object v) = do
     script <- v .:? "script"
     maybe
       (GetTemplateScript Nothing Nothing Nothing <$> v .: "_id" <*> v .: "found")
-      (\s -> GetTemplateScript <$>
-        s .:? "lang"    <*>
-        s .:? "source"  <*>
-        s .:? "options" <*>
-        v .: "_id"      <*>
-        v .: "found"
+      ( \s ->
+          GetTemplateScript
+            <$> s .:? "lang"
+            <*> s .:? "source"
+            <*> s .:? "options"
+            <*> v .: "_id"
+            <*> v .: "found"
       )
       script
-  parseJSON _          = empty
-
+  parseJSON _ = empty

@@ -1,59 +1,64 @@
-{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module Main
-    ( main
-    ) where
+  ( main,
+  )
+where
 
-
-import           Control.Monad.IO.Class (liftIO)
-import           Data.Aeson             (FromJSON (..), defaultOptions,
-                                         genericParseJSON, genericToJSON,
-                                         object, (.=))
-import           Data.List.NonEmpty     (NonEmpty (..))
-import           Data.Text              (Text)
-import           Data.Time.Calendar     (Day (..))
-import           Data.Time.Clock        (UTCTime (..), secondsToDiffTime)
-import qualified Data.Vector            as V
-import           Database.Bloodhound
-import           GHC.Generics           (Generic)
-import           Network.HTTP.Client    (defaultManagerSettings)
-
+import Control.Monad.IO.Class (liftIO)
+import Data.Aeson
+  ( FromJSON (..),
+    defaultOptions,
+    genericParseJSON,
+    genericToJSON,
+    object,
+    (.=),
+  )
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.Text (Text)
+import Data.Time.Calendar (Day (..))
+import Data.Time.Clock (UTCTime (..), secondsToDiffTime)
+import qualified Data.Vector as V
+import Database.Bloodhound
+import GHC.Generics (Generic)
+import Network.HTTP.Client (defaultManagerSettings)
 
 data TweetMapping = TweetMapping deriving (Eq, Show)
 
 instance ToJSON TweetMapping where
   toJSON TweetMapping =
     object
-      [ "properties" .=
-        object ["location" .= object ["type" .= ("geo_point" :: Text)]]
+      [ "properties"
+          .= object ["location" .= object ["type" .= ("geo_point" :: Text)]]
       ]
 
 data Tweet = Tweet
-  { user     :: Text
-  , postDate :: UTCTime
-  , message  :: Text
-  , age      :: Int
-  , location :: LatLon
-  } deriving (Eq, Generic, Show)
-
+  { user :: Text,
+    postDate :: UTCTime,
+    message :: Text,
+    age :: Int,
+    location :: LatLon
+  }
+  deriving (Eq, Generic, Show)
 
 exampleTweet :: Tweet
 exampleTweet =
   Tweet
-  { user = "bitemyapp"
-  , postDate = UTCTime (ModifiedJulianDay 55000) (secondsToDiffTime 10)
-  , message = "Use haskell!"
-  , age = 10000
-  , location = loc
-  }
+    { user = "bitemyapp",
+      postDate = UTCTime (ModifiedJulianDay 55000) (secondsToDiffTime 10),
+      message = "Use haskell!",
+      age = 10000,
+      location = loc
+    }
   where
     loc = LatLon {lat = 40.12, lon = -71.3}
 
 instance ToJSON Tweet where
   toJSON = genericToJSON defaultOptions
+
 instance FromJSON Tweet where
   parseJSON = genericParseJSON defaultOptions
-
 
 main :: IO ()
 main = runBH' $ do

@@ -2,10 +2,9 @@
 
 module Test.Highlights where
 
+import qualified Data.Map as M
 import Test.Common
 import Test.Import
-
-import qualified Data.Map as M
 
 initHighlights :: Text -> BH IO (Either EsError (Maybe HitHighlight))
 initHighlights fieldName = do
@@ -19,14 +18,16 @@ initHighlights fieldName = do
 spec :: Spec
 spec =
   describe "Highlights API" $ do
-    it "returns highlight from query when there should be one" $ withTestEnv $ do
-      myHighlight <- initHighlights "message"
-      liftIO $
-        myHighlight `shouldBe`
-          Right (Just (M.fromList [("message", ["Use <em>haskell</em>!"])]))
+    it "returns highlight from query when there should be one" $
+      withTestEnv $ do
+        myHighlight <- initHighlights "message"
+        liftIO $
+          myHighlight
+            `shouldBe` Right (Just (M.fromList [("message", ["Use <em>haskell</em>!"])]))
 
-    it "doesn't return highlight from a query when it shouldn't" $ withTestEnv $ do
-      myHighlight <- initHighlights "user"
-      liftIO $
-        myHighlight `shouldBe`
-          Right Nothing
+    it "doesn't return highlight from a query when it shouldn't" $
+      withTestEnv $ do
+        myHighlight <- initHighlights "user"
+        liftIO $
+          myHighlight
+            `shouldBe` Right Nothing

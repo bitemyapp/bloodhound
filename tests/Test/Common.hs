@@ -1,32 +1,37 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Test.Common where
-
-import Test.Import
 
 import qualified Data.Map as M
 import qualified Data.SemVer as SemVer
 import qualified Network.HTTP.Types.Status as NHTS
+import Test.Import
 
-testServer  :: Server
-testServer  = Server "http://localhost:9200"
-testIndex   :: IndexName
-testIndex   = IndexName "bloodhound-tests-twitter-1"
+testServer :: Server
+testServer = Server "http://localhost:9200"
+
+testIndex :: IndexName
+testIndex = IndexName "bloodhound-tests-twitter-1"
 
 withTestEnv :: BH IO a -> IO a
 withTestEnv = withBH defaultManagerSettings testServer
 
-data Location = Location { lat :: Double
-                         , lon :: Double } deriving (Eq, Show)
+data Location = Location
+  { lat :: Double,
+    lon :: Double
+  }
+  deriving (Eq, Show)
 
-data Tweet = Tweet { user     :: Text
-                   , postDate :: UTCTime
-                   , message  :: Text
-                   , age      :: Int
-                   , location :: Location
-                   , extra    :: Maybe Text }
-           deriving (Eq, Show)
+data Tweet = Tweet
+  { user :: Text,
+    postDate :: UTCTime,
+    message :: Text,
+    age :: Int,
+    location :: Location,
+    extra :: Maybe Text
+  }
+  deriving (Eq, Show)
 
 $(deriveJSON defaultOptions ''Location)
 $(deriveJSON defaultOptions ''Tweet)
@@ -35,26 +40,33 @@ data ConversationMapping = ConversationMapping deriving (Eq, Show)
 
 instance ToJSON ConversationMapping where
   toJSON ConversationMapping =
-    object ["properties" .=
-      object ["reply_join"  .= object [ "type"       .= ("join" :: Text)
-                                      , "relations"  .= object [ "message" .= ("reply" :: Text) ]
-                                      ]
-            , "user"        .= object [ "type"       .= ("text" :: Text)
-                                      , "fielddata"  .= True
-                                      ]
-            -- Serializing the date as a date is breaking other tests, mysteriously.
-            -- , "postDate" .= object [ "type"   .= ("date" :: Text)
-            --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
-            , "message"  .= object ["type" .= ("text" :: Text)]
-            , "age"      .= object ["type" .= ("integer" :: Text)]
-            , "location" .= object ["type" .= ("geo_point" :: Text)]
-            , "extra"    .= object ["type" .= ("keyword" :: Text)]
-            ]]
+    object
+      [ "properties"
+          .= object
+            [ "reply_join"
+                .= object
+                  [ "type" .= ("join" :: Text),
+                    "relations" .= object ["message" .= ("reply" :: Text)]
+                  ],
+              "user"
+                .= object
+                  [ "type" .= ("text" :: Text),
+                    "fielddata" .= True
+                  ],
+              -- Serializing the date as a date is breaking other tests, mysteriously.
+              -- , "postDate" .= object [ "type"   .= ("date" :: Text)
+              --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
+              "message" .= object ["type" .= ("text" :: Text)],
+              "age" .= object ["type" .= ("integer" :: Text)],
+              "location" .= object ["type" .= ("geo_point" :: Text)],
+              "extra" .= object ["type" .= ("keyword" :: Text)]
+            ]
+      ]
 
 getServerVersion :: IO (Maybe SemVer.Version)
 getServerVersion = fmap extractVersion <$> withTestEnv getStatus
   where
-    extractVersion              = versionNumber . number . version
+    extractVersion = versionNumber . number . version
 
 createExampleIndex :: (MonadBH m) => m Reply
 createExampleIndex =
@@ -77,48 +89,65 @@ data TweetMapping = TweetMapping deriving (Eq, Show)
 
 instance ToJSON TweetMapping where
   toJSON TweetMapping =
-    object ["properties" .=
-      object [ "user"     .= object [ "type"    .= ("text" :: Text)
-                                    , "fielddata" .= True
-                                    ]
+    object
+      [ "properties"
+          .= object
+            [ "user"
+                .= object
+                  [ "type" .= ("text" :: Text),
+                    "fielddata" .= True
+                  ],
               -- Serializing the date as a date is breaking other tests, mysteriously.
               -- , "postDate" .= object [ "type"   .= ("date" :: Text)
               --                        , "format" .= ("YYYY-MM-dd`T`HH:mm:ss.SSSZZ" :: Text)]
-              , "message"  .= object ["type" .= ("text" :: Text)]
-              , "age"      .= object ["type" .= ("integer" :: Text)]
-              , "location" .= object ["type" .= ("geo_point" :: Text)]
-              , "extra"    .= object ["type" .= ("keyword" :: Text)]
-              ]]
+              "message" .= object ["type" .= ("text" :: Text)],
+              "age" .= object ["type" .= ("integer" :: Text)],
+              "location" .= object ["type" .= ("geo_point" :: Text)],
+              "extra" .= object ["type" .= ("keyword" :: Text)]
+            ]
+      ]
 
 exampleTweet :: Tweet
-exampleTweet = Tweet { user     = "bitemyapp"
-                     , postDate = UTCTime
-                                  (ModifiedJulianDay 55000)
-                                  (secondsToDiffTime 10)
-                     , message  = "Use haskell!"
-                     , age      = 10000
-                     , location = Location 40.12 (-71.34)
-                     , extra = Nothing }
+exampleTweet =
+  Tweet
+    { user = "bitemyapp",
+      postDate =
+        UTCTime
+          (ModifiedJulianDay 55000)
+          (secondsToDiffTime 10),
+      message = "Use haskell!",
+      age = 10000,
+      location = Location 40.12 (-71.34),
+      extra = Nothing
+    }
 
 tweetWithExtra :: Tweet
-tweetWithExtra = Tweet { user     = "bitemyapp"
-                       , postDate = UTCTime
-                                    (ModifiedJulianDay 55000)
-                                    (secondsToDiffTime 10)
-                       , message  = "Use haskell!"
-                       , age      = 10000
-                       , location = Location 40.12 (-71.34)
-                       , extra = Just "blah blah" }
+tweetWithExtra =
+  Tweet
+    { user = "bitemyapp",
+      postDate =
+        UTCTime
+          (ModifiedJulianDay 55000)
+          (secondsToDiffTime 10),
+      message = "Use haskell!",
+      age = 10000,
+      location = Location 40.12 (-71.34),
+      extra = Just "blah blah"
+    }
 
 exampleTweetWithAge :: Int -> Tweet
-exampleTweetWithAge age = Tweet { user     = "bitemyapp"
-                                , postDate = UTCTime
-                                            (ModifiedJulianDay 55000)
-                                            (secondsToDiffTime 10)
-                                , message  = "Use haskell!"
-                                , age      = age
-                                , location = Location 40.12 (-71.34)
-                                , extra = Nothing }
+exampleTweetWithAge age =
+  Tweet
+    { user = "bitemyapp",
+      postDate =
+        UTCTime
+          (ModifiedJulianDay 55000)
+          (secondsToDiffTime 10),
+      message = "Use haskell!",
+      age = age,
+      location = Location 40.12 (-71.34),
+      extra = Nothing
+    }
 
 newAge :: Int
 newAge = 31337
@@ -128,22 +157,27 @@ newUser = "someotherapp"
 
 tweetPatch :: Value
 tweetPatch =
-  object [ "age" .= newAge
-         , "user" .= newUser
-         ]
+  object
+    [ "age" .= newAge,
+      "user" .= newUser
+    ]
 
 patchedTweet :: Tweet
-patchedTweet = exampleTweet{age = newAge, user = newUser}
+patchedTweet = exampleTweet {age = newAge, user = newUser}
 
 otherTweet :: Tweet
-otherTweet = Tweet { user     = "notmyapp"
-                   , postDate = UTCTime
-                                (ModifiedJulianDay 55000)
-                                (secondsToDiffTime 11)
-                   , message  = "Use haskell!"
-                   , age      = 1000
-                   , location = Location 40.12 (-71.34)
-                   , extra = Nothing }
+otherTweet =
+  Tweet
+    { user = "notmyapp",
+      postDate =
+        UTCTime
+          (ModifiedJulianDay 55000)
+          (secondsToDiffTime 11),
+      message = "Use haskell!",
+      age = 1000,
+      location = Location 40.12 (-71.34),
+      extra = Nothing
+    }
 
 resetIndex :: BH IO ()
 resetIndex = do
@@ -219,8 +253,12 @@ searchExpectAggs search = do
   liftIO $
     (result >>= aggregations >>= isEmpty) `shouldBe` Just False
 
-searchValidBucketAgg :: (BucketAggregation a, FromJSON a, Show a) =>
-                        Search -> Key -> (Key -> AggregationResults -> Maybe (Bucket a)) -> BH IO ()
+searchValidBucketAgg ::
+  (BucketAggregation a, FromJSON a, Show a) =>
+  Search ->
+  Key ->
+  (Key -> AggregationResults -> Maybe (Bucket a)) ->
+  BH IO ()
 searchValidBucketAgg search aggKey extractor = do
   reply <- searchByIndex testIndex search
   let bucketDocs = docCount . head . buckets
@@ -231,13 +269,15 @@ searchValidBucketAgg search aggKey extractor = do
 
 searchTermsAggHint :: [ExecutionHint] -> BH IO ()
 searchTermsAggHint hints = do
-      let terms hint = TermsAgg $ (mkTermsAggregation "user.keyword") { termExecutionHint = Just hint }
-      let search hint = mkAggregateSearch Nothing $ mkAggregations "users" $ terms hint
-      forM_ hints $ searchExpectAggs . search
-      -- forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
+  let terms hint = TermsAgg $ (mkTermsAggregation "user.keyword") {termExecutionHint = Just hint}
+  let search hint = mkAggregateSearch Nothing $ mkAggregations "users" $ terms hint
+  forM_ hints $ searchExpectAggs . search
 
-searchTweetHighlight :: Search
-                     -> BH IO (Either EsError (Maybe HitHighlight))
+-- forM_ hints (\x -> searchValidBucketAgg (search x) "users" toTerms)
+
+searchTweetHighlight ::
+  Search ->
+  BH IO (Either EsError (Maybe HitHighlight))
 searchTweetHighlight search = do
   result <- searchTweets search
   let tweetHit :: Either EsError (Maybe (Hit Tweet))
@@ -250,7 +290,7 @@ searchExpectSource :: Source -> Either EsError Value -> BH IO ()
 searchExpectSource src expected = do
   _ <- insertData
   let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
-  let search = (mkSearch (Just query) Nothing) { source = Just src }
+  let search = (mkSearch (Just query) Nothing) {source = Just src}
   reply <- searchByIndex testIndex search
   result <- parseEsResponse reply
   let value_ = grabFirst result

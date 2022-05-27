@@ -41,7 +41,7 @@ Stability
 Bloodhound is stable for production use. I will strive to avoid breaking API compatibility from here on forward, but dramatic features like a type-safe, fully integrated mapping API may require breaking things in the future.
 
 Testing
----------
+-------
 
 The TravisCI tests are run using [Stack](http://docs.haskellstack.org/en/stable/README.html). You should use Stack instead of `cabal` to build and test Bloodhound to avoid compatibility problems. You will also need to have an Elasticsearch instance running at `localhost:9200` in order to execute some of the tests. See the "Version compatibility" section above for a list of Elasticsearch versions that are officially validated against in TravisCI.
 
@@ -53,6 +53,10 @@ Steps to run the tests locally:
   5. Run `stack test` in your local Bloodhound directory.
   6. The unit tests will pass if you re-execute `stack test`. If you want to start with a clean slate, stop your Elasticsearch instance, delete the `data/` folder in the Elasticsearch installation, restart Elasticsearch, and re-run `stack test`.
 
+Contributions
+-------------
+
+Any contribution is welcomed, for consistency reason [`ormolu`](https://github.com/tweag/ormolu) is used.
 
 Hackage page and Haddock documentation
 ======================================
@@ -83,6 +87,7 @@ Contributors
 * [Anna Kopp](https://github.com/annakopp)
 * [Matvey B. Aksenov](https://github.com/supki)
 * [Jan-Philip Loos](https://github.com/MaxDaten)
+* [Gautier DI FOLCO](https://github.com/blackheaven)
 
 Possible future functionality
 =============================

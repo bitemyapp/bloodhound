@@ -1,9 +1,7 @@
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.JSON (spec) where
-
-import Test.Import
 
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.ByteString.Lazy.Char8 as BL8
@@ -11,41 +9,53 @@ import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
 import qualified Data.Vector as V
-
 import Test.ApproxEq
 import Test.Generators
+import Test.Import
 
-propJSON :: forall a
-          . ( Arbitrary a
-            , ToJSON a
-            , FromJSON a
-            , Show a
-            , Eq a
-            , Typeable a
-            )
-         => Proxy a -> Spec
+propJSON ::
+  forall a.
+  ( Arbitrary a,
+    ToJSON a,
+    FromJSON a,
+    Show a,
+    Eq a,
+    Typeable a
+  ) =>
+  Proxy a ->
+  Spec
 propJSON _ = prop testName $ \(a :: a) ->
   let jsonStr = "via " <> BL8.unpack (encode a)
-  in counterexample jsonStr (parseEither parseJSON (toJSON a)
-                             === Right a)
-  where testName = show ty <> " FromJSON/ToJSON roundtrips"
-        ty = typeOf (undefined :: a)
+   in counterexample
+        jsonStr
+        ( parseEither parseJSON (toJSON a)
+            === Right a
+        )
+  where
+    testName = show ty <> " FromJSON/ToJSON roundtrips"
+    ty = typeOf (undefined :: a)
 
-propApproxJSON :: forall a
-                . ( Arbitrary a
-                  , ToJSON a
-                  , FromJSON a
-                  , Show a
-                  , ApproxEq a
-                  , Typeable a
-                  )
-               => Proxy a -> Spec
+propApproxJSON ::
+  forall a.
+  ( Arbitrary a,
+    ToJSON a,
+    FromJSON a,
+    Show a,
+    ApproxEq a,
+    Typeable a
+  ) =>
+  Proxy a ->
+  Spec
 propApproxJSON _ = prop testName $ \(a :: a) ->
   let jsonStr = "via " <> BL8.unpack (encode a)
-  in counterexample jsonStr (parseEither parseJSON (toJSON a)
-                             ==~ Right a)
-  where testName = show ty <> " FromJSON/ToJSON roundtrips"
-        ty = typeOf (undefined :: a)
+   in counterexample
+        jsonStr
+        ( parseEither parseJSON (toJSON a)
+            ==~ Right a
+        )
+  where
+    testName = show ty <> " FromJSON/ToJSON roundtrips"
+    ty = typeOf (undefined :: a)
 
 spec :: Spec
 spec = do
@@ -57,38 +67,63 @@ spec = do
       toJSON NoRegexpFlags `shouldBe` String "NONE"
 
     it "generates the correct JSON for SomeRegexpFlags" $
-      let flags = AnyString :| [ Automaton
-                               , Complement
-                               , Empty
-                               , Intersection
-                               , Interval ]
-      in toJSON (SomeRegexpFlags flags) `shouldBe` String "ANYSTRING|AUTOMATON|COMPLEMENT|EMPTY|INTERSECTION|INTERVAL"
+      let flags =
+            AnyString
+              :| [ Automaton,
+                   Complement,
+                   Empty,
+                   Intersection,
+                   Interval
+                 ]
+       in toJSON (SomeRegexpFlags flags) `shouldBe` String "ANYSTRING|AUTOMATON|COMPLEMENT|EMPTY|INTERSECTION|INTERVAL"
 
     prop "removes duplicates from flags" $ \(flags :: RegexpFlags) ->
       let String str = toJSON flags
-          flagStrs   = T.splitOn "|" str
-      in noDuplicates flagStrs
+          flagStrs = T.splitOn "|" str
+       in noDuplicates flagStrs
 
   describe "omitNulls" $ do
     it "checks that omitNulls drops list elements when it should" $
-       let dropped = omitNulls $ [ "test1" .= (toJSON ([] :: [Int]))
-                                 , "test2" .= (toJSON ("some value" :: Text))]
+      let dropped =
+            omitNulls $
+              [ "test1" .= (toJSON ([] :: [Int])),
+                "test2" .= (toJSON ("some value" :: Text))
+              ]
        in dropped `shouldBe` Object (X.fromList [("test2", String "some value")])
 
     it "checks that omitNulls doesn't drop list elements when it shouldn't" $
-       let notDropped = omitNulls $ [ "test1" .= (toJSON ([1] :: [Int]))
-                                    , "test2" .= (toJSON ("some value" :: Text))]
-       in notDropped `shouldBe` Object (X.fromList [ ("test1", Array (V.fromList [Number 1.0]))
-                                                 , ("test2", String "some value")])
+      let notDropped =
+            omitNulls $
+              [ "test1" .= (toJSON ([1] :: [Int])),
+                "test2" .= (toJSON ("some value" :: Text))
+              ]
+       in notDropped
+            `shouldBe` Object
+              ( X.fromList
+                  [ ("test1", Array (V.fromList [Number 1.0])),
+                    ("test2", String "some value")
+                  ]
+              )
     it "checks that omitNulls drops non list elements when it should" $
-       let dropped = omitNulls $ [ "test1" .= (toJSON Null)
-                                 , "test2" .= (toJSON ("some value" :: Text))]
+      let dropped =
+            omitNulls $
+              [ "test1" .= (toJSON Null),
+                "test2" .= (toJSON ("some value" :: Text))
+              ]
        in dropped `shouldBe` Object (X.fromList [("test2", String "some value")])
     it "checks that omitNulls doesn't drop non list elements when it shouldn't" $
-       let notDropped = omitNulls $ [ "test1" .= (toJSON (1 :: Int))
-                                    , "test2" .= (toJSON ("some value" :: Text))]
-       in notDropped `shouldBe` Object (X.fromList [ ("test1", Number 1.0)
-                                                   , ("test2", String "some value")])
+      let notDropped =
+            omitNulls $
+              [ "test1" .= (toJSON (1 :: Int)),
+                "test2" .= (toJSON ("some value" :: Text))
+              ]
+       in notDropped
+            `shouldBe` Object
+              ( X.fromList
+                  [ ("test1", Number 1.0),
+                    ("test2", String "some value")
+                  ]
+              )
 
   describe "Exact isomorphism JSON instances" $ do
     propJSON (Proxy :: Proxy Version)
@@ -190,9 +225,9 @@ spec = do
     propJSON (Proxy :: Proxy RangeExecution)
     prop "RegexpFlags FromJSON/ToJSON roundtrips, removing dups " $ \rfs ->
       let expected = case rfs of
-                       SomeRegexpFlags fs -> SomeRegexpFlags (NE.fromList (L.nub (NE.toList fs)))
-                       x -> x
-      in parseEither parseJSON (toJSON rfs) === Right expected
+            SomeRegexpFlags fs -> SomeRegexpFlags (NE.fromList (L.nub (NE.toList fs)))
+            x -> x
+       in parseEither parseJSON (toJSON rfs) === Right expected
     propJSON (Proxy :: Proxy BoolMatch)
     propJSON (Proxy :: Proxy Term)
     propJSON (Proxy :: Proxy MultiMatchQuery)

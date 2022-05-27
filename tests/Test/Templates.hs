@@ -8,19 +8,23 @@ import Test.Import
 spec :: Spec
 spec =
   describe "template API" $ do
-    it "can create a template" $ withTestEnv $ do
-      let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1) defaultIndexMappingsLimits)) (toJSON TweetMapping)
-      resp <- putTemplate idxTpl (TemplateName "tweet-tpl")
-      liftIO $ validateStatus resp 200
+    it "can create a template" $
+      withTestEnv $ do
+        let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1) defaultIndexMappingsLimits)) (toJSON TweetMapping)
+        resp <- putTemplate idxTpl (TemplateName "tweet-tpl")
+        liftIO $ validateStatus resp 200
 
-    it "can detect if a template exists" $ withTestEnv $ do
-      exists <- templateExists (TemplateName "tweet-tpl")
-      liftIO $ exists `shouldBe` True
+    it "can detect if a template exists" $
+      withTestEnv $ do
+        exists <- templateExists (TemplateName "tweet-tpl")
+        liftIO $ exists `shouldBe` True
 
-    it "can delete a template" $ withTestEnv $ do
-      resp <- deleteTemplate (TemplateName "tweet-tpl")
-      liftIO $ validateStatus resp 200
+    it "can delete a template" $
+      withTestEnv $ do
+        resp <- deleteTemplate (TemplateName "tweet-tpl")
+        liftIO $ validateStatus resp 200
 
-    it "can detect if a template doesn't exist" $ withTestEnv $ do
-      exists <- templateExists (TemplateName "tweet-tpl")
-      liftIO $ exists `shouldBe` False
+    it "can detect if a template doesn't exist" $
+      withTestEnv $ do
+        exists <- templateExists (TemplateName "tweet-tpl")
+        liftIO $ exists `shouldBe` False
