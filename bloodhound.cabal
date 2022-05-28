@@ -43,6 +43,8 @@ library
   other-modules:
       Bloodhound.Import
       Database.Bloodhound.Common.Script
+      Database.Bloodhound.Internal.Client.BHRequest
+      Database.Bloodhound.Internal.Client.Doc
       Database.Bloodhound.Internal.Count
       Database.Bloodhound.Internal.PointInTime
       Paths_bloodhound

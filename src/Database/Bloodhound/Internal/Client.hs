@@ -19,10 +19,11 @@ import qualified Data.Text as T
 import qualified Data.Traversable as DT
 import qualified Data.Vector as V
 import Database.Bloodhound.Internal.Analysis
+import Database.Bloodhound.Internal.Client.BHRequest
+import Database.Bloodhound.Internal.Client.Doc
 import Database.Bloodhound.Internal.Newtypes
 import Database.Bloodhound.Internal.Query
 import Database.Bloodhound.Internal.StringlyTyped
-import GHC.Enum
 import GHC.Generics
 import Network.HTTP.Client
 import Text.Read (Read (..))
@@ -39,9 +40,6 @@ data BHEnv = BHEnv
 
 instance (Functor m, Applicative m, MonadIO m) => MonadBH (ReaderT BHEnv m) where
   getBHEnv = ask
-
--- | 'Server' is used with the client functions to point at the ES instance
-newtype Server = Server Text deriving (Eq, Show, FromJSON)
 
 -- | All API calls to Elasticsearch operate within
 --    MonadBH
@@ -597,9 +595,6 @@ instance FromJSON IndexSettingsSummary where
       redundant (NumberOfReplicas _) = True
       redundant _ = False
 
--- | 'Reply' and 'Method' are type synonyms from 'Network.HTTP.Types.Method.Method'
-type Reply = Network.HTTP.Client.Response LByteString
-
 -- | 'OpenCloseIndex' is a sum type for opening and closing indices.
 --
 --   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
@@ -734,75 +729,6 @@ data BulkOperation
     BulkUpsert IndexName DocId UpsertPayload [UpsertActionMetadata]
   deriving (Eq, Show)
 
--- | 'EsResult' describes the standard wrapper JSON document that you see in
---    successful Elasticsearch lookups or lookups that couldn't find the document.
-data EsResult a = EsResult
-  { _index :: Text,
-    _type :: Text,
-    _id :: Text,
-    foundResult :: Maybe (EsResultFound a)
-  }
-  deriving (Eq, Show)
-
--- | 'EsResultFound' contains the document and its metadata inside of an
---    'EsResult' when the document was successfully found.
-data EsResultFound a = EsResultFound
-  { _version :: DocVersion,
-    _source :: a
-  }
-  deriving (Eq, Show)
-
-instance (FromJSON a) => FromJSON (EsResult a) where
-  parseJSON jsonVal@(Object v) = do
-    found <- v .:? "found" .!= False
-    fr <-
-      if found
-        then parseJSON jsonVal
-        else return Nothing
-    EsResult <$> v .: "_index"
-      <*> v .: "_type"
-      <*> v .: "_id"
-      <*> pure fr
-  parseJSON _ = empty
-
-instance (FromJSON a) => FromJSON (EsResultFound a) where
-  parseJSON (Object v) =
-    EsResultFound
-      <$> v .: "_version"
-      <*> v .: "_source"
-  parseJSON _ = empty
-
--- | 'EsError' is the generic type that will be returned when there was a
---    problem. If you can't parse the expected response, its a good idea to
---    try parsing this.
-data EsError = EsError
-  { errorStatus :: Int,
-    errorMessage :: Text
-  }
-  deriving (Eq, Show)
-
-instance FromJSON EsError where
-  parseJSON (Object v) =
-    EsError
-      <$> v .: "status"
-      <*> (v .: "error" <|> (v .: "error" >>= (.: "reason")))
-  parseJSON _ = empty
-
--- | 'EsProtocolException' will be thrown if Bloodhound cannot parse a response
--- returned by the Elasticsearch server. If you encounter this error, please
--- verify that your domain data types and FromJSON instances are working properly
--- (for example, the 'a' of '[Hit a]' in 'SearchResult.searchHits.hits'). If you're
--- sure that your mappings are correct, then this error may be an indication of an
--- incompatibility between Bloodhound and Elasticsearch. Please open a bug report
--- and be sure to include the exception body.
-data EsProtocolException = EsProtocolException
-  { esProtoExMessage :: !Text,
-    esProtoExBody :: !LByteString
-  }
-  deriving (Eq, Show)
-
-instance Exception EsProtocolException
-
 data IndexAlias = IndexAlias
   { srcIndex :: IndexName,
     indexAlias :: IndexAliasName
@@ -913,82 +839,6 @@ data IndexAliasSummary = IndexAliasSummary
     indexAliasSummaryCreate :: IndexAliasCreate
   }
   deriving (Eq, Show)
-
--- | 'DocVersion' is an integer version number for a document between 1
--- and 9.2e+18 used for <<https://www.elastic.co/guide/en/elasticsearch/guide/current/optimistic-concurrency-control.html optimistic concurrency control>>.
-newtype DocVersion = DocVersion
-  { docVersionNumber :: Int
-  }
-  deriving (Eq, Show, Ord, ToJSON)
-
--- | Smart constructor for in-range doc version
-mkDocVersion :: Int -> Maybe DocVersion
-mkDocVersion i
-  | i >= docVersionNumber minBound
-      && i <= docVersionNumber maxBound =
-    Just $ DocVersion i
-  | otherwise = Nothing
-
-instance Bounded DocVersion where
-  minBound = DocVersion 1
-  maxBound = DocVersion 9200000000000000000 -- 9.2e+18
-
-instance Enum DocVersion where
-  succ x
-    | x /= maxBound = DocVersion (succ $ docVersionNumber x)
-    | otherwise = succError "DocVersion"
-  pred x
-    | x /= minBound = DocVersion (pred $ docVersionNumber x)
-    | otherwise = predError "DocVersion"
-  toEnum i =
-    fromMaybe (error $ show i ++ " out of DocVersion range") $ mkDocVersion i
-  fromEnum = docVersionNumber
-  enumFrom = boundedEnumFrom
-  enumFromThen = boundedEnumFromThen
-
-instance FromJSON DocVersion where
-  parseJSON v = do
-    i <- parseJSON v
-    maybe (fail "DocVersion out of range") return $ mkDocVersion i
-
--- | 'ExternalDocVersion' is a convenience wrapper if your code uses its
--- own version numbers instead of ones from ES.
-newtype ExternalDocVersion = ExternalDocVersion DocVersion
-  deriving (Eq, Show, Ord, Bounded, Enum, ToJSON)
-
--- | 'VersionControl' is specified when indexing documents as a
--- optimistic concurrency control.
-data VersionControl
-  = -- | Don't send a version. This is a pure overwrite.
-    NoVersionControl
-  | -- | Use the default ES versioning scheme. Only
-    -- index the document if the version is the same
-    -- as the one specified. Only applicable to
-    -- updates, as you should be getting Version from
-    -- a search result.
-    InternalVersion DocVersion
-  | -- | Use your own version numbering. Only index
-    -- the document if the version is strictly higher
-    -- OR the document doesn't exist. The given
-    -- version will be used as the new version number
-    -- for the stored document. N.B. All updates must
-    -- increment this number, meaning there is some
-    -- global, external ordering of updates.
-    ExternalGT ExternalDocVersion
-  | -- | Use your own version numbering. Only index
-    -- the document if the version is equal or higher
-    -- than the stored version. Will succeed if there
-    -- is no existing document. The given version will
-    -- be used as the new version number for the
-    -- stored document. Use with care, as this could
-    -- result in data loss.
-    ExternalGTE ExternalDocVersion
-  | -- | The document will always be indexed and the
-    -- given version will be the new version. This is
-    -- typically used for correcting errors. Use with
-    -- care, as this could result in data loss.
-    ForceVersion ExternalDocVersion
-  deriving (Eq, Show, Ord)
 
 data JoinRelation
   = ParentDocument FieldName RelationName
@@ -1607,13 +1457,13 @@ data ShardResult = ShardResult
   deriving (Eq, Show)
 
 instance FromJSON ShardResult where
-  parseJSON (Object v) =
-    ShardResult
-      <$> v .: "total"
-      <*> v .: "successful"
-      <*> v .: "skipped"
-      <*> v .: "failed"
-  parseJSON _ = empty
+  parseJSON =
+    withObject "ShardResult" $ \v ->
+      ShardResult
+        <$> v .:? "total" .!= 0
+        <*> v .:? "successful" .!= 0
+        <*> v .:? "skipped" .!= 0
+        <*> v .:? "failed" .!= 0
 
 data SnapshotState
   = SnapshotInit

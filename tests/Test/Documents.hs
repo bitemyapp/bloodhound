@@ -14,8 +14,7 @@ spec =
         _ <- updateData
         docInserted <- getDocument testIndex (DocId "1")
         let newTweet =
-              eitherDecode
-                (responseBody docInserted) ::
+              eitherDecodeResponse docInserted ::
                 Either String (EsResult Tweet)
         liftIO $ fmap getSource newTweet `shouldBe` Right (Just patchedTweet)
 
@@ -24,8 +23,7 @@ spec =
         _ <- insertWithSpaceInId
         docInserted <- getDocument testIndex (DocId "Hello World")
         let newTweet =
-              eitherDecode
-                (responseBody docInserted) ::
+              eitherDecodeResponse docInserted ::
                 Either String (EsResult Tweet)
         liftIO $ fmap getSource newTweet `shouldBe` Right (Just exampleTweet)
 
@@ -33,8 +31,7 @@ spec =
       withTestEnv $ do
         doc <- getDocument testIndex (DocId "bogus")
         let noTweet =
-              eitherDecode
-                (responseBody doc) ::
+              eitherDecodeResponse doc ::
                 Either String (EsResult Tweet)
         liftIO $ fmap foundResult noTweet `shouldBe` Right Nothing
 

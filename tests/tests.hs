@@ -3,11 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-#if __GLASGOW_HASKELL__ < 800
-{-# OPTIONS_GHC -fcontext-stack=100 #-}
-#endif
 #if __GLASGOW_HASKELL__ >= 802
 {-# LANGUAGE MonoLocalBinds #-}
 #endif
@@ -53,9 +50,9 @@ main = hspec $ do
   describe "error parsing" $
     it "can parse EsErrors for >= 2.0" $
       withTestEnv $ do
-        res <- getDocument (IndexName "bogus") (DocId "bogus_as_well")
-        let errorResp = eitherDecode (responseBody res)
-        liftIO (errorResp `shouldBe` Right (EsError 404 "no such index [bogus]"))
+        res <- getDocument @() (IndexName "bogus") (DocId "bogus_as_well")
+        errorResp <- parseEsResponse res
+        liftIO (errorResp `shouldBe` Left (EsError 404 "no such index [bogus]"))
 
   describe "Monoid (SearchHits a)" $
     prop "abides the monoid laws" $
@@ -142,7 +139,7 @@ main = hspec $ do
         liftIO $
           regular_search `shouldBe` Right exampleTweet -- Check that the size restriction is being honored
         liftIO $
-          pit_search `shouldMatchList` [Just exampleTweet]
+          pit_search `shouldMatchList` [Just exampleTweet] -- TODO
     it "returns many documents using the point in time (PIT) API" $
       withTestEnv $ do
         resetIndex
@@ -167,7 +164,6 @@ main = hspec $ do
           scan_search `shouldMatchList` expectedHits
         liftIO $
           pit_search `shouldMatchList` expectedHits
-
   describe "Search After API" $
     it "returns document for search after query" $
       withTestEnv $ do

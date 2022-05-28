@@ -38,7 +38,7 @@ spec = do
               repos <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| [ExactRepo r2n]))
               liftIO $ case repos of
                 Right xs -> do
-                  let srt = L.sortBy (comparing gSnapshotRepoName)
+                  let srt = L.sortOn gSnapshotRepoName
                   srt xs `shouldBe` srt [r1, r2]
                 Left e -> expectationFailure (show e)
 
@@ -148,7 +148,7 @@ getRepoPaths = withTestEnv $ do
   let tUrl = s <> "/" <> "_nodes"
   initReq <- parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack tUrl))
   let req = setRequestIgnoreStatus $ initReq {method = NHTM.methodGet}
-  Right (Object o) <- parseEsResponse =<< liftIO (httpLbs req (bhManager bhe))
+  Right (Object o) <- parseEsResponse . BHResponse =<< liftIO (httpLbs req (bhManager bhe))
   return $
     fromMaybe mempty $ do
       Object nodes <- X.lookup "nodes" o

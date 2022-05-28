@@ -155,13 +155,13 @@ spec =
             search = mkSearchTemplate (Left tid) templateParams
         _ <- storeSearchTemplate tid query
         r1 <- getSearchTemplate tid
-        let t1 = eitherDecode $ responseBody r1 :: Either String GetTemplateScript
+        let t1 = eitherDecodeResponse r1 :: Either String GetTemplateScript
         liftIO $ t1 `shouldBe` Right (GetTemplateScript {getTemplateScriptLang = Just "mustache", getTemplateScriptSource = Just (SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } } }"), getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = True})
         response <- parseEsResponse =<< searchByIndexTemplate testIndex search
         _ <- deleteSearchTemplate tid
         r2 <- getSearchTemplate tid
         let myTweet = grabFirst response
-            t2 = eitherDecode $ responseBody r2 :: Either String GetTemplateScript
+            t2 = eitherDecodeResponse r2 :: Either String GetTemplateScript
         liftIO $ do
           t2 `shouldBe` Right (GetTemplateScript {getTemplateScriptLang = Nothing, getTemplateScriptSource = Nothing, getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = False})
           myTweet `shouldBe` Right exampleTweet
@@ -169,7 +169,7 @@ spec =
     it "returns document for wildcard query" $
       withTestEnv $ do
         _ <- insertData
-        let query = QueryWildcardQuery $ WildcardQuery (FieldName "user") "bitemy*" (Nothing)
+        let query = QueryWildcardQuery $ WildcardQuery (FieldName "user") "bitemy*" Nothing
         let search = mkSearch (Just query) Nothing
         myTweet <- searchTweet search
         liftIO $

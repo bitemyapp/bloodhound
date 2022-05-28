@@ -1,3 +1,14 @@
+0.20.0.0
+========
+- @blackheaven
+  - Strong type API, breaking changes
+    - `Reply` is replaced by `BHResponse body`
+    - `decode`/`eitherDecode` can't be used directly (see `decodeResponse`/`eitherDecodeResponse`)
+    - `parseEsResponse` return a `ParsedEsResponse`
+    - `getStatus` returns `Either`  instead of `Maybe`
+    - Many functions have been strong typed from `Reply` (mainly `BHResponse a`)
+    - `respIsTwoHunna` has been replaced by `isSuccess`
+
 0.19.1.0
 ========
 - @TristanCacqueray

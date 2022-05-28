@@ -6,7 +6,7 @@ bulk
 
 *** Example
 
-[Action] -> IO [Reply]
+[Action] -> IO [BHResponse a]
 
 ** Indexing
 

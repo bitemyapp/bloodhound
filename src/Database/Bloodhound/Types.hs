@@ -85,7 +85,6 @@ module Database.Bloodhound.Types
     CompoundFormat (..),
     IndexTemplate (..),
     Server (..),
-    Reply,
     EsResult (..),
     EsResultFound (..),
     EsError (..),
@@ -426,6 +425,15 @@ module Database.Bloodhound.Types
     TokenChar (..),
     Shingle (..),
     Language (..),
+    BHRequest (..),
+    mkFullRequest,
+    mkSimpleRequest,
+    Endpoint (..),
+    withQueries,
+    mkEndpoint,
+    getEndpoint,
+    BHResponse (..),
+    ParsedEsResponse,
   )
 where
 
@@ -434,6 +442,8 @@ import qualified Data.HashMap.Strict as HM
 import Database.Bloodhound.Internal.Aggregation
 import Database.Bloodhound.Internal.Analysis
 import Database.Bloodhound.Internal.Client
+import Database.Bloodhound.Internal.Client.BHRequest
+import Database.Bloodhound.Internal.Client.Doc
 import Database.Bloodhound.Internal.Count
 import Database.Bloodhound.Internal.Highlight
 import Database.Bloodhound.Internal.Newtypes
