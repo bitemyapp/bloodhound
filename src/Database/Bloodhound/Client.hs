@@ -4,19 +4,15 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 
-{- ORMOLU_DISABLE -}
--------------------------------------------------------------------------------
 -- |
 -- Module : Database.Bloodhound.Client
 -- Copyright : (C) 2014, 2018 Chris Allen
 -- License : BSD-style (see the file LICENSE)
 -- Maintainer : Chris Allen <cma@bitemyapp.com>
 -- Stability : provisional
--- Portability : OverloadedStrings
+-- Portability : GHC
 --
 -- Client side functions for talking to Elasticsearch servers.
--------------------------------------------------------------------------------
-{- ORMOLU_ENABLE -}
 module Database.Bloodhound.Client
   ( -- * Bloodhound client functions
 

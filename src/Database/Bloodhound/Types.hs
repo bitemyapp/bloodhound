@@ -7,15 +7,13 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- ORMOLU_DISABLE -}
--------------------------------------------------------------------------------
 -- |
 -- Module : Database.Bloodhound.Types
 -- Copyright : (C) 2014, 2018 Chris Allen
 -- License : BSD-style (see the file LICENSE)
 -- Maintainer : Chris Allen <cma@bitemyapp.com
 -- Stability : provisional
--- Portability : RecordWildCards
+-- Portability : GHC
 --
 -- Data types for describing actions and data structures performed to interact
 -- with Elasticsearch. The two main buckets your queries against Elasticsearch
@@ -23,8 +21,6 @@
 -- traditional database constraints and often have preferable performance
 -- properties. 'Query's support human-written textual queries, such as fuzzy
 -- queries.
--------------------------------------------------------------------------------
-{- ORMOLU_ENABLE -}
 module Database.Bloodhound.Types
   ( defaultCache,
     defaultIndexSettings,

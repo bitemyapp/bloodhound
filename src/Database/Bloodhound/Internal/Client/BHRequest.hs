@@ -3,8 +3,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
-{- ORMOLU_DISABLE -}
--------------------------------------------------------------------------------
 -- |
 -- Module : Database.Bloodhound.Client
 -- Copyright : (C) 2014, 2018 Chris Allen
@@ -14,9 +12,6 @@
 -- Portability : GHC
 --
 -- Client side abstractions to interact with Elasticsearch servers.
--------------------------------------------------------------------------------
-{- ORMOLU_ENABLE -}
-
 module Database.Bloodhound.Internal.Client.BHRequest
   ( -- * Request
     BHRequest (..),
