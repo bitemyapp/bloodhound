@@ -110,7 +110,7 @@ data BHRequest responseBody = BHRequest
     bhRequestEndpoint :: Endpoint,
     bhRequestBody :: Maybe BL.ByteString
   }
-  deriving stock (Show)
+  deriving stock (Eq, Show)
 
 -- | 'BHRequest' with a body
 mkFullRequest :: NHTM.Method -> Endpoint -> BL.ByteString -> BHRequest body
@@ -132,7 +132,7 @@ mkSimpleRequest method' endpoint =
 
 -- | Result of a 'BHRequest'
 newtype BHResponse body = BHResponse {getResponse :: Network.HTTP.Client.Response BL.ByteString}
-  deriving stock (Eq, Show)
+  deriving stock (Show)
 
 -- | Result of a 'parseEsResponse'
 type ParsedEsResponse a = Either EsError a
