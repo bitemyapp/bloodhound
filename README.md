@@ -21,16 +21,6 @@ Endorsements
 Version compatibility
 ---------------------
 
-As of version 0.13.0.0, Bloodhound has 2 separate module trees for
-Elasticsearch versions 1 and 5. Import the module that is appropriate
-for your use case. If you would like to add support for another major
-version, open a ticket expressing your intend and follow the pattern
-used for other versions. We weighed the idea of sharing code between
-versions but it just got too messy, especially considering the
-instability of the Elasticsearch API. We switched to a model which
-would allow the persons responsible for a particular protocol version
-to maintain that version while avoiding conflict with other versions.
-
 See our [TravisCI](https://travis-ci.org/bitemyapp/bloodhound) for a
 listing of Elasticsearch version we test against.
 
