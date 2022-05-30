@@ -110,7 +110,7 @@ data BHRequest responseBody = BHRequest
     bhRequestEndpoint :: Endpoint,
     bhRequestBody :: Maybe BL.ByteString
   }
-  deriving stock (Eq, Show)
+  deriving stock (Show)
 
 -- | 'BHRequest' with a body
 mkFullRequest :: NHTM.Method -> Endpoint -> BL.ByteString -> BHRequest body
