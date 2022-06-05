@@ -16,6 +16,7 @@ jobs:
   tests:
     needs: approval
     strategy:
+      max-parallel: 1
       matrix:
         stack_file:
           - stack-8.10.yaml
