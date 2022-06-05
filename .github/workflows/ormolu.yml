@@ -6,8 +6,5 @@ jobs:
   ormolu:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: mrkkrp/ormolu-action@v6
-  build:
-    runs-on: ubuntu-latest
-    needs: ormolu
+    - uses: actions/checkout@v2
+    - uses: mrkkrp/ormolu-action@v6
