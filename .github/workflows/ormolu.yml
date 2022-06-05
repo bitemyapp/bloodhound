@@ -1,3 +1,7 @@
+name: "Formatting check (ormolu)"
+on:
+  pull_request:
+  push:
 jobs:
   ormolu:
     runs-on: ubuntu-latest
