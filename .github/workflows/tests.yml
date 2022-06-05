@@ -1,0 +1,50 @@
+name: "Run tests"
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+jobs:
+  approval:
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ github.event_name != 'push' }}
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: blackheaven
+  tests:
+    needs: approval
+    strategy:
+      matrix:
+        stack_file:
+          - stack-8.10.yaml
+          - stack-9.0.yaml
+          - stack-9.2.yaml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: mstksg/setup-stack@v1
+      - name: Setup the targetted version
+        run: cp "$STACK_FILE" stack.yaml
+        env:
+          STACK_FILE: ${{ matrix.stack_file }}
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+          key: ${{ runner.os }}-stack-${{ matrix.stack_file }}-${{ hashFiles('stack.yaml.lock', 'package.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-stack-${{ matrix.stack_file }}
+            ${{ runner.os }}-stack
+      - name: Download dependencies
+        run: stack test --no-terminal --only-dependencies
+      - uses: docker-practice/actions-setup-docker@master
+      - name: Launch docker
+        run: docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+      - name: Run tests
+        run: stack test --no-terminal
+      - name: Stop docker
+        if: always()
+        run: docker rm -f es
