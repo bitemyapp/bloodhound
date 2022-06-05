@@ -55,7 +55,9 @@ jobs:
         run: stack test --no-terminal --only-dependencies --fast
       - uses: docker-practice/actions-setup-docker@master
       - name: Launch docker
-        run: docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+        run: |
+          docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+          sleep 10
       - name: Run tests
         run: stack test --no-terminal --fast
       - name: Stop docker
