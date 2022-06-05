@@ -36,7 +36,9 @@ jobs:
             stack upgrade
           fi
       - name: Setup the targetted version
-        run: cp "$STACK_FILE" stack.yaml
+        run: |
+          rm stack.yaml
+          cp "$STACK_FILE" stack.yaml
         env:
           STACK_FILE: ${{ matrix.stack_file }}
       - uses: actions/cache@v3
@@ -49,12 +51,12 @@ jobs:
             ${{ runner.os }}-stack-${{ matrix.stack_file }}
             ${{ runner.os }}-stack
       - name: Download dependencies
-        run: stack test --no-terminal --only-dependencies
+        run: stack test --no-terminal --only-dependencies --fast
       - uses: docker-practice/actions-setup-docker@master
       - name: Launch docker
         run: docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.17.0
       - name: Run tests
-        run: stack test --no-terminal
+        run: stack test --no-terminal --fast
       - name: Stop docker
         if: always()
         run: docker rm -f es
