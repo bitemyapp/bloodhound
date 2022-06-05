@@ -25,7 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup stack
-        run: curl -sSL https://get.haskellstack.org/ | sh
+        run: |
+          if [ ! -f /usr/local/bin/stack ]
+          then
+            curl -sSL https://get.haskellstack.org/ | sh
+          else
+            stack upgrade
+          fi
       - name: Setup the targetted version
         run: cp "$STACK_FILE" stack.yaml
         env:
