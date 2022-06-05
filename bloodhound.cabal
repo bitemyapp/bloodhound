@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           bloodhound
-version:        0.20.0.0
+version:        0.20.0.2
 synopsis:       Elasticsearch client library for Haskell
 description:    Elasticsearch made awesome for Haskell hackers
 category:       Database, Search
