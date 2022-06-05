@@ -134,33 +134,59 @@ instance FromJSON Query where
   parseJSON v = withObject "Query" parse v
     where
       parse o =
-        termQuery `taggedWith` "term"
-          <|> termsQuery `taggedWith` "terms"
-          <|> idsQuery `taggedWith` "ids"
-          <|> queryQueryStringQuery `taggedWith` "query_string"
-          <|> queryMatchQuery `taggedWith` "match"
+        termQuery
+          `taggedWith` "term"
+          <|> termsQuery
+          `taggedWith` "terms"
+          <|> idsQuery
+          `taggedWith` "ids"
+          <|> queryQueryStringQuery
+          `taggedWith` "query_string"
+          <|> queryMatchQuery
+          `taggedWith` "match"
           <|> queryMultiMatchQuery
-          <|> queryBoolQuery `taggedWith` "bool"
-          <|> queryBoostingQuery `taggedWith` "boosting"
-          <|> queryCommonTermsQuery `taggedWith` "common"
-          <|> constantScoreQuery `taggedWith` "constant_score"
-          <|> queryFunctionScoreQuery `taggedWith` "function_score"
-          <|> queryDisMaxQuery `taggedWith` "dis_max"
-          <|> queryFuzzyLikeThisQuery `taggedWith` "fuzzy_like_this"
-          <|> queryFuzzyLikeFieldQuery `taggedWith` "fuzzy_like_this_field"
-          <|> queryFuzzyQuery `taggedWith` "fuzzy"
-          <|> queryHasChildQuery `taggedWith` "has_child"
-          <|> queryHasParentQuery `taggedWith` "has_parent"
-          <|> queryIndicesQuery `taggedWith` "indices"
-          <|> matchAllQuery `taggedWith` "match_all"
-          <|> queryMoreLikeThisQuery `taggedWith` "more_like_this"
-          <|> queryMoreLikeThisFieldQuery `taggedWith` "more_like_this_field"
-          <|> queryNestedQuery `taggedWith` "nested"
-          <|> queryPrefixQuery `taggedWith` "prefix"
-          <|> queryRangeQuery `taggedWith` "range"
-          <|> queryRegexpQuery `taggedWith` "regexp"
-          <|> querySimpleQueryStringQuery `taggedWith` "simple_query_string"
-          <|> queryWildcardQuery `taggedWith` "wildcard"
+          <|> queryBoolQuery
+          `taggedWith` "bool"
+          <|> queryBoostingQuery
+          `taggedWith` "boosting"
+          <|> queryCommonTermsQuery
+          `taggedWith` "common"
+          <|> constantScoreQuery
+          `taggedWith` "constant_score"
+          <|> queryFunctionScoreQuery
+          `taggedWith` "function_score"
+          <|> queryDisMaxQuery
+          `taggedWith` "dis_max"
+          <|> queryFuzzyLikeThisQuery
+          `taggedWith` "fuzzy_like_this"
+          <|> queryFuzzyLikeFieldQuery
+          `taggedWith` "fuzzy_like_this_field"
+          <|> queryFuzzyQuery
+          `taggedWith` "fuzzy"
+          <|> queryHasChildQuery
+          `taggedWith` "has_child"
+          <|> queryHasParentQuery
+          `taggedWith` "has_parent"
+          <|> queryIndicesQuery
+          `taggedWith` "indices"
+          <|> matchAllQuery
+          `taggedWith` "match_all"
+          <|> queryMoreLikeThisQuery
+          `taggedWith` "more_like_this"
+          <|> queryMoreLikeThisFieldQuery
+          `taggedWith` "more_like_this_field"
+          <|> queryNestedQuery
+          `taggedWith` "nested"
+          <|> queryPrefixQuery
+          `taggedWith` "prefix"
+          <|> queryRangeQuery
+          `taggedWith` "range"
+          <|> queryRegexpQuery
+          `taggedWith` "regexp"
+          <|> querySimpleQueryStringQuery
+          `taggedWith` "simple_query_string"
+          <|> queryWildcardQuery
+          `taggedWith` "wildcard"
         where
           taggedWith parser k = parser =<< o .: k
       termQuery = fieldTagged $ \(FieldName fn) o ->
@@ -181,7 +207,8 @@ instance FromJSON Query where
       queryCommonTermsQuery = pure . QueryCommonTermsQuery
       constantScoreQuery o = case X.lookup "filter" o of
         Just x ->
-          ConstantScoreQuery <$> parseJSON x
+          ConstantScoreQuery
+            <$> parseJSON x
             <*> o .: "boost"
         _ -> fail "Does not appear to be a ConstantScoreQuery"
       queryFunctionScoreQuery = pure . QueryFunctionScoreQuery
@@ -329,7 +356,8 @@ instance FromJSON SimpleQueryStringQuery where
   parseJSON = withObject "SimpleQueryStringQuery" parse
     where
       parse o =
-        SimpleQueryStringQuery <$> o .: "query"
+        SimpleQueryStringQuery
+          <$> o .: "query"
           <*> o .:? "fields"
           <*> o .:? "default_operator"
           <*> o .:? "analyzer"
@@ -1614,9 +1642,12 @@ instance FromJSON BoolMatch where
   parseJSON = withObject "BoolMatch" parse
     where
       parse o =
-        mustMatch `taggedWith` "must"
-          <|> mustNotMatch `taggedWith` "must_not"
-          <|> shouldMatch `taggedWith` "should"
+        mustMatch
+          `taggedWith` "must"
+          <|> mustNotMatch
+          `taggedWith` "must_not"
+          <|> shouldMatch
+          `taggedWith` "should"
         where
           taggedWith parser k = parser =<< o .: k
           mustMatch t = MustMatch t <$> o .:? "_cache" .!= defaultCache
@@ -1657,7 +1688,8 @@ instance FromJSON LatLon where
   parseJSON = withObject "LatLon" parse
     where
       parse o =
-        LatLon <$> o .: "lat"
+        LatLon
+          <$> o .: "lat"
           <*> o .: "lon"
 
 data GeoBoundingBox = GeoBoundingBox
@@ -1816,7 +1848,8 @@ instance FromJSON Distance where
   parseJSON = withText "Distance" parse
     where
       parse t =
-        Distance <$> parseCoeff nT
+        Distance
+          <$> parseCoeff nT
           <*> parseJSON (String unitT)
         where
           (nT, unitT) = T.span validForNumber t
@@ -1890,14 +1923,14 @@ instance ToJSON FunctionScoreQuery where
     omitNulls base
     where
       base =
-        functionScoreFunctionsPair fns :
-        [ "query" .= query,
-          "boost" .= boost,
-          "max_boost" .= maxBoost,
-          "boost_mode" .= boostMode,
-          "min_score" .= minScore,
-          "score_mode" .= scoreMode
-        ]
+        functionScoreFunctionsPair fns
+          : [ "query" .= query,
+              "boost" .= boost,
+              "max_boost" .= maxBoost,
+              "boost_mode" .= boostMode,
+              "min_score" .= minScore,
+              "score_mode" .= scoreMode
+            ]
 
 instance FromJSON FunctionScoreQuery where
   parseJSON = withObject "FunctionScoreQuery" parse
@@ -1907,7 +1940,8 @@ instance FromJSON FunctionScoreQuery where
           <$> o .:? "query"
           <*> o .:? "boost"
           <*> ( singleFunction o
-                  <|> multipleFunctions `taggedWith` "functions"
+                  <|> multipleFunctions
+                  `taggedWith` "functions"
               )
           <*> o .:? "max_boost"
           <*> o .:? "boost_mode"
@@ -1935,10 +1969,10 @@ instance ToJSON ComponentFunctionScoreFunction where
     omitNulls base
     where
       base =
-        functionScoreFunctionPair fn :
-        [ "filter" .= filter',
-          "weight" .= weight
-        ]
+        functionScoreFunctionPair fn
+          : [ "filter" .= filter',
+              "weight" .= weight
+            ]
 
 instance FromJSON ComponentFunctionScoreFunction where
   parseJSON = withObject "ComponentFunctionScoreFunction" parse

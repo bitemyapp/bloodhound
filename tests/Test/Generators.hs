@@ -48,7 +48,8 @@ arbitraryScore = fmap getPositive <$> arbitrary
 
 instance (Arbitrary a, Typeable a) => Arbitrary (Hit a) where
   arbitrary =
-    Hit <$> arbitrary
+    Hit
+      <$> arbitrary
       <*> arbitrary
       <*> arbitraryScore
       <*> arbitrary
@@ -492,7 +493,9 @@ instance Arbitrary CharFilterDefinition where
           . chomp
           <$> arbitrary,
         CharFilterDefinitionPatternReplace
-          <$> arbitrary <*> arbitrary <*> arbitrary
+          <$> arbitrary
+          <*> arbitrary
+          <*> arbitrary
       ]
     where
       chomp =

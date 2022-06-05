@@ -26,7 +26,7 @@ mkDocVersion :: Int -> Maybe DocVersion
 mkDocVersion i
   | i >= docVersionNumber minBound
       && i <= docVersionNumber maxBound =
-    Just $ DocVersion i
+      Just $ DocVersion i
   | otherwise = Nothing
 
 instance Bounded DocVersion where

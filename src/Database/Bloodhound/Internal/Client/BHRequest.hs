@@ -151,9 +151,9 @@ parseEsResponse ::
   m (ParsedEsResponse body)
 parseEsResponse response
   | isSuccess response = case eitherDecode body of
-    Right a -> return (Right a)
-    Left err ->
-      tryParseError err
+      Right a -> return (Right a)
+      Left err ->
+        tryParseError err
   | otherwise = tryParseError "Non-200 status code"
   where
     body = responseBody $ getResponse response
@@ -243,7 +243,8 @@ instance (FromJSON a) => FromJSON (EsResult a) where
       if found
         then parseJSON jsonVal
         else return Nothing
-    EsResult <$> v .: "_index"
+    EsResult
+      <$> v .: "_index"
       <*> v .: "_type"
       <*> v .: "_id"
       <*> pure fr

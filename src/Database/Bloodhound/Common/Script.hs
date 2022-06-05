@@ -146,9 +146,12 @@ functionScoreFunctionPair (FunctionScoreFunctionFieldValueFactor fvf) =
 
 parseFunctionScoreFunction :: Object -> Parser FunctionScoreFunction
 parseFunctionScoreFunction o =
-  singleScript `taggedWith` "script_score"
-    <|> singleRandom `taggedWith` "random_score"
-    <|> singleFieldValueFactor `taggedWith` "field_value_factor"
+  singleScript
+    `taggedWith` "script_score"
+    <|> singleRandom
+    `taggedWith` "random_score"
+    <|> singleFieldValueFactor
+    `taggedWith` "field_value_factor"
   where
     taggedWith parser k = parser =<< o .: k
     singleScript = pure . FunctionScoreFunctionScript

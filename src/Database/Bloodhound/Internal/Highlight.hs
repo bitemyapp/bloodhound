@@ -19,8 +19,8 @@ data Highlights = Highlights
 instance ToJSON Highlights where
   toJSON (Highlights global fields) =
     omitNulls
-      ( ("fields" .= fields) :
-        highlightSettingsPairs global
+      ( ("fields" .= fields)
+          : highlightSettingsPairs global
       )
 
 data FieldHighlight
@@ -115,8 +115,8 @@ plainHighPairs (Just (PlainHighlight plCom plNonPost)) =
 postHighPairs :: Maybe PostingsHighlight -> [Pair]
 postHighPairs Nothing = []
 postHighPairs (Just (PostingsHighlight pCom)) =
-  ("type" .= String "postings") :
-  commonHighlightPairs pCom
+  ("type" .= String "postings")
+    : commonHighlightPairs pCom
 
 fastVectorHighPairs :: Maybe FastVectorHighlight -> [Pair]
 fastVectorHighPairs Nothing = []

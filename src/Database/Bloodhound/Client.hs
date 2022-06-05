@@ -328,7 +328,8 @@ instance FromJSON GSRs where
     where
       parse = fmap GSRs . mapM (uncurry go) . X.toList
       go rawName = withObject "GenericSnapshotRepo" $ \o ->
-        GenericSnapshotRepo (SnapshotRepoName $ toText rawName) <$> o .: "type"
+        GenericSnapshotRepo (SnapshotRepoName $ toText rawName)
+          <$> o .: "type"
           <*> o .: "settings"
 
 -- | Create or update a snapshot repo
@@ -525,8 +526,8 @@ createIndexWith updates shards (IndexName indexName) =
         object
           [ "settings"
               .= deepMerge
-                ( X.singleton "index.number_of_shards" (toJSON shards) :
-                    [u | Object u <- toJSON <$> updates]
+                ( X.singleton "index.number_of_shards" (toJSON shards)
+                    : [u | Object u <- toJSON <$> updates]
                 )
           ]
 

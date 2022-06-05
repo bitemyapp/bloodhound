@@ -100,7 +100,9 @@ instance FromJSON CharFilterDefinition where
             _ -> fail "mapping is not of the format key => value"
       "pattern_replace" ->
         CharFilterDefinitionPatternReplace
-          <$> m .: "pattern" <*> m .: "replacement" <*> m .:? "flags"
+          <$> m .: "pattern"
+          <*> m .: "replacement"
+          <*> m .:? "flags"
       _ -> fail ("unrecognized character filter type: " ++ T.unpack t)
 
 data TokenizerDefinition

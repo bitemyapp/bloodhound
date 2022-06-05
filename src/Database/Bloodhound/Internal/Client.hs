@@ -157,7 +157,8 @@ instance FromJSON IndexSettings where
       parse o = do
         s <- o .: "settings"
         i <- s .: "index"
-        IndexSettings <$> i .: "number_of_shards"
+        IndexSettings
+          <$> i .: "number_of_shards"
           <*> i .: "number_of_replicas"
           <*> i .:? "mapping" .!= defaultIndexMappingsLimits
 
@@ -342,38 +343,70 @@ instance FromJSON UpdatableIndexSetting where
   parseJSON = withObject "UpdatableIndexSetting" parse
     where
       parse o =
-        numberOfReplicas `taggedAt` ["index", "number_of_replicas"]
-          <|> autoExpandReplicas `taggedAt` ["index", "auto_expand_replicas"]
-          <|> refreshInterval `taggedAt` ["index", "refresh_interval"]
-          <|> indexConcurrency `taggedAt` ["index", "concurrency"]
-          <|> failOnMergeFailure `taggedAt` ["index", "fail_on_merge_failure"]
-          <|> translogFlushThresholdOps `taggedAt` ["index", "translog", "flush_threshold_ops"]
-          <|> translogFlushThresholdSize `taggedAt` ["index", "translog", "flush_threshold_size"]
-          <|> translogFlushThresholdPeriod `taggedAt` ["index", "translog", "flush_threshold_period"]
-          <|> translogDisableFlush `taggedAt` ["index", "translog", "disable_flush"]
-          <|> cacheFilterMaxSize `taggedAt` ["index", "cache", "filter", "max_size"]
-          <|> cacheFilterExpire `taggedAt` ["index", "cache", "filter", "expire"]
-          <|> gatewaySnapshotInterval `taggedAt` ["index", "gateway", "snapshot_interval"]
-          <|> routingAllocationInclude `taggedAt` ["index", "routing", "allocation", "include"]
-          <|> routingAllocationExclude `taggedAt` ["index", "routing", "allocation", "exclude"]
-          <|> routingAllocationRequire `taggedAt` ["index", "routing", "allocation", "require"]
-          <|> routingAllocationEnable `taggedAt` ["index", "routing", "allocation", "enable"]
-          <|> routingAllocationShardsPerNode `taggedAt` ["index", "routing", "allocation", "total_shards_per_node"]
-          <|> recoveryInitialShards `taggedAt` ["index", "recovery", "initial_shards"]
-          <|> gcDeletes `taggedAt` ["index", "gc_deletes"]
-          <|> ttlDisablePurge `taggedAt` ["index", "ttl", "disable_purge"]
-          <|> translogFSType `taggedAt` ["index", "translog", "fs", "type"]
-          <|> compressionSetting `taggedAt` ["index", "codec"]
-          <|> compoundFormat `taggedAt` ["index", "compound_format"]
-          <|> compoundOnFlush `taggedAt` ["index", "compound_on_flush"]
-          <|> warmerEnabled `taggedAt` ["index", "warmer", "enabled"]
-          <|> blocksReadOnly `taggedAt` ["blocks", "read_only"]
-          <|> blocksRead `taggedAt` ["blocks", "read"]
-          <|> blocksWrite `taggedAt` ["blocks", "write"]
-          <|> blocksMetaData `taggedAt` ["blocks", "metadata"]
-          <|> mappingTotalFieldsLimit `taggedAt` ["index", "mapping", "total_fields", "limit"]
-          <|> analysisSetting `taggedAt` ["index", "analysis"]
-          <|> unassignedNodeLeftDelayedTimeout `taggedAt` ["index", "unassigned", "node_left", "delayed_timeout"]
+        numberOfReplicas
+          `taggedAt` ["index", "number_of_replicas"]
+          <|> autoExpandReplicas
+          `taggedAt` ["index", "auto_expand_replicas"]
+          <|> refreshInterval
+          `taggedAt` ["index", "refresh_interval"]
+          <|> indexConcurrency
+          `taggedAt` ["index", "concurrency"]
+          <|> failOnMergeFailure
+          `taggedAt` ["index", "fail_on_merge_failure"]
+          <|> translogFlushThresholdOps
+          `taggedAt` ["index", "translog", "flush_threshold_ops"]
+          <|> translogFlushThresholdSize
+          `taggedAt` ["index", "translog", "flush_threshold_size"]
+          <|> translogFlushThresholdPeriod
+          `taggedAt` ["index", "translog", "flush_threshold_period"]
+          <|> translogDisableFlush
+          `taggedAt` ["index", "translog", "disable_flush"]
+          <|> cacheFilterMaxSize
+          `taggedAt` ["index", "cache", "filter", "max_size"]
+          <|> cacheFilterExpire
+          `taggedAt` ["index", "cache", "filter", "expire"]
+          <|> gatewaySnapshotInterval
+          `taggedAt` ["index", "gateway", "snapshot_interval"]
+          <|> routingAllocationInclude
+          `taggedAt` ["index", "routing", "allocation", "include"]
+          <|> routingAllocationExclude
+          `taggedAt` ["index", "routing", "allocation", "exclude"]
+          <|> routingAllocationRequire
+          `taggedAt` ["index", "routing", "allocation", "require"]
+          <|> routingAllocationEnable
+          `taggedAt` ["index", "routing", "allocation", "enable"]
+          <|> routingAllocationShardsPerNode
+          `taggedAt` ["index", "routing", "allocation", "total_shards_per_node"]
+          <|> recoveryInitialShards
+          `taggedAt` ["index", "recovery", "initial_shards"]
+          <|> gcDeletes
+          `taggedAt` ["index", "gc_deletes"]
+          <|> ttlDisablePurge
+          `taggedAt` ["index", "ttl", "disable_purge"]
+          <|> translogFSType
+          `taggedAt` ["index", "translog", "fs", "type"]
+          <|> compressionSetting
+          `taggedAt` ["index", "codec"]
+          <|> compoundFormat
+          `taggedAt` ["index", "compound_format"]
+          <|> compoundOnFlush
+          `taggedAt` ["index", "compound_on_flush"]
+          <|> warmerEnabled
+          `taggedAt` ["index", "warmer", "enabled"]
+          <|> blocksReadOnly
+          `taggedAt` ["blocks", "read_only"]
+          <|> blocksRead
+          `taggedAt` ["blocks", "read"]
+          <|> blocksWrite
+          `taggedAt` ["blocks", "write"]
+          <|> blocksMetaData
+          `taggedAt` ["blocks", "metadata"]
+          <|> mappingTotalFieldsLimit
+          `taggedAt` ["index", "mapping", "total_fields", "limit"]
+          <|> analysisSetting
+          `taggedAt` ["index", "analysis"]
+          <|> unassignedNodeLeftDelayedTimeout
+          `taggedAt` ["index", "unassigned", "node_left", "delayed_timeout"]
         where
           taggedAt f ks = taggedAt' f (Object o) ks
       taggedAt' f v [] =
@@ -438,7 +471,8 @@ instance FromJSON ReplicaBounds where
       parseText t = case T.splitOn "-" t of
         [a, "all"] -> ReplicasLowerBounded <$> parseReadText a
         [a, b] ->
-          ReplicasBounded <$> parseReadText a
+          ReplicasBounded
+            <$> parseReadText a
             <*> parseReadText b
         _ -> fail ("Could not parse ReplicaBounds: " <> show t)
       parseBool False = pure ReplicasUnbounded
@@ -830,7 +864,8 @@ instance FromJSON IndexAliasCreate where
   parseJSON v = withObject "IndexAliasCreate" parse v
     where
       parse o =
-        IndexAliasCreate <$> optional (parseJSON v)
+        IndexAliasCreate
+          <$> optional (parseJSON v)
           <*> o .:? "filter"
 
 -- | 'IndexAliasSummary' is a summary of an index alias configured for a server.
@@ -861,7 +896,7 @@ defaultIndexDocumentSettings = IndexDocumentSettings NoVersionControl Nothing
 -- | 'IndexSelection' is used for APIs which take a single index, a list of
 --    indexes, or the special @_all@ index.
 
---TODO: this does not fully support <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/multi-index.html multi-index syntax>. It wouldn't be too hard to implement but you'd have to add the optional parameters (ignore_unavailable, allow_no_indices, expand_wildcards) to any APIs using it. Also would be a breaking API.
+-- TODO: this does not fully support <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/multi-index.html multi-index syntax>. It wouldn't be too hard to implement but you'd have to add the optional parameters (ignore_unavailable, allow_no_indices, expand_wildcards) to any APIs using it. Also would be a breaking API.
 data IndexSelection
   = IndexList (NonEmpty IndexName)
   | AllIndexes
@@ -1577,13 +1612,14 @@ instance SnapshotRepo FsSnapshotRepo where
           ]
   fromGSnapshotRepo GenericSnapshotRepo {..}
     | gSnapshotRepoType == fsRepoType = do
-      let o = gSnapshotRepoSettingsObject gSnapshotRepoSettings
-      parseRepo $
-        FsSnapshotRepo gSnapshotRepoName <$> o .: "location"
-          <*> o .:? "compress" .!= False
-          <*> o .:? "chunk_size"
-          <*> o .:? "max_restore_bytes_per_sec"
-          <*> o .:? "max_snapshot_bytes_per_sec"
+        let o = gSnapshotRepoSettingsObject gSnapshotRepoSettings
+        parseRepo $
+          FsSnapshotRepo gSnapshotRepoName
+            <$> o .: "location"
+            <*> o .:? "compress" .!= False
+            <*> o .:? "chunk_size"
+            <*> o .:? "max_restore_bytes_per_sec"
+            <*> o .:? "max_snapshot_bytes_per_sec"
     | otherwise = Left (RepoTypeMismatch fsRepoType gSnapshotRepoType)
 
 parseRepo :: Parser a -> Either SnapshotRepoConversionError a
@@ -1675,7 +1711,8 @@ instance FromJSON SnapshotInfo where
   parseJSON = withObject "SnapshotInfo" parse
     where
       parse o =
-        SnapshotInfo <$> o .: "shards"
+        SnapshotInfo
+          <$> o .: "shards"
           <*> o .: "failures"
           <*> (unMS <$> o .: "duration_in_millis")
           <*> (posixMS <$> o .: "end_time_in_millis")
@@ -1696,7 +1733,8 @@ instance FromJSON SnapshotShardFailure where
   parseJSON = withObject "SnapshotShardFailure" parse
     where
       parse o =
-        SnapshotShardFailure <$> o .: "index"
+        SnapshotShardFailure
+          <$> o .: "index"
           <*> o .:? "node_id"
           <*> o .: "reason"
           <*> o .: "shard_id"
@@ -1732,7 +1770,7 @@ mkRRGroupRefNum :: Int -> Maybe RRGroupRefNum
 mkRRGroupRefNum i
   | i >= rrGroupRefNum minBound
       && i <= rrGroupRefNum maxBound =
-    Just $ RRGroupRefNum i
+      Just $ RRGroupRefNum i
   | otherwise = Nothing
 
 -- | Reasonable defaults for snapshot restores
@@ -1801,7 +1839,8 @@ instance FromJSON NodeBreakerStats where
   parseJSON = withObject "NodeBreakerStats" parse
     where
       parse o =
-        NodeBreakerStats <$> o .: "tripped"
+        NodeBreakerStats
+          <$> o .: "tripped"
           <*> o .: "overhead"
           <*> o .: "estimated_size_in_bytes"
           <*> o .: "limit_size_in_bytes"
@@ -1810,14 +1849,16 @@ instance FromJSON NodeHTTPStats where
   parseJSON = withObject "NodeHTTPStats" parse
     where
       parse o =
-        NodeHTTPStats <$> o .: "total_opened"
+        NodeHTTPStats
+          <$> o .: "total_opened"
           <*> o .: "current_open"
 
 instance FromJSON NodeTransportStats where
   parseJSON = withObject "NodeTransportStats" parse
     where
       parse o =
-        NodeTransportStats <$> o .: "tx_size_in_bytes"
+        NodeTransportStats
+          <$> o .: "tx_size_in_bytes"
           <*> o .: "tx_count"
           <*> o .: "rx_size_in_bytes"
           <*> o .: "rx_count"
@@ -1827,7 +1868,8 @@ instance FromJSON NodeFSStats where
   parseJSON = withObject "NodeFSStats" parse
     where
       parse o =
-        NodeFSStats <$> o .: "data"
+        NodeFSStats
+          <$> o .: "data"
           <*> o .: "total"
           <*> (posixMS <$> o .: "timestamp")
 
@@ -1835,7 +1877,8 @@ instance FromJSON NodeDataPathStats where
   parseJSON = withObject "NodeDataPathStats" parse
     where
       parse o =
-        NodeDataPathStats <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
+        NodeDataPathStats
+          <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
           <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
           <*> o .:? "disk_io_size_in_bytes"
           <*> o .:? "disk_write_size_in_bytes"
@@ -1855,7 +1898,8 @@ instance FromJSON NodeFSTotalStats where
   parseJSON = withObject "NodeFSTotalStats" parse
     where
       parse o =
-        NodeFSTotalStats <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
+        NodeFSTotalStats
+          <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
           <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
           <*> o .:? "disk_io_size_in_bytes"
           <*> o .:? "disk_write_size_in_bytes"
@@ -1872,7 +1916,8 @@ instance FromJSON NodeNetworkStats where
     where
       parse o = do
         tcp <- o .: "tcp"
-        NodeNetworkStats <$> tcp .: "out_rsts"
+        NodeNetworkStats
+          <$> tcp .: "out_rsts"
           <*> tcp .: "in_errs"
           <*> tcp .: "attempt_fails"
           <*> tcp .: "estab_resets"
@@ -1887,7 +1932,8 @@ instance FromJSON NodeThreadPoolStats where
   parseJSON = withObject "NodeThreadPoolStats" parse
     where
       parse o =
-        NodeThreadPoolStats <$> o .: "completed"
+        NodeThreadPoolStats
+          <$> o .: "completed"
           <*> o .: "largest"
           <*> o .: "rejected"
           <*> o .: "active"
@@ -1911,7 +1957,8 @@ instance FromJSON NodeJVMStats where
         oldM <- pools .: "old"
         survivorM <- pools .: "survivor"
         youngM <- pools .: "young"
-        NodeJVMStats <$> pure mapped
+        NodeJVMStats
+          <$> pure mapped
           <*> pure direct
           <*> pure oldC
           <*> pure youngC
@@ -1933,7 +1980,8 @@ instance FromJSON JVMBufferPoolStats where
   parseJSON = withObject "JVMBufferPoolStats" parse
     where
       parse o =
-        JVMBufferPoolStats <$> o .: "total_capacity_in_bytes"
+        JVMBufferPoolStats
+          <$> o .: "total_capacity_in_bytes"
           <*> o .: "used_in_bytes"
           <*> o .: "count"
 
@@ -1941,14 +1989,16 @@ instance FromJSON JVMGCStats where
   parseJSON = withObject "JVMGCStats" parse
     where
       parse o =
-        JVMGCStats <$> (unMS <$> o .: "collection_time_in_millis")
+        JVMGCStats
+          <$> (unMS <$> o .: "collection_time_in_millis")
           <*> o .: "collection_count"
 
 instance FromJSON JVMPoolStats where
   parseJSON = withObject "JVMPoolStats" parse
     where
       parse o =
-        JVMPoolStats <$> o .: "peak_max_in_bytes"
+        JVMPoolStats
+          <$> o .: "peak_max_in_bytes"
           <*> o .: "peak_used_in_bytes"
           <*> o .: "max_in_bytes"
           <*> o .: "used_in_bytes"
@@ -1959,7 +2009,8 @@ instance FromJSON NodeProcessStats where
       parse o = do
         mem <- o .: "mem"
         cpu <- o .: "cpu"
-        NodeProcessStats <$> (posixMS <$> o .: "timestamp")
+        NodeProcessStats
+          <$> (posixMS <$> o .: "timestamp")
           <*> o .: "open_file_descriptors"
           <*> o .: "max_file_descriptors"
           <*> cpu .: "percent"
@@ -1974,7 +2025,8 @@ instance FromJSON NodeOSStats where
         mem <- o .: "mem"
         cpu <- o .: "cpu"
         load <- o .:? "load_average"
-        NodeOSStats <$> (posixMS <$> o .: "timestamp")
+        NodeOSStats
+          <$> (posixMS <$> o .: "timestamp")
           <*> cpu .: "percent"
           <*> pure load
           <*> mem .: "total_in_bytes"
@@ -1991,7 +2043,8 @@ instance FromJSON LoadAvgs where
     where
       parse v = case V.toList v of
         [one, five, fifteen] ->
-          LoadAvgs <$> parseJSON one
+          LoadAvgs
+            <$> parseJSON one
             <*> parseJSON five
             <*> parseJSON fifteen
         _ -> fail "Expecting a triple of Doubles"
@@ -2020,85 +2073,139 @@ instance FromJSON NodeIndicesStats where
         indexing <- o .: "indexing"
         store <- o .: "store"
         docs <- o .: "docs"
-        NodeIndicesStats <$> (fmap unMS <$> mRecovery .:: "throttle_time_in_millis")
-          <*> mRecovery .:: "current_as_target"
-          <*> mRecovery .:: "current_as_source"
-          <*> mQueryCache .:: "miss_count"
-          <*> mQueryCache .:: "hit_count"
-          <*> mQueryCache .:: "evictions"
-          <*> mQueryCache .:: "memory_size_in_bytes"
-          <*> mSuggest .:: "current"
+        NodeIndicesStats
+          <$> (fmap unMS <$> mRecovery .:: "throttle_time_in_millis")
+          <*> mRecovery
+          .:: "current_as_target"
+          <*> mRecovery
+          .:: "current_as_source"
+          <*> mQueryCache
+          .:: "miss_count"
+          <*> mQueryCache
+          .:: "hit_count"
+          <*> mQueryCache
+          .:: "evictions"
+          <*> mQueryCache
+          .:: "memory_size_in_bytes"
+          <*> mSuggest
+          .:: "current"
           <*> (fmap unMS <$> mSuggest .:: "time_in_millis")
-          <*> mSuggest .:: "total"
-          <*> translog .: "size_in_bytes"
-          <*> translog .: "operations"
-          <*> segments .:? "fixed_bit_set_memory_in_bytes"
-          <*> segments .: "version_map_memory_in_bytes"
-          <*> segments .:? "index_writer_max_memory_in_bytes"
-          <*> segments .: "index_writer_memory_in_bytes"
-          <*> segments .: "memory_in_bytes"
-          <*> segments .: "count"
-          <*> completion .: "size_in_bytes"
-          <*> mPercolate .:: "queries"
-          <*> mPercolate .:: "memory_size_in_bytes"
-          <*> mPercolate .:: "current"
+          <*> mSuggest
+          .:: "total"
+          <*> translog
+          .: "size_in_bytes"
+          <*> translog
+          .: "operations"
+          <*> segments
+          .:? "fixed_bit_set_memory_in_bytes"
+          <*> segments
+          .: "version_map_memory_in_bytes"
+          <*> segments
+          .:? "index_writer_max_memory_in_bytes"
+          <*> segments
+          .: "index_writer_memory_in_bytes"
+          <*> segments
+          .: "memory_in_bytes"
+          <*> segments
+          .: "count"
+          <*> completion
+          .: "size_in_bytes"
+          <*> mPercolate
+          .:: "queries"
+          <*> mPercolate
+          .:: "memory_size_in_bytes"
+          <*> mPercolate
+          .:: "current"
           <*> (fmap unMS <$> mPercolate .:: "time_in_millis")
-          <*> mPercolate .:: "total"
-          <*> fielddata .: "evictions"
-          <*> fielddata .: "memory_size_in_bytes"
+          <*> mPercolate
+          .:: "total"
+          <*> fielddata
+          .: "evictions"
+          <*> fielddata
+          .: "memory_size_in_bytes"
           <*> (unMS <$> warmer .: "total_time_in_millis")
-          <*> warmer .: "total"
-          <*> warmer .: "current"
+          <*> warmer
+          .: "total"
+          <*> warmer
+          .: "current"
           <*> (unMS <$> flush .: "total_time_in_millis")
-          <*> flush .: "total"
+          <*> flush
+          .: "total"
           <*> (unMS <$> refresh .: "total_time_in_millis")
-          <*> refresh .: "total"
-          <*> merges .: "total_size_in_bytes"
-          <*> merges .: "total_docs"
+          <*> refresh
+          .: "total"
+          <*> merges
+          .: "total_size_in_bytes"
+          <*> merges
+          .: "total_docs"
           <*> (unMS <$> merges .: "total_time_in_millis")
-          <*> merges .: "total"
-          <*> merges .: "current_size_in_bytes"
-          <*> merges .: "current_docs"
-          <*> merges .: "current"
-          <*> search .: "fetch_current"
+          <*> merges
+          .: "total"
+          <*> merges
+          .: "current_size_in_bytes"
+          <*> merges
+          .: "current_docs"
+          <*> merges
+          .: "current"
+          <*> search
+          .: "fetch_current"
           <*> (unMS <$> search .: "fetch_time_in_millis")
-          <*> search .: "fetch_total"
-          <*> search .: "query_current"
+          <*> search
+          .: "fetch_total"
+          <*> search
+          .: "query_current"
           <*> (unMS <$> search .: "query_time_in_millis")
-          <*> search .: "query_total"
-          <*> search .: "open_contexts"
-          <*> getStats .: "current"
+          <*> search
+          .: "query_total"
+          <*> search
+          .: "open_contexts"
+          <*> getStats
+          .: "current"
           <*> (unMS <$> getStats .: "missing_time_in_millis")
-          <*> getStats .: "missing_total"
+          <*> getStats
+          .: "missing_total"
           <*> (unMS <$> getStats .: "exists_time_in_millis")
-          <*> getStats .: "exists_total"
+          <*> getStats
+          .: "exists_total"
           <*> (unMS <$> getStats .: "time_in_millis")
-          <*> getStats .: "total"
+          <*> getStats
+          .: "total"
           <*> (fmap unMS <$> indexing .:? "throttle_time_in_millis")
-          <*> indexing .:? "is_throttled"
-          <*> indexing .:? "noop_update_total"
-          <*> indexing .: "delete_current"
+          <*> indexing
+          .:? "is_throttled"
+          <*> indexing
+          .:? "noop_update_total"
+          <*> indexing
+          .: "delete_current"
           <*> (unMS <$> indexing .: "delete_time_in_millis")
-          <*> indexing .: "delete_total"
-          <*> indexing .: "index_current"
+          <*> indexing
+          .: "delete_total"
+          <*> indexing
+          .: "index_current"
           <*> (unMS <$> indexing .: "index_time_in_millis")
-          <*> indexing .: "index_total"
+          <*> indexing
+          .: "index_total"
           <*> (fmap unMS <$> store .:? "throttle_time_in_millis")
-          <*> store .: "size_in_bytes"
-          <*> docs .: "deleted"
-          <*> docs .: "count"
+          <*> store
+          .: "size_in_bytes"
+          <*> docs
+          .: "deleted"
+          <*> docs
+          .: "count"
 
 instance FromJSON NodeBreakersStats where
   parseJSON = withObject "NodeBreakersStats" parse
     where
       parse o =
-        NodeBreakersStats <$> o .: "parent"
+        NodeBreakersStats
+          <$> o .: "parent"
           <*> o .: "request"
           <*> o .: "fielddata"
 
 parseNodeStats :: FullNodeId -> Object -> Parser NodeStats
 parseNodeStats fnid o =
-  NodeStats <$> o .: "name"
+  NodeStats
+    <$> o .: "name"
     <*> pure fnid
     <*> o .:? "breakers"
     <*> o .: "http"
@@ -2113,7 +2220,8 @@ parseNodeStats fnid o =
 
 parseNodeInfo :: FullNodeId -> Object -> Parser NodeInfo
 parseNodeInfo nid o =
-  NodeInfo <$> o .:? "http_address"
+  NodeInfo
+    <$> o .:? "http_address"
     <*> o .: "build_hash"
     <*> o .: "version"
     <*> o .: "ip"
@@ -2135,7 +2243,8 @@ instance FromJSON NodePluginInfo where
   parseJSON = withObject "NodePluginInfo" parse
     where
       parse o =
-        NodePluginInfo <$> o .:? "site"
+        NodePluginInfo
+          <$> o .:? "site"
           <*> o .:? "jvm"
           <*> o .: "description"
           <*> o .: "version"
@@ -2145,7 +2254,8 @@ instance FromJSON NodeHTTPInfo where
   parseJSON = withObject "NodeHTTPInfo" parse
     where
       parse o =
-        NodeHTTPInfo <$> o .: "max_content_length_in_bytes"
+        NodeHTTPInfo
+          <$> o .: "max_content_length_in_bytes"
           <*> o .: "publish_address"
           <*> o .: "bound_address"
 
@@ -2153,14 +2263,16 @@ instance FromJSON BoundTransportAddress where
   parseJSON = withObject "BoundTransportAddress" parse
     where
       parse o =
-        BoundTransportAddress <$> o .: "publish_address"
+        BoundTransportAddress
+          <$> o .: "publish_address"
           <*> o .: "bound_address"
 
 instance FromJSON NodeOSInfo where
   parseJSON = withObject "NodeOSInfo" parse
     where
       parse o =
-        NodeOSInfo <$> (unMS <$> o .: "refresh_interval_in_millis")
+        NodeOSInfo
+          <$> (unMS <$> o .: "refresh_interval_in_millis")
           <*> o .: "name"
           <*> o .: "arch"
           <*> o .: "version"
@@ -2171,7 +2283,8 @@ instance FromJSON CPUInfo where
   parseJSON = withObject "CPUInfo" parse
     where
       parse o =
-        CPUInfo <$> o .: "cache_size_in_bytes"
+        CPUInfo
+          <$> o .: "cache_size_in_bytes"
           <*> o .: "cores_per_socket"
           <*> o .: "total_sockets"
           <*> o .: "total_cores"
@@ -2183,7 +2296,8 @@ instance FromJSON NodeProcessInfo where
   parseJSON = withObject "NodeProcessInfo" parse
     where
       parse o =
-        NodeProcessInfo <$> o .: "mlockall"
+        NodeProcessInfo
+          <$> o .: "mlockall"
           <*> o .:? "max_file_descriptors"
           <*> o .: "id"
           <*> (unMS <$> o .: "refresh_interval_in_millis")
@@ -2192,7 +2306,8 @@ instance FromJSON NodeJVMInfo where
   parseJSON = withObject "NodeJVMInfo" parse
     where
       parse o =
-        NodeJVMInfo <$> o .: "memory_pools"
+        NodeJVMInfo
+          <$> o .: "memory_pools"
           <*> o .: "gc_collectors"
           <*> o .: "mem"
           <*> (posixMS <$> o .: "start_time_in_millis")
@@ -2206,7 +2321,8 @@ instance FromJSON JVMMemoryInfo where
   parseJSON = withObject "JVMMemoryInfo" parse
     where
       parse o =
-        JVMMemoryInfo <$> o .: "direct_max_in_bytes"
+        JVMMemoryInfo
+          <$> o .: "direct_max_in_bytes"
           <*> o .: "non_heap_max_in_bytes"
           <*> o .: "non_heap_init_in_bytes"
           <*> o .: "heap_max_in_bytes"
@@ -2217,7 +2333,8 @@ instance FromJSON NodeThreadPoolInfo where
     where
       parse o = do
         ka <- maybe (return Nothing) (fmap Just . parseStringInterval) =<< o .:? "keep_alive"
-        NodeThreadPoolInfo <$> (parseJSON . unStringlyTypeJSON =<< o .: "queue_size")
+        NodeThreadPoolInfo
+          <$> (parseJSON . unStringlyTypeJSON =<< o .: "queue_size")
           <*> pure ka
           <*> o .:? "min"
           <*> o .:? "max"
@@ -2310,7 +2427,8 @@ instance FromJSON NodeTransportInfo where
   parseJSON = withObject "NodeTransportInfo" parse
     where
       parse o =
-        NodeTransportInfo <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
+        NodeTransportInfo
+          <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
           <*> o .: "publish_address"
           <*> o .: "bound_address"
       parseProfiles (Object o) | X.null o = return []
@@ -2322,14 +2440,16 @@ instance FromJSON NodeNetworkInfo where
   parseJSON = withObject "NodeNetworkInfo" parse
     where
       parse o =
-        NodeNetworkInfo <$> o .: "primary_interface"
+        NodeNetworkInfo
+          <$> o .: "primary_interface"
           <*> (unMS <$> o .: "refresh_interval_in_millis")
 
 instance FromJSON NodeNetworkInterface where
   parseJSON = withObject "NodeNetworkInterface" parse
     where
       parse o =
-        NodeNetworkInterface <$> o .: "mac_address"
+        NodeNetworkInterface
+          <$> o .: "mac_address"
           <*> o .: "name"
           <*> o .: "address"
 

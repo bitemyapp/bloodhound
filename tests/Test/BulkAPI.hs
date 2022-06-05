@@ -44,7 +44,8 @@ assertDocs :: (FromJSON a, Show a, Eq a) => [(DocId, a)] -> BH IO ()
 assertDocs as = do
   let (ids, docs) = unzip as
   res <-
-    ids & traverse (getDocument testIndex)
+    ids
+      & traverse (getDocument testIndex)
       <&> traverse (fmap getSource . eitherDecodeResponse)
 
   liftIO $ res `shouldBe` Right (Just <$> docs)

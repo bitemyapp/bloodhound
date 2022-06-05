@@ -90,7 +90,7 @@ spec = do
                 Right [snap]
                   | snapInfoState snap == SnapshotSuccess
                       && snapInfoName snap == s1n ->
-                    return ()
+                      return ()
                   | otherwise -> expectationFailure (show snap)
                 Right [] -> expectationFailure "There were no snapshots"
                 Right snaps -> expectationFailure ("Expected 1 snapshot but got" <> show (length snaps))

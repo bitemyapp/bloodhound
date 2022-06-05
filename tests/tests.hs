@@ -67,7 +67,8 @@ main = hspec $ do
             Just dv ->
               (dv >= minBound)
                 .&&. (dv <= maxBound)
-                .&&. docVersionNumber dv === i
+                .&&. docVersionNumber dv
+                === i
 
   describe "getNodesInfo" $
     it "fetches the responding node when LocalNode is used" $
