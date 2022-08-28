@@ -1,5 +1,7 @@
 name: bloodhound-examples
 version: '0.0.0.0'
+synopsis: Bloodhound's toy projet
+description: Bloodhound's toy projet for tweeter addicts
 category: Web
 author: Chris Allen
 maintainer: cma@bitemyapp.com
@@ -9,7 +11,7 @@ github: bitemyapp/bloodhound
 extra-source-files:
 - README.md
 dependencies:
-- base
+- base >=4.14 && <5
 - bloodhound
 - aeson
 - http-client
