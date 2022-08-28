@@ -293,15 +293,13 @@ newtype Acknowledged = Acknowledged {isAcknowledged :: Bool}
 
 instance FromJSON Acknowledged where
   parseJSON =
-    withObject
-      "Acknowledged"
-      (.: "acknowledged")
+    withObject "Acknowledged" $
+      fmap Acknowledged . (.: "acknowledged")
 
 newtype Accepted = Accepted {isAccepted :: Bool}
   deriving stock (Eq, Show)
 
 instance FromJSON Accepted where
   parseJSON =
-    withObject
-      "Accepted"
-      (.: "accepted")
+    withObject "Accepted" $
+      fmap Accepted . (.: "accepted")

@@ -840,7 +840,7 @@ versionCtlParams cfg =
 --
 -- >>> resp <- runBH' $ indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
--- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("content-length","152")], responseBody = "{\"_index\":\"bloodhound-tests-twitter-1\",\"_type\":\"_doc\",\"_id\":\"1\",\"_version\":2,\"result\":\"updated\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+-- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("content-length","152")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"_doc\",\"_id\":\"1\",\"_version\":2,\"result\":\"updated\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 indexDocument ::
   (ToJSON doc, MonadBH m) =>
   IndexName ->
@@ -860,7 +860,7 @@ data IndexedDocument = IndexedDocument
     idxDocId :: Text,
     idxDocVersion :: Int,
     idxDocResult :: Text,
-    idxDocShards :: ShardCount,
+    idxDocShards :: ShardResult,
     idxDocSeqNo :: Int,
     idxDocPrimaryTerm :: Int
   }
