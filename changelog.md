@@ -1,3 +1,9 @@
+0.21.0.0
+========
+- @blackheaven
+  - Fix `indexDocument` `Response` type
+  - Fix `Acknowledged` and `Accepted` `FromJSON`
+
 0.20.0.0
 ========
 - @blackheaven
