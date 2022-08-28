@@ -63,6 +63,100 @@ Examples
 
 See the [examples](htts://github.com/bitemyapp/bloodhound/tree/master/examples) directory for example code.
 
+Index a document
+----------------
+
+```haskell
+indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
+{-
+IndexedDocument
+  { idxDocIndex = "twitter"
+  , idxDocType = "_doc"
+  , idxDocId = "1"
+  , idxDocVersion = 3
+  , idxDocResult = "updated"
+  , idxDocShards =
+      ShardResult
+        { shardTotal = 1
+        , shardsSuccessful = 1
+        , shardsSkipped = 0
+        , shardsFailed = 0
+        }
+  , idxDocSeqNo = 2
+  , idxDocPrimaryTerm = 1
+  }
+-}
+```
+
+Fetch documents
+---------------
+
+```haskell
+let query = TermQuery (Term "user" "bitemyapp") boost
+let search = mkSearch (Just query) boost
+searchByIndex @_ @Tweet testIndex search
+{-
+SearchResult
+    { took = 1
+    , timedOut = False
+    , shards =
+            ShardResult
+                { shardTotal = 1
+                , shardsSuccessful = 1
+                , shardsSkipped = 0
+                , shardsFailed = 0
+                }
+    , searchHits =
+            SearchHits
+                { hitsTotal = HitsTotal { value = 2 , relation = HTR_EQ }
+                , maxScore = Just 0.18232156
+                , hits =
+                        [ Hit
+                                { hitIndex = IndexName "twitter"
+                                , hitDocId = DocId "1"
+                                , hitScore = Just 0.18232156
+                                , hitSource =
+                                        Just
+                                            Tweet
+                                                { user = "bitemyapp"
+                                                , postDate = 2009-06-18 00:00:10 UTC
+                                                , message = "Use haskell!"
+                                                , age = 10000
+                                                , location = LatLon { lat = 40.12 , lon = -71.3 }
+                                                }
+                                , hitSort = Nothing
+                                , hitFields = Nothing
+                                , hitHighlight = Nothing
+                                , hitInnerHits = Nothing
+                                }
+                        , Hit
+                                { hitIndex = IndexName "twitter"
+                                , hitDocId = DocId "2"
+                                , hitScore = Just 0.18232156
+                                , hitSource =
+                                        Just
+                                            Tweet
+                                                { user = "bitemyapp"
+                                                , postDate = 2009-06-18 00:00:10 UTC
+                                                , message = "Use haskell!"
+                                                , age = 10000
+                                                , location = LatLon { lat = 40.12 , lon = -71.3 }
+                                                }
+                                , hitSort = Nothing
+                                , hitFields = Nothing
+                                , hitHighlight = Nothing
+                                , hitInnerHits = Nothing
+                                }
+                        ]
+                }
+    , aggregations = Nothing
+    , scrollId = Nothing
+    , suggest = Nothing
+    , pitId = Nothing
+    }
+-}
+```
+
 
 Contributors
 ============

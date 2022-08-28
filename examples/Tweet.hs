@@ -1,5 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Main
@@ -7,15 +10,8 @@ module Main
   )
 where
 
-import Control.Monad.IO.Class (liftIO)
-import Data.Aeson
-  ( FromJSON (..),
-    defaultOptions,
-    genericParseJSON,
-    genericToJSON,
-    object,
-    (.=),
-  )
+import Control.Monad.IO.Class (liftIO, MonadIO)
+import Data.Aeson (FromJSON (..), object, (.=))
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Data.Time.Calendar (Day (..))
@@ -24,8 +20,9 @@ import qualified Data.Vector as V
 import Database.Bloodhound
 import GHC.Generics (Generic)
 import Network.HTTP.Client (defaultManagerSettings)
+import Text.Show.Pretty(pPrint)
 
-data TweetMapping = TweetMapping deriving (Eq, Show)
+data TweetMapping = TweetMapping deriving stock (Eq, Show)
 
 instance ToJSON TweetMapping where
   toJSON TweetMapping =
@@ -41,7 +38,8 @@ data Tweet = Tweet
     age :: Int,
     location :: LatLon
   }
-  deriving (Eq, Generic, Show)
+  deriving stock (Eq, Generic, Show)
+  deriving anyclass (FromJSON, ToJSON)
 
 exampleTweet :: Tweet
 exampleTweet =
@@ -55,12 +53,6 @@ exampleTweet =
   where
     loc = LatLon {lat = 40.12, lon = -71.3}
 
-instance ToJSON Tweet where
-  toJSON = genericToJSON defaultOptions
-
-instance FromJSON Tweet where
-  parseJSON = genericParseJSON defaultOptions
-
 main :: IO ()
 main = runBH' $ do
   -- set up index
@@ -70,8 +62,25 @@ main = runBH' $ do
 
   -- create a tweet
   resp <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
-  liftIO (print resp)
-  -- Response {responseStatus = Status {statusCode = 201, statusMessage = "Created"}, responseVersion = HTTP/1.1, responseHeaders = [("Content-Type","application/json; charset=UTF-8"),("Content-Length","74")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"tweet\",\"_id\":\"1\",\"_version\":1,\"created\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
+  printResponseBody resp
+  {-
+    IndexedDocument
+      { idxDocIndex = "twitter"
+      , idxDocType = "_doc"
+      , idxDocId = "1"
+      , idxDocVersion = 3
+      , idxDocResult = "updated"
+      , idxDocShards =
+          ShardResult
+            { shardTotal = 1
+            , shardsSuccessful = 1
+            , shardsSkipped = 0
+            , shardsFailed = 0
+            }
+      , idxDocSeqNo = 2
+      , idxDocPrimaryTerm = 1
+      }
+	-}
 
   -- bulk load
   let stream = V.fromList [BulkIndex testIndex (DocId "2") (toJSON exampleTweet)]
@@ -92,15 +101,78 @@ main = runBH' $ do
   let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1) defaultIndexMappingsLimits)) (toJSON TweetMapping)
   let templateName = TemplateName "tweet-tpl"
   tplResp <- putTemplate idxTpl templateName
-  liftIO (print tplResp)
+  printResponseBody tplResp
+  {-
+	Acknowledged { isAcknowledged = True }
+	-}
   True <- templateExists templateName
 
   -- do a search
   let boost = Nothing
   let query = TermQuery (Term "user" "bitemyapp") boost
   let search = mkSearch (Just query) boost
-  tweetResp <- searchByIndex testIndex search
-  liftIO (print tweetResp)
+  tweetResp <- searchByIndex @_ @Tweet testIndex search
+  printResponseBody tweetResp
+  {-
+	SearchResult
+		{ took = 1
+		, timedOut = False
+		, shards =
+				ShardResult
+					{ shardTotal = 1
+					, shardsSuccessful = 1
+					, shardsSkipped = 0
+					, shardsFailed = 0
+					}
+		, searchHits =
+				SearchHits
+					{ hitsTotal = HitsTotal { value = 2 , relation = HTR_EQ }
+					, maxScore = Just 0.18232156
+					, hits =
+							[ Hit
+									{ hitIndex = IndexName "twitter"
+									, hitDocId = DocId "1"
+									, hitScore = Just 0.18232156
+									, hitSource =
+											Just
+												Tweet
+													{ user = "bitemyapp"
+													, postDate = 2009-06-18 00:00:10 UTC
+													, message = "Use haskell!"
+													, age = 10000
+													, location = LatLon { lat = 40.12 , lon = -71.3 }
+													}
+									, hitSort = Nothing
+									, hitFields = Nothing
+									, hitHighlight = Nothing
+									, hitInnerHits = Nothing
+									}
+							, Hit
+									{ hitIndex = IndexName "twitter"
+									, hitDocId = DocId "2"
+									, hitScore = Just 0.18232156
+									, hitSource =
+											Just
+												Tweet
+													{ user = "bitemyapp"
+													, postDate = 2009-06-18 00:00:10 UTC
+													, message = "Use haskell!"
+													, age = 10000
+													, location = LatLon { lat = 40.12 , lon = -71.3 }
+													}
+									, hitSort = Nothing
+									, hitFields = Nothing
+									, hitHighlight = Nothing
+									, hitInnerHits = Nothing
+									}
+							]
+					}
+		, aggregations = Nothing
+		, scrollId = Nothing
+		, suggest = Nothing
+		, pitId = Nothing
+		}
+	-}
 
   -- clean up
   _ <- deleteTemplate templateName
@@ -113,3 +185,11 @@ main = runBH' $ do
     runBH' = withBH defaultManagerSettings testServer
     testIndex = IndexName "twitter"
     indexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits
+
+printResponseBody :: (MonadIO m, FromJSON body, Show body) => BHResponse body -> m ()
+printResponseBody =
+  liftIO .
+  pPrint .
+  either (error . show) id .
+  either (error . show) id .
+  parseEsResponse

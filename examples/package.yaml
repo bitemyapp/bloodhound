@@ -11,12 +11,13 @@ extra-source-files:
 dependencies:
 - base
 - bloodhound
-- time
 - aeson
-- text
 - http-client
-- vector
+- pretty-show
 - semigroups
+- text
+- time
+- vector
 ghc-options:
 - -Wall
 - -threaded
