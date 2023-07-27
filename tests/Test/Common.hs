@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Common where
 
 import qualified Data.Map as M
 import qualified Data.SemVer as SemVer
+import qualified Data.Text as T
 import qualified Network.HTTP.Types.Status as NHTS
 import Test.Import
 
@@ -63,20 +65,25 @@ instance ToJSON ConversationMapping where
             ]
       ]
 
-getServerVersion :: IO (Either String SemVer.Version)
-getServerVersion = fmap extractVersion <$> withTestEnv getStatus
+getServerVersion :: IO SemVer.Version
+getServerVersion = extractVersion <$> withTestEnv getStatus
   where
     extractVersion = versionNumber . number . version
 
-createExampleIndex :: (MonadBH m) => m (BHResponse Acknowledged)
-createExampleIndex =
-  createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) testIndex
+createExampleIndex :: (MonadBH m) => m Acknowledged
+createExampleIndex = do
+  result <- tryEsError (createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) testIndex)
+  case result of
+    Left e
+      | T.isSuffixOf "already exists" (errorMessage e) -> return $ Acknowledged False
+      | otherwise -> throwEsError e
+    Right ack -> return ack
 
-deleteExampleIndex :: (MonadBH m) => m (BHResponse Acknowledged)
+deleteExampleIndex :: (MonadBH m) => m Acknowledged
 deleteExampleIndex =
   deleteIndex testIndex
 
-validateStatus :: Show body => BHResponse body -> Int -> Expectation
+validateStatus :: Show body => BHResponse contextualized body -> Int -> Expectation
 validateStatus resp expected =
   if actual == expected
     then return ()
@@ -181,30 +188,30 @@ otherTweet =
 
 resetIndex :: BH IO ()
 resetIndex = do
-  _ <- deleteExampleIndex
+  _ <- tryEsError deleteExampleIndex
   _ <- createExampleIndex
-  _ <- putMapping testIndex TweetMapping
+  _ <- putMapping @Value testIndex TweetMapping
   return ()
 
-insertData :: BH IO (BHResponse IndexedDocument)
+insertData :: BH IO IndexedDocument
 insertData = do
-  resetIndex
+  r <- tryEsError resetIndex
   insertData' defaultIndexDocumentSettings
 
-insertData' :: IndexDocumentSettings -> BH IO (BHResponse IndexedDocument)
+insertData' :: IndexDocumentSettings -> BH IO IndexedDocument
 insertData' ids = do
   r <- indexDocument testIndex ids exampleTweet (DocId "1")
   _ <- refreshIndex testIndex
   return r
 
-insertTweetWithDocId :: Tweet -> Text -> BH IO (BHResponse IndexedDocument)
+insertTweetWithDocId :: Tweet -> Text -> BH IO IndexedDocument
 insertTweetWithDocId tweet docId = do
   let ids = defaultIndexDocumentSettings
   r <- indexDocument testIndex ids tweet (DocId docId)
   _ <- refreshIndex testIndex
   return r
 
-updateData :: BH IO (BHResponse IndexedDocument)
+updateData :: BH IO IndexedDocument
 updateData = do
   r <- updateDocument testIndex defaultIndexDocumentSettings tweetPatch (DocId "1")
   _ <- refreshIndex testIndex
@@ -229,14 +236,10 @@ insertWithSpaceInId = do
   return ()
 
 searchTweet :: Search -> BH IO (Either EsError Tweet)
-searchTweet search = do
-  result <- searchTweets search
-  let myTweet :: Either EsError Tweet
-      myTweet = grabFirst result
-  return myTweet
+searchTweet search = (>>= grabFirst) <$> searchTweets search
 
 searchTweets :: Search -> BH IO (Either EsError (SearchResult Tweet))
-searchTweets search = parseEsResponse =<< searchByIndex testIndex search
+searchTweets search = tryEsError $ searchByIndex testIndex search
 
 searchExpectNoResults :: Search -> BH IO ()
 searchExpectNoResults search = do
@@ -247,11 +250,10 @@ searchExpectNoResults search = do
 
 searchExpectAggs :: Search -> BH IO ()
 searchExpectAggs search = do
-  response <- searchByIndex testIndex search
+  result <- searchByIndex @Tweet testIndex search
   let isEmpty x = return (M.null x)
-  let result = decodeResponse response :: Maybe (SearchResult Tweet)
   liftIO $
-    (result >>= aggregations >>= isEmpty) `shouldBe` Just False
+    (aggregations result >>= isEmpty) `shouldBe` Just False
 
 searchValidBucketAgg ::
   (BucketAggregation a, FromJSON a, Show a) =>
@@ -260,10 +262,9 @@ searchValidBucketAgg ::
   (Key -> AggregationResults -> Maybe (Bucket a)) ->
   BH IO ()
 searchValidBucketAgg search aggKey extractor = do
-  response <- searchByIndex testIndex search
+  result <- searchByIndex @Tweet testIndex search
   let bucketDocs = docCount . head . buckets
-  let result = decodeResponse response :: Maybe (SearchResult Tweet)
-  let count = result >>= aggregations >>= extractor aggKey >>= \x -> return (bucketDocs x)
+  let count = aggregations result >>= extractor aggKey >>= \x -> return (bucketDocs x)
   liftIO $
     count `shouldBe` Just 1
 
@@ -291,17 +292,16 @@ searchExpectSource src expected = do
   _ <- insertData
   let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
   let search = (mkSearch (Just query) Nothing) {source = Just src}
-  response <- searchByIndex testIndex search
-  result <- parseEsResponse response
+  result <- searchByIndex testIndex search
   let value_ = grabFirst result
   liftIO $
     value_ `shouldBe` expected
 
 atleast :: SemVer.Version -> IO Bool
-atleast v = getServerVersion >>= \x -> return $ x >= Right v
+atleast v = getServerVersion >>= \x -> return $ x >= v
 
 atmost :: SemVer.Version -> IO Bool
-atmost v = getServerVersion >>= \x -> return $ x <= Right v
+atmost v = getServerVersion >>= \x -> return $ x <= v
 
 is :: SemVer.Version -> IO Bool
-is v = getServerVersion >>= \x -> return $ x == Right v
+is v = getServerVersion >>= \x -> return $ x == v

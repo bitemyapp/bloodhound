@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Snapshots (spec) where
 
@@ -8,7 +9,6 @@ import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Network.HTTP.Types.Method as NHTM
-import qualified Network.URI as URI
 import Test.Common
 import Test.Generators ()
 import Test.Import
@@ -23,7 +23,7 @@ spec = do
     it "always parses all snapshot repos API" $
       when' canSnapshot $
         withTestEnv $ do
-          res <- getSnapshotRepos AllSnapshotRepos
+          res <- tryEsError $ getSnapshotRepos AllSnapshotRepos
           liftIO $ case res of
             Left e -> expectationFailure ("Expected a right but got Left " <> show e)
             Right _ -> return ()
@@ -36,11 +36,8 @@ spec = do
           withSnapshotRepo r1n $ \r1 ->
             withSnapshotRepo r2n $ \r2 -> do
               repos <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| [ExactRepo r2n]))
-              liftIO $ case repos of
-                Right xs -> do
-                  let srt = L.sortOn gSnapshotRepoName
-                  srt xs `shouldBe` srt [r1, r2]
-                Left e -> expectationFailure (show e)
+              let srt = L.sortOn gSnapshotRepoName
+              liftIO $ srt repos `shouldBe` srt [r1, r2]
 
     it "creates and updates with updateSnapshotRepo" $
       when' canSnapshot $
@@ -50,8 +47,8 @@ spec = do
             let Just (String dir) = X.lookup "location" (gSnapshotRepoSettingsObject (gSnapshotRepoSettings r1))
             let noCompression = FsSnapshotRepo r1n (T.unpack dir) False Nothing Nothing Nothing
             resp <- updateSnapshotRepo defaultSnapshotRepoUpdateSettings noCompression
-            liftIO (validateStatus resp 200)
-            Right [roundtrippedNoCompression] <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| []))
+            liftIO $ resp `shouldBe` Acknowledged True
+            [roundtrippedNoCompression] <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| []))
             liftIO (roundtrippedNoCompression `shouldBe` toGSnapshotRepo noCompression)
 
     -- verify came around in 1.4 it seems
@@ -62,10 +59,9 @@ spec = do
           withSnapshotRepo r1n $ \_ -> do
             res <- verifySnapshotRepo r1n
             liftIO $ case res of
-              Right (SnapshotVerification vs)
+              SnapshotVerification vs
                 | null vs -> expectationFailure "Expected nonempty set of verifying nodes"
                 | otherwise -> return ()
-              Left e -> expectationFailure (show e)
 
   describe "Snapshots" $ do
     it "always parses all snapshots API" $
@@ -73,7 +69,7 @@ spec = do
         withTestEnv $ do
           let r1n = SnapshotRepoName "bloodhound-repo1"
           withSnapshotRepo r1n $ \_ -> do
-            res <- getSnapshots r1n AllSnapshots
+            res <- tryEsError $ getSnapshots r1n AllSnapshots
             liftIO $ case res of
               Left e -> expectationFailure ("Expected a right but got Left " <> show e)
               Right _ -> return ()
@@ -87,14 +83,13 @@ spec = do
             withSnapshot r1n s1n $ do
               res <- getSnapshots r1n (SnapshotList (ExactSnap s1n :| []))
               liftIO $ case res of
-                Right [snap]
+                [snap]
                   | snapInfoState snap == SnapshotSuccess
                       && snapInfoName snap == s1n ->
                       return ()
                   | otherwise -> expectationFailure (show snap)
-                Right [] -> expectationFailure "There were no snapshots"
-                Right snaps -> expectationFailure ("Expected 1 snapshot but got" <> show (length snaps))
-                Left e -> expectationFailure (show e)
+                [] -> expectationFailure "There were no snapshots"
+                snaps -> expectationFailure ("Expected 1 snapshot but got" <> show (length snaps))
 
   describe "Snapshot restore" $ do
     it "can restore a snapshot that we create" $
@@ -107,9 +102,9 @@ spec = do
               let settings = defaultSnapshotRestoreSettings {snapRestoreWaitForCompletion = True}
               -- have to close an index to restore it
               resp1 <- closeIndex testIndex
-              liftIO (validateStatus resp1 200)
+              liftIO $ resp1 `shouldBe` Acknowledged True
               resp2 <- restoreSnapshot r1n s1n settings
-              liftIO (validateStatus resp2 200)
+              liftIO $ resp2 `shouldBe` Accepted True
 
     it "can restore and rename" $
       when' canSnapshot $
@@ -132,7 +127,7 @@ spec = do
               -- have to close an index to restore it
               let go = do
                     resp <- restoreSnapshot r1n s1n settings
-                    liftIO (validateStatus resp 200)
+                    liftIO $ resp `shouldBe` Accepted True
                     exists <- indexExists expectedIndex
                     liftIO (exists `shouldBe` True)
               go `finally` deleteIndex expectedIndex
@@ -143,12 +138,8 @@ spec = do
 -- client functionality in a much less ad-hoc incarnation.
 getRepoPaths :: IO [FilePath]
 getRepoPaths = withTestEnv $ do
-  bhe <- getBHEnv
-  let Server s = bhServer bhe
-  let tUrl = s <> "/" <> "_nodes"
-  initReq <- parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack tUrl))
-  let req = setRequestIgnoreStatus $ initReq {method = NHTM.methodGet}
-  Right (Object o) <- parseEsResponse . BHResponse =<< liftIO (httpLbs req (bhManager bhe))
+  Object o <-
+    performBHRequest $ mkSimpleRequest @ContextIndependant NHTM.methodGet $ mkEndpoint ["_nodes"]
   return $
     fromMaybe mempty $ do
       Object nodes <- X.lookup "nodes" o
@@ -184,12 +175,12 @@ withSnapshotRepo srn@(SnapshotRepoName n) f = do
       liftIO (setFileMode dir mode)
       let repo = FsSnapshotRepo srn "bloodhound-tests-backups" True Nothing Nothing Nothing
       resp <- updateSnapshotRepo defaultSnapshotRepoUpdateSettings repo
-      liftIO (validateStatus resp 200)
+      liftIO $ resp `shouldBe` Acknowledged True
       return (toGSnapshotRepo repo)
     mode = ownerModes `unionFileModes` groupModes `unionFileModes` otherModes
     free GenericSnapshotRepo {..} = do
       resp <- deleteSnapshotRepo gSnapshotRepoName
-      liftIO (validateStatus resp 200)
+      liftIO $ resp `shouldBe` Acknowledged True
 
 withSnapshot ::
   ( MonadMask m,
@@ -203,7 +194,7 @@ withSnapshot srn sn = bracket_ alloc free
   where
     alloc = do
       resp <- createSnapshot srn sn createSettings
-      liftIO (validateStatus resp 200)
+      liftIO $ resp `shouldBe` Acknowledged True
     -- We'll make this synchronous for testing purposes
     createSettings =
       defaultSnapshotCreateSettings

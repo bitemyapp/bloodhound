@@ -14,4 +14,4 @@ spec =
         let query = MatchAllQuery Nothing
             count = CountQuery query
         c <- countByIndex testIndex count
-        liftIO $ (crCount <$> c) `shouldBe` (Right 1)
+        liftIO $ crCount c `shouldBe` 1

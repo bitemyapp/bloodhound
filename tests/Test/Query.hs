@@ -137,7 +137,7 @@ spec =
                     ("my_value", "bitemyapp")
                   ]
             search = mkSearchTemplate (Right query) templateParams
-        response <- parseEsResponse =<< searchByIndexTemplate testIndex search
+        response <- searchByIndexTemplate testIndex search
         let myTweet = grabFirst response
         liftIO $ myTweet `shouldBe` Right exampleTweet
 
@@ -154,16 +154,14 @@ spec =
             tid = SearchTemplateId "myTemplate"
             search = mkSearchTemplate (Left tid) templateParams
         _ <- storeSearchTemplate tid query
-        r1 <- getSearchTemplate tid
-        let t1 = eitherDecodeResponse r1 :: Either String GetTemplateScript
-        liftIO $ t1 `shouldBe` Right (GetTemplateScript {getTemplateScriptLang = Just "mustache", getTemplateScriptSource = Just (SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } } }"), getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = True})
-        response <- parseEsResponse =<< searchByIndexTemplate testIndex search
+        t1 <- getSearchTemplate tid
+        liftIO $ t1 `shouldBe` GetTemplateScript {getTemplateScriptLang = Just "mustache", getTemplateScriptSource = Just (SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } } }"), getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = True}
+        response <- searchByIndexTemplate testIndex search
         _ <- deleteSearchTemplate tid
-        r2 <- getSearchTemplate tid
+        t2 <- getSearchTemplate tid
         let myTweet = grabFirst response
-            t2 = eitherDecodeResponse r2 :: Either String GetTemplateScript
         liftIO $ do
-          t2 `shouldBe` Right (GetTemplateScript {getTemplateScriptLang = Nothing, getTemplateScriptSource = Nothing, getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = False})
+          t2 `shouldBe` GetTemplateScript {getTemplateScriptLang = Nothing, getTemplateScriptSource = Nothing, getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = False}
           myTweet `shouldBe` Right exampleTweet
 
     it "returns document for wildcard query" $

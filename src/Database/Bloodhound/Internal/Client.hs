@@ -5,12 +5,17 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Database.Bloodhound.Internal.Client where
 
 import Bloodhound.Import
+import Control.Monad.Catch
+import Control.Monad.Except
 import qualified Data.Aeson.KeyMap as X
+import qualified Data.ByteString.Lazy.Char8 as L
 import qualified Data.HashMap.Strict as HM
 import Data.Map.Strict (Map)
 import Data.Maybe (mapMaybe)
@@ -26,6 +31,8 @@ import Database.Bloodhound.Internal.Query
 import Database.Bloodhound.Internal.StringlyTyped
 import GHC.Generics
 import Network.HTTP.Client
+import qualified Network.HTTP.Types.Status as NHTS
+import qualified Network.URI as URI
 import Text.Read (Read (..))
 import qualified Text.Read as TR
 
@@ -38,16 +45,15 @@ data BHEnv = BHEnv
     bhRequestHook :: Request -> IO Request
   }
 
-instance (Functor m, Applicative m, MonadIO m) => MonadBH (ReaderT BHEnv m) where
-  getBHEnv = ask
-
 -- | All API calls to Elasticsearch operate within
 --    MonadBH
 --    . The idea is that it can be easily embedded in your
 --    own monad transformer stack. A default instance for a ReaderT and
 --    alias 'BH' is provided for the simple case.
-class (Functor m, Applicative m, MonadIO m) => MonadBH m where
-  getBHEnv :: m BHEnv
+class (Functor m, Applicative m, MonadIO m, MonadCatch m) => MonadBH m where
+  dispatch :: BHRequest contextualized body -> m (BHResponse contextualized body)
+  tryEsError :: m a -> m (Either EsError a)
+  throwEsError :: EsError -> m a
 
 -- | Create a 'BHEnv' with all optional fields defaulted. HTTP hook
 -- will be a noop. You can use the exported fields to customize
@@ -58,7 +64,7 @@ mkBHEnv :: Server -> Manager -> BHEnv
 mkBHEnv s m = BHEnv s m return
 
 newtype BH m a = BH
-  { unBH :: ReaderT BHEnv m a
+  { unBH :: ReaderT BHEnv (ExceptT EsError m) a
   }
   deriving
     ( Functor,
@@ -67,7 +73,6 @@ newtype BH m a = BH
       MonadIO,
       MonadState s,
       MonadWriter w,
-      MonadError e,
       Alternative,
       MonadPlus,
       MonadFix,
@@ -78,7 +83,7 @@ newtype BH m a = BH
     )
 
 instance MonadTrans BH where
-  lift = BH . lift
+  lift = BH . lift . lift
 
 instance (MonadReader r m) => MonadReader r (BH m) where
   ask = lift ask
@@ -86,11 +91,72 @@ instance (MonadReader r m) => MonadReader r (BH m) where
     ReaderT $ \r ->
       local f (m r)
 
-instance (Functor m, Applicative m, MonadIO m) => MonadBH (BH m) where
-  getBHEnv = BH getBHEnv
+instance (Functor m, Applicative m, MonadIO m, MonadCatch m, MonadThrow m) => MonadBH (BH m) where
+  dispatch request = BH $ do
+    env <- ask @BHEnv
+    let url = getEndpoint (bhServer env) (bhRequestEndpoint request)
+    initReq <- liftIO $ parseUrl' url
+    let reqHook = bhRequestHook env
+    let reqBody = RequestBodyLBS $ fromMaybe emptyBody $ bhRequestBody request
+    req <-
+      liftIO $
+        reqHook $
+          setRequestIgnoreStatus $
+            initReq
+              { method = bhRequestMethod request,
+                requestHeaders =
+                  -- "application/x-ndjson" for bulk
+                  ("Content-Type", "application/json") : requestHeaders initReq,
+                requestBody = reqBody
+              }
+    -- req <- liftIO $ reqHook $ setRequestIgnoreStatus $ initReq { method = dMethod
+    --                                                            , requestBody = reqBody }
+    let mgr = bhManager env
+    BHResponse <$> liftIO (httpLbs req mgr)
+  tryEsError = try
+  throwEsError = throwM
 
-runBH :: BHEnv -> BH m a -> m a
-runBH e f = runReaderT (unBH f) e
+class ParseBHResponse contextualized where
+  parseBHResponse ::
+    (MonadThrow m, FromJSON a) =>
+    BHResponse contextualized a ->
+    m (ParsedEsResponse a)
+
+instance ParseBHResponse ContextDependant where
+  parseBHResponse = parseEsResponse
+
+instance ParseBHResponse ContextIndependant where
+  parseBHResponse r =
+    return $
+      case eitherDecodeResponse r of
+        Right d -> Right d
+        Left e ->
+          Left $
+            EsError
+              { errorStatus = NHTS.statusCode (responseStatus $ getResponse r),
+                errorMessage = "Unable to parse body: " <> T.pack e
+              }
+
+tryPerformBHRequest ::
+  (MonadBH m, MonadThrow m, ParseBHResponse contextualized, FromJSON a) =>
+  BHRequest contextualized a ->
+  m (ParsedEsResponse a)
+tryPerformBHRequest req = dispatch req >>= parseBHResponse
+
+performBHRequest ::
+  (MonadBH m, MonadThrow m, ParseBHResponse contextualized, FromJSON a) =>
+  BHRequest contextualized a ->
+  m a
+performBHRequest req = tryPerformBHRequest req >>= either throwEsError return
+
+emptyBody :: L.ByteString
+emptyBody = L.pack ""
+
+parseUrl' :: MonadThrow m => Text -> m Request
+parseUrl' t = parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack t))
+
+runBH :: BHEnv -> BH m a -> m (Either EsError a)
+runBH e f = runExceptT $ runReaderT (unBH f) e
 
 -- | 'Version' is embedded in 'Status'
 data Version = Version
@@ -408,6 +474,7 @@ instance FromJSON UpdatableIndexSetting where
           <|> unassignedNodeLeftDelayedTimeout
           `taggedAt` ["index", "unassigned", "node_left", "delayed_timeout"]
         where
+          taggedAt :: FromJSON a => (a -> Parser b) -> [Key] -> Parser b
           taggedAt f ks = taggedAt' f (Object o) ks
       taggedAt' f v [] =
         f =<< (parseJSON v <|> parseJSON (unStringlyTypeJSON v))
@@ -1482,6 +1549,17 @@ data NodeProcessInfo = NodeProcessInfo
     nodeProcessRefreshInterval :: NominalDiffTime
   }
   deriving (Eq, Show)
+
+newtype ShardsResult = ShardsResult
+  { shards :: ShardResult
+  }
+  deriving (Eq, Show)
+
+instance FromJSON ShardsResult where
+  parseJSON =
+    withObject "ShardsResult" $ \v ->
+      ShardsResult
+        <$> v .: "_shards"
 
 data ShardResult = ShardResult
   { shardTotal :: Int,

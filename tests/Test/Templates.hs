@@ -12,7 +12,7 @@ spec =
       withTestEnv $ do
         let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1) defaultIndexMappingsLimits)) (toJSON TweetMapping)
         resp <- putTemplate idxTpl (TemplateName "tweet-tpl")
-        liftIO $ validateStatus resp 200
+        liftIO $ resp `shouldBe` Acknowledged True
 
     it "can detect if a template exists" $
       withTestEnv $ do
@@ -22,7 +22,7 @@ spec =
     it "can delete a template" $
       withTestEnv $ do
         resp <- deleteTemplate (TemplateName "tweet-tpl")
-        liftIO $ validateStatus resp 200
+        liftIO $ resp `shouldBe` Acknowledged True
 
     it "can detect if a template doesn't exist" $
       withTestEnv $ do

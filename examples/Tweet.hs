@@ -10,8 +10,8 @@ module Main
   )
 where
 
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.Aeson (FromJSON (..), object, (.=))
+import Control.Monad.IO.Class (liftIO)
+import Data.Aeson (FromJSON (..), Value, object, (.=))
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Data.Time.Calendar (Day (..))
@@ -20,7 +20,6 @@ import qualified Data.Vector as V
 import Database.Bloodhound
 import GHC.Generics (Generic)
 import Network.HTTP.Client (defaultManagerSettings)
-import Text.Show.Pretty (pPrint)
 
 data TweetMapping = TweetMapping deriving stock (Eq, Show)
 
@@ -58,11 +57,11 @@ main = runBH' $ do
   -- set up index
   _ <- createIndex indexSettings testIndex
   True <- indexExists testIndex
-  _ <- putMapping testIndex TweetMapping
+  _ <- putMapping @Value testIndex TweetMapping
 
   -- create a tweet
   resp <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
-  printResponseBody resp
+  liftIO $ print resp
   {-
        IndexedDocument
          { idxDocIndex = "twitter"
@@ -101,7 +100,7 @@ main = runBH' $ do
   let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1) defaultIndexMappingsLimits)) (toJSON TweetMapping)
   let templateName = TemplateName "tweet-tpl"
   tplResp <- putTemplate idxTpl templateName
-  printResponseBody tplResp
+  liftIO $ print tplResp
   {-
     Acknowledged { isAcknowledged = True }
   -}
@@ -111,8 +110,8 @@ main = runBH' $ do
   let boost = Nothing
   let query = TermQuery (Term "user" "bitemyapp") boost
   let search = mkSearch (Just query) boost
-  tweetResp <- searchByIndex @_ @Tweet testIndex search
-  printResponseBody tweetResp
+  tweetResp <- searchByIndex @Tweet testIndex search
+  liftIO $ print tweetResp
   {-
     SearchResult
       { took = 1
@@ -185,11 +184,3 @@ main = runBH' $ do
     runBH' = withBH defaultManagerSettings testServer
     testIndex = IndexName "twitter"
     indexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits
-
-printResponseBody :: (MonadIO m, FromJSON body, Show body) => BHResponse body -> m ()
-printResponseBody =
-  liftIO
-    . pPrint
-    . either (error . show) id
-    . either (error . show) id
-    . parseEsResponse

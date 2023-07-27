@@ -32,6 +32,6 @@ spec =
                   pointInTime = Nothing
                 }
         result <- searchTweets search
-        let myTweet = grabFirst result
+        let myTweet = result >>= grabFirst
         liftIO $
           myTweet `shouldBe` Right otherTweet

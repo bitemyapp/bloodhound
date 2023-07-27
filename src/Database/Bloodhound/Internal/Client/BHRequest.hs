@@ -15,6 +15,8 @@
 module Database.Bloodhound.Internal.Client.BHRequest
   ( -- * Request
     BHRequest (..),
+    ContextIndependant,
+    ContextDependant,
     mkFullRequest,
     mkSimpleRequest,
     Server (..),
@@ -60,6 +62,7 @@ import Data.Monoid
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import Data.Typeable
 import Database.Bloodhound.Internal.Client.Doc
 import GHC.Exts
 import Network.HTTP.Client
@@ -104,16 +107,23 @@ withQueries endpoint queries = endpoint {getRawEndpointQueries = getRawEndpointQ
 
 -- | 'Request' upon Elasticsearch's server.
 --
+-- @contextualized@ is a phantom type for the expected status-dependancy
 -- @responseBody@ is a phantom type for the expected result
-data BHRequest responseBody = BHRequest
+data BHRequest contextualized responseBody = BHRequest
   { bhRequestMethod :: NHTM.Method,
     bhRequestEndpoint :: Endpoint,
     bhRequestBody :: Maybe BL.ByteString
   }
   deriving stock (Eq, Show)
 
+-- | 'BHResponse' body-parsing does not depend on 'statusCode'
+data ContextIndependant
+
+-- | 'BHResponse' body-parsing may depend on 'statusCode'
+data ContextDependant
+
 -- | 'BHRequest' with a body
-mkFullRequest :: NHTM.Method -> Endpoint -> BL.ByteString -> BHRequest body
+mkFullRequest :: NHTM.Method -> Endpoint -> BL.ByteString -> BHRequest contextualized responseBody
 mkFullRequest method' endpoint body =
   BHRequest
     { bhRequestMethod = method',
@@ -122,7 +132,7 @@ mkFullRequest method' endpoint body =
     }
 
 -- | 'BHRequest' without a body
-mkSimpleRequest :: NHTM.Method -> Endpoint -> BHRequest body
+mkSimpleRequest :: NHTM.Method -> Endpoint -> BHRequest contextualized responseBody
 mkSimpleRequest method' endpoint =
   BHRequest
     { bhRequestMethod = method',
@@ -131,7 +141,9 @@ mkSimpleRequest method' endpoint =
     }
 
 -- | Result of a 'BHRequest'
-newtype BHResponse body = BHResponse {getResponse :: Network.HTTP.Client.Response BL.ByteString}
+newtype BHResponse contextualized body = BHResponse
+  { getResponse :: Network.HTTP.Client.Response BL.ByteString
+  }
   deriving stock (Show)
 
 -- | Result of a 'parseEsResponse'
@@ -147,7 +159,7 @@ parseEsResponse ::
   ( MonadThrow m,
     FromJSON body
   ) =>
-  BHResponse body ->
+  BHResponse contextualized body ->
   m (ParsedEsResponse body)
 parseEsResponse response
   | isSuccess response = case eitherDecode body of
@@ -170,7 +182,7 @@ parseEsResponseWith ::
     FromJSON body
   ) =>
   (body -> Either String parsed) ->
-  BHResponse body ->
+  BHResponse contextualized body ->
   m parsed
 parseEsResponseWith parser response =
   case eitherDecode body of
@@ -186,36 +198,36 @@ parseEsResponseWith parser response =
 -- | Helper around 'aeson' 'decode'
 decodeResponse ::
   FromJSON a =>
-  BHResponse a ->
+  BHResponse ContextIndependant a ->
   Maybe a
 decodeResponse = decode . responseBody . getResponse
 
 -- | Helper around 'aeson' 'eitherDecode'
 eitherDecodeResponse ::
   FromJSON a =>
-  BHResponse a ->
+  BHResponse ContextIndependant a ->
   Either String a
 eitherDecodeResponse = eitherDecode . responseBody . getResponse
 
 -- | Was there an optimistic concurrency control conflict when
 -- indexing a document?
-isVersionConflict :: BHResponse a -> Bool
+isVersionConflict :: BHResponse contextualized a -> Bool
 isVersionConflict = statusCheck (== 409)
 
 -- | Check '2xx' status codes
-isSuccess :: BHResponse a -> Bool
+isSuccess :: BHResponse contextualized a -> Bool
 isSuccess = statusCodeIs (200, 299)
 
 -- | Check '201' status code
-isCreated :: BHResponse a -> Bool
+isCreated :: BHResponse contextualized a -> Bool
 isCreated = statusCheck (== 201)
 
 -- | Check status code
-statusCheck :: (Int -> Bool) -> BHResponse a -> Bool
+statusCheck :: (Int -> Bool) -> BHResponse contextualized a -> Bool
 statusCheck prd = prd . NHTS.statusCode . responseStatus . getResponse
 
 -- | Check status code in range
-statusCodeIs :: (Int, Int) -> BHResponse body -> Bool
+statusCodeIs :: (Int, Int) -> BHResponse contextualized body -> Bool
 statusCodeIs r resp = inRange r $ NHTS.statusCode (responseStatus $ getResponse resp)
 
 -- | 'EsResult' describes the standard wrapper JSON document that you see in
@@ -264,7 +276,15 @@ data EsError = EsError
   { errorStatus :: Int,
     errorMessage :: Text
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Typeable)
+
+instance Exception EsError
+
+instance Semigroup EsError where
+  _ <> x = x
+
+instance Monoid EsError where
+  mempty = EsError 0 "Monoid value, shouldn't happen"
 
 instance FromJSON EsError where
   parseJSON (Object v) =

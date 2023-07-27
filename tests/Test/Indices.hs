@@ -9,10 +9,8 @@ import Test.Import
 
 checkHasSettings :: [UpdatableIndexSetting] -> BH IO ()
 checkHasSettings settings = do
-  currentSettingsE <- getIndexSettings testIndex
-  case currentSettingsE of
-    Left err -> fail $ "could not get index settings: " <> show err
-    Right (IndexSettingsSummary _ _ currentSettings) -> liftIO $ L.intersect currentSettings settings `shouldBe` settings
+  IndexSettingsSummary _ _ currentSettings <- getIndexSettings testIndex
+  liftIO $ L.intersect currentSettings settings `shouldBe` settings
 
 spec :: Spec
 spec = do
@@ -23,9 +21,11 @@ spec = do
         _ <- deleteExampleIndex
         resp <- createExampleIndex
         deleteResp <- deleteExampleIndex
-        liftIO $ do
-          validateStatus resp 200
-          validateStatus deleteResp 200
+        return ()
+  -- TODO Expose BHResponse
+  -- liftIO $ do
+  --   validateStatus resp 200
+  --   validateStatus deleteResp 200
 
   describe "Index aliases" $ do
     let aname = IndexAliasName (IndexName "bloodhound-tests-twitter-1-alias")
@@ -36,35 +36,32 @@ spec = do
       withTestEnv $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
-        liftIO $ validateStatus resp 200
+        return ()
+      -- TODO Expose BHResponse
+      -- liftIO $ validateStatus resp 200
       let cleanup = withTestEnv (updateIndexAliases (RemoveAlias alias :| []))
       ( do
-          aliases <- withTestEnv getIndexAliases
+          IndexAliasesSummary summs <- withTestEnv getIndexAliases
           let expected = IndexAliasSummary alias create
-          case aliases of
-            Right (IndexAliasesSummary summs) ->
-              L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
-            Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)
+          L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
         )
         `finally` cleanup
     it "allows alias deletion" $ do
-      aliases <- withTestEnv $ do
+      IndexAliasesSummary summs <- withTestEnv $ do
         resetIndex
         resp <- updateIndexAliases (action :| [])
-        liftIO $ validateStatus resp 200
+        -- TODO Expose BHResponse
+        -- liftIO $ validateStatus resp 200
         _ <- deleteIndexAlias aname
         getIndexAliases
       -- let expected = IndexAliasSummary alias create
-      case aliases of
-        Right (IndexAliasesSummary summs) ->
-          L.find
-            ( (== aname)
-                . indexAlias
-                . indexAliasSummaryAlias
-            )
-            summs
-            `shouldBe` Nothing
-        Left e -> expectationFailure ("Expected an IndexAliasesSummary but got " <> show e)
+      L.find
+        ( (== aname)
+            . indexAlias
+            . indexAliasSummaryAlias
+        )
+        summs
+        `shouldBe` Nothing
 
   describe "Index Listing" $ do
     it "returns a list of index names" $
@@ -80,7 +77,8 @@ spec = do
         _ <- createExampleIndex
         let updates = BlocksWrite False :| []
         updateResp <- updateIndexSettings updates testIndex
-        liftIO $ validateStatus updateResp 200
+        -- TODO Expose BHResponse
+        -- liftIO $ validateStatus updateResp 200
         checkHasSettings [BlocksWrite False]
 
     it "allows total fields to be set" $
@@ -89,7 +87,8 @@ spec = do
         _ <- createExampleIndex
         let updates = MappingTotalFieldsLimit 2500 :| []
         updateResp <- updateIndexSettings updates testIndex
-        liftIO $ validateStatus updateResp 200
+        -- TODO Expose BHResponse
+        -- liftIO $ validateStatus updateResp 200
         checkHasSettings [MappingTotalFieldsLimit 2500]
 
     it "allows unassigned.node_left.delayed_timeout to be set" $
@@ -98,7 +97,8 @@ spec = do
         _ <- createExampleIndex
         let updates = UnassignedNodeLeftDelayedTimeout 10 :| []
         updateResp <- updateIndexSettings updates testIndex
-        liftIO $ validateStatus updateResp 200
+        -- TODO Expose BHResponse
+        -- liftIO $ validateStatus updateResp 200
         checkHasSettings [UnassignedNodeLeftDelayedTimeout 10]
 
     it "accepts customer analyzers" $
@@ -156,7 +156,8 @@ spec = do
                 )
             updates = [AnalysisSetting analysis]
         createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
-        liftIO $ validateStatus createResp 200
+        -- TODO Expose BHResponse
+        -- liftIO $ validateStatus createResp 200
         checkHasSettings updates
 
     it "accepts default compression codec" $
@@ -164,7 +165,8 @@ spec = do
         _ <- deleteExampleIndex
         let updates = [CompressionSetting CompressionDefault]
         createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
-        liftIO $ validateStatus createResp 200
+        -- TODO Expose BHResponse
+        -- liftIO $ validateStatus createResp 200
         checkHasSettings updates
 
     it "accepts best compression codec" $
@@ -172,7 +174,8 @@ spec = do
         _ <- deleteExampleIndex
         let updates = [CompressionSetting CompressionBest]
         createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
-        liftIO $ validateStatus createResp 200
+        -- TODO Expose BHResponse
+        -- liftIO $ validateStatus createResp 200
         checkHasSettings updates
 
   describe "Index Optimization" $ do
@@ -180,11 +183,16 @@ spec = do
       withTestEnv $ do
         _ <- createExampleIndex
         resp <- forceMergeIndex (IndexList (testIndex :| [])) defaultForceMergeIndexSettings
-        liftIO $ validateStatus resp 200
+        return ()
+  -- TODO Expose BHResponse
+  -- liftIO $ validateStatus resp 200
 
   describe "Index flushing" $ do
     it "returns a successful response upon flushing" $
       withTestEnv $ do
         _ <- createExampleIndex
         resp <- flushIndex testIndex
-        liftIO $ validateStatus resp 200
+        return ()
+
+-- TODO Expose BHResponse
+-- liftIO $ validateStatus resp 200

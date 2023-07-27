@@ -42,12 +42,11 @@ noDuplicates xs = L.nub xs == xs
 getSource :: EsResult a -> Maybe a
 getSource = fmap _source . foundResult
 
-grabFirst :: Either EsError (SearchResult a) -> Either EsError a
+grabFirst :: SearchResult a -> Either EsError a
 grabFirst r =
-  case fmap (hitSource . head . hits . searchHits) r of
-    (Left e) -> Left e
-    (Right Nothing) -> Left (EsError 500 "Source was missing")
-    (Right (Just x)) -> Right x
+  case hitSource $ head $ hits $ searchHits r of
+    Nothing -> Left (EsError 500 "Source was missing")
+    Just x -> Right x
 
 when' :: Monad m => m Bool -> m () -> m ()
 when' b f = b >>= \x -> when x f

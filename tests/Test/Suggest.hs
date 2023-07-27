@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Suggest where
 
@@ -17,8 +18,5 @@ spec =
             search' = mkSearch (Just query) Nothing
             search = search' {suggestBody = Just namedSuggester}
             expectedText = Just "use haskell"
-        resp <- searchByIndex testIndex search
-        parsed <- parseEsResponse resp :: BH IO (Either EsError (SearchResult Tweet))
-        case parsed of
-          Left e -> liftIO $ expectationFailure ("Expected an search suggestion but got " <> show e)
-          Right sr -> liftIO $ (suggestOptionsText . head . suggestResponseOptions . head . nsrResponses <$> suggest sr) `shouldBe` expectedText
+        sr <- searchByIndex @Tweet testIndex search
+        liftIO $ (suggestOptionsText . head . suggestResponseOptions . head . nsrResponses <$> suggest sr) `shouldBe` expectedText

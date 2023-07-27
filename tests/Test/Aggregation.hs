@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Aggregation (spec) where
 
@@ -25,9 +26,8 @@ spec =
         let subaggs = mkAggregations "age_agg" . TermsAgg $ mkTermsAggregation "age"
             agg = TermsAgg $ (mkTermsAggregation "user") {termAggs = Just subaggs}
             search = mkAggregateSearch Nothing $ mkAggregations "users" agg
-        response <- searchByIndex testIndex search
-        let result = decodeResponse response :: Maybe (SearchResult Tweet)
-            usersAggResults = result >>= aggregations >>= toTerms "users"
+        result <- searchByIndex @Tweet testIndex search
+        let usersAggResults = aggregations result >>= toTerms "users"
             subAggResults = usersAggResults >>= (listToMaybe . buckets) >>= termsAggs >>= toTerms "age_agg"
             subAddResultsExists = isJust subAggResults
         liftIO $ subAddResultsExists `shouldBe` True

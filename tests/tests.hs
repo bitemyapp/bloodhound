@@ -50,9 +50,8 @@ main = hspec $ do
   describe "error parsing" $
     it "can parse EsErrors for >= 2.0" $
       withTestEnv $ do
-        res <- getDocument @() (IndexName "bogus") (DocId "bogus_as_well")
-        errorResp <- parseEsResponse res
-        liftIO (errorResp `shouldBe` Left (EsError 404 "no such index [bogus]"))
+        errorResp <- tryEsError $ verifySnapshotRepo (SnapshotRepoName "bogus")
+        liftIO (errorResp `shouldBe` Left (EsError 404 "[bogus] missing"))
 
   describe "Monoid (SearchHits a)" $
     prop "abides the monoid laws" $
@@ -73,24 +72,20 @@ main = hspec $ do
   describe "getNodesInfo" $
     it "fetches the responding node when LocalNode is used" $
       withTestEnv $ do
-        res <- getNodesInfo LocalNode
-        liftIO $ case res of
-          -- This is really just a smoke test for response
-          -- parsing. Node info is so variable, there's not much I can
-          -- assert here.
-          Right NodesInfo {..} -> length nodesInfo `shouldBe` 1
-          Left e -> expectationFailure ("Expected NodesInfo but got " <> show e)
+        NodesInfo {..} <- getNodesInfo LocalNode
+        -- This is really just a smoke test for response
+        -- parsing. Node info is so variable, there's not much I can
+        -- assert here.
+        liftIO $ length nodesInfo `shouldBe` 1
 
   describe "getNodesStats" $
     it "fetches the responding node when LocalNode is used" $
       withTestEnv $ do
-        res <- getNodesStats LocalNode
-        liftIO $ case res of
-          -- This is really just a smoke test for response
-          -- parsing. Node stats is so variable, there's not much I can
-          -- assert here.
-          Right NodesStats {..} -> length nodesStats `shouldBe` 1
-          Left e -> expectationFailure ("Expected NodesStats but got " <> show e)
+        NodesStats {..} <- getNodesStats LocalNode
+        -- This is really just a smoke test for response
+        -- parsing. Node stats is so variable, there's not much I can
+        -- assert here.
+        liftIO $ length nodesStats `shouldBe` 1
 
   describe "Enum DocVersion" $
     it "follows the laws of Enum, Bounded" $ do
@@ -191,6 +186,6 @@ main = hspec $ do
                   pointInTime = Nothing
                 }
         result <- searchTweets search
-        let myTweet = grabFirst result
+        let myTweet = result >>= grabFirst
         liftIO $
           myTweet `shouldBe` Right otherTweet

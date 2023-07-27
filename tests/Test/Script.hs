@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Script where
 
@@ -25,13 +26,8 @@ spec =
                 X.fromList [("test1", sfv)]
             search' = mkSearch (Just query) Nothing
             search = search' {scriptFields = Just sf}
-        resp <- searchByIndex testIndex search
-        parsed <- parseEsResponse resp :: BH IO (Either EsError (SearchResult Value))
-        case parsed of
-          Left e ->
-            liftIO $ expectationFailure ("Expected a script-transformed result but got: " <> show e)
-          Right sr -> do
-            let Just results =
-                  hitFields (head (hits (searchHits sr)))
-            liftIO $
-              results `shouldBe` HitFields (M.fromList [("test1", [Number 20000.0])])
+        sr <- searchByIndex @Value testIndex search
+        let Just results =
+              hitFields (head (hits (searchHits sr)))
+        liftIO $
+          results `shouldBe` HitFields (M.fromList [("test1", [Number 20000.0])])

@@ -1,3 +1,10 @@
+0.22.0.0
+========
+- @blackheaven
+  - Rework `MonadBH` to be function oriented (instead of implementation oriented)
+  - `Client` does not (mostly) returns `BHResponse` anymore, parsing is done directly
+  - Fix payload parsing issues and types there and there
+
 0.21.0.0
 ========
 - @blackheaven
