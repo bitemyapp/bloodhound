@@ -11,11 +11,9 @@ TAGS
 bloodhound-*-docs/
 bloodhound-*-docs.tar.gz
 bloodhound.iml
-.idea/
-.stack-work/
-.hg/00changelog.i
-.hg
-.hgignore
-examples/bloodhound-examples.cabal
 /.ghc.environment.*
 .hspec-failures
+build-docs.*
+.direnv
+.env
+result

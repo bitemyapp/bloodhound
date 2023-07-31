@@ -1768,16 +1768,21 @@ data DistanceUnit
   | NauticalMiles
   deriving (Eq, Show, Generic)
 
+showDistanceUnit :: DistanceUnit -> Text
+showDistanceUnit x =
+  case x of
+    Miles -> "mi"
+    Yards -> "yd"
+    Feet -> "ft"
+    Inches -> "in"
+    Kilometers -> "km"
+    Meters -> "m"
+    Centimeters -> "cm"
+    Millimeters -> "mm"
+    NauticalMiles -> "nmi"
+
 instance ToJSON DistanceUnit where
-  toJSON Miles = String "mi"
-  toJSON Yards = String "yd"
-  toJSON Feet = String "ft"
-  toJSON Inches = String "in"
-  toJSON Kilometers = String "km"
-  toJSON Meters = String "m"
-  toJSON Centimeters = String "cm"
-  toJSON Millimeters = String "mm"
-  toJSON NauticalMiles = String "nmi"
+  toJSON = String . showDistanceUnit
 
 instance FromJSON DistanceUnit where
   parseJSON = withText "DistanceUnit" parse
@@ -1841,8 +1846,7 @@ instance ToJSON Distance where
     String boltedTogether
     where
       coefText = showText dCoefficient
-      (String unitText) = toJSON dUnit
-      boltedTogether = mappend coefText unitText
+      boltedTogether = mappend coefText $ showDistanceUnit dUnit
 
 instance FromJSON Distance where
   parseJSON = withText "Distance" parse

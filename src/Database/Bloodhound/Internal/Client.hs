@@ -14,6 +14,7 @@ module Database.Bloodhound.Internal.Client where
 import Bloodhound.Import
 import Control.Monad.Catch
 import Control.Monad.Except
+import qualified Data.Aeson.Key as X
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.ByteString.Lazy.Char8 as L
 import qualified Data.HashMap.Strict as HM
@@ -885,13 +886,8 @@ instance FromJSON IndexAliasesSummary where
           IndexAliasSummary indexAlias <$> parseJSON v
 
 instance ToJSON IndexAliasAction where
-  toJSON (AddAlias ia opts) = object ["add" .= (iaObj <> optsObj)]
-    where
-      Object iaObj = toJSON ia
-      Object optsObj = toJSON opts
-  toJSON (RemoveAlias ia) = object ["remove" .= iaObj]
-    where
-      Object iaObj = toJSON ia
+  toJSON (AddAlias ia opts) = object ["add" .= (jsonObject ia <> jsonObject opts)]
+  toJSON (RemoveAlias ia) = object ["remove" .= jsonObject ia]
 
 instance ToJSON IndexAlias where
   toJSON IndexAlias {..} =
@@ -904,7 +900,7 @@ instance ToJSON IndexAliasCreate where
   toJSON IndexAliasCreate {..} = Object (filterObj <> routingObj)
     where
       filterObj = maybe mempty (X.singleton "filter" . toJSON) aliasCreateFilter
-      Object routingObj = maybe (Object mempty) toJSON aliasCreateRouting
+      routingObj = jsonObject $ maybe (Object mempty) toJSON aliasCreateRouting
 
 instance ToJSON AliasRouting where
   toJSON (AllAliasRouting v) = object ["routing" .= v]
@@ -1676,10 +1672,10 @@ instance SnapshotRepo FsSnapshotRepo where
   toGSnapshotRepo FsSnapshotRepo {..} =
     GenericSnapshotRepo fsrName fsRepoType (GenericSnapshotRepoSettings settings)
     where
-      Object settings =
-        object $
-          [ "location" .= fsrLocation,
-            "compress" .= fsrCompressMetadata
+      settings =
+        X.fromList $
+          [ X.fromText "location" .= fsrLocation,
+            X.fromText "compress" .= fsrCompressMetadata
           ]
             ++ optionalPairs
       optionalPairs =
@@ -2562,3 +2558,10 @@ instance FromJSON VersionNumber where
         case SemVer.fromText t of
           (Left err) -> fail err
           (Right v) -> return (VersionNumber v)
+
+-- * Utils
+jsonObject :: ToJSON a => a -> Object
+jsonObject x =
+  case toJSON x of
+    Object o -> o
+    e -> error $ "Expected Object, but got " <> show e
