@@ -1,0 +1,21 @@
+name: nix build
+
+on:
+  - push
+  - pull_request
+jobs:
+  check_nix:
+    name: Check nix build
+    runs-on: self-hosted
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v3
+        with:
+          extra-conf: system-features = nixos-test benchmark big-parallel kvm
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Check Nix flake inputs
+        uses: DeterminateSystems/flake-checker-action@v4
+      - name: Build lib
+        run: nix build -L
+      - name: Build example
+        run: nix build -L '.#packages.x86_64-linux.bloodhound-examples'
