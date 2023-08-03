@@ -39,7 +39,7 @@
                 name = "scripts";
                 paths = pkgs.lib.mapAttrsToList pkgs.writeShellScriptBin {
                   ormolu-ide = ''
-                    ${pkgs.ormolu}/bin/ormolu -o -XNoImportQualifiedPost -o -XOverloadedRecordDot $@
+                    ${pkgs.ormolu}/bin/ormolu -o -XNoImportQualifiedPost $@
                   '';
                 };
               };

@@ -2560,6 +2560,7 @@ instance FromJSON VersionNumber where
           (Right v) -> return (VersionNumber v)
 
 -- * Utils
+
 jsonObject :: ToJSON a => a -> Object
 jsonObject x =
   case toJSON x of
