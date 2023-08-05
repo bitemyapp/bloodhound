@@ -6,7 +6,7 @@ on:
 jobs:
   check_nix:
     name: Check nix build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: git checkout
         uses: actions/checkout@v3
