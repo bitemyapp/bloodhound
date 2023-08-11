@@ -143,6 +143,8 @@ jobs:
           rm -f cabal-plan.xz
           chmod a+x $HOME/.cabal/bin/cabal-plan
           cabal-plan --version
+      - name: Install sudo (to instal docker)
+        run: apt update && apt install sudo
       - name: Install docker
         uses: docker-practice/actions-setup-docker@master
       - name: Launch docker

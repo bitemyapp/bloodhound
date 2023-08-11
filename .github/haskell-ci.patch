@@ -1,5 +1,5 @@
 diff --git a/.github/workflows/haskell-ci.yml b/.github/workflows/haskell-ci.yml
-index e9cf176..56973f4 100644
+index e9cf176..29b261c 100644
 --- a/.github/workflows/haskell-ci.yml
 +++ b/.github/workflows/haskell-ci.yml
 @@ -17,13 +17,21 @@ on:
@@ -26,10 +26,12 @@ index e9cf176..56973f4 100644
      continue-on-error: ${{ matrix.allow-failure }}
      strategy:
        matrix:
-@@ -135,6 +143,15 @@ jobs:
+@@ -135,6 +143,17 @@ jobs:
            rm -f cabal-plan.xz
            chmod a+x $HOME/.cabal/bin/cabal-plan
            cabal-plan --version
++      - name: Install sudo (to instal docker)
++        run: apt update && apt install sudo
 +      - name: Install docker
 +        uses: docker-practice/actions-setup-docker@master
 +      - name: Launch docker
@@ -42,7 +44,7 @@ index e9cf176..56973f4 100644
        - name: checkout
          uses: actions/checkout@v3
          with:
-@@ -201,6 +218,11 @@ jobs:
+@@ -201,6 +220,11 @@ jobs:
          run: |
            rm -f cabal.project.local
            $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks all
