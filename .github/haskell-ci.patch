@@ -1,13 +1,13 @@
 diff --git a/.github/workflows/haskell-ci.yml b/.github/workflows/haskell-ci.yml
-index e9cf176..29b261c 100644
+index e9cf176..7600c20 100644
 --- a/.github/workflows/haskell-ci.yml
 +++ b/.github/workflows/haskell-ci.yml
-@@ -17,13 +17,21 @@ on:
+@@ -17,13 +17,19 @@ on:
    - push
    - pull_request
  jobs:
 +  approval:
-+    runs-on: ubuntu-latest
++    runs-on: ubuntu-22.04
 +    steps:
 +      - if: ${{ github.event_name != 'push' }}
 +        uses: trstringer/manual-approval@v1
@@ -20,20 +20,29 @@ index e9cf176..29b261c 100644
 +    runs-on: ubuntu-22.04
      timeout-minutes:
        60
-     container:
+-    container:
 -      image: buildpack-deps:bionic
-+      image: buildpack-deps:jammy
      continue-on-error: ${{ matrix.allow-failure }}
      strategy:
        matrix:
-@@ -135,6 +143,17 @@ jobs:
+@@ -55,10 +61,11 @@ jobs:
+             allow-failure: false
+       fail-fast: false
+     steps:
++      - name: Install docker
++        uses: docker-practice/actions-setup-docker@master
+       - name: apt
+         run: |
+-          apt-get update
+-          apt-get install -y --no-install-recommends gnupg ca-certificates dirmngr curl git software-properties-common libtinfo5
++          sudo apt-get install -y --no-install-recommends gnupg ca-certificates dirmngr curl git software-properties-common libtinfo5
+           mkdir -p "$HOME/.ghcup/bin"
+           curl -sL https://downloads.haskell.org/ghcup/0.1.19.2/x86_64-linux-ghcup-0.1.19.2 > "$HOME/.ghcup/bin/ghcup"
+           chmod a+x "$HOME/.ghcup/bin/ghcup"
+@@ -135,6 +142,13 @@ jobs:
            rm -f cabal-plan.xz
            chmod a+x $HOME/.cabal/bin/cabal-plan
            cabal-plan --version
-+      - name: Install sudo (to instal docker)
-+        run: apt update && apt install sudo
-+      - name: Install docker
-+        uses: docker-practice/actions-setup-docker@master
 +      - name: Launch docker
 +        run: |
 +          docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.17.0
@@ -44,7 +53,7 @@ index e9cf176..29b261c 100644
        - name: checkout
          uses: actions/checkout@v3
          with:
-@@ -201,6 +220,11 @@ jobs:
+@@ -201,6 +215,11 @@ jobs:
          run: |
            rm -f cabal.project.local
            $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks all
