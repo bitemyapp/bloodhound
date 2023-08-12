@@ -61,8 +61,6 @@ jobs:
             allow-failure: false
       fail-fast: false
     steps:
-      - name: Install sudo (to instal docker)
-        run: apt update && apt install sudo
       - name: Install docker
         uses: docker-practice/actions-setup-docker@master
       - name: apt
