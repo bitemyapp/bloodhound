@@ -18,7 +18,7 @@ on:
   - pull_request
 jobs:
   approval:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - if: ${{ github.event_name != 'push' }}
         uses: trstringer/manual-approval@v1
@@ -30,8 +30,6 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes:
       60
-    container:
-      image: buildpack-deps:jammy
     continue-on-error: ${{ matrix.allow-failure }}
     strategy:
       matrix:
@@ -63,9 +61,12 @@ jobs:
             allow-failure: false
       fail-fast: false
     steps:
+      - name: Install sudo (to instal docker)
+        run: apt update && apt install sudo
+      - name: Install docker
+        uses: docker-practice/actions-setup-docker@master
       - name: apt
         run: |
-          apt-get update
           apt-get install -y --no-install-recommends gnupg ca-certificates dirmngr curl git software-properties-common libtinfo5
           mkdir -p "$HOME/.ghcup/bin"
           curl -sL https://downloads.haskell.org/ghcup/0.1.19.2/x86_64-linux-ghcup-0.1.19.2 > "$HOME/.ghcup/bin/ghcup"
@@ -143,10 +144,6 @@ jobs:
           rm -f cabal-plan.xz
           chmod a+x $HOME/.cabal/bin/cabal-plan
           cabal-plan --version
-      - name: Install sudo (to instal docker)
-        run: apt update && apt install sudo
-      - name: Install docker
-        uses: docker-practice/actions-setup-docker@master
       - name: Launch docker
         run: |
           docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.17.0
