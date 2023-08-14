@@ -25,8 +25,6 @@ import Data.Time.Calendar as X (Day (..), fromGregorian)
 import Data.Time.Clock as X
 import Data.Typeable as X
 import Database.Bloodhound as X hiding (key)
-import Lens.Micro as X
-import Lens.Micro.Aeson as X
 import Network.HTTP.Client as X hiding (Proxy, fileSize)
 import System.IO.Temp as X
 import System.PosixCompat.Files as X

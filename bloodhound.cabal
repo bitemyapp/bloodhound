@@ -101,6 +101,7 @@ test-suite bloodhound-tests
   build-depends:
       QuickCheck
     , aeson >=2.0
+    , aeson-optics
     , base
     , blaze-builder
     , bloodhound
@@ -113,10 +114,9 @@ test-suite bloodhound-tests
     , hspec >=1.8
     , http-client >=0.4.30
     , http-types >=0.8
-    , microlens
-    , microlens-aeson >=2.4
     , mtl >=1.0
     , network-uri >=2.6
+    , optics
     , pretty-simple
     , quickcheck-properties
     , scientific >=0.3.0.0

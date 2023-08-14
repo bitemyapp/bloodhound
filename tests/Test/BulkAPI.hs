@@ -5,8 +5,9 @@
 module Test.BulkAPI (spec) where
 
 import qualified Data.Aeson.KeyMap as X
+import qualified Data.Aeson.Optics as LMA
 import qualified Data.Vector as V
-import qualified Lens.Micro.Aeson as LMA
+import Optics
 import Test.Common
 import Test.Import
 
@@ -38,8 +39,10 @@ instance ToJSON BulkScriptTest where
 instance FromJSON BulkScriptTest where
   parseJSON = withObject "BulkScriptTest" $ \v ->
     BulkScriptTest
-      <$> v .: "name"
-      <*> v .: "counter"
+      <$> v
+      .: "name"
+      <*> v
+      .: "counter"
 
 assertDocs :: (FromJSON a, Show a, Eq a) => [(DocId, a)] -> BH IO ()
 assertDocs as = do
@@ -167,11 +170,12 @@ spec =
         let nameList :: [Text]
             nameList =
               hits (searchHits sr)
-                ^.. traverse
-                  . to hitSource
-                  . _Just
-                  . LMA.key "name"
-                  . _String
+                ^.. traversed
+                % to hitSource
+                % _Just
+                % LMA.key "name"
+                % LMA._String
+
         liftIO $
           nameList
             `shouldBe` ["blah", "bloo", "graffle", "garabadoo", "serenity"]
