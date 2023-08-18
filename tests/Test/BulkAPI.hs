@@ -40,9 +40,9 @@ instance FromJSON BulkScriptTest where
   parseJSON = withObject "BulkScriptTest" $ \v ->
     BulkScriptTest
       <$> v
-      .: "name"
+        .: "name"
       <*> v
-      .: "counter"
+        .: "counter"
 
 assertDocs :: (FromJSON a, Show a, Eq a) => [(DocId, a)] -> BH IO ()
 assertDocs as = do
