@@ -18,5 +18,5 @@ spec =
             search' = mkSearch (Just query) Nothing
             search = search' {suggestBody = Just namedSuggester}
             expectedText = Just "use haskell"
-        sr <- searchByIndex @Tweet testIndex search
+        sr <- performBHRequest $ searchByIndex @Tweet testIndex search
         liftIO $ (suggestOptionsText . head . suggestResponseOptions . head . nsrResponses <$> suggest sr) `shouldBe` expectedText

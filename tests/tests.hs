@@ -50,7 +50,7 @@ main = hspec $ do
   describe "error parsing" $
     it "can parse EsErrors for >= 2.0" $
       withTestEnv $ do
-        errorResp <- tryEsError $ verifySnapshotRepo (SnapshotRepoName "bogus")
+        errorResp <- tryPerformBHRequest $ verifySnapshotRepo (SnapshotRepoName "bogus")
         liftIO (errorResp `shouldBe` Left (EsError 404 "[bogus] missing"))
 
   describe "Monoid (SearchHits a)" $
@@ -72,7 +72,7 @@ main = hspec $ do
   describe "getNodesInfo" $
     it "fetches the responding node when LocalNode is used" $
       withTestEnv $ do
-        NodesInfo {..} <- getNodesInfo LocalNode
+        NodesInfo {..} <- performBHRequest $ getNodesInfo LocalNode
         -- This is really just a smoke test for response
         -- parsing. Node info is so variable, there's not much I can
         -- assert here.
@@ -81,7 +81,7 @@ main = hspec $ do
   describe "getNodesStats" $
     it "fetches the responding node when LocalNode is used" $
       withTestEnv $ do
-        NodesStats {..} <- getNodesStats LocalNode
+        NodesStats {..} <- performBHRequest $ getNodesStats LocalNode
         -- This is really just a smoke test for response
         -- parsing. Node stats is so variable, there's not much I can
         -- assert here.

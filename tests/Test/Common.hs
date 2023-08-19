@@ -66,22 +66,22 @@ instance ToJSON ConversationMapping where
       ]
 
 getServerVersion :: IO SemVer.Version
-getServerVersion = extractVersion <$> withTestEnv getStatus
+getServerVersion = extractVersion <$> withTestEnv (performBHRequest getStatus)
   where
     extractVersion = versionNumber . number . version
 
-createExampleIndex :: (MonadBH m) => m Acknowledged
+createExampleIndex :: (MonadBH m) => m (BHResponse StatusDependant Acknowledged, Acknowledged)
 createExampleIndex = do
-  result <- tryEsError (createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) testIndex)
+  result <- tryPerformBHRequest (keepBHResponse $ createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) testIndex)
   case result of
     Left e
-      | T.isSuffixOf "already exists" (errorMessage e) -> return $ Acknowledged False
+      | T.isSuffixOf "already exists" (errorMessage e) -> return (error "TODO rewrite this part too", Acknowledged False)
       | otherwise -> throwEsError e
     Right ack -> return ack
 
-deleteExampleIndex :: (MonadBH m) => m Acknowledged
+deleteExampleIndex :: (MonadBH m) => m (BHResponse StatusDependant Acknowledged, Acknowledged)
 deleteExampleIndex =
-  deleteIndex testIndex
+  performBHRequest $ keepBHResponse $ deleteIndex testIndex
 
 validateStatus :: Show body => BHResponse contextualized body -> Int -> Expectation
 validateStatus resp expected =
@@ -190,56 +190,56 @@ resetIndex :: BH IO ()
 resetIndex = do
   _ <- tryEsError deleteExampleIndex
   _ <- createExampleIndex
-  _ <- putMapping @Value testIndex TweetMapping
+  _ <- performBHRequest $ putMapping @Value testIndex TweetMapping
   return ()
 
-insertData :: BH IO IndexedDocument
+insertData :: BH IO (BHResponse StatusDependant IndexedDocument, IndexedDocument)
 insertData = do
-  r <- tryEsError resetIndex
+  _ <- tryEsError resetIndex
   insertData' defaultIndexDocumentSettings
 
-insertData' :: IndexDocumentSettings -> BH IO IndexedDocument
+insertData' :: IndexDocumentSettings -> BH IO (BHResponse StatusDependant IndexedDocument, IndexedDocument)
 insertData' ids = do
-  r <- indexDocument testIndex ids exampleTweet (DocId "1")
-  _ <- refreshIndex testIndex
+  r <- performBHRequest $ keepBHResponse $ indexDocument testIndex ids exampleTweet (DocId "1")
+  _ <- performBHRequest $ refreshIndex testIndex
   return r
 
 insertTweetWithDocId :: Tweet -> Text -> BH IO IndexedDocument
 insertTweetWithDocId tweet docId = do
   let ids = defaultIndexDocumentSettings
-  r <- indexDocument testIndex ids tweet (DocId docId)
-  _ <- refreshIndex testIndex
+  r <- performBHRequest $ indexDocument testIndex ids tweet (DocId docId)
+  _ <- performBHRequest $ refreshIndex testIndex
   return r
 
 updateData :: BH IO IndexedDocument
 updateData = do
-  r <- updateDocument testIndex defaultIndexDocumentSettings tweetPatch (DocId "1")
-  _ <- refreshIndex testIndex
+  r <- performBHRequest $ updateDocument testIndex defaultIndexDocumentSettings tweetPatch (DocId "1")
+  _ <- performBHRequest $ refreshIndex testIndex
   return r
 
 insertOther :: BH IO ()
 insertOther = do
-  _ <- indexDocument testIndex defaultIndexDocumentSettings otherTweet (DocId "2")
-  _ <- refreshIndex testIndex
+  _ <- performBHRequest $ indexDocument testIndex defaultIndexDocumentSettings otherTweet (DocId "2")
+  _ <- performBHRequest $ refreshIndex testIndex
   return ()
 
 insertExtra :: BH IO ()
 insertExtra = do
-  _ <- indexDocument testIndex defaultIndexDocumentSettings tweetWithExtra (DocId "4")
-  _ <- refreshIndex testIndex
+  _ <- performBHRequest $ indexDocument testIndex defaultIndexDocumentSettings tweetWithExtra (DocId "4")
+  _ <- performBHRequest $ refreshIndex testIndex
   return ()
 
 insertWithSpaceInId :: BH IO ()
 insertWithSpaceInId = do
-  _ <- indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "Hello World")
-  _ <- refreshIndex testIndex
+  _ <- performBHRequest $ indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "Hello World")
+  _ <- performBHRequest $ refreshIndex testIndex
   return ()
 
 searchTweet :: Search -> BH IO (Either EsError Tweet)
 searchTweet search = (>>= grabFirst) <$> searchTweets search
 
 searchTweets :: Search -> BH IO (Either EsError (SearchResult Tweet))
-searchTweets search = tryEsError $ searchByIndex testIndex search
+searchTweets search = tryPerformBHRequest $ searchByIndex testIndex search
 
 searchExpectNoResults :: Search -> BH IO ()
 searchExpectNoResults search = do
@@ -250,7 +250,7 @@ searchExpectNoResults search = do
 
 searchExpectAggs :: Search -> BH IO ()
 searchExpectAggs search = do
-  result <- searchByIndex @Tweet testIndex search
+  result <- performBHRequest $ searchByIndex @Tweet testIndex search
   let isEmpty x = return (M.null x)
   liftIO $
     (aggregations result >>= isEmpty) `shouldBe` Just False
@@ -262,7 +262,7 @@ searchValidBucketAgg ::
   (Key -> AggregationResults -> Maybe (Bucket a)) ->
   BH IO ()
 searchValidBucketAgg search aggKey extractor = do
-  result <- searchByIndex @Tweet testIndex search
+  result <- performBHRequest $ searchByIndex @Tweet testIndex search
   let bucketDocs = docCount . head . buckets
   let count = aggregations result >>= extractor aggKey >>= \x -> return (bucketDocs x)
   liftIO $
@@ -292,7 +292,7 @@ searchExpectSource src expected = do
   _ <- insertData
   let query = QueryMatchQuery $ mkMatchQuery (FieldName "message") (QueryString "haskell")
   let search = (mkSearch (Just query) Nothing) {source = Just src}
-  result <- searchByIndex testIndex search
+  result <- performBHRequest $ searchByIndex testIndex search
   let value_ = grabFirst result
   liftIO $
     value_ `shouldBe` expected

@@ -26,7 +26,7 @@ spec =
         let subaggs = mkAggregations "age_agg" . TermsAgg $ mkTermsAggregation "age"
             agg = TermsAgg $ (mkTermsAggregation "user") {termAggs = Just subaggs}
             search = mkAggregateSearch Nothing $ mkAggregations "users" agg
-        result <- searchByIndex @Tweet testIndex search
+        result <- performBHRequest $ searchByIndex @Tweet testIndex search
         let usersAggResults = aggregations result >>= toTerms "users"
             subAggResults = usersAggResults >>= (listToMaybe . buckets) >>= termsAggs >>= toTerms "age_agg"
             subAddResultsExists = isJust subAggResults
@@ -107,9 +107,9 @@ spec =
         let ltAWeekAgo = UTCTime (fromGregorian 2015 3 10) 0
         let oldDoc = exampleTweet {postDate = ltAMonthAgo}
         let newDoc = exampleTweet {postDate = ltAWeekAgo}
-        _ <- indexDocument testIndex defaultIndexDocumentSettings oldDoc (DocId "1")
-        _ <- indexDocument testIndex defaultIndexDocumentSettings newDoc (DocId "2")
-        _ <- refreshIndex testIndex
+        _ <- performBHRequest $ indexDocument testIndex defaultIndexDocumentSettings oldDoc (DocId "1")
+        _ <- performBHRequest $ indexDocument testIndex defaultIndexDocumentSettings newDoc (DocId "2")
+        _ <- performBHRequest $ refreshIndex testIndex
         let thisMonth = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMMonth])
         let thisWeek = DateRangeFrom (DateMathExpr (DMDate now) [SubtractTime 1 DMWeek])
         let agg = DateRangeAggregation (FieldName "postDate") Nothing (thisMonth :| [thisWeek])

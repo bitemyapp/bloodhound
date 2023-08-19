@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Test.Snapshots (spec) where
 
@@ -23,7 +24,7 @@ spec = do
     it "always parses all snapshot repos API" $
       when' canSnapshot $
         withTestEnv $ do
-          res <- tryEsError $ getSnapshotRepos AllSnapshotRepos
+          res <- tryPerformBHRequest $ getSnapshotRepos AllSnapshotRepos
           liftIO $ case res of
             Left e -> expectationFailure ("Expected a right but got Left " <> show e)
             Right _ -> return ()
@@ -35,7 +36,7 @@ spec = do
           let r2n = SnapshotRepoName "bloodhound-repo2"
           withSnapshotRepo r1n $ \r1 ->
             withSnapshotRepo r2n $ \r2 -> do
-              repos <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| [ExactRepo r2n]))
+              repos <- performBHRequest $ getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| [ExactRepo r2n]))
               let srt = L.sortOn gSnapshotRepoName
               liftIO $ srt repos `shouldBe` srt [r1, r2]
 
@@ -46,9 +47,9 @@ spec = do
           withSnapshotRepo r1n $ \r1 -> do
             let Just (String dir) = X.lookup "location" (gSnapshotRepoSettingsObject (gSnapshotRepoSettings r1))
             let noCompression = FsSnapshotRepo r1n (T.unpack dir) False Nothing Nothing Nothing
-            resp <- updateSnapshotRepo defaultSnapshotRepoUpdateSettings noCompression
+            resp <- performBHRequest $ updateSnapshotRepo defaultSnapshotRepoUpdateSettings noCompression
             liftIO $ resp `shouldBe` Acknowledged True
-            [roundtrippedNoCompression] <- getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| []))
+            [roundtrippedNoCompression] <- performBHRequest $ getSnapshotRepos (SnapshotRepoList (ExactRepo r1n :| []))
             liftIO (roundtrippedNoCompression `shouldBe` toGSnapshotRepo noCompression)
 
     -- verify came around in 1.4 it seems
@@ -57,7 +58,7 @@ spec = do
         withTestEnv $ do
           let r1n = SnapshotRepoName "bloodhound-repo1"
           withSnapshotRepo r1n $ \_ -> do
-            res <- verifySnapshotRepo r1n
+            res <- performBHRequest $ verifySnapshotRepo r1n
             liftIO $ case res of
               SnapshotVerification vs
                 | null vs -> expectationFailure "Expected nonempty set of verifying nodes"
@@ -69,7 +70,7 @@ spec = do
         withTestEnv $ do
           let r1n = SnapshotRepoName "bloodhound-repo1"
           withSnapshotRepo r1n $ \_ -> do
-            res <- tryEsError $ getSnapshots r1n AllSnapshots
+            res <- tryPerformBHRequest $ getSnapshots r1n AllSnapshots
             liftIO $ case res of
               Left e -> expectationFailure ("Expected a right but got Left " <> show e)
               Right _ -> return ()
@@ -81,7 +82,7 @@ spec = do
           withSnapshotRepo r1n $ \_ -> do
             let s1n = SnapshotName "example-snapshot"
             withSnapshot r1n s1n $ do
-              res <- getSnapshots r1n (SnapshotList (ExactSnap s1n :| []))
+              res <- performBHRequest $ getSnapshots r1n (SnapshotList (ExactSnap s1n :| []))
               liftIO $ case res of
                 [snap]
                   | snapInfoState snap == SnapshotSuccess
@@ -101,9 +102,9 @@ spec = do
             withSnapshot r1n s1n $ do
               let settings = defaultSnapshotRestoreSettings {snapRestoreWaitForCompletion = True}
               -- have to close an index to restore it
-              resp1 <- closeIndex testIndex
+              resp1 <- performBHRequest $ closeIndex testIndex
               liftIO $ resp1 `shouldBe` Acknowledged True
-              resp2 <- restoreSnapshot r1n s1n settings
+              resp2 <- performBHRequest $ restoreSnapshot r1n s1n settings
               liftIO $ resp2 `shouldBe` Accepted True
 
     it "can restore and rename" $
@@ -126,11 +127,11 @@ spec = do
                       }
               -- have to close an index to restore it
               let go = do
-                    resp <- restoreSnapshot r1n s1n settings
+                    resp <- performBHRequest $ restoreSnapshot r1n s1n settings
                     liftIO $ resp `shouldBe` Accepted True
-                    exists <- indexExists expectedIndex
+                    exists <- performBHRequest $ indexExists expectedIndex
                     liftIO (exists `shouldBe` True)
-              go `finally` deleteIndex expectedIndex
+              go `finally` performBHRequest (deleteIndex expectedIndex)
 
 -- | Get configured repo paths for snapshotting. Note that by default
 -- this is not enabled and if we are over es 1.5, we won't be able to
@@ -139,7 +140,7 @@ spec = do
 getRepoPaths :: IO [FilePath]
 getRepoPaths = withTestEnv $ do
   Object o <-
-    performBHRequest $ mkSimpleRequest @ContextIndependant NHTM.methodGet $ mkEndpoint ["_nodes"]
+    performBHRequest $ mkSimpleRequest @StatusIndependant NHTM.methodGet $ mkEndpoint ["_nodes"]
   return $
     fromMaybe mempty $ do
       Object nodes <- X.lookup "nodes" o
@@ -174,12 +175,12 @@ withSnapshotRepo srn@(SnapshotRepoName n) f = do
     alloc dir = do
       liftIO (setFileMode dir mode)
       let repo = FsSnapshotRepo srn "bloodhound-tests-backups" True Nothing Nothing Nothing
-      resp <- updateSnapshotRepo defaultSnapshotRepoUpdateSettings repo
+      resp <- performBHRequest $ updateSnapshotRepo defaultSnapshotRepoUpdateSettings repo
       liftIO $ resp `shouldBe` Acknowledged True
       return (toGSnapshotRepo repo)
     mode = ownerModes `unionFileModes` groupModes `unionFileModes` otherModes
     free GenericSnapshotRepo {..} = do
-      resp <- deleteSnapshotRepo gSnapshotRepoName
+      resp <- performBHRequest $ deleteSnapshotRepo gSnapshotRepoName
       liftIO $ resp `shouldBe` Acknowledged True
 
 withSnapshot ::
@@ -193,7 +194,7 @@ withSnapshot ::
 withSnapshot srn sn = bracket_ alloc free
   where
     alloc = do
-      resp <- createSnapshot srn sn createSettings
+      resp <- performBHRequest $ createSnapshot srn sn createSettings
       liftIO $ resp `shouldBe` Acknowledged True
     -- We'll make this synchronous for testing purposes
     createSettings =
@@ -203,4 +204,4 @@ withSnapshot srn sn = bracket_ alloc free
           -- We don't actually need to back up any data
         }
     free =
-      deleteSnapshot srn sn
+      performBHRequest $ deleteSnapshot srn sn

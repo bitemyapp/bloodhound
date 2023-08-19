@@ -137,7 +137,7 @@ spec =
                     ("my_value", "bitemyapp")
                   ]
             search = mkSearchTemplate (Right query) templateParams
-        response <- searchByIndexTemplate testIndex search
+        response <- performBHRequest $ searchByIndexTemplate testIndex search
         let myTweet = grabFirst response
         liftIO $ myTweet `shouldBe` Right exampleTweet
 
@@ -153,12 +153,12 @@ spec =
                   ]
             tid = SearchTemplateId "myTemplate"
             search = mkSearchTemplate (Left tid) templateParams
-        _ <- storeSearchTemplate tid query
-        t1 <- getSearchTemplate tid
+        _ <- performBHRequest $ storeSearchTemplate tid query
+        t1 <- performBHRequest $ getSearchTemplate tid
         liftIO $ t1 `shouldBe` GetTemplateScript {getTemplateScriptLang = Just "mustache", getTemplateScriptSource = Just (SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } } }"), getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = True}
-        response <- searchByIndexTemplate testIndex search
-        _ <- deleteSearchTemplate tid
-        t2 <- getSearchTemplate tid
+        response <- performBHRequest $ searchByIndexTemplate testIndex search
+        _ <- performBHRequest $ deleteSearchTemplate tid
+        t2 <- performBHRequest $ getSearchTemplate tid
         let myTweet = grabFirst response
         liftIO $ do
           t2 `shouldBe` GetTemplateScript {getTemplateScriptLang = Nothing, getTemplateScriptSource = Nothing, getTemplateScriptOptions = Nothing, getTemplateScriptId = "myTemplate", getTemplateScriptFound = False}

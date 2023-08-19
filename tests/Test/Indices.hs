@@ -9,7 +9,7 @@ import Test.Import
 
 checkHasSettings :: [UpdatableIndexSetting] -> BH IO ()
 checkHasSettings settings = do
-  IndexSettingsSummary _ _ currentSettings <- getIndexSettings testIndex
+  IndexSettingsSummary _ _ currentSettings <- performBHRequest $ getIndexSettings testIndex
   liftIO $ L.intersect currentSettings settings `shouldBe` settings
 
 spec :: Spec
@@ -19,29 +19,25 @@ spec = do
       withTestEnv $ do
         -- priming state.
         _ <- deleteExampleIndex
-        resp <- createExampleIndex
-        deleteResp <- deleteExampleIndex
-        return ()
-  -- TODO Expose BHResponse
-  -- liftIO $ do
-  --   validateStatus resp 200
-  --   validateStatus deleteResp 200
+        (resp, _) <- createExampleIndex
+        (deleteResp, _) <- deleteExampleIndex
+        liftIO $ do
+          validateStatus resp 200
+          validateStatus deleteResp 200
 
   describe "Index aliases" $ do
-    let aname = IndexAliasName (IndexName "bloodhound-tests-twitter-1-alias")
-    let alias = IndexAlias (testIndex) aname
+    let aName = IndexAliasName (IndexName "bloodhound-tests-twitter-1-alias")
+    let alias = IndexAlias testIndex aName
     let create = IndexAliasCreate Nothing Nothing
     let action = AddAlias alias create
     it "handles the simple case of aliasing an existing index" $ do
       withTestEnv $ do
         resetIndex
-        resp <- updateIndexAliases (action :| [])
-        return ()
-      -- TODO Expose BHResponse
-      -- liftIO $ validateStatus resp 200
-      let cleanup = withTestEnv (updateIndexAliases (RemoveAlias alias :| []))
+        (resp, _) <- performBHRequest $ keepBHResponse $ updateIndexAliases (action :| [])
+        liftIO $ validateStatus resp 200
+      let cleanup = withTestEnv (performBHRequest $ updateIndexAliases (RemoveAlias alias :| []))
       ( do
-          IndexAliasesSummary summs <- withTestEnv getIndexAliases
+          IndexAliasesSummary summs <- withTestEnv (performBHRequest getIndexAliases)
           let expected = IndexAliasSummary alias create
           L.find ((== alias) . indexAliasSummaryAlias) summs `shouldBe` Just expected
         )
@@ -49,14 +45,13 @@ spec = do
     it "allows alias deletion" $ do
       IndexAliasesSummary summs <- withTestEnv $ do
         resetIndex
-        resp <- updateIndexAliases (action :| [])
-        -- TODO Expose BHResponse
-        -- liftIO $ validateStatus resp 200
-        _ <- deleteIndexAlias aname
-        getIndexAliases
+        (resp, _) <- performBHRequest $ keepBHResponse $ updateIndexAliases (action :| [])
+        liftIO $ validateStatus resp 200
+        _ <- performBHRequest $ deleteIndexAlias aName
+        performBHRequest getIndexAliases
       -- let expected = IndexAliasSummary alias create
       L.find
-        ( (== aname)
+        ( (== aName)
             . indexAlias
             . indexAliasSummaryAlias
         )
@@ -67,7 +62,7 @@ spec = do
     it "returns a list of index names" $
       withTestEnv $ do
         _ <- createExampleIndex
-        ixns <- listIndices
+        ixns <- performBHRequest listIndices
         liftIO (ixns `shouldContain` [testIndex])
 
   describe "Index Settings" $ do
@@ -76,9 +71,8 @@ spec = do
         _ <- deleteExampleIndex
         _ <- createExampleIndex
         let updates = BlocksWrite False :| []
-        updateResp <- updateIndexSettings updates testIndex
-        -- TODO Expose BHResponse
-        -- liftIO $ validateStatus updateResp 200
+        (updateResp, _) <- performBHRequest $ keepBHResponse $ updateIndexSettings updates testIndex
+        liftIO $ validateStatus updateResp 200
         checkHasSettings [BlocksWrite False]
 
     it "allows total fields to be set" $
@@ -86,9 +80,8 @@ spec = do
         _ <- deleteExampleIndex
         _ <- createExampleIndex
         let updates = MappingTotalFieldsLimit 2500 :| []
-        updateResp <- updateIndexSettings updates testIndex
-        -- TODO Expose BHResponse
-        -- liftIO $ validateStatus updateResp 200
+        (updateResp, _) <- performBHRequest $ keepBHResponse $ updateIndexSettings updates testIndex
+        liftIO $ validateStatus updateResp 200
         checkHasSettings [MappingTotalFieldsLimit 2500]
 
     it "allows unassigned.node_left.delayed_timeout to be set" $
@@ -96,9 +89,8 @@ spec = do
         _ <- deleteExampleIndex
         _ <- createExampleIndex
         let updates = UnassignedNodeLeftDelayedTimeout 10 :| []
-        updateResp <- updateIndexSettings updates testIndex
-        -- TODO Expose BHResponse
-        -- liftIO $ validateStatus updateResp 200
+        (updateResp, _) <- performBHRequest $ keepBHResponse $ updateIndexSettings updates testIndex
+        liftIO $ validateStatus updateResp 200
         checkHasSettings [UnassignedNodeLeftDelayedTimeout 10]
 
     it "accepts customer analyzers" $
@@ -155,44 +147,36 @@ spec = do
                     ]
                 )
             updates = [AnalysisSetting analysis]
-        createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
-        -- TODO Expose BHResponse
-        -- liftIO $ validateStatus createResp 200
+        (createResp, _) <- performBHRequest $ keepBHResponse $ createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
+        liftIO $ validateStatus createResp 200
         checkHasSettings updates
 
     it "accepts default compression codec" $
       withTestEnv $ do
         _ <- deleteExampleIndex
         let updates = [CompressionSetting CompressionDefault]
-        createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
-        -- TODO Expose BHResponse
-        -- liftIO $ validateStatus createResp 200
+        (createResp, _) <- performBHRequest $ keepBHResponse $ createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
+        liftIO $ validateStatus createResp 200
         checkHasSettings updates
 
     it "accepts best compression codec" $
       withTestEnv $ do
         _ <- deleteExampleIndex
         let updates = [CompressionSetting CompressionBest]
-        createResp <- createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
-        -- TODO Expose BHResponse
-        -- liftIO $ validateStatus createResp 200
+        (createResp, _) <- performBHRequest $ keepBHResponse $ createIndexWith (updates ++ [NumberOfReplicas (ReplicaCount 0)]) 1 testIndex
+        liftIO $ validateStatus createResp 200
         checkHasSettings updates
 
   describe "Index Optimization" $ do
     it "returns a successful response upon completion" $
       withTestEnv $ do
         _ <- createExampleIndex
-        resp <- forceMergeIndex (IndexList (testIndex :| [])) defaultForceMergeIndexSettings
-        return ()
-  -- TODO Expose BHResponse
-  -- liftIO $ validateStatus resp 200
+        (resp, _) <- performBHRequest $ keepBHResponse $ forceMergeIndex (IndexList (testIndex :| [])) defaultForceMergeIndexSettings
+        liftIO $ validateStatus resp 200
 
   describe "Index flushing" $ do
     it "returns a successful response upon flushing" $
       withTestEnv $ do
         _ <- createExampleIndex
-        resp <- flushIndex testIndex
-        return ()
-
--- TODO Expose BHResponse
--- liftIO $ validateStatus resp 200
+        (resp, _) <- performBHRequest $ keepBHResponse $ flushIndex testIndex
+        liftIO $ validateStatus resp 200

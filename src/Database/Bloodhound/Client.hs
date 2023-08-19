@@ -136,10 +136,16 @@ module Database.Bloodhound.Client
     -- * Generic
     Acknowledged (..),
     Accepted (..),
+    IgnoredBody (..),
 
-    -- * Pumbing
+    -- * Performing Requests
     tryPerformBHRequest,
     performBHRequest,
+    withBHResponse,
+    withBHResponse_,
+    withBHResponseParsedEsResponse,
+    keepBHResponse,
+    joinBHResponse,
   )
 where
 
@@ -156,7 +162,6 @@ import qualified Data.List as LS (foldl')
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (catMaybes)
 import Data.Monoid
-import Data.Proxy
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -254,76 +259,57 @@ withBH ms s f = do
 
 -- Shortcut functions for HTTP methods
 delete ::
-  forall body contextualized m.
-  (MonadBH m, ParseBHResponse contextualized, FromJSON body) =>
-  Proxy contextualized ->
+  (ParseBHResponse contextualized, FromJSON body) =>
   Endpoint ->
-  m body
-delete _ = performBHRequest . mkSimpleRequest @contextualized NHTM.methodDelete
+  BHRequest contextualized body
+delete = mkSimpleRequest NHTM.methodDelete
 
 deleteWithBody ::
-  forall body contextualized m.
-  (MonadBH m, ParseBHResponse contextualized, FromJSON body) =>
-  Proxy contextualized ->
+  (ParseBHResponse contextualized, FromJSON body) =>
   Endpoint ->
   L.ByteString ->
-  m body
-deleteWithBody _ endpoint = performBHRequest . mkFullRequest @contextualized NHTM.methodDelete endpoint
+  BHRequest contextualized body
+deleteWithBody = mkFullRequest NHTM.methodDelete
 
 get ::
-  forall body contextualized m.
-  (MonadBH m, ParseBHResponse contextualized, FromJSON body) =>
-  Proxy contextualized ->
+  (ParseBHResponse contextualized, FromJSON body) =>
   Endpoint ->
-  m body
-get _ = performBHRequest . mkSimpleRequest @contextualized NHTM.methodGet
+  BHRequest contextualized body
+get = mkSimpleRequest NHTM.methodGet
 
 head' ::
-  forall body contextualized m.
-  MonadBH m =>
+  (ParseBHResponse contextualized, FromJSON body) =>
   Endpoint ->
-  m (BHResponse contextualized body)
-head' = dispatch . mkSimpleRequest NHTM.methodHead
+  BHRequest contextualized body
+head' = mkSimpleRequest NHTM.methodHead
 
 put ::
-  forall body contextualized m.
-  (MonadBH m, ParseBHResponse contextualized, FromJSON body) =>
-  Proxy contextualized ->
+  (ParseBHResponse contextualized, FromJSON body) =>
   Endpoint ->
   L.ByteString ->
-  m body
-put _ endpoint = performBHRequest . mkFullRequest @contextualized NHTM.methodPut endpoint
+  BHRequest contextualized body
+put = mkFullRequest NHTM.methodPut
 
 post ::
-  forall body contextualized m.
-  (MonadBH m, ParseBHResponse contextualized, FromJSON body) =>
-  Proxy contextualized ->
+  (ParseBHResponse contextualized, FromJSON body) =>
   Endpoint ->
   L.ByteString ->
-  m body
-post _ endpoint = performBHRequest . mkFullRequest @contextualized NHTM.methodPost endpoint
-
-post' ::
-  forall body contextualized m.
-  MonadBH m =>
-  Endpoint ->
-  L.ByteString ->
-  m (BHResponse contextualized body)
-post' endpoint = dispatch . mkFullRequest NHTM.methodPost endpoint
+  BHRequest contextualized body
+post = mkFullRequest NHTM.methodPost
 
 -- | 'getStatus' fetches the 'Status' of a 'Server'
 --
 -- >>> serverStatus <- runBH' getStatus
 -- >>> fmap tagline (serverStatus)
 -- Just "You Know, for Search"
-getStatus :: MonadBH m => m Status
-getStatus = get (Proxy @ContextDependant) []
+getStatus :: BHRequest StatusDependant Status
+getStatus = get []
 
 -- | 'getSnapshotRepos' gets the definitions of a subset of the
 -- defined snapshot repos.
-getSnapshotRepos :: MonadBH m => SnapshotRepoSelection -> m [GenericSnapshotRepo]
+getSnapshotRepos :: SnapshotRepoSelection -> BHRequest StatusDependant [GenericSnapshotRepo]
 getSnapshotRepos sel =
-  unGSRs <$> get (Proxy @ContextDependant) ["_snapshot", selectorSeg]
+  unGSRs <$> get ["_snapshot", selectorSeg]
   where
     selectorSeg = case sel of
       AllSnapshotRepos -> "_all"
@@ -341,20 +327,20 @@ instance FromJSON GSRs where
       parse = fmap GSRs . mapM (uncurry go) . X.toList
       go rawName = withObject "GenericSnapshotRepo" $ \o ->
         GenericSnapshotRepo (SnapshotRepoName $ toText rawName)
-          <$> o .: "type"
-          <*> o .: "settings"
+          <$> o
+          .: "type"
+          <*> o
+          .: "settings"
 
 -- | Create or update a snapshot repo
 updateSnapshotRepo ::
-  ( MonadBH m,
-    SnapshotRepo repo
-  ) =>
+  SnapshotRepo repo =>
   -- | Use 'defaultSnapshotRepoUpdateSettings' if unsure
   SnapshotRepoUpdateSettings ->
   repo ->
-  m Acknowledged
+  BHRequest StatusIndependant Acknowledged
 updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo =
-  put (Proxy @ContextIndependant) endpoint (encode body)
+  put endpoint (encode body)
   where
     endpoint = ["_snapshot", snapshotRepoName gSnapshotRepoName] `withQueries` params
     params
@@ -370,23 +356,22 @@ updateSnapshotRepo SnapshotRepoUpdateSettings {..} repo =
 -- | Verify if a snapshot repo is working. __NOTE:__ this API did not
 -- make it into Elasticsearch until 1.4. If you use an older version,
 -- you will get an error here.
-verifySnapshotRepo :: MonadBH m => SnapshotRepoName -> m SnapshotVerification
+verifySnapshotRepo :: SnapshotRepoName -> BHRequest StatusDependant SnapshotVerification
 verifySnapshotRepo (SnapshotRepoName n) =
-  post (Proxy @ContextDependant) ["_snapshot", n, "_verify"] emptyBody
+  post ["_snapshot", n, "_verify"] emptyBody
 
-deleteSnapshotRepo :: MonadBH m => SnapshotRepoName -> m Acknowledged
+deleteSnapshotRepo :: SnapshotRepoName -> BHRequest StatusIndependant Acknowledged
 deleteSnapshotRepo (SnapshotRepoName n) =
-  delete (Proxy @ContextIndependant) ["_snapshot", n]
+  delete ["_snapshot", n]
 
 -- | Create and start a snapshot
 createSnapshot ::
-  (MonadBH m) =>
   SnapshotRepoName ->
   SnapshotName ->
   SnapshotCreateSettings ->
-  m Acknowledged
+  BHRequest StatusIndependant Acknowledged
 createSnapshot (SnapshotRepoName repoName) (SnapshotName snapName) SnapshotCreateSettings {..} =
-  put (Proxy @ContextIndependant) endpoint body
+  put endpoint body
   where
     endpoint = ["_snapshot", repoName, snapName] `withQueries` params
     params = [("wait_for_completion", Just (boolQP snapWaitForCompletion))]
@@ -406,9 +391,9 @@ indexSelectionName (IndexList (i :| is)) = T.intercalate "," (renderIndex <$> (i
     renderIndex (IndexName n) = n
 
 -- | Get info about known snapshots given a pattern and repo name.
-getSnapshots :: MonadBH m => SnapshotRepoName -> SnapshotSelection -> m [SnapshotInfo]
+getSnapshots :: SnapshotRepoName -> SnapshotSelection -> BHRequest StatusDependant [SnapshotInfo]
 getSnapshots (SnapshotRepoName repoName) sel =
-  unSIs <$> get (Proxy @ContextDependant) ["_snapshot", repoName, snapPath]
+  unSIs <$> get ["_snapshot", repoName, snapPath]
   where
     snapPath = case sel of
       AllSnapshots -> "_all"
@@ -424,23 +409,22 @@ instance FromJSON SIs where
       parse o = SIs <$> o .: "snapshots"
 
 -- | Delete a snapshot. Cancels if it is running.
-deleteSnapshot :: MonadBH m => SnapshotRepoName -> SnapshotName -> m Acknowledged
+deleteSnapshot :: SnapshotRepoName -> SnapshotName -> BHRequest StatusIndependant Acknowledged
 deleteSnapshot (SnapshotRepoName repoName) (SnapshotName snapName) =
-  delete (Proxy @ContextIndependant) ["_snapshot", repoName, snapName]
+  delete ["_snapshot", repoName, snapName]
 
 -- | Restore a snapshot to the cluster See
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/modules-snapshots.html#_restore>
 -- for more details.
 restoreSnapshot ::
-  MonadBH m =>
   SnapshotRepoName ->
   SnapshotName ->
   -- | Start with 'defaultSnapshotRestoreSettings' and customize
   -- from there for reasonable defaults.
   SnapshotRestoreSettings ->
-  m Accepted
+  BHRequest StatusIndependant Accepted
 restoreSnapshot (SnapshotRepoName repoName) (SnapshotName snapName) SnapshotRestoreSettings {..} =
-  post (Proxy @ContextIndependant) endpoint (encode body)
+  post endpoint (encode body)
   where
     endpoint = ["_snapshot", repoName, snapName, "_restore"] `withQueries` params
     params = [("wait_for_completion", Just (boolQP snapRestoreWaitForCompletion))]
@@ -461,9 +445,9 @@ restoreSnapshot (SnapshotRepoName repoName) (SnapshotName snapName) SnapshotRest
     renderToken RRSubWholeMatch = "$0"
     renderToken (RRSubGroup g) = T.pack (show (rrGroupRefNum g))
 
-getNodesInfo :: MonadBH m => NodeSelection -> m NodesInfo
+getNodesInfo :: NodeSelection -> BHRequest StatusDependant NodesInfo
 getNodesInfo sel =
-  get (Proxy @ContextDependant) ["_nodes", selectionSeg]
+  get ["_nodes", selectionSeg]
   where
     selectionSeg = case sel of
       LocalNode -> "_local"
@@ -474,9 +458,9 @@ getNodesInfo sel =
     selToSeg (NodeByHost (Server s)) = s
     selToSeg (NodeByAttribute (NodeAttrName a) v) = a <> ":" <> v
 
-getNodesStats :: MonadBH m => NodeSelection -> m NodesStats
+getNodesStats :: NodeSelection -> BHRequest StatusDependant NodesStats
 getNodesStats sel =
-  get (Proxy @ContextDependant) ["_nodes", selectionSeg, "stats"]
+  get ["_nodes", selectionSeg, "stats"]
   where
     selectionSeg = case sel of
       LocalNode -> "_local"
@@ -494,23 +478,22 @@ getNodesStats sel =
 -- True
 -- >>> runBH' $ indexExists (IndexName "didimakeanindex")
 -- True
-createIndex :: MonadBH m => IndexSettings -> IndexName -> m Acknowledged
+createIndex :: IndexSettings -> IndexName -> BHRequest StatusDependant Acknowledged
 createIndex indexSettings (IndexName indexName) =
-  put (Proxy @ContextDependant) [indexName] $ encode indexSettings
+  put [indexName] $ encode indexSettings
 
 -- | Create an index, providing it with any number of settings. This
 --   is more expressive than 'createIndex' but makes is more verbose
 --   for the common case of configuring only the shard count and
 --   replica count.
 createIndexWith ::
-  MonadBH m =>
   [UpdatableIndexSetting] ->
   -- | shard count
   Int ->
   IndexName ->
-  m Acknowledged
+  BHRequest StatusIndependant Acknowledged
 createIndexWith updates shards (IndexName indexName) =
-  put (Proxy @ContextIndependant) [indexName] body
+  put [indexName] body
   where
     body =
       encode $
@@ -523,9 +506,9 @@ createIndexWith updates shards (IndexName indexName) =
           ]
 
 -- | 'flushIndex' will flush an index given a 'Server' and an 'IndexName'.
-flushIndex :: MonadBH m => IndexName -> m ShardResult
+flushIndex :: IndexName -> BHRequest StatusDependant ShardResult
 flushIndex (IndexName indexName) =
-  post (Proxy @ContextDependant) [indexName, "_flush"] emptyBody
+  post [indexName, "_flush"] emptyBody
 
 -- | 'deleteIndex' will delete an index given a 'Server' and an 'IndexName'.
 --
@@ -535,9 +518,9 @@ flushIndex (IndexName indexName) =
 -- True
 -- >>> runBH' $ indexExists (IndexName "didimakeanindex")
 -- False
-deleteIndex :: MonadBH m => IndexName -> m Acknowledged
+deleteIndex :: IndexName -> BHRequest StatusDependant Acknowledged
 deleteIndex (IndexName indexName) =
-  delete (Proxy @ContextDependant) [indexName]
+  delete [indexName]
 
 -- | 'updateIndexSettings' will apply a non-empty list of setting updates to an index
 --
@@ -546,18 +529,17 @@ deleteIndex (IndexName indexName) =
 -- >>> isSuccess response
 -- True
 updateIndexSettings ::
-  MonadBH m =>
   NonEmpty UpdatableIndexSetting ->
   IndexName ->
-  m Acknowledged
+  BHRequest StatusIndependant Acknowledged
 updateIndexSettings updates (IndexName indexName) =
-  put (Proxy @ContextIndependant) [indexName, "_settings"] (encode body)
+  put [indexName, "_settings"] (encode body)
   where
     body = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
 
-getIndexSettings :: MonadBH m => IndexName -> m IndexSettingsSummary
+getIndexSettings :: IndexName -> BHRequest StatusDependant IndexSettingsSummary
 getIndexSettings (IndexName indexName) =
-  get (Proxy @ContextDependant) [indexName, "_settings"]
+  get [indexName, "_settings"]
 
 -- | 'forceMergeIndex'
 --
@@ -585,9 +567,9 @@ getIndexSettings (IndexName indexName) =
 -- >>> response <- runBH' $ forceMergeIndex (IndexList (ixn :| [])) (defaultIndexOptimizationSettings { maxNumSegments = Just 1, onlyExpungeDeletes = True })
 -- >>> isSuccess response
 -- True
-forceMergeIndex :: MonadBH m => IndexSelection -> ForceMergeIndexSettings -> m ShardsResult
+forceMergeIndex :: IndexSelection -> ForceMergeIndexSettings -> BHRequest StatusDependant ShardsResult
 forceMergeIndex ixs ForceMergeIndexSettings {..} =
-  post (Proxy @ContextDependant) endpoint emptyBody
+  post endpoint emptyBody
   where
     endpoint = [indexName, "_forcemerge"] `withQueries` params
     params =
@@ -604,15 +586,15 @@ deepMerge = LS.foldl' (X.unionWith merge) mempty
     merge (Object a) (Object b) = Object (deepMerge [a, b])
     merge _ b = b
 
-doesExist :: MonadBH m => Endpoint -> m Bool
-doesExist endpoint =
-  isSuccess <$> head' endpoint
+doesExist :: Endpoint -> BHRequest StatusDependant Bool
+doesExist =
+  withBHResponse_ isSuccess . head' @StatusDependant @IgnoredBody
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
 --   in IO
 --
 -- >>> exists <- runBH' $ indexExists testIndex
-indexExists :: MonadBH m => IndexName -> m Bool
+indexExists :: IndexName -> BHRequest StatusDependant Bool
 indexExists (IndexName indexName) =
   doesExist [indexName]
 
@@ -621,16 +603,16 @@ indexExists (IndexName indexName) =
 --
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings testIndex
 -- >>> _ <- runBH' $ refreshIndex testIndex
-refreshIndex :: MonadBH m => IndexName -> m ShardResult
+refreshIndex :: IndexName -> BHRequest StatusDependant ShardResult
 refreshIndex (IndexName indexName) =
-  post (Proxy @ContextDependant) [indexName, "_refresh"] emptyBody
+  post [indexName, "_refresh"] emptyBody
 
 -- | Block until the index becomes available for indexing
 --   documents. This is useful for integration tests in which
 --   indices are rapidly created and deleted.
-waitForYellowIndex :: MonadBH m => IndexName -> m HealthStatus
+waitForYellowIndex :: IndexName -> BHRequest StatusIndependant HealthStatus
 waitForYellowIndex (IndexName indexName) =
-  get (Proxy @ContextIndependant) endpoint
+  get endpoint
   where
     endpoint = ["_cluster", "health", indexName] `withQueries` params
     params = [("wait_for_status", Just "yellow"), ("timeout", Just "10s")]
@@ -658,25 +640,40 @@ instance FromJSON HealthStatus where
   parseJSON =
     withObject "HealthStatus" $ \v ->
       HealthStatus
-        <$> v .: "cluster_name"
-        <*> v .: "status"
-        <*> v .: "timed_out"
-        <*> v .: "number_of_nodes"
-        <*> v .: "number_of_data_nodes"
-        <*> v .: "active_primary_shards"
-        <*> v .: "active_shards"
-        <*> v .: "relocating_shards"
-        <*> v .: "initializing_shards"
-        <*> v .: "unassigned_shards"
-        <*> v .: "delayed_unassigned_shards"
-        <*> v .: "number_of_pending_tasks"
-        <*> v .: "number_of_in_flight_fetch"
-        <*> v .: "task_max_waiting_in_queue_millis"
-        <*> v .: "active_shards_percent_as_number"
+        <$> v
+        .: "cluster_name"
+        <*> v
+        .: "status"
+        <*> v
+        .: "timed_out"
+        <*> v
+        .: "number_of_nodes"
+        <*> v
+        .: "number_of_data_nodes"
+        <*> v
+        .: "active_primary_shards"
+        <*> v
+        .: "active_shards"
+        <*> v
+        .: "relocating_shards"
+        <*> v
+        .: "initializing_shards"
+        <*> v
+        .: "unassigned_shards"
+        <*> v
+        .: "delayed_unassigned_shards"
+        <*> v
+        .: "number_of_pending_tasks"
+        <*> v
+        .: "number_of_in_flight_fetch"
+        <*> v
+        .: "task_max_waiting_in_queue_millis"
+        <*> v
+        .: "active_shards_percent_as_number"
 
-openOrCloseIndexes :: MonadBH m => OpenCloseIndex -> IndexName -> m Acknowledged
+openOrCloseIndexes :: OpenCloseIndex -> IndexName -> BHRequest StatusIndependant Acknowledged
 openOrCloseIndexes oci (IndexName indexName) =
-  post (Proxy @ContextIndependant) [indexName, stringifyOCIndex] emptyBody
+  post [indexName, stringifyOCIndex] emptyBody
   where
     stringifyOCIndex = case oci of
       OpenIndex -> "_open"
@@ -686,43 +683,42 @@ openOrCloseIndexes oci (IndexName indexName) =
 --   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> response <- runBH' $ openIndex testIndex
-openIndex :: MonadBH m => IndexName -> m Acknowledged
+openIndex :: IndexName -> BHRequest StatusIndependant Acknowledged
 openIndex = openOrCloseIndexes OpenIndex
 
 -- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at
 --   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> response <- runBH' $ closeIndex testIndex
-closeIndex :: MonadBH m => IndexName -> m Acknowledged
+closeIndex :: IndexName -> BHRequest StatusIndependant Acknowledged
 closeIndex = openOrCloseIndexes CloseIndex
 
 -- | 'listIndices' returns a list of all index names on a given 'Server'
-listIndices :: MonadBH m => m [IndexName]
+listIndices :: BHRequest StatusDependant [IndexName]
 listIndices =
-  get (Proxy @ContextDependant) ["_cat/indices?format=json"] >>= parser
-  where
-    parser =
-      mapM $ \val ->
-        case val of
-          Object obj ->
-            case X.lookup "index" obj of
-              (Just (String txt)) -> return (IndexName txt)
-              v -> throwEsError $ EsError 200 $ T.pack $ "indexVal in listIndices failed on non-string, was: " <> show v
-          v -> throwEsError $ EsError 200 $ T.pack $ "One of the values parsed in listIndices wasn't an object, it was: " <> show v
+  map unListedIndexName <$> get ["_cat/indices?format=json"]
+
+newtype ListedIndexName = ListedIndexName {unListedIndexName :: IndexName}
+  deriving stock (Eq, Show)
+
+instance FromJSON ListedIndexName where
+  parseJSON =
+    withObject "ListedIndexName" $ \o ->
+      ListedIndexName . IndexName <$> o .: "index"
 
 -- | 'catIndices' returns a list of all index names on a given 'Server' as well as their doc counts
-catIndices :: MonadBH m => m [(IndexName, Int)]
+catIndices :: BHRequest StatusDependant [(IndexName, Int)]
 catIndices =
-  get (Proxy @ContextDependant) ["_cat/indices?format=json"] >>= parser
-  where
-    parser =
-      mapM $ \val ->
-        case val of
-          Object obj ->
-            case (X.lookup "index" obj, X.lookup "docs.count" obj) of
-              (Just (String txt), Just (String docs)) -> return (IndexName txt, read (T.unpack docs))
-              v -> throwEsError $ EsError 200 $ T.pack $ "indexVal in catIndices failed on non-string, was: " <> show v
-          v -> throwEsError $ EsError 200 $ T.pack $ "One of the values parsed in catIndices wasn't an object, it was: " <> show v
+  map unListedIndexNameWithCount <$> get ["_cat/indices?format=json"]
+
+newtype ListedIndexNameWithCount = ListedIndexNameWithCount {unListedIndexNameWithCount :: (IndexName, Int)}
+  deriving stock (Eq, Show)
+
+instance FromJSON ListedIndexNameWithCount where
+  parseJSON =
+    withObject "ListedIndexNameWithCount" $ \o -> do
+      xs <- (,) <$> (IndexName <$> o .: "index") <*> o .: "docs.count"
+      return $ ListedIndexNameWithCount xs
 
 -- | 'updateIndexAliases' updates the server's index alias
 -- table. Operations are atomic. Explained in further detail at
@@ -741,22 +737,22 @@ catIndices =
 -- True
 -- >>> runBH' $ indexExists aliasName
 -- True
-updateIndexAliases :: MonadBH m => NonEmpty IndexAliasAction -> m Acknowledged
+updateIndexAliases :: NonEmpty IndexAliasAction -> BHRequest StatusIndependant Acknowledged
 updateIndexAliases actions =
-  post (Proxy @ContextIndependant) ["_aliases"] (encode body)
+  post ["_aliases"] (encode body)
   where
     body = object ["actions" .= toList actions]
 
 -- | Get all aliases configured on the server.
-getIndexAliases :: MonadBH m => m IndexAliasesSummary
+getIndexAliases :: BHRequest StatusDependant IndexAliasesSummary
 getIndexAliases =
-  get (Proxy @ContextDependant) ["_aliases"]
+  get ["_aliases"]
 
 -- | Delete a single alias, removing it from all indices it
 --   is currently associated with.
-deleteIndexAlias :: MonadBH m => IndexAliasName -> m Acknowledged
+deleteIndexAlias :: IndexAliasName -> BHRequest StatusIndependant Acknowledged
 deleteIndexAlias (IndexAliasName (IndexName name)) =
-  delete (Proxy @ContextIndependant) ["_all", "_alias", name]
+  delete ["_all", "_alias", name]
 
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
 --   Explained in further detail at
@@ -764,14 +760,14 @@ deleteIndexAlias (IndexAliasName (IndexName name)) =
 --
 --   >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
 --   >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
-putTemplate :: MonadBH m => IndexTemplate -> TemplateName -> m Acknowledged
+putTemplate :: IndexTemplate -> TemplateName -> BHRequest StatusIndependant Acknowledged
 putTemplate indexTemplate (TemplateName templateName) =
-  put (Proxy @ContextIndependant) ["_template", templateName] (encode indexTemplate)
+  put ["_template", templateName] (encode indexTemplate)
 
 -- | 'templateExists' checks to see if a template exists.
 --
 --   >>> exists <- runBH' $ templateExists (TemplateName "tweet-tpl")
-templateExists :: MonadBH m => TemplateName -> m Bool
+templateExists :: TemplateName -> BHRequest StatusDependant Bool
 templateExists (TemplateName templateName) =
   doesExist ["_template", templateName]
 
@@ -780,9 +776,9 @@ templateExists (TemplateName templateName) =
 --   >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
 --   >>> _ <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
 --   >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
-deleteTemplate :: MonadBH m => TemplateName -> m Acknowledged
+deleteTemplate :: TemplateName -> BHRequest StatusIndependant Acknowledged
 deleteTemplate (TemplateName templateName) =
-  delete (Proxy @ContextIndependant) ["_template", templateName]
+  delete ["_template", templateName]
 
 -- | 'putMapping' is an HTTP PUT and has upsert semantics. Mappings are schemas
 -- for documents in indexes.
@@ -791,11 +787,11 @@ deleteTemplate (TemplateName templateName) =
 -- >>> resp <- runBH' $ putMapping testIndex TweetMapping
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("transfer-encoding","chunked")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
-putMapping :: (FromJSON r, ToJSON a, MonadBH m) => IndexName -> a -> m r
+putMapping :: (FromJSON r, ToJSON a) => IndexName -> a -> BHRequest StatusDependant r
 putMapping (IndexName indexName) mapping =
   -- "_mapping" above is originally transposed
   -- erroneously. The correct API call is: "/INDEX/_mapping"
-  put (Proxy @ContextDependant) [indexName, "_mapping"] (encode mapping)
+  put [indexName, "_mapping"] (encode mapping)
 {-# DEPRECATED putMapping "See <https://www.elastic.co/guide/en/elasticsearch/reference/7.17/removal-of-types.html>" #-}
 
 versionCtlParams :: IndexDocumentSettings -> [(Text, Maybe Text)]
@@ -826,14 +822,14 @@ versionCtlParams cfg =
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("content-length","152")], responseBody = "{\"_index\":\"twitter\",\"_type\":\"_doc\",\"_id\":\"1\",\"_version\":2,\"result\":\"updated\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 indexDocument ::
-  (ToJSON doc, MonadBH m) =>
+  ToJSON doc =>
   IndexName ->
   IndexDocumentSettings ->
   doc ->
   DocId ->
-  m IndexedDocument
+  BHRequest StatusDependant IndexedDocument
 indexDocument (IndexName indexName) cfg document (DocId docId) =
-  put (Proxy @ContextDependant) endpoint (encode body)
+  put endpoint (encode body)
   where
     endpoint = [indexName, "_doc", docId] `withQueries` indexQueryString cfg (DocId docId)
     body = encodeDocument cfg document
@@ -854,26 +850,34 @@ instance FromJSON IndexedDocument where
   parseJSON =
     withObject "IndexedDocument" $ \v ->
       IndexedDocument
-        <$> v .: "_index"
-        <*> v .: "_type"
-        <*> v .: "_id"
-        <*> v .: "_version"
-        <*> v .: "result"
-        <*> v .: "_shards"
-        <*> v .: "_seq_no"
-        <*> v .: "_primary_term"
+        <$> v
+        .: "_index"
+        <*> v
+        .: "_type"
+        <*> v
+        .: "_id"
+        <*> v
+        .: "_version"
+        <*> v
+        .: "result"
+        <*> v
+        .: "_shards"
+        <*> v
+        .: "_seq_no"
+        <*> v
+        .: "_primary_term"
 
 -- | 'updateDocument' provides a way to perform an partial update of a
 -- an already indexed document.
 updateDocument ::
-  (ToJSON patch, MonadBH m) =>
+  ToJSON patch =>
   IndexName ->
   IndexDocumentSettings ->
   patch ->
   DocId ->
-  m IndexedDocument
+  BHRequest StatusDependant IndexedDocument
 updateDocument (IndexName indexName) cfg patch (DocId docId) =
-  post (Proxy @ContextDependant) endpoint (encode body)
+  post endpoint (encode body)
   where
     endpoint = [indexName, "_update", docId] `withQueries` indexQueryString cfg (DocId docId)
     body = object ["doc" .= encodeDocument cfg patch]
@@ -915,17 +919,17 @@ encodeDocument cfg document =
 -- | 'deleteDocument' is the primary way to delete a single document.
 --
 -- >>> _ <- runBH' $ deleteDocument testIndex (DocId "1")
-deleteDocument :: MonadBH m => IndexName -> DocId -> m IndexedDocument
+deleteDocument :: IndexName -> DocId -> BHRequest StatusDependant IndexedDocument
 deleteDocument (IndexName indexName) (DocId docId) =
-  delete (Proxy @ContextDependant) [indexName, "_doc", docId]
+  delete [indexName, "_doc", docId]
 
 -- | 'deleteByQuery' performs a deletion on every document that matches a query.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> _ <- runBH' $ deleteDocument testIndex query
-deleteByQuery :: MonadBH m => IndexName -> Query -> m DeletedDocuments
+deleteByQuery :: IndexName -> Query -> BHRequest StatusDependant DeletedDocuments
 deleteByQuery (IndexName indexName) query =
-  post (Proxy @ContextDependant) [indexName, "_delete_by_query"] (encode body)
+  post [indexName, "_delete_by_query"] (encode body)
   where
     body = object ["query" .= query]
 
@@ -949,18 +953,30 @@ instance FromJSON DeletedDocuments where
   parseJSON =
     withObject "DeletedDocuments" $ \v ->
       DeletedDocuments
-        <$> v .: "took"
-        <*> v .: "timed_out"
-        <*> v .: "total"
-        <*> v .: "deleted"
-        <*> v .: "batches"
-        <*> v .: "version_conflicts"
-        <*> v .: "noops"
-        <*> v .: "retries"
-        <*> v .: "throttled_millis"
-        <*> v .: "requests_per_second"
-        <*> v .: "throttled_until_millis"
-        <*> v .: "failures"
+        <$> v
+        .: "took"
+        <*> v
+        .: "timed_out"
+        <*> v
+        .: "total"
+        <*> v
+        .: "deleted"
+        <*> v
+        .: "batches"
+        <*> v
+        .: "version_conflicts"
+        <*> v
+        .: "noops"
+        <*> v
+        .: "retries"
+        <*> v
+        .: "throttled_millis"
+        <*> v
+        .: "requests_per_second"
+        <*> v
+        .: "throttled_until_millis"
+        <*> v
+        .: "failures"
 
 data DeletedDocumentsRetries = DeletedDocumentsRetries
   { delDocsRetriesBulk :: Int,
@@ -972,8 +988,10 @@ instance FromJSON DeletedDocumentsRetries where
   parseJSON =
     withObject "DeletedDocumentsRetries" $ \v ->
       DeletedDocumentsRetries
-        <$> v .: "bulk"
-        <*> v .: "search"
+        <$> v
+        .: "bulk"
+        <*> v
+        .: "search"
 
 -- | 'bulk' uses
 --    <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
@@ -986,12 +1004,11 @@ instance FromJSON DeletedDocumentsRetries where
 -- >>> _ <- runBH' $ bulk stream
 -- >>> _ <- runBH' $ refreshIndex testIndex
 bulk ::
-  forall a contextualized m.
-  MonadBH m =>
+  (ParseBHResponse contextualized, FromJSON a) =>
   V.Vector BulkOperation ->
-  m (BHResponse contextualized a)
+  BHRequest contextualized a
 bulk =
-  post' ["_bulk"] . encodeBulkOperations
+  post ["_bulk"] . encodeBulkOperations
 
 -- | 'encodeBulkOperations' is a convenience function for dumping a vector of 'BulkOperation'
 --   into an 'L.ByteString'
@@ -1101,18 +1118,18 @@ encodeBulkOperation (BulkCreateEncoding (IndexName indexName) (DocId docId) enco
 --   The 'DocId' is the primary key for your Elasticsearch document.
 --
 -- >>> yourDoc <- runBH' $ getDocument testIndex (DocId "1")
-getDocument :: (FromJSON a, MonadBH m) => IndexName -> DocId -> m (EsResult a)
+getDocument :: FromJSON a => IndexName -> DocId -> BHRequest StatusIndependant (EsResult a)
 getDocument (IndexName indexName) (DocId docId) =
-  get (Proxy @ContextIndependant) [indexName, "_doc", docId]
+  get [indexName, "_doc", docId]
 
 -- | 'documentExists' enables you to check if a document exists.
-documentExists :: MonadBH m => IndexName -> DocId -> m Bool
+documentExists :: IndexName -> DocId -> BHRequest StatusDependant Bool
 documentExists (IndexName indexName) (DocId docId) =
   doesExist [indexName, "_doc", docId]
 
-dispatchSearch :: (FromJSON a, MonadBH m) => Endpoint -> Search -> m (SearchResult a)
+dispatchSearch :: FromJSON a => Endpoint -> Search -> BHRequest StatusDependant (SearchResult a)
 dispatchSearch endpoint search =
-  post (Proxy @ContextDependant) url' (encode search)
+  post url' (encode search)
   where
     url' = appendSearchTypeParam endpoint (searchType search)
     appendSearchTypeParam :: Endpoint -> SearchType -> Endpoint
@@ -1130,7 +1147,7 @@ dispatchSearch endpoint search =
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> response <- runBH' $ searchAll search
-searchAll :: (FromJSON a, MonadBH m) => Search -> m (SearchResult a)
+searchAll :: FromJSON a => Search -> BHRequest StatusDependant (SearchResult a)
 searchAll =
   dispatchSearch ["_search"]
 
@@ -1140,7 +1157,7 @@ searchAll =
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> response <- runBH' $ searchByIndex testIndex search
-searchByIndex :: (FromJSON a, MonadBH m) => IndexName -> Search -> m (SearchResult a)
+searchByIndex :: FromJSON a => IndexName -> Search -> BHRequest StatusDependant (SearchResult a)
 searchByIndex (IndexName indexName) =
   dispatchSearch [indexName, "_search"]
 
@@ -1148,19 +1165,19 @@ searchByIndex (IndexName indexName) =
 --   'Search' over many indices. This is much faster than using
 --   'mapM' to 'searchByIndex' over a collection since it only
 --   causes a single HTTP request to be emitted.
-searchByIndices :: (FromJSON a, MonadBH m) => NonEmpty IndexName -> Search -> m (SearchResult a)
+searchByIndices :: FromJSON a => NonEmpty IndexName -> Search -> BHRequest StatusDependant (SearchResult a)
 searchByIndices ixs =
   dispatchSearch [renderedIxs, "_search"]
   where
     renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
 
 dispatchSearchTemplate ::
-  (FromJSON a, MonadBH m) =>
+  FromJSON a =>
   Endpoint ->
   SearchTemplate ->
-  m (SearchResult a)
+  BHRequest StatusDependant (SearchResult a)
 dispatchSearchTemplate endpoint search =
-  post (Proxy @ContextDependant) endpoint $ encode search
+  post endpoint $ encode search
 
 -- | 'searchByIndexTemplate', given a 'SearchTemplate' and an 'IndexName', will perform that search
 --   within an index on an Elasticsearch server.
@@ -1169,10 +1186,10 @@ dispatchSearchTemplate endpoint search =
 -- >>> let search = mkSearchTemplate (Right query) Nothing
 -- >>> response <- runBH' $ searchByIndexTemplate testIndex search
 searchByIndexTemplate ::
-  (FromJSON a, MonadBH m) =>
+  FromJSON a =>
   IndexName ->
   SearchTemplate ->
-  m (SearchResult a)
+  BHRequest StatusDependant (SearchResult a)
 searchByIndexTemplate (IndexName indexName) =
   dispatchSearchTemplate [indexName, "_search", "template"]
 
@@ -1181,43 +1198,43 @@ searchByIndexTemplate (IndexName indexName) =
 --   'mapM' to 'searchByIndexTemplate' over a collection since it only
 --   causes a single HTTP request to be emitted.
 searchByIndicesTemplate ::
-  (FromJSON a, MonadBH m) =>
+  FromJSON a =>
   NonEmpty IndexName ->
   SearchTemplate ->
-  m (SearchResult a)
+  BHRequest StatusDependant (SearchResult a)
 searchByIndicesTemplate ixs =
   dispatchSearchTemplate [renderedIxs, "_search", "template"]
   where
     renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
 
 -- | 'storeSearchTemplate', saves a 'SearchTemplateSource' to be used later.
-storeSearchTemplate :: MonadBH m => SearchTemplateId -> SearchTemplateSource -> m Acknowledged
+storeSearchTemplate :: SearchTemplateId -> SearchTemplateSource -> BHRequest StatusDependant Acknowledged
 storeSearchTemplate (SearchTemplateId tid) ts =
-  post (Proxy @ContextDependant) ["_scripts", tid] (encode body)
+  post ["_scripts", tid] (encode body)
   where
     body = Object $ X.fromList ["script" .= Object ("lang" .= String "mustache" <> "source" .= ts)]
 
 -- | 'getSearchTemplate', get info of an stored 'SearchTemplateSource'.
-getSearchTemplate :: MonadBH m => SearchTemplateId -> m GetTemplateScript
+getSearchTemplate :: SearchTemplateId -> BHRequest StatusIndependant GetTemplateScript
 getSearchTemplate (SearchTemplateId tid) =
-  get (Proxy @ContextIndependant) ["_scripts", tid]
+  get ["_scripts", tid]
 
 -- | 'storeSearchTemplate',
-deleteSearchTemplate :: MonadBH m => SearchTemplateId -> m Acknowledged
+deleteSearchTemplate :: SearchTemplateId -> BHRequest StatusIndependant Acknowledged
 deleteSearchTemplate (SearchTemplateId tid) =
-  delete (Proxy @ContextIndependant) ["_scripts", tid]
+  delete ["_scripts", tid]
 
 -- | For a given search, request a scroll for efficient streaming of
 -- search results. Note that the search is put into 'SearchTypeScan'
 -- mode and thus results will not be sorted. Combine this with
 -- 'advanceScroll' to efficiently stream through the full result set
 getInitialScroll ::
-  (FromJSON a, MonadBH m) =>
+  FromJSON a =>
   IndexName ->
   Search ->
-  m (ParsedEsResponse (SearchResult a))
+  BHRequest StatusDependant (ParsedEsResponse (SearchResult a))
 getInitialScroll (IndexName indexName) search' =
-  tryEsError $ dispatchSearch endpoint search
+  withBHResponseParsedEsResponse $ dispatchSearch endpoint search
   where
     endpoint = [indexName, "_search"] `withQueries` [("scroll", Just "1m")]
     sorting = Just [DefaultSortSpec $ mkSort (FieldName "_doc") Descending]
@@ -1228,36 +1245,25 @@ getInitialScroll (IndexName indexName) search' =
 -- stream through the full result set. Note that this search respects
 -- sorting and may be less efficient than 'getInitialScroll'.
 getInitialSortedScroll ::
-  (FromJSON a, MonadBH m) =>
+  FromJSON a =>
   IndexName ->
   Search ->
-  m (SearchResult a)
+  BHRequest StatusDependant (SearchResult a)
 getInitialSortedScroll (IndexName indexName) search = do
   dispatchSearch endpoint search
   where
     endpoint = [indexName, "_search"] `withQueries` [("scroll", Just "1m")]
 
-scroll' ::
-  (FromJSON a, MonadBH m) =>
-  Maybe ScrollId ->
-  m ([Hit a], Maybe ScrollId)
-scroll' Nothing = return ([], Nothing)
-scroll' (Just sid) = do
-  res <- tryEsError $ advanceScroll sid 60
-  case res of
-    Right SearchResult {..} -> return (hits searchHits, scrollId)
-    Left _ -> return ([], Nothing)
-
 -- | Use the given scroll to fetch the next page of documents. If there are no
 -- further pages, 'SearchResult.searchHits.hits' will be '[]'.
 advanceScroll ::
-  (FromJSON a, MonadBH m) =>
+  FromJSON a =>
   ScrollId ->
   -- | How long should the snapshot of data be kept around? This timeout is updated every time 'advanceScroll' is used, so don't feel the need to set it to the entire duration of your search processing. Note that durations < 1s will be rounded up. Also note that 'NominalDiffTime' is an instance of Num so literals like 60 will be interpreted as seconds. 60s is a reasonable default.
   NominalDiffTime ->
-  m (SearchResult a)
+  BHRequest StatusDependant (SearchResult a)
 advanceScroll (ScrollId sid) scroll =
-  post (Proxy @ContextDependant) ["_search", "scroll"] (encode scrollObject)
+  post ["_search", "scroll"] (encode scrollObject)
   where
     scrollTime = showText secs <> "s"
     secs :: Integer
@@ -1269,17 +1275,6 @@ advanceScroll (ScrollId sid) scroll =
           "scroll_id" .= sid
         ]
 
-scanAccumulator ::
-  (FromJSON a, MonadBH m) =>
-  [Hit a] ->
-  ([Hit a], Maybe ScrollId) ->
-  m ([Hit a], Maybe ScrollId)
-scanAccumulator oldHits (newHits, Nothing) = return (oldHits ++ newHits, Nothing)
-scanAccumulator oldHits ([], _) = return (oldHits, Nothing)
-scanAccumulator oldHits (newHits, msid) = do
-  (newHits', msid') <- scroll' msid
-  scanAccumulator (oldHits ++ newHits) (newHits', msid')
-
 -- | 'scanSearch' uses the 'scroll' API of elastic,
 -- for a given 'IndexName'. Note that this will
 -- consume the entire search result set and will be doing O(n) list
@@ -1289,34 +1284,29 @@ scanAccumulator oldHits (newHits, msid) = do
 -- pipes, or your favorite streaming IO abstraction of choice. Note
 -- that ordering on the search would destroy performance and thus is
 -- ignored.
-scanSearch :: (FromJSON a, MonadBH m) => IndexName -> Search -> m [Hit a]
+scanSearch :: forall a m. (FromJSON a, MonadBH m) => IndexName -> Search -> m [Hit a]
 scanSearch indexName search = do
-  initialSearchResult <- getInitialScroll indexName search
+  initialSearchResult <- performBHRequest $ getInitialScroll indexName search
   let (hits', josh) = case initialSearchResult of
         Right SearchResult {..} -> (hits searchHits, scrollId)
         Left _ -> ([], Nothing)
   (totalHits, _) <- scanAccumulator [] (hits', josh)
   return totalHits
+  where
+    scanAccumulator :: [Hit a] -> ([Hit a], Maybe ScrollId) -> m ([Hit a], Maybe ScrollId)
+    scanAccumulator oldHits (newHits, Nothing) = return (oldHits ++ newHits, Nothing)
+    scanAccumulator oldHits ([], _) = return (oldHits, Nothing)
+    scanAccumulator oldHits (newHits, msid) = do
+      (newHits', msid') <- scroll' msid
+      scanAccumulator (oldHits ++ newHits) (newHits', msid')
 
-pitAccumulator :: (FromJSON a, MonadBH m) => Search -> [Hit a] -> m [Hit a]
-pitAccumulator search oldHits = do
-  resp <- tryEsError $ searchAll search
-  case resp of
-    Left _ -> return []
-    Right searchResult -> case hits (searchHits searchResult) of
-      [] -> return oldHits
-      newHits -> case (hitSort $ last newHits, pitId searchResult) of
-        (Nothing, Nothing) ->
-          error "no point in time (PIT) ID or last sort value"
-        (Just _, Nothing) -> error "no point in time (PIT) ID"
-        (Nothing, _) -> return (oldHits <> newHits)
-        (Just lastSort, Just pitId') -> do
-          let newSearch =
-                search
-                  { pointInTime = Just (PointInTime pitId' "1m"),
-                    searchAfterKey = Just lastSort
-                  }
-          pitAccumulator newSearch (oldHits <> newHits)
+    scroll' :: Maybe ScrollId -> m ([Hit a], Maybe ScrollId)
+    scroll' Nothing = return ([], Nothing)
+    scroll' (Just sid) = do
+      res <- tryPerformBHRequest $ advanceScroll sid 60
+      case res of
+        Right SearchResult {..} -> return (hits searchHits, scrollId)
+        Left _ -> return ([], Nothing)
 
 -- | 'pitSearch' uses the point in time (PIT) API of elastic, for a given
 -- 'IndexName'. Requires Elasticsearch >=7.10. Note that this will consume the
@@ -1330,20 +1320,40 @@ pitAccumulator search oldHits = do
 --
 -- For more information see
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
-pitSearch :: (FromJSON a, MonadBH m, Show a) => IndexName -> Search -> m [Hit a]
+pitSearch :: forall a m. (FromJSON a, Show a, MonadBH m) => IndexName -> Search -> m [Hit a]
 pitSearch indexName search = do
-  openResp <- openPointInTime indexName
+  openResp <- performBHRequest $ openPointInTime indexName
   case openResp of
     Left _ -> return []
     Right OpenPointInTimeResponse {..} -> do
       let searchPIT = search {pointInTime = Just (PointInTime oPitId "1m")}
       hits <- pitAccumulator searchPIT []
-      closeResp <- closePointInTime (ClosePointInTime oPitId)
+      closeResp <- performBHRequest $ closePointInTime (ClosePointInTime oPitId)
       case closeResp of
         Left _ -> return []
         Right (ClosePointInTimeResponse False _) ->
           error "failed to close point in time (PIT)"
         Right (ClosePointInTimeResponse True _) -> return hits
+  where
+    pitAccumulator :: Search -> [Hit a] -> m [Hit a]
+    pitAccumulator search' oldHits = do
+      resp <- tryPerformBHRequest $ searchAll search'
+      case resp of
+        Left _ -> return []
+        Right searchResult -> case hits (searchHits searchResult) of
+          [] -> return oldHits
+          newHits -> case (hitSort $ last newHits, pitId searchResult) of
+            (Nothing, Nothing) ->
+              error "no point in time (PIT) ID or last sort value"
+            (Just _, Nothing) -> error "no point in time (PIT) ID"
+            (Nothing, _) -> return (oldHits <> newHits)
+            (Just lastSort, Just pitId') -> do
+              let newSearch =
+                    search'
+                      { pointInTime = Just (PointInTime pitId' "1m"),
+                        searchAfterKey = Just lastSort
+                      }
+              pitAccumulator newSearch (oldHits <> newHits)
 
 -- | 'mkSearch' is a helper function for defaulting additional fields of a 'Search'
 --   to Nothing in case you only care about your 'Query' and 'Filter'. Use record update
@@ -1469,9 +1479,9 @@ boolQP :: Bool -> Text
 boolQP True = "true"
 boolQP False = "false"
 
-countByIndex :: MonadBH m => IndexName -> CountQuery -> m CountResponse
+countByIndex :: IndexName -> CountQuery -> BHRequest StatusDependant CountResponse
 countByIndex (IndexName indexName) q =
-  post (Proxy @ContextDependant) [indexName, "_count"] (encode q)
+  post [indexName, "_count"] (encode q)
 
 -- | 'openPointInTime' opens a point in time for an index given an 'IndexName'.
 -- Note that the point in time should be closed with 'closePointInTime' as soon
@@ -1480,19 +1490,17 @@ countByIndex (IndexName indexName) q =
 -- For more information see
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
 openPointInTime ::
-  MonadBH m =>
   IndexName ->
-  m (ParsedEsResponse OpenPointInTimeResponse)
+  BHRequest StatusDependant (ParsedEsResponse OpenPointInTimeResponse)
 openPointInTime (IndexName indexName) =
-  tryEsError $ post (Proxy @ContextDependant) [indexName, "_pit?keep_alive=1m"] emptyBody
+  withBHResponseParsedEsResponse $ post @StatusDependant [indexName, "_pit?keep_alive=1m"] emptyBody
 
 -- | 'closePointInTime' closes a point in time given a 'ClosePointInTime'.
 --
 -- For more information see
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
 closePointInTime ::
-  MonadBH m =>
   ClosePointInTime ->
-  m (ParsedEsResponse ClosePointInTimeResponse)
+  BHRequest StatusDependant (ParsedEsResponse ClosePointInTimeResponse)
 closePointInTime q = do
-  tryEsError $ deleteWithBody (Proxy @ContextDependant) ["_pit"] (encode q)
+  withBHResponseParsedEsResponse $ deleteWithBody @StatusDependant ["_pit"] (encode q)

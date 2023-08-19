@@ -13,5 +13,5 @@ spec =
         _ <- insertData
         let query = MatchAllQuery Nothing
             count = CountQuery query
-        c <- countByIndex testIndex count
+        c <- performBHRequest $ countByIndex testIndex count
         liftIO $ crCount c `shouldBe` 1

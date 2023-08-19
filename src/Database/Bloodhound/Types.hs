@@ -57,8 +57,8 @@ module Database.Bloodhound.Types
     mkBHEnv,
     MonadBH (..),
     ParseBHResponse (..),
-    ContextIndependant,
-    ContextDependant,
+    StatusIndependant,
+    StatusDependant,
     Version (..),
     VersionNumber (..),
     MaybeNA (..),
@@ -590,14 +590,22 @@ data SearchResult a = SearchResult
 instance (FromJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) =
     SearchResult
-      <$> v .: "took"
-      <*> v .: "timed_out"
-      <*> v .: "_shards"
-      <*> v .: "hits"
-      <*> v .:? "aggregations"
-      <*> v .:? "_scroll_id"
-      <*> v .:? "suggest"
-      <*> v .:? "pit_id"
+      <$> v
+      .: "took"
+      <*> v
+      .: "timed_out"
+      <*> v
+      .: "_shards"
+      <*> v
+      .: "hits"
+      <*> v
+      .:? "aggregations"
+      <*> v
+      .:? "_scroll_id"
+      <*> v
+      .:? "suggest"
+      <*> v
+      .:? "pit_id"
   parseJSON _ = empty
 
 newtype ScrollId
@@ -700,11 +708,16 @@ instance FromJSON GetTemplateScript where
       (GetTemplateScript Nothing Nothing Nothing <$> v .: "_id" <*> v .: "found")
       ( \s ->
           GetTemplateScript
-            <$> s .:? "lang"
-            <*> s .:? "source"
-            <*> s .:? "options"
-            <*> v .: "_id"
-            <*> v .: "found"
+            <$> s
+            .:? "lang"
+            <*> s
+            .:? "source"
+            <*> s
+            .:? "options"
+            <*> v
+            .: "_id"
+            <*> v
+            .: "found"
       )
       script
   parseJSON _ = empty

@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Test.Script where
 
@@ -26,7 +27,7 @@ spec =
                 X.fromList [("test1", sfv)]
             search' = mkSearch (Just query) Nothing
             search = search' {scriptFields = Just sf}
-        sr <- searchByIndex @Value testIndex search
+        sr <- performBHRequest $ searchByIndex @Value testIndex search
         let Just results =
               hitFields (head (hits (searchHits sr)))
         liftIO $
