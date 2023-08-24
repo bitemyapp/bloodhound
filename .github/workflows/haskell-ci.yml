@@ -61,8 +61,6 @@ jobs:
             allow-failure: false
       fail-fast: false
     steps:
-      - name: Install docker
-        uses: docker-practice/actions-setup-docker@master
       - name: apt
         run: |
           sudo apt-get install -y --no-install-recommends gnupg ca-certificates dirmngr curl git software-properties-common libtinfo5
