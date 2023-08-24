@@ -354,11 +354,11 @@ instance (FromJSON a) => FromJSON (EsResult a) where
         else return Nothing
     EsResult
       <$> v
-      .: "_index"
+        .: "_index"
       <*> v
-      .:? "_type"
+        .:? "_type"
       <*> v
-      .: "_id"
+        .: "_id"
       <*> pure fr
   parseJSON _ = empty
 
@@ -366,9 +366,9 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
   parseJSON (Object v) =
     EsResultFound
       <$> v
-      .: "_version"
+        .: "_version"
       <*> v
-      .: "_source"
+        .: "_source"
   parseJSON _ = empty
 
 -- | 'EsError' is the generic type that will be returned when there was a
@@ -392,7 +392,7 @@ instance FromJSON EsError where
   parseJSON (Object v) =
     EsError
       <$> v
-      .: "status"
+        .: "status"
       <*> (v .: "error" <|> (v .: "error" >>= (.: "reason")))
   parseJSON _ = empty
 

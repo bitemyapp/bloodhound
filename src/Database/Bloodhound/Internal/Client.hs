@@ -169,15 +169,15 @@ instance FromJSON Status where
   parseJSON (Object v) =
     Status
       <$> v
-      .: "name"
+        .: "name"
       <*> v
-      .: "cluster_name"
+        .: "cluster_name"
       <*> v
-      .: "cluster_uuid"
+        .: "cluster_uuid"
       <*> v
-      .: "version"
+        .: "version"
       <*> v
-      .: "tagline"
+        .: "tagline"
   parseJSON _ = empty
 
 -- | 'IndexSettings' is used to configure the shards and replicas when
@@ -209,12 +209,12 @@ instance FromJSON IndexSettings where
         i <- s .: "index"
         IndexSettings
           <$> i
-          .: "number_of_shards"
+            .: "number_of_shards"
           <*> i
-          .: "number_of_replicas"
+            .: "number_of_replicas"
           <*> i
-          .:? "mapping"
-          .!= defaultIndexMappingsLimits
+            .:? "mapping"
+            .!= defaultIndexMappingsLimits
 
 -- | 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and
 --    2 replicas.
@@ -1543,7 +1543,7 @@ instance FromJSON ShardsResult where
     withObject "ShardsResult" $ \v ->
       ShardsResult
         <$> v
-        .: "_shards"
+          .: "_shards"
 
 data ShardResult = ShardResult
   { shardTotal :: Int,
@@ -1678,16 +1678,16 @@ instance SnapshotRepo FsSnapshotRepo where
         parseRepo $
           FsSnapshotRepo gSnapshotRepoName
             <$> o
-            .: "location"
+              .: "location"
             <*> o
-            .:? "compress"
-            .!= False
+              .:? "compress"
+              .!= False
             <*> o
-            .:? "chunk_size"
+              .:? "chunk_size"
             <*> o
-            .:? "max_restore_bytes_per_sec"
+              .:? "max_restore_bytes_per_sec"
             <*> o
-            .:? "max_snapshot_bytes_per_sec"
+              .:? "max_snapshot_bytes_per_sec"
     | otherwise = Left (RepoTypeMismatch fsRepoType gSnapshotRepoType)
 
 parseRepo :: Parser a -> Either SnapshotRepoConversionError a
@@ -1781,18 +1781,18 @@ instance FromJSON SnapshotInfo where
       parse o =
         SnapshotInfo
           <$> o
-          .: "shards"
+            .: "shards"
           <*> o
-          .: "failures"
+            .: "failures"
           <*> (unMS <$> o .: "duration_in_millis")
           <*> (posixMS <$> o .: "end_time_in_millis")
           <*> (posixMS <$> o .: "start_time_in_millis")
           <*> o
-          .: "state"
+            .: "state"
           <*> o
-          .: "indices"
+            .: "indices"
           <*> o
-          .: "snapshot"
+            .: "snapshot"
 
 data SnapshotShardFailure = SnapshotShardFailure
   { snapShardFailureIndex :: IndexName,
@@ -1808,13 +1808,13 @@ instance FromJSON SnapshotShardFailure where
       parse o =
         SnapshotShardFailure
           <$> o
-          .: "index"
+            .: "index"
           <*> o
-          .:? "node_id"
+            .:? "node_id"
           <*> o
-          .: "reason"
+            .: "reason"
           <*> o
-          .: "shard_id"
+            .: "shard_id"
 
 -- | Regex-stype pattern, e.g. "index_(.+)" to match index names
 newtype RestoreRenamePattern = RestoreRenamePattern {rrPattern :: Text}
@@ -1918,13 +1918,13 @@ instance FromJSON NodeBreakerStats where
       parse o =
         NodeBreakerStats
           <$> o
-          .: "tripped"
+            .: "tripped"
           <*> o
-          .: "overhead"
+            .: "overhead"
           <*> o
-          .: "estimated_size_in_bytes"
+            .: "estimated_size_in_bytes"
           <*> o
-          .: "limit_size_in_bytes"
+            .: "limit_size_in_bytes"
 
 instance FromJSON NodeHTTPStats where
   parseJSON = withObject "NodeHTTPStats" parse
@@ -1932,9 +1932,9 @@ instance FromJSON NodeHTTPStats where
       parse o =
         NodeHTTPStats
           <$> o
-          .: "total_opened"
+            .: "total_opened"
           <*> o
-          .: "current_open"
+            .: "current_open"
 
 instance FromJSON NodeTransportStats where
   parseJSON = withObject "NodeTransportStats" parse
@@ -1942,15 +1942,15 @@ instance FromJSON NodeTransportStats where
       parse o =
         NodeTransportStats
           <$> o
-          .: "tx_size_in_bytes"
+            .: "tx_size_in_bytes"
           <*> o
-          .: "tx_count"
+            .: "tx_count"
           <*> o
-          .: "rx_size_in_bytes"
+            .: "rx_size_in_bytes"
           <*> o
-          .: "rx_count"
+            .: "rx_count"
           <*> o
-          .: "server_open"
+            .: "server_open"
 
 instance FromJSON NodeFSStats where
   parseJSON = withObject "NodeFSStats" parse
@@ -1958,9 +1958,9 @@ instance FromJSON NodeFSStats where
       parse o =
         NodeFSStats
           <$> o
-          .: "data"
+            .: "data"
           <*> o
-          .: "total"
+            .: "total"
           <*> (posixMS <$> o .: "timestamp")
 
 instance FromJSON NodeDataPathStats where
@@ -1971,31 +1971,31 @@ instance FromJSON NodeDataPathStats where
           <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
           <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
           <*> o
-          .:? "disk_io_size_in_bytes"
+            .:? "disk_io_size_in_bytes"
           <*> o
-          .:? "disk_write_size_in_bytes"
+            .:? "disk_write_size_in_bytes"
           <*> o
-          .:? "disk_read_size_in_bytes"
+            .:? "disk_read_size_in_bytes"
           <*> o
-          .:? "disk_io_op"
+            .:? "disk_io_op"
           <*> o
-          .:? "disk_writes"
+            .:? "disk_writes"
           <*> o
-          .:? "disk_reads"
+            .:? "disk_reads"
           <*> o
-          .: "available_in_bytes"
+            .: "available_in_bytes"
           <*> o
-          .: "free_in_bytes"
+            .: "free_in_bytes"
           <*> o
-          .: "total_in_bytes"
+            .: "total_in_bytes"
           <*> o
-          .:? "type"
+            .:? "type"
           <*> o
-          .:? "dev"
+            .:? "dev"
           <*> o
-          .: "mount"
+            .: "mount"
           <*> o
-          .: "path"
+            .: "path"
 
 instance FromJSON NodeFSTotalStats where
   parseJSON = withObject "NodeFSTotalStats" parse
@@ -2005,23 +2005,23 @@ instance FromJSON NodeFSTotalStats where
           <$> (fmap unStringlyTypedDouble <$> o .:? "disk_service_time")
           <*> (fmap unStringlyTypedDouble <$> o .:? "disk_queue")
           <*> o
-          .:? "disk_io_size_in_bytes"
+            .:? "disk_io_size_in_bytes"
           <*> o
-          .:? "disk_write_size_in_bytes"
+            .:? "disk_write_size_in_bytes"
           <*> o
-          .:? "disk_read_size_in_bytes"
+            .:? "disk_read_size_in_bytes"
           <*> o
-          .:? "disk_io_op"
+            .:? "disk_io_op"
           <*> o
-          .:? "disk_writes"
+            .:? "disk_writes"
           <*> o
-          .:? "disk_reads"
+            .:? "disk_reads"
           <*> o
-          .: "available_in_bytes"
+            .: "available_in_bytes"
           <*> o
-          .: "free_in_bytes"
+            .: "free_in_bytes"
           <*> o
-          .: "total_in_bytes"
+            .: "total_in_bytes"
 
 instance FromJSON NodeNetworkStats where
   parseJSON = withObject "NodeNetworkStats" parse
@@ -2030,25 +2030,25 @@ instance FromJSON NodeNetworkStats where
         tcp <- o .: "tcp"
         NodeNetworkStats
           <$> tcp
-          .: "out_rsts"
+            .: "out_rsts"
           <*> tcp
-          .: "in_errs"
+            .: "in_errs"
           <*> tcp
-          .: "attempt_fails"
+            .: "attempt_fails"
           <*> tcp
-          .: "estab_resets"
+            .: "estab_resets"
           <*> tcp
-          .: "retrans_segs"
+            .: "retrans_segs"
           <*> tcp
-          .: "out_segs"
+            .: "out_segs"
           <*> tcp
-          .: "in_segs"
+            .: "in_segs"
           <*> tcp
-          .: "curr_estab"
+            .: "curr_estab"
           <*> tcp
-          .: "passive_opens"
+            .: "passive_opens"
           <*> tcp
-          .: "active_opens"
+            .: "active_opens"
 
 instance FromJSON NodeThreadPoolStats where
   parseJSON = withObject "NodeThreadPoolStats" parse
@@ -2056,17 +2056,17 @@ instance FromJSON NodeThreadPoolStats where
       parse o =
         NodeThreadPoolStats
           <$> o
-          .: "completed"
+            .: "completed"
           <*> o
-          .: "largest"
+            .: "largest"
           <*> o
-          .: "rejected"
+            .: "rejected"
           <*> o
-          .: "active"
+            .: "active"
           <*> o
-          .: "queue"
+            .: "queue"
           <*> o
-          .: "threads"
+            .: "threads"
 
 instance FromJSON NodeJVMStats where
   parseJSON = withObject "NodeJVMStats" parse
@@ -2091,24 +2091,24 @@ instance FromJSON NodeJVMStats where
           <*> pure oldC
           <*> pure youngC
           <*> threads
-          .: "peak_count"
+            .: "peak_count"
           <*> threads
-          .: "count"
+            .: "count"
           <*> pure oldM
           <*> pure survivorM
           <*> pure youngM
           <*> mem
-          .: "non_heap_committed_in_bytes"
+            .: "non_heap_committed_in_bytes"
           <*> mem
-          .: "non_heap_used_in_bytes"
+            .: "non_heap_used_in_bytes"
           <*> mem
-          .: "heap_max_in_bytes"
+            .: "heap_max_in_bytes"
           <*> mem
-          .: "heap_committed_in_bytes"
+            .: "heap_committed_in_bytes"
           <*> mem
-          .: "heap_used_percent"
+            .: "heap_used_percent"
           <*> mem
-          .: "heap_used_in_bytes"
+            .: "heap_used_in_bytes"
           <*> (unMS <$> o .: "uptime_in_millis")
           <*> (posixMS <$> o .: "timestamp")
 
@@ -2118,11 +2118,11 @@ instance FromJSON JVMBufferPoolStats where
       parse o =
         JVMBufferPoolStats
           <$> o
-          .: "total_capacity_in_bytes"
+            .: "total_capacity_in_bytes"
           <*> o
-          .: "used_in_bytes"
+            .: "used_in_bytes"
           <*> o
-          .: "count"
+            .: "count"
 
 instance FromJSON JVMGCStats where
   parseJSON = withObject "JVMGCStats" parse
@@ -2131,7 +2131,7 @@ instance FromJSON JVMGCStats where
         JVMGCStats
           <$> (unMS <$> o .: "collection_time_in_millis")
           <*> o
-          .: "collection_count"
+            .: "collection_count"
 
 instance FromJSON JVMPoolStats where
   parseJSON = withObject "JVMPoolStats" parse
@@ -2139,13 +2139,13 @@ instance FromJSON JVMPoolStats where
       parse o =
         JVMPoolStats
           <$> o
-          .: "peak_max_in_bytes"
+            .: "peak_max_in_bytes"
           <*> o
-          .: "peak_used_in_bytes"
+            .: "peak_used_in_bytes"
           <*> o
-          .: "max_in_bytes"
+            .: "max_in_bytes"
           <*> o
-          .: "used_in_bytes"
+            .: "used_in_bytes"
 
 instance FromJSON NodeProcessStats where
   parseJSON = withObject "NodeProcessStats" parse
@@ -2156,14 +2156,14 @@ instance FromJSON NodeProcessStats where
         NodeProcessStats
           <$> (posixMS <$> o .: "timestamp")
           <*> o
-          .: "open_file_descriptors"
+            .: "open_file_descriptors"
           <*> o
-          .: "max_file_descriptors"
+            .: "max_file_descriptors"
           <*> cpu
-          .: "percent"
+            .: "percent"
           <*> (unMS <$> cpu .: "total_in_millis")
           <*> mem
-          .: "total_virtual_in_bytes"
+            .: "total_virtual_in_bytes"
 
 instance FromJSON NodeOSStats where
   parseJSON = withObject "NodeOSStats" parse
@@ -2176,24 +2176,24 @@ instance FromJSON NodeOSStats where
         NodeOSStats
           <$> (posixMS <$> o .: "timestamp")
           <*> cpu
-          .: "percent"
+            .: "percent"
           <*> pure load
           <*> mem
-          .: "total_in_bytes"
+            .: "total_in_bytes"
           <*> mem
-          .: "free_in_bytes"
+            .: "free_in_bytes"
           <*> mem
-          .: "free_percent"
+            .: "free_percent"
           <*> mem
-          .: "used_in_bytes"
+            .: "used_in_bytes"
           <*> mem
-          .: "used_percent"
+            .: "used_percent"
           <*> swap
-          .: "total_in_bytes"
+            .: "total_in_bytes"
           <*> swap
-          .: "free_in_bytes"
+            .: "free_in_bytes"
           <*> swap
-          .: "used_in_bytes"
+            .: "used_in_bytes"
 
 instance FromJSON LoadAvgs where
   parseJSON = withArray "LoadAvgs" parse
@@ -2356,75 +2356,75 @@ instance FromJSON NodeBreakersStats where
       parse o =
         NodeBreakersStats
           <$> o
-          .: "parent"
+            .: "parent"
           <*> o
-          .: "request"
+            .: "request"
           <*> o
-          .: "fielddata"
+            .: "fielddata"
 
 parseNodeStats :: FullNodeId -> Object -> Parser NodeStats
 parseNodeStats fnid o =
   NodeStats
     <$> o
-    .: "name"
+      .: "name"
     <*> pure fnid
     <*> o
-    .:? "breakers"
+      .:? "breakers"
     <*> o
-    .: "http"
+      .: "http"
     <*> o
-    .: "transport"
+      .: "transport"
     <*> o
-    .: "fs"
+      .: "fs"
     <*> o
-    .:? "network"
+      .:? "network"
     <*> o
-    .: "thread_pool"
+      .: "thread_pool"
     <*> o
-    .: "jvm"
+      .: "jvm"
     <*> o
-    .: "process"
+      .: "process"
     <*> o
-    .: "os"
+      .: "os"
     <*> o
-    .: "indices"
+      .: "indices"
 
 parseNodeInfo :: FullNodeId -> Object -> Parser NodeInfo
 parseNodeInfo nid o =
   NodeInfo
     <$> o
-    .:? "http_address"
+      .:? "http_address"
     <*> o
-    .: "build_hash"
+      .: "build_hash"
     <*> o
-    .: "version"
+      .: "version"
     <*> o
-    .: "ip"
+      .: "ip"
     <*> o
-    .: "host"
+      .: "host"
     <*> o
-    .: "transport_address"
+      .: "transport_address"
     <*> o
-    .: "name"
+      .: "name"
     <*> pure nid
     <*> o
-    .: "plugins"
+      .: "plugins"
     <*> o
-    .: "http"
+      .: "http"
     <*> o
-    .: "transport"
+      .: "transport"
     <*> o
-    .:? "network"
+      .:? "network"
     <*> o
-    .: "thread_pool"
+      .: "thread_pool"
     <*> o
-    .: "jvm"
+      .: "jvm"
     <*> o
-    .: "process"
+      .: "process"
     <*> o
-    .: "os"
+      .: "os"
     <*> o
-    .: "settings"
+      .: "settings"
 
 instance FromJSON NodePluginInfo where
   parseJSON = withObject "NodePluginInfo" parse
@@ -2432,15 +2432,15 @@ instance FromJSON NodePluginInfo where
       parse o =
         NodePluginInfo
           <$> o
-          .:? "site"
+            .:? "site"
           <*> o
-          .:? "jvm"
+            .:? "jvm"
           <*> o
-          .: "description"
+            .: "description"
           <*> o
-          .: "version"
+            .: "version"
           <*> o
-          .: "name"
+            .: "name"
 
 instance FromJSON NodeHTTPInfo where
   parseJSON = withObject "NodeHTTPInfo" parse
@@ -2448,11 +2448,11 @@ instance FromJSON NodeHTTPInfo where
       parse o =
         NodeHTTPInfo
           <$> o
-          .: "max_content_length_in_bytes"
+            .: "max_content_length_in_bytes"
           <*> o
-          .: "publish_address"
+            .: "publish_address"
           <*> o
-          .: "bound_address"
+            .: "bound_address"
 
 instance FromJSON BoundTransportAddress where
   parseJSON = withObject "BoundTransportAddress" parse
@@ -2460,9 +2460,9 @@ instance FromJSON BoundTransportAddress where
       parse o =
         BoundTransportAddress
           <$> o
-          .: "publish_address"
+            .: "publish_address"
           <*> o
-          .: "bound_address"
+            .: "bound_address"
 
 instance FromJSON NodeOSInfo where
   parseJSON = withObject "NodeOSInfo" parse
@@ -2471,15 +2471,15 @@ instance FromJSON NodeOSInfo where
         NodeOSInfo
           <$> (unMS <$> o .: "refresh_interval_in_millis")
           <*> o
-          .: "name"
+            .: "name"
           <*> o
-          .: "arch"
+            .: "arch"
           <*> o
-          .: "version"
+            .: "version"
           <*> o
-          .: "available_processors"
+            .: "available_processors"
           <*> o
-          .: "allocated_processors"
+            .: "allocated_processors"
 
 instance FromJSON CPUInfo where
   parseJSON = withObject "CPUInfo" parse
@@ -2487,19 +2487,19 @@ instance FromJSON CPUInfo where
       parse o =
         CPUInfo
           <$> o
-          .: "cache_size_in_bytes"
+            .: "cache_size_in_bytes"
           <*> o
-          .: "cores_per_socket"
+            .: "cores_per_socket"
           <*> o
-          .: "total_sockets"
+            .: "total_sockets"
           <*> o
-          .: "total_cores"
+            .: "total_cores"
           <*> o
-          .: "mhz"
+            .: "mhz"
           <*> o
-          .: "model"
+            .: "model"
           <*> o
-          .: "vendor"
+            .: "vendor"
 
 instance FromJSON NodeProcessInfo where
   parseJSON = withObject "NodeProcessInfo" parse
@@ -2507,11 +2507,11 @@ instance FromJSON NodeProcessInfo where
       parse o =
         NodeProcessInfo
           <$> o
-          .: "mlockall"
+            .: "mlockall"
           <*> o
-          .:? "max_file_descriptors"
+            .:? "max_file_descriptors"
           <*> o
-          .: "id"
+            .: "id"
           <*> (unMS <$> o .: "refresh_interval_in_millis")
 
 instance FromJSON NodeJVMInfo where
@@ -2520,22 +2520,22 @@ instance FromJSON NodeJVMInfo where
       parse o =
         NodeJVMInfo
           <$> o
-          .: "memory_pools"
+            .: "memory_pools"
           <*> o
-          .: "gc_collectors"
+            .: "gc_collectors"
           <*> o
-          .: "mem"
+            .: "mem"
           <*> (posixMS <$> o .: "start_time_in_millis")
           <*> o
-          .: "vm_vendor"
+            .: "vm_vendor"
           <*> o
-          .: "vm_version"
+            .: "vm_version"
           <*> o
-          .: "vm_name"
+            .: "vm_name"
           <*> o
-          .: "version"
+            .: "version"
           <*> o
-          .: "pid"
+            .: "pid"
 
 instance FromJSON JVMMemoryInfo where
   parseJSON = withObject "JVMMemoryInfo" parse
@@ -2543,15 +2543,15 @@ instance FromJSON JVMMemoryInfo where
       parse o =
         JVMMemoryInfo
           <$> o
-          .: "direct_max_in_bytes"
+            .: "direct_max_in_bytes"
           <*> o
-          .: "non_heap_max_in_bytes"
+            .: "non_heap_max_in_bytes"
           <*> o
-          .: "non_heap_init_in_bytes"
+            .: "non_heap_init_in_bytes"
           <*> o
-          .: "heap_max_in_bytes"
+            .: "heap_max_in_bytes"
           <*> o
-          .: "heap_init_in_bytes"
+            .: "heap_init_in_bytes"
 
 instance FromJSON NodeThreadPoolInfo where
   parseJSON = withObject "NodeThreadPoolInfo" parse
@@ -2562,11 +2562,11 @@ instance FromJSON NodeThreadPoolInfo where
           <$> (parseJSON . unStringlyTypeJSON =<< o .: "queue_size")
           <*> pure ka
           <*> o
-          .:? "min"
+            .:? "min"
           <*> o
-          .:? "max"
+            .:? "max"
           <*> o
-          .: "type"
+            .: "type"
 
 data TimeInterval
   = Weeks
@@ -2658,9 +2658,9 @@ instance FromJSON NodeTransportInfo where
         NodeTransportInfo
           <$> (maybe (return mempty) parseProfiles =<< o .:? "profiles")
           <*> o
-          .: "publish_address"
+            .: "publish_address"
           <*> o
-          .: "bound_address"
+            .: "bound_address"
       parseProfiles (Object o) | X.null o = return []
       parseProfiles v@(Array _) = parseJSON v
       parseProfiles Null = return []
@@ -2672,7 +2672,7 @@ instance FromJSON NodeNetworkInfo where
       parse o =
         NodeNetworkInfo
           <$> o
-          .: "primary_interface"
+            .: "primary_interface"
           <*> (unMS <$> o .: "refresh_interval_in_millis")
 
 instance FromJSON NodeNetworkInterface where
@@ -2681,11 +2681,11 @@ instance FromJSON NodeNetworkInterface where
       parse o =
         NodeNetworkInterface
           <$> o
-          .: "mac_address"
+            .: "mac_address"
           <*> o
-          .: "name"
+            .: "name"
           <*> o
-          .: "address"
+            .: "address"
 
 instance ToJSON Version where
   toJSON Version {..} =
@@ -2703,15 +2703,15 @@ instance FromJSON Version where
       parse o =
         Version
           <$> o
-          .: "number"
+            .: "number"
           <*> o
-          .: "build_hash"
+            .: "build_hash"
           <*> o
-          .: "build_date"
+            .: "build_date"
           <*> o
-          .: "build_snapshot"
+            .: "build_snapshot"
           <*> o
-          .: "lucene_version"
+            .: "lucene_version"
 
 instance ToJSON VersionNumber where
   toJSON = toJSON . SemVer.toText . versionNumber

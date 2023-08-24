@@ -28,6 +28,7 @@ library
   exposed-modules:
       Database.Bloodhound
       Database.Bloodhound.Client
+      Database.Bloodhound.Requests
       Database.Bloodhound.Types
       Database.Bloodhound.Internal.Aggregation
       Database.Bloodhound.Internal.Analysis
