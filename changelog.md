@@ -5,6 +5,13 @@
   - `Client`: parsing is done directly
   - Create and expose `Database.Bloodhound.Requests` for low-level operations
   - Fix payload parsing issues and types there and there
+  - Import @wireapp fork
+- @wireapp
+  - Implement updateByQuery
+  - Implement reindexing/tasks
+  - Add support for ngram and edge_ngram filters
+  - Add support for edge_ngram tokenizer
+  - Fix `CountShared` support ES 5.2
 
 0.21.0.0
 ========
