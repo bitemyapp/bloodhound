@@ -51,6 +51,7 @@ module Database.Bloodhound.Requests
     -- ** Documents
     indexDocument,
     updateDocument,
+    updateByQuery,
     getDocument,
     documentExists,
     deleteDocument,
@@ -102,6 +103,13 @@ module Database.Bloodhound.Requests
 
     -- *** Restoring Snapshots
     restoreSnapshot,
+
+    -- *** Reindex
+    reindex,
+    reindexAsync,
+
+    -- *** Task
+    getTask,
 
     -- ** Nodes
     getNodesInfo,
@@ -808,6 +816,23 @@ updateDocument (IndexName indexName) cfg patch (DocId docId) =
     endpoint = [indexName, "_update", docId] `withQueries` indexQueryString cfg (DocId docId)
     body = object ["doc" .= encodeDocument cfg patch]
 
+updateByQuery ::
+  FromJSON a =>
+  IndexName ->
+  Query ->
+  Maybe Script ->
+  BHRequest StatusDependant a
+updateByQuery (IndexName indexName) q mScript =
+  post endpoint (encode body)
+  where
+    endpoint = [indexName, "_update_by_query"]
+    body = Object $ ("query" .= q) <> scriptObject
+    scriptObject :: X.KeyMap Value
+    scriptObject = case toJSON mScript of
+      Null -> mempty
+      Object o -> o
+      x -> "script" .= x
+
 {-  From ES docs:
       Parent and child documents must be indexed on the same shard.
       This means that the same routing value needs to be provided when getting, deleting, or updating a child document.
@@ -1338,3 +1363,24 @@ closePointInTime ::
   BHRequest StatusDependant (ParsedEsResponse ClosePointInTimeResponse)
 closePointInTime q = do
   withBHResponseParsedEsResponse $ deleteWithBody @StatusDependant ["_pit"] (encode q)
+
+reindex ::
+  ReindexRequest ->
+  BHRequest StatusDependant ReindexResponse
+reindex req =
+  post ["_reindex"] (encode req)
+
+reindexAsync ::
+  ReindexRequest ->
+  BHRequest StatusDependant TaskNodeId
+reindexAsync req =
+  post endpoint (encode req)
+  where
+    endpoint = ["_reindex"] `withQueries` [("wait_for_completion", Just "false")]
+
+getTask ::
+  FromJSON a =>
+  TaskNodeId ->
+  BHRequest StatusDependant (TaskResponse a)
+getTask (TaskNodeId task) =
+  get ["_tasks", task]

@@ -25,9 +25,9 @@ instance FromJSON CountResponse where
       \o ->
         CountResponse
           <$> o
-          .: "count"
+            .: "count"
           <*> o
-          .: "_shards"
+            .: "_shards"
 
 data CountShards = CountShards
   { csTotal :: Int,
@@ -42,8 +42,8 @@ instance FromJSON CountShards where
       \o ->
         CountShards
           <$> o
-          .: "total"
+            .: "total"
           <*> o
-          .: "successful"
+            .: "successful"
           <*> o
-          .: "failed"
+            .: "failed"

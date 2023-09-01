@@ -505,16 +505,8 @@ updateDocument ::
   m Requests.IndexedDocument
 updateDocument indexName cfg patch docId = performBHRequest $ Requests.updateDocument indexName cfg patch docId
 
-updateByQuery :: MonadBH m => IndexName -> Query -> Maybe Script -> m Reply
-updateByQuery (IndexName indexName) q mScript =
-  bindM2 post url (return body)
-  where
-    url = joinPath [indexName, "_update_by_query"]
-    body = Just . encode $ ("query" .= q) <> scriptObject
-    scriptObject = case toJSON mScript of
-      Null -> mempty
-      Object o -> o
-      json -> "script" .= json
+updateByQuery :: (MonadBH m, FromJSON a) => IndexName -> Query -> Maybe Script -> m a
+updateByQuery indexName q mScript = performBHRequest $ Requests.updateByQuery indexName q mScript
 
 -- | 'deleteDocument' is the primary way to delete a single document.
 --
@@ -765,22 +757,11 @@ closePointInTime ::
   m (ParsedEsResponse ClosePointInTimeResponse)
 closePointInTime q = performBHRequest $ Requests.closePointInTime q
 
-countByIndex :: (MonadBH m, MonadThrow m) => IndexName -> CountQuery -> m (Either EsError CountResponse)
-countByIndex (IndexName indexName) q = do
-  url <- joinPath [indexName, "_count"]
-  parseEsResponse =<< post url (Just (encode q))
+reindex :: MonadBH m => ReindexRequest -> m ReindexResponse
+reindex = performBHRequest . Requests.reindex
 
-reindex :: (MonadBH m, MonadThrow m) => ReindexRequest -> m (Either EsError ReindexResponse)
-reindex req = do
-  url <- joinPath ["_reindex"]
-  parseEsResponse =<< post url (Just (encode req))
+reindexAsync :: MonadBH m => ReindexRequest -> m TaskNodeId
+reindexAsync = performBHRequest . Requests.reindexAsync
 
-reindexAsync :: (MonadBH m, MonadThrow m) => ReindexRequest -> m (Either EsError TaskNodeId)
-reindexAsync req = do
-  url <- addQuery [("wait_for_completion", Just "false")] <$> joinPath ["_reindex"]
-  parseEsResponse =<< post url (Just (encode req))
-
-getTask :: (MonadBH m, MonadThrow m, FromJSON a) => TaskNodeId -> m (Either EsError (TaskResponse a))
-getTask (TaskNodeId task) = do
-  url <- joinPath ["_tasks", task]
-  parseEsResponse =<< get url
+getTask :: (MonadBH m, FromJSON a) => TaskNodeId -> m (TaskResponse a)
+getTask = performBHRequest . Requests.getTask

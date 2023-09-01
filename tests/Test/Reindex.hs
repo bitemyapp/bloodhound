@@ -1,12 +1,12 @@
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Reindex (spec) where
 
-import           Control.Concurrent
-import           Numeric.Natural
-import           Test.Common
-import           Test.Import
+import Control.Concurrent
+import Numeric.Natural
+import Test.Common
+import Test.Import
 
 spec :: Spec
 spec =
@@ -34,8 +34,8 @@ spec =
       liftIO $
         (map hitSource (hits (searchHits searchResult))) `shouldBe` [Just exampleTweet]
 
-assertRight :: (Show a , MonadIO m) => Either a b -> m b
-assertRight (Left x)  = fail $ "Expected Right, got Left: " <> show x
+assertRight :: (Show a, MonadIO m) => Either a b -> m b
+assertRight (Left x) = fail $ "Expected Right, got Left: " <> show x
 assertRight (Right x) = pure x
 
 -- | The response is not used, but make sure we return it so it gets parsed
