@@ -14,35 +14,35 @@ spec =
     it "reindexes synchronously" $ withTestEnv $ do
       _ <- insertData
       let newIndex = IndexName "bloodhound-tests-twitter-index-1-reindexed"
-      _ <- deleteIndex newIndex
-      _ <- createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) newIndex
-      _ <- assertRight =<< reindex (mkReindexRequest testIndex newIndex)
-      _ <- refreshIndex newIndex
-      searchResult <- assertRight =<< parseEsResponse =<< searchByIndex newIndex (mkSearch Nothing Nothing)
+      _ <- tryPerformBHRequest $ deleteIndex newIndex
+      _ <- performBHRequest $ createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) newIndex
+      _ <- assertRight =<< tryPerformBHRequest (reindex $ mkReindexRequest testIndex newIndex)
+      _ <- performBHRequest $ refreshIndex newIndex
+      searchResult <- assertRight =<< tryPerformBHRequest (searchByIndex newIndex $ mkSearch Nothing Nothing)
       liftIO $
-        (map hitSource (hits (searchHits searchResult))) `shouldBe` [Just exampleTweet]
+        map hitSource (hits (searchHits searchResult)) `shouldBe` [Just exampleTweet]
 
     it "reindexes asynchronously" $ withTestEnv $ do
       _ <- insertData
       let newIndex = IndexName "bloodhound-tests-twitter-index-1-reindexed"
-      _ <- deleteIndex newIndex
-      _ <- createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0)) newIndex
-      taskNodeId <- assertRight =<< reindexAsync (mkReindexRequest testIndex newIndex)
+      _ <- tryPerformBHRequest $ deleteIndex newIndex
+      _ <- performBHRequest $ createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) newIndex
+      taskNodeId <- assertRight =<< tryPerformBHRequest (reindexAsync $ mkReindexRequest testIndex newIndex)
       _ <- waitForTaskToComplete 10 taskNodeId
-      _ <- refreshIndex newIndex
-      searchResult <- assertRight =<< parseEsResponse =<< searchByIndex newIndex (mkSearch Nothing Nothing)
+      _ <- performBHRequest $ refreshIndex newIndex
+      searchResult <- assertRight =<< tryPerformBHRequest (searchByIndex newIndex (mkSearch Nothing Nothing))
       liftIO $
         (map hitSource (hits (searchHits searchResult))) `shouldBe` [Just exampleTweet]
 
-assertRight :: (Show a, MonadIO m) => Either a b -> m b
+assertRight :: (Show a, MonadFail m) => Either a b -> m b
 assertRight (Left x) = fail $ "Expected Right, got Left: " <> show x
 assertRight (Right x) = pure x
 
 -- | The response is not used, but make sure we return it so it gets parsed
-waitForTaskToComplete :: (MonadBH m, MonadThrow m) => Natural -> TaskNodeId -> m (TaskResponse ReindexResponse)
+waitForTaskToComplete :: (MonadBH m, MonadFail m) => Natural -> TaskNodeId -> m (TaskResponse ReindexResponse)
 waitForTaskToComplete 0 taskNodeId = fail $ "Timed out waiting for task to complete, taskNodeId = " <> show taskNodeId
 waitForTaskToComplete n taskNodeId = do
-  task <- assertRight =<< getTask taskNodeId
+  task <- assertRight =<< tryPerformBHRequest (getTask taskNodeId)
   if taskResponseCompleted task
     then return task
-    else (liftIO $ threadDelay 100000) >> waitForTaskToComplete (n - 1) taskNodeId
+    else liftIO (threadDelay 100000) >> waitForTaskToComplete (n - 1) taskNodeId

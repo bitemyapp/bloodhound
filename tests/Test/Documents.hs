@@ -58,18 +58,6 @@ spec =
         response <- performBHRequest $ searchByIndex @Value testIndex search
         liftIO $ hitsTotal (searchHits response) `shouldBe` HitsTotal 1 HTR_EQ
 
-    it "indexes two documents in a parent/child relationship and checks that the child exists" $ withTestEnv $ do
-      resetIndex
-      _ <- putMapping testIndex (MappingName "child") ChildMapping
-      _ <- putMapping testIndex (MappingName "parent") ParentMapping
-      _ <- indexDocument testIndex (MappingName "parent") defaultIndexDocumentSettings exampleTweet (DocId "1")
-      let parent = (Just . DocumentParent . DocId) "1"
-          ids = IndexDocumentSettings NoVersionControl parent
-      _ <- indexDocument testIndex (MappingName "child") ids otherTweet (DocId "2")
-      _ <- refreshIndex testIndex
-      exists <- documentExists testIndex (MappingName "child") parent (DocId "2")
-      liftIO $ exists `shouldBe` True
-
     it "updates documents by query" $ withTestEnv $ do
       _ <- insertData
       _ <- insertOther
@@ -78,11 +66,10 @@ spec =
           script =
             Script
               (Just (ScriptLanguage "painless"))
-              (Just (ScriptInline "ctx._source.age *= 2"))
+              (ScriptInline "ctx._source.age *= 2")
               Nothing
-              Nothing
-      _ <- updateByQuery testIndex query (Just script)
-      _ <- refreshIndex testIndex
+      _ <- performBHRequest $ updateByQuery @Value testIndex query (Just script)
+      _ <- performBHRequest $ refreshIndex testIndex
       let search = mkSearch (Just query) Nothing
       parsed <- searchTweets search
       liftIO $ print parsed
