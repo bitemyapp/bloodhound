@@ -37,7 +37,7 @@ jobs:
             sleep 1
           done
       - name: Run tests
-        run: nix develop --command bash -c cabal test
+        run: nix develop --command bash -c 'cabal test'
       - name: Stop docker
         if: always()
         run: |
