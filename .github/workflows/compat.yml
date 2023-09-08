@@ -36,6 +36,19 @@ jobs:
           do
             sleep 1
           done
+      - id: code-hash
+        name: Compute code directory hash
+        run: |
+          code_hash=$(git rev-parse HEAD:code | head -c 8)-$(git rev-parse HEAD:tests | head -c 8)-$(git rev-parse HEAD:bloodhound.cabal | head -c 8)
+          echo "code-hash=$code_hash" >> "$GITHUB_OUTPUT"
+      - name: Setup cache
+        id: cache-build
+        uses: actions/cache@v3
+        with:
+          path: ~/.cabal/store
+          key: compat-build-${{ steps.code-hash.outputs.code-hash}}
+      - name: Build with tests
+        run: nix develop --command bash -c 'cabal v2-build --enable-tests'
       - name: Run tests
         run: nix develop --command bash -c 'cabal test'
       - name: Stop docker
