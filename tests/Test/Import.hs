@@ -29,7 +29,7 @@ import Database.Bloodhound.Requests as X
 import Database.Bloodhound.Types as X hiding (key)
 import Network.HTTP.Client as X hiding (Proxy, fileSize)
 import System.IO.Temp as X
-import System.PosixCompat.Files as X
+import System.Posix.Files as X
 import Test.Hspec as X
 import Test.Hspec.QuickCheck as X (prop)
 import Test.QuickCheck as X hiding (Result, Success, isSuccess)
