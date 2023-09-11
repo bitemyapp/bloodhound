@@ -14,6 +14,8 @@
 
           disableTests = pkgs.haskell.lib.dontCheck;
 
+          enableTests = pkgs.haskell.lib.doCheck;
+
           jailbreakUnbreak = pkg:
             pkgs.haskell.lib.doJailbreak (disableTests (pkgs.haskell.lib.unmarkBroken pkg));
 
@@ -53,7 +55,7 @@
                 ormolu
               ];
               inputsFrom = [
-                self.defaultPackage.${system}.env
+                (enableTests self.defaultPackage.${system}).env
               ];
             };
         });
