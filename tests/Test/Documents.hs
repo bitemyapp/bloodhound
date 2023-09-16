@@ -37,7 +37,7 @@ spec =
         insertedConflict <- tryEsError $ insertData' cfg
         case insertedConflict of
           Right (res', _) -> liftIO $ isVersionConflict res' `shouldBe` True
-          Left e -> liftIO $ errorStatus e `shouldBe` 409
+          Left e -> liftIO $ errorStatus e `shouldBe` Just 409
 
     it "indexes two documents in a parent/child relationship and checks that the child exists" $
       withTestEnv $ do

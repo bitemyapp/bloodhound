@@ -66,11 +66,11 @@ library
     , mtl >=1.0
     , network-uri >=2.6
     , scientific >=0.3.0.0
-    , semver
     , text >=0.11
     , time >=1.4
     , unordered-containers
     , vector >=0.10.9
+    , versions >= 5.0.2
   default-language: Haskell2010
 
 test-suite bloodhound-tests
@@ -114,14 +114,15 @@ test-suite bloodhound-tests
     , hspec >=1.8
     , http-client >=0.4.30
     , http-types >=0.8
+    , microlens
     , mtl >=1.0
     , optics
     , pretty-simple
     , quickcheck-properties
-    , semver
     , temporary
     , text >=0.11
     , time >=1.4
     , unix
     , vector >=0.10.9
+    , versions >= 5.0.2
   default-language: Haskell2010

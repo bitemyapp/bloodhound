@@ -45,7 +45,7 @@ getSource = fmap _source . foundResult
 grabFirst :: SearchResult a -> Either EsError a
 grabFirst r =
   case hitSource $ head $ hits $ searchHits r of
-    Nothing -> Left (EsError 500 "Source was missing")
+    Nothing -> Left (EsError Nothing "Source was missing")
     Just x -> Right x
 
 when' :: Monad m => m Bool -> m () -> m ()

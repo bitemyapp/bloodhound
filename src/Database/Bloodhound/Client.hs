@@ -685,11 +685,11 @@ scanSearch indexName search = do
 --
 -- For more information see
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
-pitSearch :: forall a m. (FromJSON a, Show a, MonadBH m) => IndexName -> Search -> m [Hit a]
+pitSearch :: forall a m. (FromJSON a, MonadBH m) => IndexName -> Search -> m [Hit a]
 pitSearch indexName search = do
   openResp <- openPointInTime indexName
   case openResp of
-    Left _ -> return []
+    Left e -> throwEsError e
     Right OpenPointInTimeResponse {..} -> do
       let searchPIT = search {pointInTime = Just (PointInTime oPitId "1m")}
       hits <- pitAccumulator searchPIT []

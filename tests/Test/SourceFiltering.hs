@@ -13,7 +13,7 @@ spec =
       withTestEnv $
         searchExpectSource
           NoSource
-          (Left (EsError 500 "Source was missing"))
+          (Left (EsError Nothing "Source was missing"))
 
     it "includes a source" $
       withTestEnv $

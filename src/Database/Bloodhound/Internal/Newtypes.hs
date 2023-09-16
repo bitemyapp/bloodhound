@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -248,7 +249,7 @@ newtype IndexAliasName = IndexAliasName {indexAliasName :: IndexName}
   deriving (Eq, Show, ToJSON)
 
 newtype MaybeNA a = MaybeNA {unMaybeNA :: Maybe a}
-  deriving (Show, Eq)
+  deriving newtype (Show, Eq, Functor, Applicative, Monad)
 
 instance FromJSON a => FromJSON (MaybeNA a) where
   parseJSON (String "NA") = pure $ MaybeNA Nothing

@@ -53,7 +53,7 @@ main = hspec $ do
     it "can parse EsErrors for >= 2.0" $
       withTestEnv $ do
         errorResp <- tryPerformBHRequest $ verifySnapshotRepo (SnapshotRepoName "bogus")
-        liftIO (errorResp `shouldBe` Left (EsError 404 "[bogus] missing"))
+        liftIO (errorResp `shouldBe` Left (EsError (Just 404) "[bogus] missing"))
 
   describe "Monoid (SearchHits a)" $
     prop "abides the monoid laws" $
@@ -120,7 +120,8 @@ main = hspec $ do
           scan_search `shouldMatchList` [Just exampleTweet, Just otherTweet]
 
   describe "Point in time (PIT) API" $ do
-    it "returns a single document using the point in time (PIT) API" $
+    it' <- runIO esOnlyIT
+    it' "returns a single document using the point in time (PIT) API" $
       withTestEnv $ do
         _ <- insertData
         _ <- insertOther
@@ -137,8 +138,8 @@ main = hspec $ do
         liftIO $
           regular_search `shouldBe` Right exampleTweet -- Check that the size restriction is being honored
         liftIO $
-          pit_search `shouldMatchList` [Just exampleTweet] -- TODO
-    it "returns many documents using the point in time (PIT) API" $
+          pit_search `shouldMatchList` [Just exampleTweet]
+    it' "returns many documents using the point in time (PIT) API" $
       withTestEnv $ do
         resetIndex
         let ids = [1 .. 1000]
@@ -162,6 +163,7 @@ main = hspec $ do
           scan_search `shouldMatchList` expectedHits
         liftIO $
           pit_search `shouldMatchList` expectedHits
+
   describe "Search After API" $
     it "returns document for search after query" $
       withTestEnv $ do

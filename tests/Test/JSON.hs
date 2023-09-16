@@ -127,7 +127,6 @@ spec = do
               )
 
   describe "Exact isomorphism JSON instances" $ do
-    propJSON (Proxy :: Proxy Version)
     propJSON (Proxy :: Proxy IndexName)
     propJSON (Proxy :: Proxy DocId)
     propJSON (Proxy :: Proxy IndexAliasRouting)

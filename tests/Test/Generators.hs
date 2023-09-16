@@ -8,8 +8,8 @@ import qualified Data.Aeson.KeyMap as X
 import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
-import qualified Data.SemVer as SemVer
 import qualified Data.Text as T
+import qualified Data.Versions as Versions
 import Database.Bloodhound
 import Generic.Random
 import Test.ApproxEq
@@ -243,14 +243,37 @@ instance Arbitrary NodeAttrFilter where
       unpackConsPartial (x : xs) = (x, xs)
       unpackConsPartial _ = error "unpackConsPartial failed but shouldn't have"
 
+#if MIN_VERSION_versions(6,0,0)
 instance Arbitrary VersionNumber where
   arbitrary = do
-    major <- posInt
-    minor <- posInt
-    patch <- posInt
-    return $ VersionNumber $ SemVer.version major minor patch [] []
-    where
-      posInt = getPositive <$> arbitrary
+    chunks <- Versions.Chunks <$> arbitrary
+    return $ VersionNumber $ Versions.Version Nothing chunks Nothing Nothing
+
+instance Arbitrary Versions.Chunk where
+  arbitrary =
+    oneof
+      [ Versions.Numeric <$> arbitrary,
+        do
+          n <- chooseInt (1, 5)
+          Versions.Alphanum . T.pack <$> replicateM n (chooseEnum ('a', 'z'))]
+#else
+instance Arbitrary VersionNumber where
+  arbitrary = do
+    chunks <- arbitrary
+    return $
+      VersionNumber $
+        Versions.Version {
+          Versions._vEpoch = Nothing,
+          Versions._vChunks = chunks, Versions._vRel = [], Versions._vMeta = Nothing}
+
+instance Arbitrary Versions.VUnit where
+  arbitrary =
+    oneof
+      [ Versions.Digits . fromIntegral <$> chooseInt (0, 1000),
+        do
+          n <- chooseInt (1, 5)
+          Versions.Str . T.pack <$> replicateM n (chooseEnum ('a', 'z'))]
+#endif
 
 instance Arbitrary TemplateQueryKeyValuePairs where
   arbitrary = TemplateQueryKeyValuePairs . X.fromList <$> arbitrary

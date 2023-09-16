@@ -178,7 +178,7 @@ instance ParseBHResponse StatusIndependant where
         Left e ->
           Left $
             EsError
-              { errorStatus = NHTS.statusCode (responseStatus $ getResponse r),
+              { errorStatus = Just $ NHTS.statusCode (responseStatus $ getResponse r),
                 errorMessage = "Unable to parse body: " <> T.pack e
               }
 
@@ -337,6 +337,8 @@ data EsResult a = EsResult
   }
   deriving (Eq, Show)
 
+{-# DEPRECATED _type "deprecated since ElasticSearch 6.0" #-}
+
 -- | 'EsResultFound' contains the document and its metadata inside of an
 --    'EsResult' when the document was successfully found.
 data EsResultFound a = EsResultFound
@@ -375,10 +377,12 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
 --    problem. If you can't parse the expected response, its a good idea to
 --    try parsing this.
 data EsError = EsError
-  { errorStatus :: Int,
+  { errorStatus :: Maybe Int,
     errorMessage :: Text
   }
   deriving (Eq, Show, Typeable)
+
+{-# DEPRECATED errorStatus "deprecated since ElasticSearch 6.0" #-}
 
 instance Exception EsError
 
@@ -386,13 +390,13 @@ instance Semigroup EsError where
   _ <> x = x
 
 instance Monoid EsError where
-  mempty = EsError 0 "Monoid value, shouldn't happen"
+  mempty = EsError Nothing "Monoid value, shouldn't happen"
 
 instance FromJSON EsError where
   parseJSON (Object v) =
     EsError
       <$> v
-        .: "status"
+        .:? "status"
       <*> (v .: "error" <|> (v .: "error" >>= (.: "reason")))
   parseJSON _ = empty
 

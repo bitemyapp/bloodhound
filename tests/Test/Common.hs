@@ -5,8 +5,9 @@
 module Test.Common where
 
 import qualified Data.Map as M
-import qualified Data.SemVer as SemVer
 import qualified Data.Text as T
+import qualified Data.Versions as Versions
+import Lens.Micro (toListOf)
 import qualified Network.HTTP.Types.Status as NHTS
 import Test.Import
 
@@ -65,7 +66,7 @@ instance ToJSON ConversationMapping where
             ]
       ]
 
-getServerVersion :: IO SemVer.Version
+getServerVersion :: IO Versions.Version
 getServerVersion = extractVersion <$> withTestEnv (performBHRequest getStatus)
   where
     extractVersion = versionNumber . number . version
@@ -297,11 +298,15 @@ searchExpectSource src expected = do
   liftIO $
     value_ `shouldBe` expected
 
-atleast :: SemVer.Version -> IO Bool
-atleast v = getServerVersion >>= \x -> return $ x >= v
-
-atmost :: SemVer.Version -> IO Bool
-atmost v = getServerVersion >>= \x -> return $ x <= v
-
-is :: SemVer.Version -> IO Bool
+is :: Versions.Version -> IO Bool
 is v = getServerVersion >>= \x -> return $ x == v
+
+esOnlyIT :: (HasCallStack, Example a) => IO (String -> a -> SpecWith (Arg a))
+esOnlyIT =
+  withTestEnv $ do
+    x <- performBHRequest $ getNodesInfo LocalNode
+    let version = versionNumber $ nodeInfoESVersion $ head $ nodesInfo x
+    return $
+      if head (toListOf Versions.major version) >= 6
+        then it
+        else xit
