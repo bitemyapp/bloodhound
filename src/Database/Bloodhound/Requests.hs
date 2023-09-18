@@ -770,7 +770,7 @@ indexDocument (IndexName indexName) cfg document (DocId docId) =
 
 data IndexedDocument = IndexedDocument
   { idxDocIndex :: Text,
-    idxDocType :: Text,
+    idxDocType :: Maybe Text,
     idxDocId :: Text,
     idxDocVersion :: Int,
     idxDocResult :: Text,
@@ -780,6 +780,8 @@ data IndexedDocument = IndexedDocument
   }
   deriving stock (Eq, Show)
 
+{-# DEPRECATED idxDocType "deprecated since ElasticSearch 6.0" #-}
+
 instance FromJSON IndexedDocument where
   parseJSON =
     withObject "IndexedDocument" $ \v ->
@@ -787,7 +789,7 @@ instance FromJSON IndexedDocument where
         <$> v
           .: "_index"
         <*> v
-          .: "_type"
+          .:? "_type"
         <*> v
           .: "_id"
         <*> v

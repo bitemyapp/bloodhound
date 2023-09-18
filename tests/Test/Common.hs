@@ -302,11 +302,19 @@ is :: Versions.Version -> IO Bool
 is v = getServerVersion >>= \x -> return $ x == v
 
 esOnlyIT :: (HasCallStack, Example a) => IO (String -> a -> SpecWith (Arg a))
-esOnlyIT =
+esOnlyIT = withMajorVersionIT (>= 6)
+
+withMajorVersionIT :: (HasCallStack, Example a) => (Word -> Bool) -> IO (String -> a -> SpecWith (Arg a))
+withMajorVersionIT p = do
+  version <- fetchMajorVersion
+  return $
+    if p version
+      then it
+      else xit
+
+fetchMajorVersion :: IO Word
+fetchMajorVersion =
   withTestEnv $ do
     x <- performBHRequest $ getNodesInfo LocalNode
     let version = versionNumber $ nodeInfoESVersion $ head $ nodesInfo x
-    return $
-      if head (toListOf Versions.major version) >= 6
-        then it
-        else xit
+    return $ head $ toListOf Versions.major version

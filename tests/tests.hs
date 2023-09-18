@@ -10,6 +10,7 @@
 #endif
 module Main where
 
+import Control.Concurrent (threadDelay)
 import qualified Data.Aeson as Aeson
 import qualified Data.Text as Text
 import qualified Test.Aggregation as Aggregation
@@ -165,7 +166,8 @@ main = hspec $ do
           pit_search `shouldMatchList` expectedHits
 
   describe "Search After API" $
-    it "returns document for search after query" $
+    it "returns document for search after query" $ do
+      majorVersion <- fetchMajorVersion
       withTestEnv $ do
         _ <- insertData
         _ <- insertOther
@@ -189,6 +191,9 @@ main = hspec $ do
                   suggestBody = Nothing,
                   pointInTime = Nothing
                 }
+        when (majorVersion == 2) $
+          liftIO $
+            threadDelay 50000
         result <- searchTweets search
         let myTweet = result >>= grabFirst
         liftIO $
