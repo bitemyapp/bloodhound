@@ -22,6 +22,7 @@ jobs:
             dockerCommand: |
               docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9600 -e "discovery.type=single-node" -e DISABLE_SECURITY_PLUGIN="true" -e DISABLE_INSTALL_DEMO_CONFIG="true" opensearchproject/opensearch:2.9.0
             readyCondition: Init AD version hash ring successfully
+      fail-fast: false
     steps:
       - name: git checkout
         uses: actions/checkout@v3
