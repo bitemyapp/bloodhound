@@ -165,6 +165,7 @@ import Data.Time.Clock
 import qualified Data.Vector as V
 import Database.Bloodhound.Internal.Client
 import Database.Bloodhound.Internal.Client.BHRequest
+import Database.Bloodhound.Internal.Newtypes
 import Database.Bloodhound.Types
 import qualified Network.HTTP.Types.Method as NHTM
 import Prelude hiding (filter, head)
@@ -320,9 +321,7 @@ createSnapshot (SnapshotRepoName repoName) (SnapshotName snapName) SnapshotCreat
 
 indexSelectionName :: IndexSelection -> Text
 indexSelectionName AllIndexes = "_all"
-indexSelectionName (IndexList (i :| is)) = T.intercalate "," (renderIndex <$> (i : is))
-  where
-    renderIndex (IndexName n) = n
+indexSelectionName (IndexList (i :| is)) = T.intercalate "," (unIndexName <$> (i : is))
 
 -- | Get info about known snapshots given a pattern and repo name.
 getSnapshots :: SnapshotRepoName -> SnapshotSelection -> BHRequest StatusDependant [SnapshotInfo]
@@ -413,8 +412,8 @@ getNodesStats sel =
 -- >>> runBH' $ indexExists (IndexName "didimakeanindex")
 -- True
 createIndex :: IndexSettings -> IndexName -> BHRequest StatusDependant Acknowledged
-createIndex indexSettings (IndexName indexName) =
-  put [indexName] $ encode indexSettings
+createIndex indexSettings indexName =
+  put [unIndexName indexName] $ encode indexSettings
 
 -- | Create an index, providing it with any number of settings. This
 --   is more expressive than 'createIndex' but makes is more verbose
@@ -426,8 +425,8 @@ createIndexWith ::
   Int ->
   IndexName ->
   BHRequest StatusIndependant Acknowledged
-createIndexWith updates shards (IndexName indexName) =
-  put [indexName] body
+createIndexWith updates shards indexName =
+  put [unIndexName indexName] body
   where
     body =
       encode $
@@ -441,8 +440,8 @@ createIndexWith updates shards (IndexName indexName) =
 
 -- | 'flushIndex' will flush an index given a 'Server' and an 'IndexName'.
 flushIndex :: IndexName -> BHRequest StatusDependant ShardResult
-flushIndex (IndexName indexName) =
-  post [indexName, "_flush"] emptyBody
+flushIndex indexName =
+  post [unIndexName indexName, "_flush"] emptyBody
 
 -- | 'deleteIndex' will delete an index given a 'Server' and an 'IndexName'.
 --
@@ -453,8 +452,8 @@ flushIndex (IndexName indexName) =
 -- >>> runBH' $ indexExists (IndexName "didimakeanindex")
 -- False
 deleteIndex :: IndexName -> BHRequest StatusDependant Acknowledged
-deleteIndex (IndexName indexName) =
-  delete [indexName]
+deleteIndex indexName =
+  delete [unIndexName indexName]
 
 -- | 'updateIndexSettings' will apply a non-empty list of setting updates to an index
 --
@@ -466,14 +465,14 @@ updateIndexSettings ::
   NonEmpty UpdatableIndexSetting ->
   IndexName ->
   BHRequest StatusIndependant Acknowledged
-updateIndexSettings updates (IndexName indexName) =
-  put [indexName, "_settings"] (encode body)
+updateIndexSettings updates indexName =
+  put [unIndexName indexName, "_settings"] (encode body)
   where
     body = Object (deepMerge [u | Object u <- toJSON <$> toList updates])
 
 getIndexSettings :: IndexName -> BHRequest StatusDependant IndexSettingsSummary
-getIndexSettings (IndexName indexName) =
-  get [indexName, "_settings"]
+getIndexSettings indexName =
+  get [unIndexName indexName, "_settings"]
 
 -- | 'forceMergeIndex'
 --
@@ -529,8 +528,8 @@ doesExist =
 --
 -- >>> exists <- runBH' $ indexExists testIndex
 indexExists :: IndexName -> BHRequest StatusDependant Bool
-indexExists (IndexName indexName) =
-  doesExist [indexName]
+indexExists indexName =
+  doesExist [unIndexName indexName]
 
 -- | 'refreshIndex' will force a refresh on an index. You must
 -- do this if you want to read what you wrote.
@@ -538,17 +537,17 @@ indexExists (IndexName indexName) =
 -- >>> _ <- runBH' $ createIndex defaultIndexSettings testIndex
 -- >>> _ <- runBH' $ refreshIndex testIndex
 refreshIndex :: IndexName -> BHRequest StatusDependant ShardResult
-refreshIndex (IndexName indexName) =
-  post [indexName, "_refresh"] emptyBody
+refreshIndex indexName =
+  post [unIndexName indexName, "_refresh"] emptyBody
 
 -- | Block until the index becomes available for indexing
 --   documents. This is useful for integration tests in which
 --   indices are rapidly created and deleted.
 waitForYellowIndex :: IndexName -> BHRequest StatusIndependant HealthStatus
-waitForYellowIndex (IndexName indexName) =
+waitForYellowIndex indexName =
   get endpoint
   where
-    endpoint = ["_cluster", "health", indexName] `withQueries` params
+    endpoint = ["_cluster", "health", unIndexName indexName] `withQueries` params
     params = [("wait_for_status", Just "yellow"), ("timeout", Just "10s")]
 
 data HealthStatus = HealthStatus
@@ -606,8 +605,8 @@ instance FromJSON HealthStatus where
           .: "active_shards_percent_as_number"
 
 openOrCloseIndexes :: OpenCloseIndex -> IndexName -> BHRequest StatusIndependant Acknowledged
-openOrCloseIndexes oci (IndexName indexName) =
-  post [indexName, stringifyOCIndex] emptyBody
+openOrCloseIndexes oci indexName =
+  post [unIndexName indexName, stringifyOCIndex] emptyBody
   where
     stringifyOCIndex = case oci of
       OpenIndex -> "_open"
@@ -638,7 +637,7 @@ newtype ListedIndexName = ListedIndexName {unListedIndexName :: IndexName}
 instance FromJSON ListedIndexName where
   parseJSON =
     withObject "ListedIndexName" $ \o ->
-      ListedIndexName . IndexName <$> o .: "index"
+      ListedIndexName <$> o .: "index"
 
 -- | 'catIndices' returns a list of all index names on a given 'Server' as well as their doc counts
 catIndices :: BHRequest StatusDependant [(IndexName, Int)]
@@ -651,7 +650,7 @@ newtype ListedIndexNameWithCount = ListedIndexNameWithCount {unListedIndexNameWi
 instance FromJSON ListedIndexNameWithCount where
   parseJSON =
     withObject "ListedIndexNameWithCount" $ \o -> do
-      xs <- (,) <$> (IndexName <$> o .: "index") <*> o .: "docs.count"
+      xs <- (,) <$> o .: "index" <*> o .: "docs.count"
       return $ ListedIndexNameWithCount xs
 
 -- | 'updateIndexAliases' updates the server's index alias
@@ -685,8 +684,8 @@ getIndexAliases =
 -- | Delete a single alias, removing it from all indices it
 --   is currently associated with.
 deleteIndexAlias :: IndexAliasName -> BHRequest StatusIndependant Acknowledged
-deleteIndexAlias (IndexAliasName (IndexName name)) =
-  delete ["_all", "_alias", name]
+deleteIndexAlias (IndexAliasName name) =
+  delete ["_all", "_alias", unIndexName name]
 
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
 --   Explained in further detail at
@@ -722,10 +721,10 @@ deleteTemplate (TemplateName templateName) =
 -- >>> print resp
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("transfer-encoding","chunked")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 putMapping :: (FromJSON r, ToJSON a) => IndexName -> a -> BHRequest StatusDependant r
-putMapping (IndexName indexName) mapping =
+putMapping indexName mapping =
   -- "_mapping" above is originally transposed
   -- erroneously. The correct API call is: "/INDEX/_mapping"
-  put [indexName, "_mapping"] (encode mapping)
+  put [unIndexName indexName, "_mapping"] (encode mapping)
 {-# DEPRECATED putMapping "See <https://www.elastic.co/guide/en/elasticsearch/reference/7.17/removal-of-types.html>" #-}
 
 versionCtlParams :: IndexDocumentSettings -> [(Text, Maybe Text)]
@@ -762,10 +761,10 @@ indexDocument ::
   doc ->
   DocId ->
   BHRequest StatusDependant IndexedDocument
-indexDocument (IndexName indexName) cfg document (DocId docId) =
+indexDocument indexName cfg document (DocId docId) =
   put endpoint (encode body)
   where
-    endpoint = [indexName, "_doc", docId] `withQueries` indexQueryString cfg (DocId docId)
+    endpoint = [unIndexName indexName, "_doc", docId] `withQueries` indexQueryString cfg (DocId docId)
     body = encodeDocument cfg document
 
 data IndexedDocument = IndexedDocument
@@ -812,10 +811,10 @@ updateDocument ::
   patch ->
   DocId ->
   BHRequest StatusDependant IndexedDocument
-updateDocument (IndexName indexName) cfg patch (DocId docId) =
+updateDocument indexName cfg patch (DocId docId) =
   post endpoint (encode body)
   where
-    endpoint = [indexName, "_update", docId] `withQueries` indexQueryString cfg (DocId docId)
+    endpoint = [unIndexName indexName, "_update", docId] `withQueries` indexQueryString cfg (DocId docId)
     body = object ["doc" .= encodeDocument cfg patch]
 
 updateByQuery ::
@@ -824,10 +823,10 @@ updateByQuery ::
   Query ->
   Maybe Script ->
   BHRequest StatusDependant a
-updateByQuery (IndexName indexName) q mScript =
+updateByQuery indexName q mScript =
   post endpoint (encode body)
   where
-    endpoint = [indexName, "_update_by_query"]
+    endpoint = [unIndexName indexName, "_update_by_query"]
     body = Object $ ("query" .= q) <> scriptObject
     scriptObject :: X.KeyMap Value
     scriptObject = case toJSON mScript of
@@ -873,16 +872,16 @@ encodeDocument cfg document =
 --
 -- >>> _ <- runBH' $ deleteDocument testIndex (DocId "1")
 deleteDocument :: IndexName -> DocId -> BHRequest StatusDependant IndexedDocument
-deleteDocument (IndexName indexName) (DocId docId) =
-  delete [indexName, "_doc", docId]
+deleteDocument indexName (DocId docId) =
+  delete [unIndexName indexName, "_doc", docId]
 
 -- | 'deleteByQuery' performs a deletion on every document that matches a query.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> _ <- runBH' $ deleteDocument testIndex query
 deleteByQuery :: IndexName -> Query -> BHRequest StatusDependant DeletedDocuments
-deleteByQuery (IndexName indexName) query =
-  post [indexName, "_delete_by_query"] (encode body)
+deleteByQuery indexName query =
+  post [unIndexName indexName, "_delete_by_query"] (encode body)
   where
     body = object ["query" .= query]
 
@@ -981,7 +980,7 @@ encodeBulkOperations stream = collapsed
     mash :: Builder -> V.Vector L.ByteString -> Builder
     mash = V.foldl' (\b x -> b <> byteString "\n" <> lazyByteString x)
 
-mkBulkStreamValue :: Text -> Text -> Text -> Value
+mkBulkStreamValue :: Text -> IndexName -> Text -> Value
 mkBulkStreamValue operation indexName docId =
   object
     [ fromText operation
@@ -991,14 +990,14 @@ mkBulkStreamValue operation indexName docId =
           ]
     ]
 
-mkBulkStreamValueAuto :: Text -> Text -> Value
+mkBulkStreamValueAuto :: Text -> IndexName -> Value
 mkBulkStreamValueAuto operation indexName =
   object
     [ fromText operation
         .= object ["_index" .= indexName]
     ]
 
-mkBulkStreamValueWithMeta :: [UpsertActionMetadata] -> Text -> Text -> Text -> Value
+mkBulkStreamValueWithMeta :: [UpsertActionMetadata] -> Text -> IndexName -> Text -> Value
 mkBulkStreamValueWithMeta meta operation indexName docId =
   object
     [ fromText operation
@@ -1017,34 +1016,34 @@ mkBulkStreamValueWithMeta meta operation indexName docId =
 -- >>> encodeBulkOperation bulkOp
 -- "{\"index\":{\"_id\":\"2\",\"_index\":\"twitter\"}}\n{\"name\":\"blah\"}"
 encodeBulkOperation :: BulkOperation -> L.ByteString
-encodeBulkOperation (BulkIndex (IndexName indexName) (DocId docId) value) = blob
+encodeBulkOperation (BulkIndex indexName (DocId docId) value) = blob
   where
     metadata = mkBulkStreamValue "index" indexName docId
     blob = encode metadata `mappend` "\n" `mappend` encode value
-encodeBulkOperation (BulkIndexAuto (IndexName indexName) value) = blob
+encodeBulkOperation (BulkIndexAuto indexName value) = blob
   where
     metadata = mkBulkStreamValueAuto "index" indexName
     blob = encode metadata `mappend` "\n" `mappend` encode value
-encodeBulkOperation (BulkIndexEncodingAuto (IndexName indexName) encoding) = toLazyByteString blob
+encodeBulkOperation (BulkIndexEncodingAuto indexName encoding) = toLazyByteString blob
   where
     metadata = toEncoding (mkBulkStreamValueAuto "index" indexName)
     blob = fromEncoding metadata <> "\n" <> fromEncoding encoding
-encodeBulkOperation (BulkCreate (IndexName indexName) (DocId docId) value) = blob
+encodeBulkOperation (BulkCreate indexName (DocId docId) value) = blob
   where
     metadata = mkBulkStreamValue "create" indexName docId
     blob = encode metadata `mappend` "\n" `mappend` encode value
-encodeBulkOperation (BulkDelete (IndexName indexName) (DocId docId)) = blob
+encodeBulkOperation (BulkDelete indexName (DocId docId)) = blob
   where
     metadata = mkBulkStreamValue "delete" indexName docId
     blob = encode metadata
-encodeBulkOperation (BulkUpdate (IndexName indexName) (DocId docId) value) = blob
+encodeBulkOperation (BulkUpdate indexName (DocId docId) value) = blob
   where
     metadata = mkBulkStreamValue "update" indexName docId
     doc = object ["doc" .= value]
     blob = encode metadata `mappend` "\n" `mappend` encode doc
 encodeBulkOperation
   ( BulkUpsert
-      (IndexName indexName)
+      indexName
       (DocId docId)
       payload
       actionMeta
@@ -1060,7 +1059,7 @@ encodeBulkOperation
            in case (object (scup <> upsert), toJSON script) of
                 (Object obj, Object jscript) -> Object $ jscript <> obj
                 _ -> error "Impossible happened: serialising Script to Json should always be Object"
-encodeBulkOperation (BulkCreateEncoding (IndexName indexName) (DocId docId) encoding) =
+encodeBulkOperation (BulkCreateEncoding indexName (DocId docId) encoding) =
   toLazyByteString blob
   where
     metadata = toEncoding (mkBulkStreamValue "create" indexName docId)
@@ -1072,13 +1071,13 @@ encodeBulkOperation (BulkCreateEncoding (IndexName indexName) (DocId docId) enco
 --
 -- >>> yourDoc <- runBH' $ getDocument testIndex (DocId "1")
 getDocument :: FromJSON a => IndexName -> DocId -> BHRequest StatusIndependant (EsResult a)
-getDocument (IndexName indexName) (DocId docId) =
-  get [indexName, "_doc", docId]
+getDocument indexName (DocId docId) =
+  get [unIndexName indexName, "_doc", docId]
 
 -- | 'documentExists' enables you to check if a document exists.
 documentExists :: IndexName -> DocId -> BHRequest StatusDependant Bool
-documentExists (IndexName indexName) (DocId docId) =
-  doesExist [indexName, "_doc", docId]
+documentExists indexName (DocId docId) =
+  doesExist [unIndexName indexName, "_doc", docId]
 
 dispatchSearch :: FromJSON a => Endpoint -> Search -> BHRequest StatusDependant (SearchResult a)
 dispatchSearch endpoint search =
@@ -1111,8 +1110,8 @@ searchAll =
 -- >>> let search = mkSearch (Just query) Nothing
 -- >>> response <- runBH' $ searchByIndex testIndex search
 searchByIndex :: FromJSON a => IndexName -> Search -> BHRequest StatusDependant (SearchResult a)
-searchByIndex (IndexName indexName) =
-  dispatchSearch [indexName, "_search"]
+searchByIndex indexName =
+  dispatchSearch [unIndexName indexName, "_search"]
 
 -- | 'searchByIndices' is a variant of 'searchByIndex' that executes a
 --   'Search' over many indices. This is much faster than using
@@ -1122,7 +1121,7 @@ searchByIndices :: FromJSON a => NonEmpty IndexName -> Search -> BHRequest Statu
 searchByIndices ixs =
   dispatchSearch [renderedIxs, "_search"]
   where
-    renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
+    renderedIxs = T.intercalate (T.singleton ',') (map unIndexName (toList ixs))
 
 dispatchSearchTemplate ::
   FromJSON a =>
@@ -1143,8 +1142,8 @@ searchByIndexTemplate ::
   IndexName ->
   SearchTemplate ->
   BHRequest StatusDependant (SearchResult a)
-searchByIndexTemplate (IndexName indexName) =
-  dispatchSearchTemplate [indexName, "_search", "template"]
+searchByIndexTemplate indexName =
+  dispatchSearchTemplate [unIndexName indexName, "_search", "template"]
 
 -- | 'searchByIndicesTemplate' is a variant of 'searchByIndexTemplate' that executes a
 --   'SearchTemplate' over many indices. This is much faster than using
@@ -1158,7 +1157,7 @@ searchByIndicesTemplate ::
 searchByIndicesTemplate ixs =
   dispatchSearchTemplate [renderedIxs, "_search", "template"]
   where
-    renderedIxs = T.intercalate (T.singleton ',') (map (\(IndexName t) -> t) (toList ixs))
+    renderedIxs = T.intercalate (T.singleton ',') (map unIndexName (toList ixs))
 
 -- | 'storeSearchTemplate', saves a 'SearchTemplateSource' to be used later.
 storeSearchTemplate :: SearchTemplateId -> SearchTemplateSource -> BHRequest StatusDependant Acknowledged
@@ -1186,10 +1185,10 @@ getInitialScroll ::
   IndexName ->
   Search ->
   BHRequest StatusDependant (ParsedEsResponse (SearchResult a))
-getInitialScroll (IndexName indexName) search' =
+getInitialScroll indexName search' =
   withBHResponseParsedEsResponse $ dispatchSearch endpoint search
   where
-    endpoint = [indexName, "_search"] `withQueries` [("scroll", Just "1m")]
+    endpoint = [unIndexName indexName, "_search"] `withQueries` [("scroll", Just "1m")]
     sorting = Just [DefaultSortSpec $ mkSort (FieldName "_doc") Descending]
     search = search' {sortBody = sorting}
 
@@ -1202,10 +1201,10 @@ getInitialSortedScroll ::
   IndexName ->
   Search ->
   BHRequest StatusDependant (SearchResult a)
-getInitialSortedScroll (IndexName indexName) search = do
+getInitialSortedScroll indexName search = do
   dispatchSearch endpoint search
   where
-    endpoint = [indexName, "_search"] `withQueries` [("scroll", Just "1m")]
+    endpoint = [unIndexName indexName, "_search"] `withQueries` [("scroll", Just "1m")]
 
 -- | Use the given scroll to fetch the next page of documents. If there are no
 -- further pages, 'SearchResult.searchHits.hits' will be '[]'.
@@ -1341,8 +1340,8 @@ boolQP True = "true"
 boolQP False = "false"
 
 countByIndex :: IndexName -> CountQuery -> BHRequest StatusDependant CountResponse
-countByIndex (IndexName indexName) q =
-  post [indexName, "_count"] (encode q)
+countByIndex indexName q =
+  post [unIndexName indexName, "_count"] (encode q)
 
 -- | 'openPointInTime' opens a point in time for an index given an 'IndexName'.
 -- Note that the point in time should be closed with 'closePointInTime' as soon
@@ -1353,8 +1352,8 @@ countByIndex (IndexName indexName) q =
 openPointInTime ::
   IndexName ->
   BHRequest StatusDependant (ParsedEsResponse OpenPointInTimeResponse)
-openPointInTime (IndexName indexName) =
-  withBHResponseParsedEsResponse $ post @StatusDependant [indexName, "_pit?keep_alive=1m"] emptyBody
+openPointInTime indexName =
+  withBHResponseParsedEsResponse $ post @StatusDependant [unIndexName indexName, "_pit?keep_alive=1m"] emptyBody
 
 -- | 'closePointInTime' closes a point in time given a 'ClosePointInTime'.
 --

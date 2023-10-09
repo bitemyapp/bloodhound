@@ -677,8 +677,9 @@ instance FromJSON IndexSettingsSummary where
     where
       parse o = case X.toList o of
         [(ixn, v@(Object o'))] ->
-          IndexSettingsSummary (IndexName $ toText ixn)
-            <$> parseJSON v
+          IndexSettingsSummary
+            <$> parseJSON (toJSON ixn)
+            <*> parseJSON v
             <*> (fmap (filter (not . redundant)) . parseSettings =<< o' .: "settings")
         _ -> fail "Expected single-key object with index name"
       redundant (NumberOfReplicas _) = True
@@ -867,9 +868,10 @@ instance FromJSON IndexAliasesSummary where
     where
       parse o = IndexAliasesSummary . mconcat <$> mapM (uncurry go) (X.toList o)
       go ixn = withObject "index aliases" $ \ia -> do
+        indexName <- parseJSON $ toJSON ixn
         aliases <- ia .:? "aliases" .!= mempty
         forM (HM.toList aliases) $ \(aName, v) -> do
-          let indexAlias = IndexAlias (IndexName $ toText ixn) (IndexAliasName (IndexName $ toText aName))
+          let indexAlias = IndexAlias indexName (IndexAliasName aName)
           IndexAliasSummary indexAlias <$> parseJSON v
 
 instance ToJSON IndexAliasAction where

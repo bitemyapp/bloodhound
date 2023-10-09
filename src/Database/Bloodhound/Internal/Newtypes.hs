@@ -2,11 +2,77 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Database.Bloodhound.Internal.Newtypes where
+module Database.Bloodhound.Internal.Newtypes
+  ( From (..),
+    Size (..),
+    HitFields (..),
+    Score,
+    ShardId (..),
+    DocId (..),
+    FieldName (..),
+    RelationName (..),
+    QueryString (..),
+    CacheName (..),
+    CacheKey (..),
+    Existence (..),
+    NullValue (..),
+    CutoffFrequency (..),
+    Analyzer (..),
+    MaxExpansions (..),
+    Lenient (..),
+    Tiebreaker (..),
+    MinimumMatch (..),
+    DisableCoord (..),
+    IgnoreTermFrequency (..),
+    MinimumTermFrequency (..),
+    MaxQueryTerms (..),
+    PrefixLength (..),
+    PercentMatch (..),
+    StopWord (..),
+    QueryPath (..),
+    AllowLeadingWildcard (..),
+    LowercaseExpanded (..),
+    EnablePositionIncrements (..),
+    AnalyzeWildcard (..),
+    GeneratePhraseQueries (..),
+    Locale (..),
+    MaxWordLength (..),
+    MinWordLength (..),
+    PhraseSlop (..),
+    MinDocFrequency (..),
+    MaxDocFrequency (..),
+    AggregateParentScore (..),
+    IgnoreUnmapped (..),
+    MinChildren (..),
+    MaxChildren (..),
+    POSIXMS (..),
+    Boost (..),
+    BoostTerms (..),
+    ReplicaCount (..),
+    ShardCount (..),
+    IndexName,
+    unIndexName,
+    mkIndexName,
+    IndexAliasName (..),
+    MaybeNA (..),
+    SnapshotName (..),
+    MS (..),
+    unMS,
+    TokenFilter (..),
+    CharFilter (..),
+  )
+where
 
 import Bloodhound.Import
+import Control.Exception (throwIO)
+import qualified Data.ByteString as BS
+import Data.Char (isLetter, isLower)
 import qualified Data.Map.Strict as M
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import GHC.Generics
 
 newtype From = From Int deriving (Eq, Show, ToJSON)
@@ -243,7 +309,36 @@ instance FromJSON ShardCount where
 -- | 'IndexName' is used to describe which index to query/create/delete
 newtype IndexName
   = IndexName Text
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving newtype (Hashable, Semigroup, ToJSON, ToJSONKey, FromJSONKey)
+
+instance FromJSON IndexName where
+  parseJSON x =
+    parseJSON x >>= either (fail . T.unpack) return . mkIndexNameSystem
+
+unIndexName :: IndexName -> Text
+unIndexName (IndexName x) = x
+
+mkIndexName :: Text -> Either Text IndexName
+mkIndexName name = do
+  let check explanation p = if p then Right () else Left explanation
+  check "Is empty" $ not $ T.null name
+  check "Is longer than 255 bytes" $ BS.length (T.encodeUtf8 name) < 256
+  check "Contains uppercase letter(s)" $ T.all (\x -> not (isLetter x) || isLower x) name
+  check "Includes [\\/*?\"<>| ,#:]" $ T.all (flip @_ @String notElem "\\/*?\"<>| ,#:") name
+  check "Starts with [-_+.]" $ maybe False (flip @_ @String notElem "-_+." . fst) $ T.uncons name
+  return $ IndexName name
+
+mkIndexNameSystem :: Text -> Either Text IndexName
+mkIndexNameSystem name = do
+  let check explanation p = if p then Right () else Left explanation
+  check "Is empty" $ not $ T.null name
+  check "Is longer than 255 bytes" $ BS.length (T.encodeUtf8 name) < 256
+  check "Contains uppercase letter(s)" $ T.all (\x -> not (isLetter x) || isLower x) name
+  check "Includes [\\/*?\"<>| ,#:]" $ T.all (flip @_ @String notElem "\\/*?\"<>| ,#:") name
+  check "Is (.|..)" $ notElem name [".", ".."]
+  check "Starts with [-_+]" $ maybe False (flip @_ @String notElem "-_+" . fst) $ T.uncons name
+  return $ IndexName name
 
 newtype IndexAliasName = IndexAliasName {indexAliasName :: IndexName}
   deriving (Eq, Show, ToJSON)

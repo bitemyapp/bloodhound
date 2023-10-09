@@ -279,7 +279,11 @@ instance Arbitrary TemplateQueryKeyValuePairs where
   arbitrary = TemplateQueryKeyValuePairs . X.fromList <$> arbitrary
   shrink (TemplateQueryKeyValuePairs x) = map (TemplateQueryKeyValuePairs . X.fromList) . shrink $ X.toList x
 
-instance Arbitrary IndexName where arbitrary = genericArbitraryU
+instance Arbitrary IndexName where
+  arbitrary = do
+    n <- chooseInt (5, 15)
+    indewName <- T.pack <$> replicateM n (chooseEnum ('a', 'z'))
+    return $ either (\e -> error $ "Invalid generated IndexName " <> show indewName <> ":" <> T.unpack e) id $ mkIndexName indewName
 
 instance Arbitrary DocId where arbitrary = genericArbitraryU
 
