@@ -56,6 +56,7 @@ module Database.Bloodhound.Internal.Newtypes
     IndexName,
     unIndexName,
     mkIndexName,
+    qqIndexName,
     IndexAliasName (..),
     MaybeNA (..),
     SnapshotName (..),
@@ -74,6 +75,8 @@ import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import GHC.Generics
+import Language.Haskell.TH
+import Language.Haskell.TH.Quote
 
 newtype From = From Int deriving (Eq, Show, ToJSON)
 
@@ -339,6 +342,42 @@ mkIndexNameSystem name = do
   check "Is (.|..)" $ notElem name [".", ".."]
   check "Starts with [-_+]" $ maybe False (flip @_ @String notElem "-_+" . fst) $ T.uncons name
   return $ IndexName name
+
+qqIndexName :: QuasiQuoter
+qqIndexName =
+  QuasiQuoter
+    { quoteExp = \str -> do
+        loc <- location
+        IndexName n <- runIO $ parseIO mkIndexName loc str
+        pure $ AppE (ConE 'IndexName) (LitE (StringL $ T.unpack n)),
+      quotePat = undefined,
+      quoteType = undefined,
+      quoteDec = undefined
+    }
+  where
+    parseIO :: (Text -> Either Text a) -> Loc -> String -> IO a
+    parseIO p loc str =
+      case p $ T.pack str of
+        Left err ->
+          throwIO $
+            userError $
+              mconcat
+                [ "'",
+                  str,
+                  "'",
+                  " is not a valid IndexName ",
+                  "(",
+                  T.unpack err,
+                  ")",
+                  " at ",
+                  loc_filename loc,
+                  ":",
+                  show (loc_start loc),
+                  "-",
+                  show (loc_start loc)
+                ]
+        Right a ->
+          return a
 
 newtype IndexAliasName = IndexAliasName {indexAliasName :: IndexName}
   deriving (Eq, Show, ToJSON)

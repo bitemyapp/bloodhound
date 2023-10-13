@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -15,7 +16,7 @@ testServer :: Server
 testServer = Server "http://localhost:9200"
 
 testIndex :: IndexName
-testIndex = IndexName "bloodhound-tests-twitter-1"
+testIndex = [qqIndexName|bloodhound-tests-twitter-1|]
 
 withTestEnv :: BH IO a -> IO a
 withTestEnv = withBH defaultManagerSettings testServer
@@ -306,9 +307,9 @@ esOnlyIT = withMajorVersionIT (>= 6)
 
 withMajorVersionIT :: (HasCallStack, Example a) => (Word -> Bool) -> IO (String -> a -> SpecWith (Arg a))
 withMajorVersionIT p = do
-  version <- fetchMajorVersion
+  majoreVersion <- fetchMajorVersion
   return $
-    if p version
+    if p majoreVersion
       then it
       else xit
 
@@ -316,5 +317,5 @@ fetchMajorVersion :: IO Word
 fetchMajorVersion =
   withTestEnv $ do
     x <- performBHRequest $ getNodesInfo LocalNode
-    let version = versionNumber $ nodeInfoESVersion $ head $ nodesInfo x
-    return $ head $ toListOf Versions.major version
+    let majoreVersion = versionNumber $ nodeInfoESVersion $ head $ nodesInfo x
+    return $ head $ toListOf Versions.major majoreVersion

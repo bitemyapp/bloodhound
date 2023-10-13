@@ -72,7 +72,6 @@ spec =
       _ <- performBHRequest $ refreshIndex testIndex
       let search = mkSearch (Just query) Nothing
       parsed <- searchTweets search
-      liftIO $ print parsed
       case parsed of
         Left e ->
           liftIO $ expectationFailure ("Expected tweets as search result but got: " <> show e)

@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Test.Reindex (spec) where
 
@@ -13,7 +15,7 @@ spec =
   describe "Reindex" $ do
     it "reindexes synchronously" $ withTestEnv $ do
       _ <- insertData
-      let newIndex = IndexName "bloodhound-tests-twitter-index-1-reindexed"
+      let newIndex = [qqIndexName|bloodhound-tests-twitter-index-1-reindexed|]
       _ <- tryPerformBHRequest $ deleteIndex newIndex
       _ <- performBHRequest $ createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) newIndex
       _ <- assertRight =<< tryPerformBHRequest (reindex $ mkReindexRequest testIndex newIndex)
@@ -24,7 +26,7 @@ spec =
 
     it "reindexes asynchronously" $ withTestEnv $ do
       _ <- insertData
-      let newIndex = IndexName "bloodhound-tests-twitter-index-1-reindexed"
+      let newIndex = [qqIndexName|bloodhound-tests-twitter-index-1-reindexed|]
       _ <- tryPerformBHRequest $ deleteIndex newIndex
       _ <- performBHRequest $ createIndex (IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits) newIndex
       taskNodeId <- assertRight =<< tryPerformBHRequest (reindexAsync $ mkReindexRequest testIndex newIndex)

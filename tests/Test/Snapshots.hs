@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
@@ -116,7 +118,7 @@ spec = do
             withSnapshot r1n s1n $ do
               let pat = RestoreRenamePattern "bloodhound-tests-twitter-(\\d+)"
               let replace = RRTLit "restored-" :| [RRSubWholeMatch]
-              let expectedIndex = IndexName "restored-bloodhound-tests-twitter-1"
+              let expectedIndex = [qqIndexName|restored-bloodhound-tests-twitter-1|]
               let overrides = RestoreIndexSettings {restoreOverrideReplicas = Just (ReplicaCount 0)}
               let settings =
                     defaultSnapshotRestoreSettings

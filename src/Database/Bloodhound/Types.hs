@@ -159,6 +159,7 @@ module Database.Bloodhound.Types
     IndexName,
     unIndexName,
     mkIndexName,
+    qqIndexName,
     IndexSelection (..),
     NodeSelection (..),
     NodeSelector (..),

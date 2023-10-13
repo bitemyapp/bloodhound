@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Test.Indices where
 
@@ -26,7 +28,7 @@ spec = do
           validateStatus deleteResp 200
 
   describe "Index aliases" $ do
-    let aName = IndexAliasName (IndexName "bloodhound-tests-twitter-1-alias")
+    let aName = IndexAliasName ([qqIndexName|bloodhound-tests-twitter-1-alias|])
     let alias = IndexAlias testIndex aName
     let create = IndexAliasCreate Nothing Nothing
     let action = AddAlias alias create
