@@ -2,6 +2,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
@@ -88,7 +90,7 @@ main = runBH' $ do
   _ <- refreshIndex testIndex
 
   -- set up some aliases
-  let aliasName = IndexName "twitter-alias"
+  let aliasName = [qqIndexName|twitter-alias|]
   let iAlias = IndexAlias testIndex (IndexAliasName aliasName)
   let aliasRouting = Nothing
   let aliasFiltering = Nothing
@@ -129,7 +131,7 @@ main = runBH' $ do
             , maxScore = Just 0.18232156
             , hits =
                 [ Hit
-                    { hitIndex = IndexName "twitter"
+                    { hitIndex = [qqIndexName|twitter|]
                     , hitDocId = DocId "1"
                     , hitScore = Just 0.18232156
                     , hitSource =
@@ -147,7 +149,7 @@ main = runBH' $ do
                     , hitInnerHits = Nothing
                     }
                 , Hit
-                    { hitIndex = IndexName "twitter"
+                    { hitIndex = [qqIndexName|twitter|]
                     , hitDocId = DocId "2"
                     , hitScore = Just 0.18232156
                     , hitSource =
@@ -182,5 +184,5 @@ main = runBH' $ do
   where
     testServer = Server "http://localhost:9200"
     runBH' = withBH defaultManagerSettings testServer
-    testIndex = IndexName "twitter"
+    testIndex = [qqIndexName|twitter|]
     indexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0) defaultIndexMappingsLimits
