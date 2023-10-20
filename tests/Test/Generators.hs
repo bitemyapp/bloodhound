@@ -600,7 +600,8 @@ instance Arbitrary UpdatableIndexSetting where
 
 newtype UpdatableIndexSetting'
   = UpdatableIndexSetting' UpdatableIndexSetting
-  deriving (Show, Eq, ToJSON, FromJSON, ApproxEq, Typeable)
+  deriving (Eq, Show, Typeable)
+  deriving newtype (ToJSON, FromJSON, ApproxEq)
 
 instance Arbitrary UpdatableIndexSetting' where
   arbitrary = do
