@@ -1,10 +1,7 @@
-module Test.ScanScroll
-  ( spec,
-  )
-where
+module Test.ScanScrollSpec (spec) where
 
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 import Prelude
 
 spec :: Spec

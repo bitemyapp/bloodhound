@@ -1,11 +1,8 @@
-module Test.PointInTime
-  ( spec,
-  )
-where
+module Test.PointInTimeSpec (spec) where
 
 import qualified Data.Text as Text
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 import Prelude
 
 spec :: Spec

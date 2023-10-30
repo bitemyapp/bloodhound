@@ -3,14 +3,14 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Test.Common where
+module TestsUtils.Common where
 
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Versions as Versions
 import Lens.Micro (toListOf)
 import qualified Network.HTTP.Types.Status as NHTS
-import Test.Import
+import TestsUtils.Import
 
 testServer :: Server
 testServer = Server "http://localhost:9200"
@@ -85,7 +85,7 @@ deleteExampleIndex :: (MonadBH m) => m (BHResponse StatusDependant Acknowledged,
 deleteExampleIndex =
   performBHRequest $ keepBHResponse $ deleteIndex testIndex
 
-validateStatus :: Show body => BHResponse contextualized body -> Int -> Expectation
+validateStatus :: (Show body) => BHResponse contextualized body -> Int -> Expectation
 validateStatus resp expected =
   if actual == expected
     then return ()

@@ -1,11 +1,11 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.ApproxEq where
+module TestsUtils.ApproxEq where
 
 import qualified Data.List.NonEmpty as NE
 import Database.Bloodhound
-import Test.Import
+import TestsUtils.Import
 
 -- | Typeclass for "equal where it matters". Use this to specify
 -- less-strict equivalence for things such as lists that can wind up

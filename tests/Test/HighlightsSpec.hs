@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Highlights where
+module Test.HighlightsSpec where
 
 import qualified Data.Map as M
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 
 initHighlights :: Text -> BH IO (Either EsError (Maybe HitHighlight))
 initHighlights fieldName = do

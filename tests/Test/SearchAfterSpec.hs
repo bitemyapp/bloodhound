@@ -1,12 +1,9 @@
-module Test.SearchAfter
-  ( spec,
-  )
-where
+module Test.SearchAfterSpec (spec) where
 
 import Control.Concurrent (threadDelay)
 import qualified Data.Aeson as Aeson
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 import Prelude
 
 spec :: Spec

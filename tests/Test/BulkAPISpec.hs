@@ -2,14 +2,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Test.BulkAPI (spec) where
+module Test.BulkAPISpec (spec) where
 
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.Aeson.Optics as LMA
 import qualified Data.Vector as V
 import Optics
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 
 newtype BulkTest
   = BulkTest Text

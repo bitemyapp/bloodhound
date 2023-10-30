@@ -2,7 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Generators where
+module TestsUtils.Generators where
 
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.List as L
@@ -12,8 +12,8 @@ import qualified Data.Text as T
 import qualified Data.Versions as Versions
 import Database.Bloodhound
 import Generic.Random
-import Test.ApproxEq
-import Test.Import
+import TestsUtils.ApproxEq
+import TestsUtils.Import
 
 instance Arbitrary NominalDiffTime where
   arbitrary = fromInteger <$> arbitrary

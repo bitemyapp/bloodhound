@@ -1,16 +1,9 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
-module Test.Nodes
-  ( spec,
-  )
-where
+module Test.NodesSpec (spec) where
 
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 import Prelude
 
 spec :: Spec

@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Import
+module TestsUtils.Import
   ( module X,
-    module Test.Import,
+    module TestsUtils.Import,
   )
 where
 
@@ -36,7 +36,7 @@ import Test.QuickCheck as X hiding (Result, Success, isSuccess)
 import Test.QuickCheck.Property.Monoid as X (T (..), eq, prop_Monoid)
 import Text.Pretty.Simple as X (pPrint)
 
-noDuplicates :: Eq a => [a] -> Bool
+noDuplicates :: (Eq a) => [a] -> Bool
 noDuplicates xs = L.nub xs == xs
 
 getSource :: EsResult a -> Maybe a
@@ -48,7 +48,7 @@ grabFirst r =
     Nothing -> Left (EsError Nothing "Source was missing")
     Just x -> Right x
 
-when' :: Monad m => m Bool -> m () -> m ()
+when' :: (Monad m) => m Bool -> m () -> m ()
 when' b f = b >>= \x -> when x f
 
 headMay :: [a] -> Maybe a

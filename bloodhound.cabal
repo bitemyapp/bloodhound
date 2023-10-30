@@ -77,30 +77,30 @@ test-suite bloodhound-tests
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Test.Aggregation
-      Test.ApproxEq
-      Test.BulkAPI
-      Test.Common
-      Test.Count
-      Test.Documents
-      Test.Generators
-      Test.Highlights
-      Test.Import
-      Test.Indices
-      Test.JSON
-      Test.Nodes
-      Test.PointInTime
-      Test.Query
-      Test.Reindex
-      Test.ScanScroll
-      Test.Script
-      Test.SearchAfter
-      Test.Snapshots
-      Test.Sorting
-      Test.SourceFiltering
-      Test.Suggest
-      Test.Templates
-      Test.Types
+      Test.AggregationSpec
+      Test.BulkAPISpec
+      Test.CountSpec
+      Test.DocumentsSpec
+      Test.HighlightsSpec
+      Test.IndicesSpec
+      Test.JSONSpec
+      Test.NodesSpec
+      Test.PointInTimeSpec
+      Test.QuerySpec
+      Test.ReindexSpec
+      Test.ScanScrollSpec
+      Test.ScriptSpec
+      Test.SearchAfterSpec
+      Test.SnapshotsSpec
+      Test.SortingSpec
+      Test.SourceFilteringSpec
+      Test.SuggestSpec
+      Test.TemplatesSpec
+      Test.TypesSpec
+      TestsUtils.ApproxEq
+      TestsUtils.Common
+      TestsUtils.Generators
+      TestsUtils.Import
       Paths_bloodhound
   hs-source-dirs:
       tests

@@ -2,12 +2,12 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
-module Test.Script where
+module Test.ScriptSpec (spec) where
 
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.Map as M
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 
 spec :: Spec
 spec =

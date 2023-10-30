@@ -2,12 +2,12 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Test.Indices where
+module Test.IndicesSpec where
 
 import qualified Data.List as L
 import qualified Data.Map as M
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 
 checkHasSettings :: [UpdatableIndexSetting] -> BH IO ()
 checkHasSettings settings = do

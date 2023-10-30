@@ -1,11 +1,8 @@
-module Test.Types
-  ( spec,
-  )
-where
+module Test.TypesSpec (spec) where
 
-import Test.Common
-import Test.Generators ()
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Generators ()
+import TestsUtils.Import
 import Prelude
 
 spec :: Spec
@@ -41,3 +38,7 @@ spec = do
       enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
       enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
       enumFromThen minBound (pred maxBound :: DocVersion) `shouldBe` [minBound, pred maxBound]
+
+  fdescribe "IndexName" $ do
+    it "should" $
+      shouldBe True False

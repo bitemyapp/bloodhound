@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Templates where
+module Test.TemplatesSpec (spec) where
 
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 
 spec :: Spec
 spec =

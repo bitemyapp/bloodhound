@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.SourceFiltering where
+module Test.SourceFilteringSpec (spec) where
 
 import qualified Data.Aeson.KeyMap as X
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 
 spec :: Spec
 spec =

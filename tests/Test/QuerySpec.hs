@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Query where
+module Test.QuerySpec where
 
 import qualified Data.Aeson.KeyMap as X
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 
 spec :: Spec
 spec =

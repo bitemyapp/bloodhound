@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
-module Test.JSON (spec) where
+module Test.JSONSpec (spec) where
 
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.ByteString.Lazy.Char8 as BL8
@@ -10,9 +10,9 @@ import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
 import qualified Data.Vector as V
-import Test.ApproxEq
-import Test.Generators
-import Test.Import
+import TestsUtils.ApproxEq
+import TestsUtils.Generators
+import TestsUtils.Import
 
 propJSON ::
   forall a.

@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Test.Aggregation (spec) where
+module Test.AggregationSpec (spec) where
 
 import Control.Error (fmapL, note)
 import qualified Data.Map as M
 import qualified Database.Bloodhound
-import Test.Common
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Import
 
 spec :: Spec
 spec =

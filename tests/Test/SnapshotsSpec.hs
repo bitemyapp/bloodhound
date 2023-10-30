@@ -1,20 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
-module Test.Snapshots (spec) where
+module Test.SnapshotsSpec (spec) where
 
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Network.HTTP.Types.Method as NHTM
-import Test.Common
-import Test.Generators ()
-import Test.Import
+import TestsUtils.Common
+import TestsUtils.Generators ()
+import TestsUtils.Import
 
 spec :: Spec
 spec = do
