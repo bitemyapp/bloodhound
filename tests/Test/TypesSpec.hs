@@ -1,5 +1,8 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Test.TypesSpec (spec) where
 
+import qualified Data.Text as T
 import TestsUtils.Common
 import TestsUtils.Generators ()
 import TestsUtils.Import
@@ -39,6 +42,20 @@ spec = do
       enumFrom (pred maxBound :: DocVersion) `shouldBe` [pred maxBound, maxBound]
       enumFromThen minBound (pred maxBound :: DocVersion) `shouldBe` [minBound, pred maxBound]
 
-  fdescribe "IndexName" $ do
-    it "should" $
-      shouldBe True False
+  describe "IndexName" $ do
+    it "Empty should fail" $
+      mkIndexName "" `shouldBe` Left "Is empty"
+    it "Long should fail" $
+      mkIndexName (T.replicate 256 "x") `shouldBe` Left "Is longer than 255 bytes"
+    it "Upper case should fail" $
+      mkIndexName "azerTY" `shouldBe` Left "Contains uppercase letter(s)"
+    it "Special symbols should fail" $
+      mkIndexName "hello#world" `shouldBe` Left "Includes [\\/*?\"<>| ,#:]"
+    it "Not starting with a letter should fail" $
+      mkIndexName "-test" `shouldBe` Left "Starts with [-_+.]"
+    it "'.' should fail" $
+      mkIndexName "." `shouldBe` Left "Is (.|..)"
+    it "'..' should fail" $
+      mkIndexName ".." `shouldBe` Left "Is (.|..)"
+    it "Regular should work" $
+      mkIndexName "hello-world_42" `shouldBe` Right [qqIndexName|hello-world_42|]
