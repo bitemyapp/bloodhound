@@ -71,6 +71,8 @@ module Database.Bloodhound.Requests
     advanceScroll,
     openPointInTime,
     closePointInTime,
+    openPointInTimeOpenSearch2,
+    closePointInTimeOpenSearch2,
     refreshIndex,
     mkSearch,
     mkAggregateSearch,
@@ -1364,6 +1366,28 @@ closePointInTime ::
   BHRequest StatusDependant (ParsedEsResponse ClosePointInTimeResponse)
 closePointInTime q = do
   withBHResponseParsedEsResponse $ deleteWithBody @StatusDependant ["_pit"] (encode q)
+
+-- | 'openPointInTimeOpenSearch2' opens a point in time for an index given an 'IndexName'.
+-- Note that the point in time should be closed with 'closePointInTime' as soon
+-- as it is no longer needed.
+--
+-- For more information see
+-- <https://opensearch.org/docs/latest/search-plugins/point-in-time/>.
+openPointInTimeOpenSearch2 ::
+  IndexName ->
+  BHRequest StatusDependant (ParsedEsResponse OpenPointInTimeOpenSearch2Response)
+openPointInTimeOpenSearch2 indexName =
+  withBHResponseParsedEsResponse $ post @StatusDependant [unIndexName indexName, "_search", "point_in_time?keep_alive=1m"] emptyBody
+
+-- | 'closePointInTimeOpenSearch2' closes a point in time given a 'ClosePointInTime'.
+--
+-- For more information see
+-- <https://opensearch.org/docs/latest/search-plugins/point-in-time/>.
+closePointInTimeOpenSearch2 ::
+  ClosePointInTime ->
+  BHRequest StatusDependant (ParsedEsResponse ClosePointInTimeResponse)
+closePointInTimeOpenSearch2 q = do
+  withBHResponseParsedEsResponse $ deleteWithBody @StatusDependant ["_search", "point_in_time"] (encode q)
 
 reindex ::
   ReindexRequest ->

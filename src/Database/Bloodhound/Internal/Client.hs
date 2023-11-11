@@ -1553,6 +1553,15 @@ instance FromJSON ShardResult where
         <*> v .:? "skipped" .!= 0
         <*> v .:? "failed" .!= 0
 
+instance ToJSON ShardResult where
+  toJSON ShardResult {..} =
+    object
+      [ "total" .= shardTotal,
+        "successful" .= shardsSuccessful,
+        "skipped" .= shardsSkipped,
+        "failed" .= shardsFailed
+      ]
+
 data SnapshotState
   = SnapshotInit
   | SnapshotStarted

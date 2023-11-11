@@ -79,6 +79,9 @@ module Database.Bloodhound.Client
     pitSearch,
     openPointInTime,
     closePointInTime,
+    pitSearchOpenSearch2,
+    openPointInTimeOpenSearch2,
+    closePointInTimeOpenSearch2,
     refreshIndex,
     Requests.mkSearch,
     Requests.mkAggregateSearch,
@@ -720,6 +723,53 @@ pitSearch indexName search = do
                       }
               pitAccumulator newSearch (oldHits <> newHits)
 
+-- | 'pitSearchOpenSearch2' uses the point in time (PIT) API of elastic, for a given
+-- 'IndexName'. Requires Elasticsearch >=7.10. Note that this will consume the
+-- entire search result set and will be doing O(n) list appends so this may
+-- not be suitable for large result sets. In that case, the point in time API
+-- should be used directly with `openPointInTimeOpenSearch2` and `closePointInTimeOpenSearch2`.
+--
+-- Note that 'pitSearchOpenSearch2' utilizes the 'search_after' parameter under the hood,
+-- which requires a non-empty 'sortBody' field in the provided 'Search' value.
+-- Otherwise, 'pitSearchOpenSearch2' will fail to return all matching documents.
+--
+-- For more information see
+-- <https://opensearch.org/docs/latest/search-plugins/point-in-time/>.
+pitSearchOpenSearch2 :: forall a m. (FromJSON a, MonadBH m) => IndexName -> Search -> m [Hit a]
+pitSearchOpenSearch2 indexName search = do
+  openResp <- openPointInTimeOpenSearch2 indexName
+  case openResp of
+    Left e -> throwEsError e
+    Right OpenPointInTimeOpenSearch2Response {..} -> do
+      let searchPIT = search {pointInTime = Just (PointInTime oos2PitId "1m")}
+      hits <- pitAccumulator searchPIT []
+      closeResp <- closePointInTimeOpenSearch2 (ClosePointInTime oos2PitId)
+      case closeResp of
+        Left _ -> return []
+        Right (ClosePointInTimeResponse False _) ->
+          error "failed to close point in time (PIT)"
+        Right (ClosePointInTimeResponse True _) -> return hits
+  where
+    pitAccumulator :: Search -> [Hit a] -> m [Hit a]
+    pitAccumulator search' oldHits = do
+      resp <- tryPerformBHRequest $ Requests.searchAll search'
+      case resp of
+        Left _ -> return []
+        Right searchResult -> case hits (searchHits searchResult) of
+          [] -> return oldHits
+          newHits -> case (hitSort $ last newHits, pitId searchResult) of
+            (Nothing, Nothing) ->
+              error "no point in time (PIT) ID or last sort value"
+            (Just _, Nothing) -> error "no point in time (PIT) ID"
+            (Nothing, _) -> return (oldHits <> newHits)
+            (Just lastSort, Just pitId') -> do
+              let newSearch =
+                    search'
+                      { pointInTime = Just (PointInTime pitId' "1m"),
+                        searchAfterKey = Just lastSort
+                      }
+              pitAccumulator newSearch (oldHits <> newHits)
+
 -- | This is a hook that can be set via the 'bhRequestHook' function
 -- that will authenticate all requests using an HTTP Basic
 -- Authentication header. Note that it is *strongly* recommended that
@@ -757,7 +807,29 @@ closePointInTime ::
   m (ParsedEsResponse ClosePointInTimeResponse)
 closePointInTime q = performBHRequest $ Requests.closePointInTime q
 
-reindex :: MonadBH m => ReindexRequest -> m ReindexResponse
+-- | 'openPointInTimeOpenSearch2' opens a point in time for an index given an 'IndexName'.
+-- Note that the point in time should be closed with 'closePointInTime' as soon
+-- as it is no longer needed.
+--
+-- For more information see
+-- <https://opensearch.org/docs/latest/search-plugins/point-in-time/>.
+openPointInTimeOpenSearch2 ::
+  (MonadBH m) =>
+  IndexName ->
+  m (ParsedEsResponse OpenPointInTimeOpenSearch2Response)
+openPointInTimeOpenSearch2 indexName = performBHRequest $ Requests.openPointInTimeOpenSearch2 indexName
+
+-- | 'closePointInTimeOpenSearch2' closes a point in time given a 'ClosePointInTime'.
+--
+-- For more information see
+-- <https://opensearch.org/docs/latest/search-plugins/point-in-time/>.
+closePointInTimeOpenSearch2 ::
+  (MonadBH m) =>
+  ClosePointInTime ->
+  m (ParsedEsResponse ClosePointInTimeResponse)
+closePointInTimeOpenSearch2 q = performBHRequest $ Requests.closePointInTimeOpenSearch2 q
+
+reindex :: (MonadBH m) => ReindexRequest -> m ReindexResponse
 reindex = performBHRequest . Requests.reindex
 
 reindexAsync :: MonadBH m => ReindexRequest -> m TaskNodeId

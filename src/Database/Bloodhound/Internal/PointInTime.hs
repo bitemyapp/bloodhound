@@ -4,6 +4,7 @@
 module Database.Bloodhound.Internal.PointInTime where
 
 import Bloodhound.Import
+import Database.Bloodhound.Internal.Client (ShardResult)
 
 data PointInTime = PointInTime
   { pPitId :: Text,
@@ -67,3 +68,22 @@ instance FromJSON ClosePointInTimeResponse where
     numFreed' <- o .: "num_freed"
     return $ ClosePointInTimeResponse succeeded' numFreed'
   parseJSON x = typeMismatch "ClosePointInTimeResponse" x
+
+data OpenPointInTimeOpenSearch2Response = OpenPointInTimeOpenSearch2Response
+  { oos2PitId :: Text,
+    oos2Shards :: ShardResult,
+    oos2CreationTime :: POSIXTime
+  }
+  deriving (Eq, Show)
+
+instance ToJSON OpenPointInTimeOpenSearch2Response where
+  toJSON OpenPointInTimeOpenSearch2Response {..} =
+    object ["pit_id" .= oos2PitId, "_shards" .= oos2Shards, "creation_time" .= oos2CreationTime]
+
+instance FromJSON OpenPointInTimeOpenSearch2Response where
+  parseJSON (Object o) =
+    OpenPointInTimeOpenSearch2Response
+      <$> o .: "pit_id"
+      <*> o .: "_shards"
+      <*> o .: "creation_time"
+  parseJSON x = typeMismatch "OpenPointInTimeOpenSearch2Response" x

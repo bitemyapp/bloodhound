@@ -395,6 +395,7 @@ module Database.Bloodhound.Types
     CountShards (..),
     PointInTime (..),
     OpenPointInTimeResponse (..),
+    OpenPointInTimeOpenSearch2Response (..),
     ClosePointInTime (..),
     ClosePointInTimeResponse (..),
     SumAggregation (..),

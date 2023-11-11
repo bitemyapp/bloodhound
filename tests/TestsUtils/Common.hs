@@ -305,6 +305,9 @@ is v = getServerVersion >>= \x -> return $ x == v
 esOnlyIT :: (HasCallStack, Example a) => IO (String -> a -> SpecWith (Arg a))
 esOnlyIT = withMajorVersionIT (>= 6)
 
+os2OnlyIT :: (HasCallStack, Example a) => IO (String -> a -> SpecWith (Arg a))
+os2OnlyIT = withMajorVersionIT (== 2)
+
 withMajorVersionIT :: (HasCallStack, Example a) => (Word -> Bool) -> IO (String -> a -> SpecWith (Arg a))
 withMajorVersionIT p = do
   majoreVersion <- fetchMajorVersion
