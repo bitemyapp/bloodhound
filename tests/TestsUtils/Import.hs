@@ -24,7 +24,7 @@ import Data.Text as X (Text)
 import Data.Time.Calendar as X (Day (..), fromGregorian)
 import Data.Time.Clock as X
 import Data.Typeable as X
-import Database.Bloodhound.Client as X (pitSearch, pitSearchOpenSearch2, scanSearch, withBH)
+import Database.Bloodhound.Client as X (pitSearch, scanSearch, withBH)
 import Database.Bloodhound.Requests as X
 import Database.Bloodhound.Types as X hiding (key)
 import Network.HTTP.Client as X hiding (Proxy, fileSize)

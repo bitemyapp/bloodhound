@@ -9,9 +9,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Database.Bloodhound.Internal.Client where
+module Database.Bloodhound.Client.Cluster where
 
-import Bloodhound.Import
 import Control.Monad.Catch
 import Control.Monad.Except
 import qualified Data.Aeson.Key as X
@@ -24,12 +23,13 @@ import qualified Data.Text as T
 import qualified Data.Traversable as DT
 import qualified Data.Vector as V
 import qualified Data.Versions as Versions
-import Database.Bloodhound.Internal.Analysis
 import Database.Bloodhound.Internal.Client.BHRequest
 import Database.Bloodhound.Internal.Client.Doc
-import Database.Bloodhound.Internal.Newtypes
-import Database.Bloodhound.Internal.Query
-import Database.Bloodhound.Internal.StringlyTyped
+import Database.Bloodhound.Internal.Utils.Imports
+import Database.Bloodhound.Internal.Utils.StringlyTyped
+import Database.Bloodhound.Internal.Versions.Common.Types.Analysis
+import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
+import Database.Bloodhound.Internal.Versions.Common.Types.Query
 import GHC.Generics
 import Network.HTTP.Client
 import qualified Network.URI as URI
@@ -131,7 +131,7 @@ performBHRequest req = tryPerformBHRequest req >>= either throwEsError return
 emptyBody :: L.ByteString
 emptyBody = L.pack ""
 
-parseUrl' :: MonadThrow m => Text -> m Request
+parseUrl' :: (MonadThrow m) => Text -> m Request
 parseUrl' t = parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack t))
 
 runBH :: BHEnv -> BH m a -> m (Either EsError a)
@@ -400,69 +400,69 @@ instance FromJSON UpdatableIndexSetting where
         numberOfReplicas
           `taggedAt` ["index", "number_of_replicas"]
           <|> autoExpandReplicas
-          `taggedAt` ["index", "auto_expand_replicas"]
+            `taggedAt` ["index", "auto_expand_replicas"]
           <|> refreshInterval
-          `taggedAt` ["index", "refresh_interval"]
+            `taggedAt` ["index", "refresh_interval"]
           <|> indexConcurrency
-          `taggedAt` ["index", "concurrency"]
+            `taggedAt` ["index", "concurrency"]
           <|> failOnMergeFailure
-          `taggedAt` ["index", "fail_on_merge_failure"]
+            `taggedAt` ["index", "fail_on_merge_failure"]
           <|> translogFlushThresholdOps
-          `taggedAt` ["index", "translog", "flush_threshold_ops"]
+            `taggedAt` ["index", "translog", "flush_threshold_ops"]
           <|> translogFlushThresholdSize
-          `taggedAt` ["index", "translog", "flush_threshold_size"]
+            `taggedAt` ["index", "translog", "flush_threshold_size"]
           <|> translogFlushThresholdPeriod
-          `taggedAt` ["index", "translog", "flush_threshold_period"]
+            `taggedAt` ["index", "translog", "flush_threshold_period"]
           <|> translogDisableFlush
-          `taggedAt` ["index", "translog", "disable_flush"]
+            `taggedAt` ["index", "translog", "disable_flush"]
           <|> cacheFilterMaxSize
-          `taggedAt` ["index", "cache", "filter", "max_size"]
+            `taggedAt` ["index", "cache", "filter", "max_size"]
           <|> cacheFilterExpire
-          `taggedAt` ["index", "cache", "filter", "expire"]
+            `taggedAt` ["index", "cache", "filter", "expire"]
           <|> gatewaySnapshotInterval
-          `taggedAt` ["index", "gateway", "snapshot_interval"]
+            `taggedAt` ["index", "gateway", "snapshot_interval"]
           <|> routingAllocationInclude
-          `taggedAt` ["index", "routing", "allocation", "include"]
+            `taggedAt` ["index", "routing", "allocation", "include"]
           <|> routingAllocationExclude
-          `taggedAt` ["index", "routing", "allocation", "exclude"]
+            `taggedAt` ["index", "routing", "allocation", "exclude"]
           <|> routingAllocationRequire
-          `taggedAt` ["index", "routing", "allocation", "require"]
+            `taggedAt` ["index", "routing", "allocation", "require"]
           <|> routingAllocationEnable
-          `taggedAt` ["index", "routing", "allocation", "enable"]
+            `taggedAt` ["index", "routing", "allocation", "enable"]
           <|> routingAllocationShardsPerNode
-          `taggedAt` ["index", "routing", "allocation", "total_shards_per_node"]
+            `taggedAt` ["index", "routing", "allocation", "total_shards_per_node"]
           <|> recoveryInitialShards
-          `taggedAt` ["index", "recovery", "initial_shards"]
+            `taggedAt` ["index", "recovery", "initial_shards"]
           <|> gcDeletes
-          `taggedAt` ["index", "gc_deletes"]
+            `taggedAt` ["index", "gc_deletes"]
           <|> ttlDisablePurge
-          `taggedAt` ["index", "ttl", "disable_purge"]
+            `taggedAt` ["index", "ttl", "disable_purge"]
           <|> translogFSType
-          `taggedAt` ["index", "translog", "fs", "type"]
+            `taggedAt` ["index", "translog", "fs", "type"]
           <|> compressionSetting
-          `taggedAt` ["index", "codec"]
+            `taggedAt` ["index", "codec"]
           <|> compoundFormat
-          `taggedAt` ["index", "compound_format"]
+            `taggedAt` ["index", "compound_format"]
           <|> compoundOnFlush
-          `taggedAt` ["index", "compound_on_flush"]
+            `taggedAt` ["index", "compound_on_flush"]
           <|> warmerEnabled
-          `taggedAt` ["index", "warmer", "enabled"]
+            `taggedAt` ["index", "warmer", "enabled"]
           <|> blocksReadOnly
-          `taggedAt` ["blocks", "read_only"]
+            `taggedAt` ["blocks", "read_only"]
           <|> blocksRead
-          `taggedAt` ["blocks", "read"]
+            `taggedAt` ["blocks", "read"]
           <|> blocksWrite
-          `taggedAt` ["blocks", "write"]
+            `taggedAt` ["blocks", "write"]
           <|> blocksMetaData
-          `taggedAt` ["blocks", "metadata"]
+            `taggedAt` ["blocks", "metadata"]
           <|> mappingTotalFieldsLimit
-          `taggedAt` ["index", "mapping", "total_fields", "limit"]
+            `taggedAt` ["index", "mapping", "total_fields", "limit"]
           <|> analysisSetting
-          `taggedAt` ["index", "analysis"]
+            `taggedAt` ["index", "analysis"]
           <|> unassignedNodeLeftDelayedTimeout
-          `taggedAt` ["index", "unassigned", "node_left", "delayed_timeout"]
+            `taggedAt` ["index", "unassigned", "node_left", "delayed_timeout"]
         where
-          taggedAt :: FromJSON a => (a -> Parser b) -> [Key] -> Parser b
+          taggedAt :: (FromJSON a) => (a -> Parser b) -> [Key] -> Parser b
           taggedAt f ks = taggedAt' f (Object o) ks
       taggedAt' f v [] =
         f =<< (parseJSON v <|> parseJSON (unStringlyTypeJSON v))
@@ -2726,7 +2726,7 @@ instance FromJSON VersionNumber where
 
 -- * Utils
 
-jsonObject :: ToJSON a => a -> Object
+jsonObject :: (ToJSON a) => a -> Object
 jsonObject x =
   case toJSON x of
     Object o -> o

@@ -4,14 +4,14 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Bloodhound.Internal.Reindex where
+module Database.Bloodhound.Internal.Versions.Common.Types.Reindex where
 
 import Data.Aeson
 import Data.List.NonEmpty
 import Data.Text (Text)
-import Database.Bloodhound.Common.Script (ScriptLanguage)
-import Database.Bloodhound.Internal.Newtypes (IndexName)
-import Database.Bloodhound.Internal.Query (Query)
+import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes (IndexName)
+import Database.Bloodhound.Internal.Versions.Common.Types.Query (Query)
+import Database.Bloodhound.Internal.Versions.Common.Types.Script (ScriptLanguage)
 import Deriving.Aeson
 
 data ReindexRequest = ReindexRequest

@@ -2,11 +2,11 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Bloodhound.Common.Script where
+module Database.Bloodhound.Internal.Versions.Common.Types.Script where
 
-import Bloodhound.Import
 import Data.Aeson.KeyMap
-import Database.Bloodhound.Internal.Newtypes
+import Database.Bloodhound.Internal.Utils.Imports
+import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
 import GHC.Generics
 
 newtype ScriptFields
@@ -149,9 +149,9 @@ parseFunctionScoreFunction o =
   singleScript
     `taggedWith` "script_score"
     <|> singleRandom
-    `taggedWith` "random_score"
+      `taggedWith` "random_score"
     <|> singleFieldValueFactor
-    `taggedWith` "field_value_factor"
+      `taggedWith` "field_value_factor"
   where
     taggedWith parser k = parser =<< o .: k
     singleScript = pure . FunctionScoreFunctionScript

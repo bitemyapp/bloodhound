@@ -3,12 +3,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Database.Bloodhound.Internal.Suggest where
+module Database.Bloodhound.Internal.Versions.Common.Types.Suggest where
 
-import Bloodhound.Import
 import qualified Data.Aeson.KeyMap as X
-import Database.Bloodhound.Internal.Newtypes
-import Database.Bloodhound.Internal.Query (Query, TemplateQueryKeyValuePairs)
+import Database.Bloodhound.Internal.Utils.Imports
+import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
+import Database.Bloodhound.Internal.Versions.Common.Types.Query (Query, TemplateQueryKeyValuePairs)
 import GHC.Generics
 
 data Suggest = Suggest

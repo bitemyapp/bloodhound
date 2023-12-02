@@ -3,7 +3,7 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Bloodhound.Internal.Task where
+module Database.Bloodhound.Internal.Versions.Common.Types.Task where
 
 import Data.Aeson
 import Data.Text (Text)

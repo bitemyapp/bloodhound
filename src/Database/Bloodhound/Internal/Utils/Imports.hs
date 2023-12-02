@@ -1,4 +1,4 @@
-module Bloodhound.Import
+module Database.Bloodhound.Internal.Utils.Imports
   ( module X,
     LByteString,
     Method,
@@ -69,15 +69,15 @@ type LByteString = BL.ByteString
 
 type Method = NHTM.Method
 
-readMay :: Read a => String -> Maybe a
+readMay :: (Read a) => String -> Maybe a
 readMay s = case reads s of
   (a, "") : _ -> Just a
   _ -> Nothing
 
-parseReadText :: Read a => Text -> Parser a
+parseReadText :: (Read a) => Text -> Parser a
 parseReadText = maybe mzero return . readMay . T.unpack
 
-showText :: Show a => a -> Text
+showText :: (Show a) => a -> Text
 showText = T.pack . show
 
 omitNulls :: [(Key, Value)] -> Value
@@ -94,9 +94,9 @@ parseNEJSON (x : xs) = DT.mapM parseJSON (x :| xs)
 deleteSeveral :: [Key] -> X.KeyMap v -> X.KeyMap v
 deleteSeveral ks km = foldr X.delete km ks
 
-oPath :: ToJSON a => NonEmpty Key -> a -> Value
+oPath :: (ToJSON a) => NonEmpty Key -> a -> Value
 oPath (k :| []) v = object [k .= v]
 oPath (k :| (h : t)) v = object [k .= oPath (h :| t) v]
 
-tshow :: Show a => a -> Text
+tshow :: (Show a) => a -> Text
 tshow = T.pack . show

@@ -3,18 +3,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Database.Bloodhound.Internal.Query
+module Database.Bloodhound.Internal.Versions.Common.Types.Query
   ( module X,
-    module Database.Bloodhound.Internal.Query,
+    module Database.Bloodhound.Internal.Versions.Common.Types.Query,
   )
 where
 
-import Bloodhound.Import
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
-import Database.Bloodhound.Common.Script as X
-import Database.Bloodhound.Internal.Newtypes
+import Database.Bloodhound.Internal.Utils.Imports
+import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
+import Database.Bloodhound.Internal.Versions.Common.Types.Script as X
 import GHC.Generics
 
 data Query
@@ -137,56 +137,56 @@ instance FromJSON Query where
         termQuery
           `taggedWith` "term"
           <|> termsQuery
-          `taggedWith` "terms"
+            `taggedWith` "terms"
           <|> idsQuery
-          `taggedWith` "ids"
+            `taggedWith` "ids"
           <|> queryQueryStringQuery
-          `taggedWith` "query_string"
+            `taggedWith` "query_string"
           <|> queryMatchQuery
-          `taggedWith` "match"
+            `taggedWith` "match"
           <|> queryMultiMatchQuery
           <|> queryBoolQuery
-          `taggedWith` "bool"
+            `taggedWith` "bool"
           <|> queryBoostingQuery
-          `taggedWith` "boosting"
+            `taggedWith` "boosting"
           <|> queryCommonTermsQuery
-          `taggedWith` "common"
+            `taggedWith` "common"
           <|> constantScoreQuery
-          `taggedWith` "constant_score"
+            `taggedWith` "constant_score"
           <|> queryFunctionScoreQuery
-          `taggedWith` "function_score"
+            `taggedWith` "function_score"
           <|> queryDisMaxQuery
-          `taggedWith` "dis_max"
+            `taggedWith` "dis_max"
           <|> queryFuzzyLikeThisQuery
-          `taggedWith` "fuzzy_like_this"
+            `taggedWith` "fuzzy_like_this"
           <|> queryFuzzyLikeFieldQuery
-          `taggedWith` "fuzzy_like_this_field"
+            `taggedWith` "fuzzy_like_this_field"
           <|> queryFuzzyQuery
-          `taggedWith` "fuzzy"
+            `taggedWith` "fuzzy"
           <|> queryHasChildQuery
-          `taggedWith` "has_child"
+            `taggedWith` "has_child"
           <|> queryHasParentQuery
-          `taggedWith` "has_parent"
+            `taggedWith` "has_parent"
           <|> queryIndicesQuery
-          `taggedWith` "indices"
+            `taggedWith` "indices"
           <|> matchAllQuery
-          `taggedWith` "match_all"
+            `taggedWith` "match_all"
           <|> queryMoreLikeThisQuery
-          `taggedWith` "more_like_this"
+            `taggedWith` "more_like_this"
           <|> queryMoreLikeThisFieldQuery
-          `taggedWith` "more_like_this_field"
+            `taggedWith` "more_like_this_field"
           <|> queryNestedQuery
-          `taggedWith` "nested"
+            `taggedWith` "nested"
           <|> queryPrefixQuery
-          `taggedWith` "prefix"
+            `taggedWith` "prefix"
           <|> queryRangeQuery
-          `taggedWith` "range"
+            `taggedWith` "range"
           <|> queryRegexpQuery
-          `taggedWith` "regexp"
+            `taggedWith` "regexp"
           <|> querySimpleQueryStringQuery
-          `taggedWith` "simple_query_string"
+            `taggedWith` "simple_query_string"
           <|> queryWildcardQuery
-          `taggedWith` "wildcard"
+            `taggedWith` "wildcard"
         where
           taggedWith parser k = parser =<< o .: k
       termQuery = fieldTagged $ \(FieldName fn) o ->
@@ -1645,9 +1645,9 @@ instance FromJSON BoolMatch where
         mustMatch
           `taggedWith` "must"
           <|> mustNotMatch
-          `taggedWith` "must_not"
+            `taggedWith` "must_not"
           <|> shouldMatch
-          `taggedWith` "should"
+            `taggedWith` "should"
         where
           taggedWith parser k = parser =<< o .: k
           mustMatch t = MustMatch t <$> o .:? "_cache" .!= defaultCache
@@ -1945,7 +1945,7 @@ instance FromJSON FunctionScoreQuery where
           <*> o .:? "boost"
           <*> ( singleFunction o
                   <|> multipleFunctions
-                  `taggedWith` "functions"
+                    `taggedWith` "functions"
               )
           <*> o .:? "max_boost"
           <*> o .:? "boost_mode"

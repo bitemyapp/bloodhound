@@ -163,7 +163,7 @@ mkSimpleRequest method' endpoint =
 
 class ParseBHResponse parsingContext where
   parseBHResponse ::
-    FromJSON a =>
+    (FromJSON a) =>
     BHResponse parsingContext a ->
     Either EsProtocolException (ParsedEsResponse a)
 
@@ -255,7 +255,7 @@ type ParsedEsResponse a = Either EsError a
 -- thrown. If you encounter this, please report the full body it
 -- reports along with your Elasticsearch version.
 parseEsResponse ::
-  FromJSON body =>
+  (FromJSON body) =>
   BHResponse parsingContext body ->
   Either EsProtocolException (ParsedEsResponse body)
 parseEsResponse response
@@ -294,14 +294,14 @@ parseEsResponseWith parser response =
 
 -- | Helper around 'aeson' 'decode'
 decodeResponse ::
-  FromJSON a =>
+  (FromJSON a) =>
   BHResponse StatusIndependant a ->
   Maybe a
 decodeResponse = decode . responseBody . getResponse
 
 -- | Helper around 'aeson' 'eitherDecode'
 eitherDecodeResponse ::
-  FromJSON a =>
+  (FromJSON a) =>
   BHResponse StatusIndependant a ->
   Either String a
 eitherDecodeResponse = eitherDecode . responseBody . getResponse

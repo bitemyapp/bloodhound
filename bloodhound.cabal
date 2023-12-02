@@ -27,26 +27,41 @@ library
   exposed-modules:
       Database.Bloodhound
       Database.Bloodhound.Client
+      Database.Bloodhound.Client.Cluster
       Database.Bloodhound.Requests
       Database.Bloodhound.Types
-      Database.Bloodhound.Internal.Aggregation
-      Database.Bloodhound.Internal.Analysis
-      Database.Bloodhound.Internal.Client
-      Database.Bloodhound.Internal.Highlight
-      Database.Bloodhound.Internal.Newtypes
-      Database.Bloodhound.Internal.Query
-      Database.Bloodhound.Internal.Reindex
-      Database.Bloodhound.Internal.Sort
-      Database.Bloodhound.Internal.StringlyTyped
-      Database.Bloodhound.Internal.Suggest
-      Database.Bloodhound.Internal.Task
+      Database.Bloodhound.Common.Client
+      Database.Bloodhound.Common.Requests
+      Database.Bloodhound.Common.Types
+      Database.Bloodhound.ElasticSearch7.Client
+      Database.Bloodhound.ElasticSearch7.Requests
+      Database.Bloodhound.ElasticSearch7.Types
+      Database.Bloodhound.OpenSearch1.Client
+      Database.Bloodhound.OpenSearch1.Requests
+      Database.Bloodhound.OpenSearch1.Types
+      Database.Bloodhound.OpenSearch2.Client
+      Database.Bloodhound.OpenSearch2.Requests
+      Database.Bloodhound.OpenSearch2.Types
   other-modules:
-      Bloodhound.Import
-      Database.Bloodhound.Common.Script
       Database.Bloodhound.Internal.Client.BHRequest
       Database.Bloodhound.Internal.Client.Doc
-      Database.Bloodhound.Internal.Count
-      Database.Bloodhound.Internal.PointInTime
+      Database.Bloodhound.Internal.Utils.Requests
+      Database.Bloodhound.Internal.Utils.Imports
+      Database.Bloodhound.Internal.Utils.StringlyTyped
+      Database.Bloodhound.Internal.Versions.Common.Types.Count
+      Database.Bloodhound.Internal.Versions.Common.Types.Aggregation
+      Database.Bloodhound.Internal.Versions.Common.Types.Analysis
+      Database.Bloodhound.Internal.Versions.Common.Types.Highlight
+      Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
+      Database.Bloodhound.Internal.Versions.Common.Types.PointInTime
+      Database.Bloodhound.Internal.Versions.Common.Types.Query
+      Database.Bloodhound.Internal.Versions.Common.Types.Reindex
+      Database.Bloodhound.Internal.Versions.Common.Types.Script
+      Database.Bloodhound.Internal.Versions.Common.Types.Sort
+      Database.Bloodhound.Internal.Versions.Common.Types.Suggest
+      Database.Bloodhound.Internal.Versions.Common.Types.Task
+      Database.Bloodhound.Internal.Versions.ElasticSearch7.Types.PointInTime
+      Database.Bloodhound.Internal.Versions.OpenSearch2.Types.PointInTime
       Paths_bloodhound
   hs-source-dirs:
       src

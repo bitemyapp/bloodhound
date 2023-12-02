@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Bloodhound.Internal.Count (CountQuery (..), CountResponse (..), CountShards (..)) where
+module Database.Bloodhound.Internal.Versions.Common.Types.Count (CountQuery (..), CountResponse (..), CountShards (..)) where
 
 import Data.Aeson
-import Database.Bloodhound.Internal.Query
+import Database.Bloodhound.Internal.Versions.Common.Types.Query
 import Numeric.Natural
 
 newtype CountQuery = CountQuery {countQuery :: Query}

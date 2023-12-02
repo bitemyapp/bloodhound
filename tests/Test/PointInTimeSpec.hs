@@ -1,6 +1,7 @@
 module Test.PointInTimeSpec (spec) where
 
 import qualified Data.Text as Text
+import qualified Database.Bloodhound.OpenSearch2.Client as ClientOS2
 import TestsUtils.Common
 import TestsUtils.Import
 import Prelude
@@ -65,7 +66,7 @@ spec = do
                 { size = Size 1
                 }
         regular_search <- searchTweet search
-        pit_search' <- pitSearchOpenSearch2 testIndex search :: BH IO [Hit Tweet]
+        pit_search' <- ClientOS2.pitSearch testIndex search :: BH IO [Hit Tweet]
         let pit_search = map hitSource pit_search'
         liftIO $
           regular_search `shouldBe` Right exampleTweet -- Check that the size restriction is being honored
@@ -88,7 +89,7 @@ spec = do
                 }
         scan_search' <- scanSearch testIndex search :: BH IO [Hit Tweet]
         let scan_search = map hitSource scan_search'
-        pit_search' <- pitSearchOpenSearch2 testIndex search :: BH IO [Hit Tweet]
+        pit_search' <- ClientOS2.pitSearch testIndex search :: BH IO [Hit Tweet]
         let pit_search = map hitSource pit_search'
         let expectedHits = map Just docs
         liftIO $

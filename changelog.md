@@ -6,6 +6,29 @@
   - Create and expose `Database.Bloodhound.Requests` for low-level operations
   - Fix payload parsing issues and types there and there
   - Import @wireapp fork
+  - Support OpenSearch 1.3.12 / 2.9.0
+  - Use `versions` instead of `semver` (`VersionNumber` wraps `Data.Versions.Version`)
+  - Drop `VMVersion` in favor of `VersionNumber`
+  - `EsError.errorStatus` became a `Maybe` and is deprecated
+  - `EsResult._type` is deprecated
+  - `IndexedDocumentidxDocType` is optional and deprecated
+  - Module reorganization (avoid exposing `Internal` and split ElasticSearch/OpenSearch)
+
+```
+# Migration script
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Client/Database.Bloodhound.Client.Cluster/g' {}
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Aggregation/Database.Bloodhound.Types/g' {}
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Analysis/Database.Bloodhound.Types/g' {}
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Highlight/Database.Bloodhound.Types/g' {}
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Newtypes/Database.Bloodhound.Types/g' {}
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Query/Database.Bloodhound.Types/g' {}
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Reindex/Database.Bloodhound.Types/g' {}
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Sort/Database.Bloodhound.Types/g' {}
+fd --type file -x sed -i -e '/Database.Bloodhound.Internal.StringlyTyped/g' {}
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Suggest/Database.Bloodhound.Types/g' {}
+fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Task/Database.Bloodhound.Types/g' {}
+```
+
 - @wireapp
   - Implement updateByQuery
   - Implement reindexing/tasks

@@ -2,18 +2,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Database.Bloodhound.Internal.Aggregation where
+module Database.Bloodhound.Internal.Versions.Common.Types.Aggregation where
 
-import Bloodhound.Import
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
-import Database.Bloodhound.Internal.Client
-import Database.Bloodhound.Internal.Highlight (HitHighlight)
-import Database.Bloodhound.Internal.Newtypes
-import Database.Bloodhound.Internal.Query
-import Database.Bloodhound.Internal.Sort
+import Database.Bloodhound.Client.Cluster
+import Database.Bloodhound.Internal.Utils.Imports
+import Database.Bloodhound.Internal.Versions.Common.Types.Highlight (HitHighlight)
+import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
+import Database.Bloodhound.Internal.Versions.Common.Types.Query
+import Database.Bloodhound.Internal.Versions.Common.Types.Sort
 
 type Aggregations = M.Map Key Aggregation
 

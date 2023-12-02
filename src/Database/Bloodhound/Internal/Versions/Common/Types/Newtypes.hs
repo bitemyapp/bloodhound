@@ -5,7 +5,7 @@
 {-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Database.Bloodhound.Internal.Newtypes
+module Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
   ( From (..),
     Size (..),
     HitFields (..),
@@ -67,13 +67,13 @@ module Database.Bloodhound.Internal.Newtypes
   )
 where
 
-import Bloodhound.Import
 import Control.Exception (throwIO)
 import qualified Data.ByteString as BS
 import Data.Char (isLetter, isLower)
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import Database.Bloodhound.Internal.Utils.Imports
 import GHC.Generics
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
@@ -385,7 +385,7 @@ newtype IndexAliasName = IndexAliasName {indexAliasName :: IndexName}
 newtype MaybeNA a = MaybeNA {unMaybeNA :: Maybe a}
   deriving newtype (Show, Eq, Functor, Applicative, Monad)
 
-instance FromJSON a => FromJSON (MaybeNA a) where
+instance (FromJSON a) => FromJSON (MaybeNA a) where
   parseJSON (String "NA") = pure $ MaybeNA Nothing
   parseJSON o = MaybeNA . Just <$> parseJSON o
 

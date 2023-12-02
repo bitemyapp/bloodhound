@@ -1,27 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Database.Bloodhound.Internal.PointInTime where
+module Database.Bloodhound.Internal.Versions.ElasticSearch7.Types.PointInTime where
 
-import Bloodhound.Import
-import Database.Bloodhound.Internal.Client (ShardResult)
-
-data PointInTime = PointInTime
-  { pPitId :: Text,
-    keepAlive :: Text
-  }
-  deriving (Eq, Show)
-
-instance ToJSON PointInTime where
-  toJSON PointInTime {..} =
-    object
-      [ "id" .= pPitId,
-        "keep_alive" .= keepAlive
-      ]
-
-instance FromJSON PointInTime where
-  parseJSON (Object o) = PointInTime <$> o .: "id" <*> o .: "keep_alive"
-  parseJSON x = typeMismatch "PointInTime" x
+import Database.Bloodhound.Internal.Utils.Imports
 
 data OpenPointInTimeResponse = OpenPointInTimeResponse
   { oPitId :: Text
@@ -68,22 +50,3 @@ instance FromJSON ClosePointInTimeResponse where
     numFreed' <- o .: "num_freed"
     return $ ClosePointInTimeResponse succeeded' numFreed'
   parseJSON x = typeMismatch "ClosePointInTimeResponse" x
-
-data OpenPointInTimeOpenSearch2Response = OpenPointInTimeOpenSearch2Response
-  { oos2PitId :: Text,
-    oos2Shards :: ShardResult,
-    oos2CreationTime :: POSIXTime
-  }
-  deriving (Eq, Show)
-
-instance ToJSON OpenPointInTimeOpenSearch2Response where
-  toJSON OpenPointInTimeOpenSearch2Response {..} =
-    object ["pit_id" .= oos2PitId, "_shards" .= oos2Shards, "creation_time" .= oos2CreationTime]
-
-instance FromJSON OpenPointInTimeOpenSearch2Response where
-  parseJSON (Object o) =
-    OpenPointInTimeOpenSearch2Response
-      <$> o .: "pit_id"
-      <*> o .: "_shards"
-      <*> o .: "creation_time"
-  parseJSON x = typeMismatch "OpenPointInTimeOpenSearch2Response" x

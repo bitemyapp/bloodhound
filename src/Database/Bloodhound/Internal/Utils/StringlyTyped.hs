@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Bloodhound.Internal.StringlyTyped where
+module Database.Bloodhound.Internal.Utils.StringlyTyped where
 
-import Bloodhound.Import
 import qualified Data.Text as T
+import Database.Bloodhound.Internal.Utils.Imports
 
 -- This whole module is a sin bucket to deal with Elasticsearch badness.
 newtype StringlyTypedDouble = StringlyTypedDouble

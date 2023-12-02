@@ -2,13 +2,13 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Bloodhound.Internal.Analysis where
+module Database.Bloodhound.Internal.Versions.Common.Types.Analysis where
 
-import Bloodhound.Import
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
-import Database.Bloodhound.Internal.Newtypes
-import Database.Bloodhound.Internal.StringlyTyped
+import Database.Bloodhound.Internal.Utils.Imports
+import Database.Bloodhound.Internal.Utils.StringlyTyped
+import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
 import GHC.Generics
 
 data Analysis = Analysis
