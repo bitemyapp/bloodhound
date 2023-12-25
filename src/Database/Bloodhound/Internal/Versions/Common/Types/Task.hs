@@ -7,6 +7,7 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Task where
 
 import Data.Aeson
 import Data.Text (Text)
+import Database.Bloodhound.Internal.Utils.Imports (optionsDerivingStrippingPrefix)
 import Deriving.Aeson
 
 data TaskResponse a = TaskResponse
@@ -16,13 +17,9 @@ data TaskResponse a = TaskResponse
     taskResponseError :: Maybe Object
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON)
-    via CustomJSON
-          '[ OmitNothingFields,
-             FieldLabelModifier (StripPrefix "taskResponse", CamelToSnake)
-           ]
-          (TaskResponse a)
+
+instance (FromJSON a) => FromJSON (TaskResponse a) where
+  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "taskResponse"
 
 data Task a = Task
   { taskNode :: Text,
@@ -36,13 +33,9 @@ data Task a = Task
     taskCancellable :: Bool
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON)
-    via CustomJSON
-          '[ OmitNothingFields,
-             FieldLabelModifier (StripPrefix "task", CamelToSnake)
-           ]
-          (Task a)
+
+instance (FromJSON a) => FromJSON (Task a) where
+  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "task"
 
 newtype TaskNodeId = TaskNodeId Text
   deriving (Show, Eq)

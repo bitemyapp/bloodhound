@@ -9,10 +9,11 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Reindex where
 import Data.Aeson
 import Data.List.NonEmpty
 import Data.Text (Text)
+import Database.Bloodhound.Internal.Utils.Imports (optionsDerivingStrippingPrefix)
 import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes (IndexName)
 import Database.Bloodhound.Internal.Versions.Common.Types.Query (Query)
 import Database.Bloodhound.Internal.Versions.Common.Types.Script (ScriptLanguage)
-import Deriving.Aeson
+import GHC.Generics
 
 data ReindexRequest = ReindexRequest
   { reindexConflicts :: Maybe ReindexConflicts,
@@ -21,13 +22,12 @@ data ReindexRequest = ReindexRequest
     reindexScript :: Maybe ReindexScript
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON
-          '[ OmitNothingFields,
-             FieldLabelModifier (StripPrefix "reindex", CamelToSnake)
-           ]
-          ReindexRequest
+
+instance ToJSON ReindexRequest where
+  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindex"
+
+instance FromJSON ReindexRequest where
+  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindex"
 
 data ReindexConflicts
   = ReindexAbortOnConflicts
@@ -55,26 +55,24 @@ data ReindexSource = ReindexSource
     reindexSourceSlice :: Maybe ReindexSlice
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON
-          '[ OmitNothingFields,
-             FieldLabelModifier (StripPrefix "reindexSource", CamelToSnake)
-           ]
-          ReindexSource
+
+instance ToJSON ReindexSource where
+  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexSource"
+
+instance FromJSON ReindexSource where
+  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexSource"
 
 data ReindexSlice = ReindexSlice
   { reindexSliceId :: Maybe Int,
     reindexSliceMax :: Maybe Int
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON
-          '[ OmitNothingFields,
-             FieldLabelModifier (StripPrefix "reindexSlice", CamelToSnake)
-           ]
-          ReindexSlice
+
+instance ToJSON ReindexSlice where
+  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexSlice"
+
+instance FromJSON ReindexSlice where
+  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexSlice"
 
 data ReindexDest = ReindexDest
   { reindexDestIndex :: IndexName,
@@ -82,13 +80,12 @@ data ReindexDest = ReindexDest
     reindexDestOpType :: Maybe ReindexOpType
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON
-          '[ OmitNothingFields,
-             FieldLabelModifier (StripPrefix "reindexDest", CamelToSnake)
-           ]
-          ReindexDest
+
+instance ToJSON ReindexDest where
+  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexDest"
+
+instance FromJSON ReindexDest where
+  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexDest"
 
 data VersionType
   = VersionTypeInternal
@@ -133,13 +130,12 @@ data ReindexScript = ReindexScript
     reindexScriptSource :: Text
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON
-          '[ OmitNothingFields,
-             FieldLabelModifier (StripPrefix "reindexScript", CamelToSnake)
-           ]
-          ReindexScript
+
+instance ToJSON ReindexScript where
+  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexScript"
+
+instance FromJSON ReindexScript where
+  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexScript"
 
 mkReindexRequest :: IndexName -> IndexName -> ReindexRequest
 mkReindexRequest src dst =
@@ -171,10 +167,9 @@ data ReindexResponse = ReindexResponse
     reindexResponseThrottledMillis :: Int
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON
-          '[ OmitNothingFields,
-             FieldLabelModifier (StripPrefix "reindexResponse", CamelToSnake)
-           ]
-          ReindexResponse
+
+instance ToJSON ReindexResponse where
+  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexResponse"
+
+instance FromJSON ReindexResponse where
+  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexResponse"
