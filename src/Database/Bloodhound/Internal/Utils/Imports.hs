@@ -80,6 +80,22 @@ parseReadText = maybe mzero return . readMay . T.unpack
 showText :: (Show a) => a -> Text
 showText = T.pack . show
 
+-- |
+-- import qualified Data.Aeson.KeyMap as X
+-- import qualified Data.Vector as V
+-- import Data.Text
+--
+-- >>> omitNulls [ "test1" .= (toJSON ([] :: [Int])), "test2" .= (toJSON ("some value" :: Text)) ]
+-- Object (X.fromList [("test2", String "some value")])
+--
+-- >>> omitNulls [ "test1" .= (toJSON ([1] :: [Int])), "test2" .= (toJSON ("some value" :: Text)) ]
+-- Object ( X.fromList [ ("test1", Array (V.fromList [Number 1.0])), ("test2", String "some value") ] )
+--
+-- >>> omitNulls [ "test1" .= (toJSON Null), "test2" .= (toJSON ("some value" :: Text)) ]
+-- Object (X.fromList [("test2", String "some value")])
+--
+-- >>> omitNulls [ "test1" .= (toJSON (1 :: Int)), "test2" .= (toJSON ("some value" :: Text)) ]
+-- Object ( X.fromList [ ("test1", Number 1.0), ("test2", String "some value") ] )
 omitNulls :: [(Key, Value)] -> Value
 omitNulls = object . filter notNull
   where

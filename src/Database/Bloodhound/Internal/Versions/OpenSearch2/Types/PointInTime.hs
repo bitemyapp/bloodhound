@@ -3,8 +3,8 @@
 
 module Database.Bloodhound.Internal.Versions.OpenSearch2.Types.PointInTime where
 
-import Database.Bloodhound.Client.Cluster (ShardResult)
 import Database.Bloodhound.Internal.Utils.Imports
+import Database.Bloodhound.Internal.Versions.Common.Types.Nodes (ShardResult)
 
 data OpenPointInTimeResponse = OpenPointInTimeResponse
   { oos2PitId :: Text,

@@ -48,18 +48,36 @@ library
       Database.Bloodhound.Internal.Utils.Requests
       Database.Bloodhound.Internal.Utils.Imports
       Database.Bloodhound.Internal.Utils.StringlyTyped
-      Database.Bloodhound.Internal.Versions.Common.Types.Count
       Database.Bloodhound.Internal.Versions.Common.Types.Aggregation
       Database.Bloodhound.Internal.Versions.Common.Types.Analysis
+      Database.Bloodhound.Internal.Versions.Common.Types.Bulk
+      Database.Bloodhound.Internal.Versions.Common.Types.Count
       Database.Bloodhound.Internal.Versions.Common.Types.Highlight
+      Database.Bloodhound.Internal.Versions.Common.Types.Indices
       Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
+      Database.Bloodhound.Internal.Versions.Common.Types.Nodes
       Database.Bloodhound.Internal.Versions.Common.Types.PointInTime
       Database.Bloodhound.Internal.Versions.Common.Types.Query
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.CommonTerms
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.Commons
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.Fuzzy
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.Match
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.MoreLikeThis
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.MoreLikeThisField
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.Prefix
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.QueryString
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.Range
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.Regexp
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.SimpleQueryString
+      Database.Bloodhound.Internal.Versions.Common.Types.Query.Wildcard
       Database.Bloodhound.Internal.Versions.Common.Types.Reindex
       Database.Bloodhound.Internal.Versions.Common.Types.Script
+      Database.Bloodhound.Internal.Versions.Common.Types.Search
+      Database.Bloodhound.Internal.Versions.Common.Types.Snapshots
       Database.Bloodhound.Internal.Versions.Common.Types.Sort
       Database.Bloodhound.Internal.Versions.Common.Types.Suggest
       Database.Bloodhound.Internal.Versions.Common.Types.Task
+      Database.Bloodhound.Internal.Versions.Common.Types.Units
       Database.Bloodhound.Internal.Versions.ElasticSearch7.Types.PointInTime
       Database.Bloodhound.Internal.Versions.OpenSearch2.Types.PointInTime
       Paths_bloodhound
@@ -164,3 +182,15 @@ test-suite bloodhound-tests
       TypeApplications
       TypeFamilies
       TypeOperators
+
+test-suite doctests
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   tests
+  main-is:          Doctests.hs
+  ghc-options:      -threaded
+  build-depends: 
+      aeson
+    , base
+    , bloodhound
+    , doctest >= 0.8
+    , text

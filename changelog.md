@@ -13,6 +13,7 @@
   - `EsResult._type` is deprecated
   - `IndexedDocumentidxDocType` is optional and deprecated
   - Module reorganization (avoid exposing `Internal` and split ElasticSearch/OpenSearch)
+  - Rename `ResultsShard`'s shards to `srShards`
 
 ```
 # Migration script

@@ -7,8 +7,7 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Task where
 
 import Data.Aeson
 import Data.Text (Text)
-import Database.Bloodhound.Internal.Utils.Imports (optionsDerivingStrippingPrefix)
-import Deriving.Aeson
+import GHC.Generics
 
 data TaskResponse a = TaskResponse
   { taskResponseCompleted :: Bool,
@@ -19,7 +18,12 @@ data TaskResponse a = TaskResponse
   deriving (Show, Eq, Generic)
 
 instance (FromJSON a) => FromJSON (TaskResponse a) where
-  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "taskResponse"
+  parseJSON = withObject "TaskResponse" $ \v ->
+    TaskResponse
+      <$> v .: "completed"
+      <*> v .: "task"
+      <*> v .:? "reponse"
+      <*> v .:? "error"
 
 data Task a = Task
   { taskNode :: Text,
@@ -35,7 +39,17 @@ data Task a = Task
   deriving (Show, Eq, Generic)
 
 instance (FromJSON a) => FromJSON (Task a) where
-  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "task"
+  parseJSON = withObject "Task" $ \v ->
+    Task
+      <$> v .: "node"
+      <*> v .: "id"
+      <*> v .: "type"
+      <*> v .: "action"
+      <*> v .: "status"
+      <*> v .: "description"
+      <*> v .: "start_time_in_millis"
+      <*> v .: "running_time_in_nanos"
+      <*> v .: "cancellable"
 
 newtype TaskNodeId = TaskNodeId Text
   deriving (Show, Eq)

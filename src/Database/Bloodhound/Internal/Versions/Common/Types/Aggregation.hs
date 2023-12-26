@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -8,12 +7,12 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
-import Database.Bloodhound.Client.Cluster
 import Database.Bloodhound.Internal.Utils.Imports
 import Database.Bloodhound.Internal.Versions.Common.Types.Highlight (HitHighlight)
 import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
 import Database.Bloodhound.Internal.Versions.Common.Types.Query
 import Database.Bloodhound.Internal.Versions.Common.Types.Sort
+import Database.Bloodhound.Internal.Versions.Common.Types.Units
 
 type Aggregations = M.Map Key Aggregation
 

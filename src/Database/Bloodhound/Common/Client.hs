@@ -145,7 +145,6 @@ import qualified Data.Vector as V
 import Database.Bloodhound.Client.Cluster
 import qualified Database.Bloodhound.Common.Requests as Requests
 import Database.Bloodhound.Common.Types
-import Database.Bloodhound.Internal.Client.BHRequest
 import Network.HTTP.Client hiding (Proxy)
 import Prelude hiding (filter, head)
 

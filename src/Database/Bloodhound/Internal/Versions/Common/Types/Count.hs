@@ -1,6 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Bloodhound.Internal.Versions.Common.Types.Count (CountQuery (..), CountResponse (..), CountShards (..)) where
+module Database.Bloodhound.Internal.Versions.Common.Types.Count
+  ( CountQuery (..),
+    CountResponse (..),
+    CountShards (..),
+  )
+where
 
 import Data.Aeson
 import Database.Bloodhound.Internal.Versions.Common.Types.Query

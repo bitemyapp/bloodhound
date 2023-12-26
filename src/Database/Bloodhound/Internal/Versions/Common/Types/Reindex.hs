@@ -3,13 +3,13 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Reindex where
 
 import Data.Aeson
 import Data.List.NonEmpty
 import Data.Text (Text)
-import Database.Bloodhound.Internal.Utils.Imports (optionsDerivingStrippingPrefix)
 import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes (IndexName)
 import Database.Bloodhound.Internal.Versions.Common.Types.Query (Query)
 import Database.Bloodhound.Internal.Versions.Common.Types.Script (ScriptLanguage)
@@ -24,10 +24,21 @@ data ReindexRequest = ReindexRequest
   deriving (Show, Eq, Generic)
 
 instance ToJSON ReindexRequest where
-  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindex"
+  toJSON ReindexRequest {..} =
+    object
+      [ "conflicts" .= reindexConflicts,
+        "source" .= reindexSource,
+        "dest" .= reindexDest,
+        "script" .= reindexScript
+      ]
 
 instance FromJSON ReindexRequest where
-  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindex"
+  parseJSON = withObject "ReindexRequest" $ \v ->
+    ReindexRequest
+      <$> v .:? "conflicts"
+      <*> v .: "source"
+      <*> v .: "dest"
+      <*> v .:? "script"
 
 data ReindexConflicts
   = ReindexAbortOnConflicts
@@ -57,10 +68,23 @@ data ReindexSource = ReindexSource
   deriving (Show, Eq, Generic)
 
 instance ToJSON ReindexSource where
-  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexSource"
+  toJSON ReindexSource {..} =
+    object
+      [ "index" .= reindexSourceIndex,
+        "maxDocs" .= reindexSourceMaxDocs,
+        "query" .= reindexSourceQuery,
+        "size" .= reindexSourceSize,
+        "slice" .= reindexSourceSlice
+      ]
 
 instance FromJSON ReindexSource where
-  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexSource"
+  parseJSON = withObject "ReindexSource" $ \v ->
+    ReindexSource
+      <$> v .: "index"
+      <*> v .:? "maxDocs"
+      <*> v .:? "query"
+      <*> v .:? "size"
+      <*> v .:? "slice"
 
 data ReindexSlice = ReindexSlice
   { reindexSliceId :: Maybe Int,
@@ -69,10 +93,12 @@ data ReindexSlice = ReindexSlice
   deriving (Show, Eq, Generic)
 
 instance ToJSON ReindexSlice where
-  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexSlice"
+  toJSON ReindexSlice {..} =
+    object ["id" .= reindexSliceId, "max" .= reindexSliceMax]
 
 instance FromJSON ReindexSlice where
-  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexSlice"
+  parseJSON = withObject "ReindexSlice" $ \v ->
+    ReindexSlice <$> v .:? "id" <*> v .:? "max"
 
 data ReindexDest = ReindexDest
   { reindexDestIndex :: IndexName,
@@ -82,10 +108,19 @@ data ReindexDest = ReindexDest
   deriving (Show, Eq, Generic)
 
 instance ToJSON ReindexDest where
-  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexDest"
+  toJSON ReindexDest {..} =
+    object
+      [ "index" .= reindexDestIndex,
+        "version_type" .= reindexDestVersionType,
+        "op_type" .= reindexDestOpType
+      ]
 
 instance FromJSON ReindexDest where
-  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexDest"
+  parseJSON = withObject "ReindexDest" $ \v ->
+    ReindexDest
+      <$> v .: "index"
+      <*> v .:? "version_type"
+      <*> v .:? "op_type"
 
 data VersionType
   = VersionTypeInternal
@@ -132,10 +167,17 @@ data ReindexScript = ReindexScript
   deriving (Show, Eq, Generic)
 
 instance ToJSON ReindexScript where
-  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexScript"
+  toJSON ReindexScript {..} =
+    object
+      [ "language" .= reindexScriptLanguage,
+        "source" .= reindexScriptSource
+      ]
 
 instance FromJSON ReindexScript where
-  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexScript"
+  parseJSON = withObject "ReindexScript" $ \v ->
+    ReindexScript
+      <$> v .: "language"
+      <*> v .: "source"
 
 mkReindexRequest :: IndexName -> IndexName -> ReindexRequest
 mkReindexRequest src dst =
@@ -169,7 +211,22 @@ data ReindexResponse = ReindexResponse
   deriving (Show, Eq, Generic)
 
 instance ToJSON ReindexResponse where
-  toEncoding = genericToEncoding $ optionsDerivingStrippingPrefix "reindexResponse"
+  toJSON ReindexResponse {..} =
+    object
+      [ "took" .= reindexResponseTook,
+        "updated" .= reindexResponseUpdated,
+        "created" .= reindexResponseCreated,
+        "batches" .= reindexResponseBatches,
+        "version_conflicts" .= reindexResponseVersionConflicts,
+        "throttled_millis" .= reindexResponseThrottledMillis
+      ]
 
 instance FromJSON ReindexResponse where
-  parseJSON = genericParseJSON $ optionsDerivingStrippingPrefix "reindexResponse"
+  parseJSON = withObject "ReindexResponse" $ \v ->
+    ReindexResponse
+      <$> v .:? "took"
+      <*> v .: "updated"
+      <*> v .: "created"
+      <*> v .: "batches"
+      <*> v .: "version_conflicts"
+      <*> v .: "throttled_millis"

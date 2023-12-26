@@ -163,7 +163,7 @@ import Data.Time.Clock
 import qualified Data.Vector as V
 import Database.Bloodhound.Client.Cluster
 import Database.Bloodhound.Common.Types
-import Database.Bloodhound.Internal.Client.BHRequest
+import Database.Bloodhound.Internal.Utils.Imports (showText)
 import Database.Bloodhound.Internal.Utils.Requests
 import Prelude hiding (filter, head)
 
