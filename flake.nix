@@ -10,25 +10,22 @@
     flake-utils.lib.eachDefaultSystem
       (system:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = import nixpkgs { inherit system; };
 
           disableTests = pkgs.haskell.lib.dontCheck;
 
           enableTests = pkgs.haskell.lib.doCheck;
-
-          jailbreakUnbreak = pkg:
-            pkgs.haskell.lib.doJailbreak (disableTests (pkgs.haskell.lib.unmarkBroken pkg));
 
           haskellPackages = pkgs.haskellPackages;
         in
         rec
         {
           packages.bloodhound =
-            disableTests (haskellPackages.callCabal2nix "bloodhound" ./. rec {
+            disableTests (haskellPackages.callCabal2nix "bloodhound" ./. {
               # Dependency overrides go here
             });
           packages.bloodhound-examples =
-            haskellPackages.callCabal2nix "bloodhound-examples" ./examples rec {
+            haskellPackages.callCabal2nix "bloodhound-examples" ./examples {
               # Dependency overrides go here
               bloodhound = packages.bloodhound;
             };
