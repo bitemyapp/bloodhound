@@ -71,7 +71,7 @@ instance ToJSON ReindexSource where
   toJSON ReindexSource {..} =
     object
       [ "index" .= reindexSourceIndex,
-        "maxDocs" .= reindexSourceMaxDocs,
+        "max_docs" .= reindexSourceMaxDocs,
         "query" .= reindexSourceQuery,
         "size" .= reindexSourceSize,
         "slice" .= reindexSourceSlice
@@ -81,7 +81,7 @@ instance FromJSON ReindexSource where
   parseJSON = withObject "ReindexSource" $ \v ->
     ReindexSource
       <$> v .: "index"
-      <*> v .:? "maxDocs"
+      <*> v .:? "max_docs"
       <*> v .:? "query"
       <*> v .:? "size"
       <*> v .:? "slice"
