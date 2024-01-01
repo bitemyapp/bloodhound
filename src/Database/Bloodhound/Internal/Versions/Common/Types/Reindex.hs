@@ -10,6 +10,7 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Reindex where
 import Data.Aeson
 import Data.List.NonEmpty
 import Data.Text (Text)
+import Database.Bloodhound.Internal.Utils.Imports (omitNulls)
 import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes (IndexName)
 import Database.Bloodhound.Internal.Versions.Common.Types.Query (Query)
 import Database.Bloodhound.Internal.Versions.Common.Types.Script (ScriptLanguage)
@@ -25,7 +26,7 @@ data ReindexRequest = ReindexRequest
 
 instance ToJSON ReindexRequest where
   toJSON ReindexRequest {..} =
-    object
+    omitNulls
       [ "conflicts" .= reindexConflicts,
         "source" .= reindexSource,
         "dest" .= reindexDest,
@@ -69,7 +70,7 @@ data ReindexSource = ReindexSource
 
 instance ToJSON ReindexSource where
   toJSON ReindexSource {..} =
-    object
+    omitNulls
       [ "index" .= reindexSourceIndex,
         "max_docs" .= reindexSourceMaxDocs,
         "query" .= reindexSourceQuery,
@@ -94,7 +95,7 @@ data ReindexSlice = ReindexSlice
 
 instance ToJSON ReindexSlice where
   toJSON ReindexSlice {..} =
-    object ["id" .= reindexSliceId, "max" .= reindexSliceMax]
+    omitNulls ["id" .= reindexSliceId, "max" .= reindexSliceMax]
 
 instance FromJSON ReindexSlice where
   parseJSON = withObject "ReindexSlice" $ \v ->
@@ -109,7 +110,7 @@ data ReindexDest = ReindexDest
 
 instance ToJSON ReindexDest where
   toJSON ReindexDest {..} =
-    object
+    omitNulls
       [ "index" .= reindexDestIndex,
         "version_type" .= reindexDestVersionType,
         "op_type" .= reindexDestOpType
@@ -212,7 +213,7 @@ data ReindexResponse = ReindexResponse
 
 instance ToJSON ReindexResponse where
   toJSON ReindexResponse {..} =
-    object
+    omitNulls
       [ "took" .= reindexResponseTook,
         "updated" .= reindexResponseUpdated,
         "created" .= reindexResponseCreated,
