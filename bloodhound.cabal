@@ -10,7 +10,7 @@ bug-reports:    https://github.com/bitemyapp/bloodhound.git/issues
 author:         Chris Allen
 maintainer:     gautier.difolco@gmail.com
 copyright:      2018 Chris Allen
-license:        BSD3
+license:        BSD-3-Clause
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
