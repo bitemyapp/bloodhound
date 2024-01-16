@@ -98,6 +98,7 @@ library
     , http-types >=0.8 && <1
     , mtl >=1.0 && <3
     , network-uri >=2.6 && <3
+    , optics-core >=0.4 && <0.5
     , scientific >=0.3.0.0 && <1
     , template-haskell >=2.10 && <3
     , text >=0.11 && <3
