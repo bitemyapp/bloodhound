@@ -57,7 +57,9 @@ upsertDocs ::
   BH IO ()
 upsertDocs f as = do
   let batch = as <&> (\(id_, doc) -> BulkUpsert testIndex id_ (f $ toJSON doc) []) & V.fromList
-  performBHRequest (bulk @StatusDependant @IgnoredBody batch) >> performBHRequest (refreshIndex testIndex) >> pure ()
+  _ <- performBHRequest (bulk @StatusDependant batch)
+  performBHRequest (refreshIndex testIndex)
+  pure ()
 
 spec :: Spec
 spec =
@@ -146,7 +148,7 @@ spec =
         let fourthDoc = BulkIndexAuto testIndex (toJSON fourthTest)
         let fifthDoc = BulkIndexEncodingAuto testIndex (toEncoding fifthTest)
         let stream = V.fromList [firstDoc, secondDoc, thirdDoc, fourthDoc, fifthDoc]
-        _ <- performBHRequest $ bulk @StatusDependant @IgnoredBody stream
+        bulkResponse <- performBHRequest $ bulk @StatusDependant stream
         -- liftIO $ pPrint bulkResp
         _ <- performBHRequest $ refreshIndex testIndex
         -- liftIO $ pPrint refreshResp
@@ -160,6 +162,12 @@ spec =
           getSource maybeFirst `shouldBe` Just firstTest
           getSource maybeSecond `shouldBe` Just secondTest
           getSource maybeThird `shouldBe` Just thirdTest
+          bulkErrors bulkResponse `shouldBe` False
+          length (bulkActionItems bulkResponse) `shouldBe` 5
+          baiAction <$> bulkActionItems bulkResponse `shouldBe` [Index, Create, Create, Index, Index]
+          bulkActionItems bulkResponse `shouldSatisfy` all ((== "bloodhound-tests-twitter-1") . biIndex . baiItem)
+          bulkActionItems bulkResponse `shouldSatisfy` all ((== Just 201) . biStatus . baiItem)
+          bulkActionItems bulkResponse `shouldSatisfy` all ((== Nothing) . biError . baiItem)
         -- Since we can't get the docs by doc id, we check for their existence in
         -- a match all query.
         let query = MatchAllQuery Nothing

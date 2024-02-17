@@ -1,13 +1,24 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Bulk
-  ( BulkOperation (..),
+  ( -- * Request
+    BulkOperation (..),
     UpsertActionMetadata (..),
     UpsertPayload (..),
     buildUpsertActionMetadata,
+
+    -- * Response
+    BulkResponse (..),
+    BulkActionItem (..),
+    BulkItem (..),
+    BulkAction (..),
+    BulkError (..),
   )
 where
 
+import qualified Data.Aeson as A
+import qualified Data.Aeson.Key as A
+import qualified Data.Aeson.Types as A
 import Database.Bloodhound.Internal.Utils.Imports
 import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
 import Database.Bloodhound.Internal.Versions.Common.Types.Query
@@ -56,3 +67,74 @@ data BulkOperation
   | -- | Update the document if it already exists, otherwise insert it.
     BulkUpsert IndexName DocId UpsertPayload [UpsertActionMetadata]
   deriving (Eq, Show)
+
+data BulkResponse = BulkResponse
+  { bulkTook :: Int,
+    bulkErrors :: Bool,
+    bulkActionItems :: [BulkActionItem]
+  }
+  deriving (Eq, Show)
+
+data BulkActionItem = BulkActionItem
+  { baiAction :: BulkAction,
+    baiItem :: BulkItem
+  }
+  deriving (Eq, Show)
+
+data BulkItem = BulkItem
+  { biIndex :: Text,
+    biId :: Text,
+    biStatus :: Maybe Int,
+    biError :: Maybe BulkError
+  }
+  deriving (Eq, Show)
+
+data BulkAction = Index | Create | Delete | Update
+  deriving (Eq, Show)
+
+data BulkError = BulkError
+  { beType :: Text,
+    beReason :: Text
+  }
+  deriving (Eq, Show)
+
+instance FromJSON BulkResponse where
+  parseJSON = withObject "BulkResponse" $ \o ->
+    BulkResponse <$> o .: "took" <*> o .: "errors" <*> o .: "items"
+
+instance FromJSON BulkActionItem where
+  parseJSON j =
+    parseItem Index j
+      <|> parseItem Create j
+      <|> parseItem Delete j
+      <|> parseItem Update j
+    where
+      -- \| The object has a single key: value pair, where the key encodes
+      -- the action.
+      parseItem :: BulkAction -> A.Value -> A.Parser BulkActionItem
+      parseItem action = withObject "BulkActionItem" $ \o -> do
+        v <- o .: A.fromText actionText
+        pure $! BulkActionItem {baiAction = action, baiItem = v}
+        where
+          actionText :: Text
+          actionText = case action of
+            Index -> "index"
+            Create -> "create"
+            Delete -> "delete"
+            Update -> "update"
+
+instance FromJSON BulkItem where
+  parseJSON = withObject "BulkItem" $ \o ->
+    BulkItem
+      <$> o
+        .: "_index"
+      <*> o
+        .: "_id"
+      <*> o
+        .:? "status" -- allegedly present but ES example shows a case where it is missing.. so..
+      <*> o
+        .:? "error"
+
+instance FromJSON BulkError where
+  parseJSON = withObject "BulkError" $
+    \o -> BulkError <$> o .: "type" <*> o .: "reason"

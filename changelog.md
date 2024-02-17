@@ -37,6 +37,8 @@ fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Task/Database.Bloodh
   - Add support for ngram and edge_ngram filters
   - Add support for edge_ngram tokenizer
   - Fix `CountShared` support ES 5.2
+- @robinp
+  - Add proper `BulkResponse` to `bulk` (#293)
 
 0.21.0.0
 ========

@@ -913,9 +913,9 @@ instance FromJSON DeletedDocumentsRetries where
 -- >>> _ <- runBH' $ bulk stream
 -- >>> _ <- runBH' $ refreshIndex testIndex
 bulk ::
-  (ParseBHResponse contextualized, FromJSON a) =>
+  (ParseBHResponse contextualized) =>
   V.Vector BulkOperation ->
-  BHRequest contextualized a
+  BHRequest contextualized BulkResponse
 bulk =
   post ["_bulk"] . encodeBulkOperations
 

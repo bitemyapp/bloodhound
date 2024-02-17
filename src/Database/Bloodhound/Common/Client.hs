@@ -526,10 +526,10 @@ deleteByQuery indexName query = performBHRequest $ Requests.deleteByQuery indexN
 -- >>> _ <- runBH' $ bulk stream
 -- >>> _ <- runBH' $ refreshIndex testIndex
 bulk ::
-  forall a m.
-  (MonadBH m, FromJSON a) =>
+  forall m.
+  (MonadBH m) =>
   V.Vector BulkOperation ->
-  m a
+  m BulkResponse
 bulk ops = performBHRequest $ Requests.bulk @StatusDependant ops
 
 -- | 'documentExists' enables you to check if a document exists.
