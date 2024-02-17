@@ -85,7 +85,7 @@ main = runBH' $ do
 
   -- bulk load
   let stream = V.fromList [BulkIndex testIndex (DocId "2") (toJSON exampleTweet)]
-  _ <- bulk @IgnoredBody stream
+  _ <- bulk stream
   -- Bulk loads require an index refresh before new data is loaded.
   _ <- refreshIndex testIndex
 
