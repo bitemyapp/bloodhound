@@ -1,11 +1,11 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.7.
+-- This file has been generated from package.yaml by hpack version 0.36.1.
 --
 -- see: https://github.com/sol/hpack
 
 name:           bloodhound
-version:        0.21.0.0
+version:        0.22.0.0
 synopsis:       Elasticsearch client library for Haskell
 description:    Elasticsearch made awesome for Haskell hackers
 category:       Database, Search
@@ -47,6 +47,7 @@ library
       Database.Bloodhound.Internal.Client.Doc
       Database.Bloodhound.Internal.Count
       Database.Bloodhound.Internal.PointInTime
+      X
       Paths_bloodhound
   hs-source-dirs:
       src

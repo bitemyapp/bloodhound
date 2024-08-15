@@ -1,3 +1,8 @@
+0.22.0.0
+========
+- @blackheaven
+  - Fix `EsError` for OpenSearch
+
 0.21.0.0
 ========
 - @blackheaven

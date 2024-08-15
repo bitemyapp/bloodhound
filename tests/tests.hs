@@ -52,7 +52,7 @@ main = hspec $ do
       withTestEnv $ do
         res <- getDocument @() (IndexName "bogus") (DocId "bogus_as_well")
         errorResp <- parseEsResponse res
-        liftIO (errorResp `shouldBe` Left (EsError 404 "no such index [bogus]"))
+        liftIO (errorResp `shouldBe` Left (EsError (Just 404) "no such index [bogus]"))
 
   describe "Monoid (SearchHits a)" $
     prop "abides the monoid laws" $

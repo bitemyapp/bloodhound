@@ -261,7 +261,7 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
 --    problem. If you can't parse the expected response, its a good idea to
 --    try parsing this.
 data EsError = EsError
-  { errorStatus :: Int,
+  { errorStatus :: Maybe Int,
     errorMessage :: Text
   }
   deriving (Eq, Show)
@@ -269,7 +269,7 @@ data EsError = EsError
 instance FromJSON EsError where
   parseJSON (Object v) =
     EsError
-      <$> v .: "status"
+      <$> v .:? "status"
       <*> (v .: "error" <|> (v .: "error" >>= (.: "reason")))
   parseJSON _ = empty
 

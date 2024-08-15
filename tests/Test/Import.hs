@@ -46,7 +46,7 @@ grabFirst :: Either EsError (SearchResult a) -> Either EsError a
 grabFirst r =
   case fmap (hitSource . head . hits . searchHits) r of
     (Left e) -> Left e
-    (Right Nothing) -> Left (EsError 500 "Source was missing")
+    (Right Nothing) -> Left (EsError (Just 500) "Source was missing")
     (Right (Just x)) -> Right x
 
 when' :: Monad m => m Bool -> m () -> m ()
