@@ -1,4 +1,4 @@
-0.22.0.0
+0.23.0.0
 ========
 - @blackheaven
   - Rework `MonadBH` to be function oriented (instead of implementation oriented)
@@ -39,6 +39,11 @@ fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Task/Database.Bloodh
   - Fix `CountShared` support ES 5.2
 - @robinp
   - Add proper `BulkResponse` to `bulk` (#293)
+
+0.23.0.0
+========
+- @blackheaven
+  - Fix `EsError` for OpenSearch
 
 0.21.0.0
 ========
