@@ -23,18 +23,18 @@ instance ToJSON SortMode where
   toJSON SortAvg = String "avg"
 
 -- | 'mkSort' defaults everything but the 'FieldName' and the 'SortOrder' so
---    that you can concisely describe the usual kind of 'SortSpec's you want.
+--   that you can concisely describe the usual kind of 'SortSpec's you want.
 mkSort :: FieldName -> SortOrder -> DefaultSort
 mkSort fieldName sOrder = DefaultSort fieldName sOrder Nothing Nothing Nothing Nothing
 
 -- | 'Sort' is a synonym for a list of 'SortSpec's. Sort behavior is order
---    dependent with later sorts acting as tie-breakers for earlier sorts.
+--   dependent with later sorts acting as tie-breakers for earlier sorts.
 type Sort = [SortSpec]
 
 -- | The two main kinds of 'SortSpec' are 'DefaultSortSpec' and
---    'GeoDistanceSortSpec'. The latter takes a 'SortOrder', 'GeoPoint', and
---    'DistanceUnit' to express "nearness" to a single geographical point as a
---    sort specification.
+--   'GeoDistanceSortSpec'. The latter takes a 'SortOrder', 'GeoPoint', and
+--   'DistanceUnit' to express "nearness" to a single geographical point as a
+--   sort specification.
 --
 -- <http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 data SortSpec
@@ -71,10 +71,10 @@ instance ToJSON SortSpec where
       ]
 
 -- | 'DefaultSort' is usually the kind of 'SortSpec' you'll want. There's a
---    'mkSort' convenience function for when you want to specify only the most
---    common parameters.
+--   'mkSort' convenience function for when you want to specify only the most
+--   common parameters.
 --
---    The `ignoreUnmapped`, when `Just` field is used to set the elastic 'unmapped_type'
+--   The `ignoreUnmapped`, when `Just` field is used to set the elastic 'unmapped_type'
 --
 -- <http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 data DefaultSort = DefaultSort
@@ -107,7 +107,7 @@ nestedFilterLens :: Lens' DefaultSort (Maybe Filter)
 nestedFilterLens = lens nestedFilter (\x y -> x {nestedFilter = y})
 
 -- | 'SortOrder' is 'Ascending' or 'Descending', as you might expect. These get
---    encoded into "asc" or "desc" when turned into JSON.
+--   encoded into "asc" or "desc" when turned into JSON.
 --
 -- <http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#search-request-sort>
 data SortOrder
@@ -120,7 +120,7 @@ instance ToJSON SortOrder where
   toJSON Descending = String "desc"
 
 -- | 'Missing' prescribes how to handle missing fields. A missing field can be
---    sorted last, first, or using a custom value as a substitute.
+--   sorted last, first, or using a custom value as a substitute.
 --
 -- <http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#_missing_values>
 data Missing

@@ -81,7 +81,7 @@ instance FromJSON MatchQuery where
           <*> o .:? "fuzziness"
 
 -- | 'mkMatchQuery' is a convenience function that defaults the less common parameters,
---    enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
+--   enabling you to provide only the 'FieldName' and 'QueryString' to make a 'MatchQuery'
 mkMatchQuery :: FieldName -> QueryString -> MatchQuery
 mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
@@ -162,8 +162,8 @@ instance FromJSON MultiMatchQuery where
           <*> o .:? "lenient"
 
 -- | 'mkMultiMatchQuery' is a convenience function that defaults the less common parameters,
---    enabling you to provide only the list of 'FieldName's and 'QueryString' to
---    make a 'MultiMatchQuery'.
+--   enabling you to provide only the list of 'FieldName's and 'QueryString' to
+--   make a 'MultiMatchQuery'.
 mkMultiMatchQuery :: [FieldName] -> QueryString -> MultiMatchQuery
 mkMultiMatchQuery matchFields query =
   MultiMatchQuery

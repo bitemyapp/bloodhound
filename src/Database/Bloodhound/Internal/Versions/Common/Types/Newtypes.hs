@@ -94,20 +94,20 @@ newtype ShardId = ShardId {shardId :: Int}
   deriving newtype (Eq, Show, FromJSON)
 
 -- | 'DocId' is a generic wrapper value for expressing unique Document IDs.
---    Can be set by the user or created by ES itself. Often used in client
---    functions for poking at specific documents.
+--   Can be set by the user or created by ES itself. Often used in client
+--   functions for poking at specific documents.
 newtype DocId
   = DocId Text
   deriving newtype (Eq, Show, ToJSON, FromJSON)
 
 -- | 'FieldName' is used all over the place wherever a specific field within
---     a document needs to be specified, usually in 'Query's or 'Filter's.
+--    a document needs to be specified, usually in 'Query's or 'Filter's.
 newtype FieldName
   = FieldName Text
   deriving newtype (Eq, Read, Show, ToJSON, FromJSON)
 
 -- | 'RelationName' describes a relation role between parend and child Documents
---     in a Join relarionship: https://www.elastic.co/guide/en/elasticsearch/reference/current/parent-join.html
+--    in a Join relarionship: https://www.elastic.co/guide/en/elasticsearch/reference/current/parent-join.html
 newtype RelationName
   = RelationName Text
   deriving newtype (Eq, Read, Show, ToJSON, FromJSON)
@@ -125,7 +125,7 @@ newtype QueryString
 --   deriving newtype (Eq, Show)
 
 -- | 'CacheName' is used in 'RegexpFilter' for describing the
---    'CacheKey' keyed caching behavior.
+--   'CacheKey' keyed caching behavior.
 newtype CacheName
   = CacheName Text
   deriving newtype (Eq, Show, FromJSON, ToJSON)
@@ -156,8 +156,8 @@ newtype MaxExpansions
   deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 -- | 'Lenient', if set to true, will cause format based failures to be
---    ignored. I don't know what the bloody default is, Elasticsearch
---    documentation didn't say what it was. Let me know if you figure it out.
+--   ignored. I don't know what the bloody default is, Elasticsearch
+--   documentation didn't say what it was. Let me know if you figure it out.
 newtype Lenient
   = Lenient Bool
   deriving newtype (Eq, Show, FromJSON, ToJSON)
@@ -167,8 +167,8 @@ newtype Tiebreaker
   deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 -- | 'MinimumMatch' controls how many should clauses in the bool query should
---     match. Can be an absolute value (2) or a percentage (30%) or a
---     combination of both.
+--    match. Can be an absolute value (2) or a percentage (30%) or a
+--    combination of both.
 newtype MinimumMatch
   = MinimumMatch Int
   deriving newtype (Eq, Show, FromJSON, ToJSON)
@@ -207,9 +207,9 @@ newtype QueryPath
   deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 -- | Allowing a wildcard at the beginning of a word (eg "*ing") is particularly
---    heavy, because all terms in the index need to be examined, just in case
---    they match. Leading wildcards can be disabled by setting
---    'AllowLeadingWildcard' to false.
+--   heavy, because all terms in the index need to be examined, just in case
+--   they match. Leading wildcards can be disabled by setting
+--   'AllowLeadingWildcard' to false.
 newtype AllowLeadingWildcard
   = AllowLeadingWildcard Bool
   deriving newtype (Eq, Show, FromJSON, ToJSON)
@@ -223,7 +223,7 @@ newtype EnablePositionIncrements
   deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 -- | By default, wildcard terms in a query are not analyzed.
---    Setting 'AnalyzeWildcard' to true enables best-effort analysis.
+--   Setting 'AnalyzeWildcard' to true enables best-effort analysis.
 newtype AnalyzeWildcard = AnalyzeWildcard Bool deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 -- | 'GeneratePhraseQueries' defaults to false.
@@ -239,7 +239,7 @@ newtype MaxWordLength = MaxWordLength Int deriving newtype (Eq, Show, FromJSON, 
 newtype MinWordLength = MinWordLength Int deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 -- | 'PhraseSlop' sets the default slop for phrases, 0 means exact
---     phrase matches. Default is 0.
+--    phrase matches. Default is 0.
 newtype PhraseSlop = PhraseSlop Int deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 newtype MinDocFrequency = MinDocFrequency Int deriving newtype (Eq, Show, FromJSON, ToJSON)
@@ -253,11 +253,11 @@ newtype AggregateParentScore = AggregateParentScore Bool deriving newtype (Eq, S
 newtype IgnoreUnmapped = IgnoreUnmapped Bool deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 -- | Maximum number of child documents that match the query allowed for a returned parent document.
---    If the parent document exceeds this limit, it is excluded from the search results.
+--   If the parent document exceeds this limit, it is excluded from the search results.
 newtype MinChildren = MinChildren Int deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 -- | Minimum number of child documents that match the query required to match the query for a returned parent document.
---    If the parent document does not meet this limit, it is excluded from the search results.
+--   If the parent document does not meet this limit, it is excluded from the search results.
 newtype MaxChildren = MaxChildren Int deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 -- | Newtype wrapper to parse ES's concerning tendency to in some APIs return a floating point number of milliseconds since epoch ಠ_ಠ

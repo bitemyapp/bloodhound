@@ -95,9 +95,9 @@ import Database.Bloodhound.Internal.Versions.Common.Types.Units
 import GHC.Generics
 
 -- | 'Status' is a data type for describing the JSON body returned by
---    Elasticsearch when you query its status. This was deprecated in 1.2.0.
+--   Elasticsearch when you query its status. This was deprecated in 1.2.0.
 --
---   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-status.html#indices-status>
+--  <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-status.html#indices-status>
 data Status = Status
   { name :: Text,
     cluster_name :: Text,
@@ -138,9 +138,9 @@ taglineLens :: Lens' Status Text
 taglineLens = lens tagline (\x y -> x {tagline = y})
 
 -- | 'IndexSettings' is used to configure the shards and replicas when
---    you create an Elasticsearch Index.
+--   you create an Elasticsearch Index.
 --
---   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html>
+--  <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html>
 data IndexSettings = IndexSettings
   { indexShards :: ShardCount,
     indexReplicas :: ReplicaCount,
@@ -183,7 +183,7 @@ indexMappingsLimitsLens :: Lens' IndexSettings IndexMappingsLimits
 indexMappingsLimitsLens = lens indexMappingsLimits (\x y -> x {indexMappingsLimits = y})
 
 -- | 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and
---    2 replicas.
+--   2 replicas.
 defaultIndexSettings :: IndexSettings
 defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2) defaultIndexMappingsLimits
 
@@ -191,7 +191,7 @@ defaultIndexSettings = IndexSettings (ShardCount 3) (ReplicaCount 2) defaultInde
 -- no trailing slashes in servers, library handles building the path.
 
 -- | 'IndexMappingsLimits is used to configure index's limits.
---   <https://www.elastic.co/guide/en/elasticsearch/reference/master/mapping-settings-limit.html>
+--  <https://www.elastic.co/guide/en/elasticsearch/reference/master/mapping-settings-limit.html>
 data IndexMappingsLimits = IndexMappingsLimits
   { indexMappingsLimitDepth :: Maybe Int,
     indexMappingsLimitNestedFields :: Maybe Int,
@@ -241,8 +241,8 @@ defaultIndexMappingsLimits :: IndexMappingsLimits
 defaultIndexMappingsLimits = IndexMappingsLimits Nothing Nothing Nothing Nothing
 
 -- | 'ForceMergeIndexSettings' is used to configure index optimization. See
---    <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-forcemerge.html>
---    for more info.
+--   <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-forcemerge.html>
+--   for more info.
 data ForceMergeIndexSettings = ForceMergeIndexSettings
   { -- | Number of segments to optimize to. 1 will fully optimize the index. If omitted, the default behavior is to only optimize if the server deems it necessary.
     maxNumSegments :: Maybe Int,
@@ -263,14 +263,14 @@ flushAfterOptimizeLens :: Lens' ForceMergeIndexSettings Bool
 flushAfterOptimizeLens = lens flushAfterOptimize (\x y -> x {flushAfterOptimize = y})
 
 -- | 'defaultForceMergeIndexSettings' implements the default settings that
---    Elasticsearch uses for index optimization. 'maxNumSegments' is Nothing,
---    'onlyExpungeDeletes' is False, and flushAfterOptimize is True.
+--   Elasticsearch uses for index optimization. 'maxNumSegments' is Nothing,
+--   'onlyExpungeDeletes' is False, and flushAfterOptimize is True.
 defaultForceMergeIndexSettings :: ForceMergeIndexSettings
 defaultForceMergeIndexSettings = ForceMergeIndexSettings Nothing False True
 
 -- | 'UpdatableIndexSetting' are settings which may be updated after an index is created.
 --
---   <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-update-settings.html>
+--  <https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-update-settings.html>
 data UpdatableIndexSetting
   = -- | The number of replicas each shard has.
     NumberOfReplicas ReplicaCount
@@ -625,7 +625,7 @@ instance FromJSON IndexSettingsSummary where
 
 -- | 'OpenCloseIndex' is a sum type for opening and closing indices.
 --
---   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
+--  <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 data OpenCloseIndex = OpenIndex | CloseIndex deriving stock (Eq, Show)
 
 data FieldType
@@ -647,12 +647,12 @@ fieldTypeLens :: Lens' FieldDefinition FieldType
 fieldTypeLens = lens fieldType (\x y -> x {fieldType = y})
 
 -- | An 'IndexTemplate' defines a template that will automatically be
---    applied to new indices created. The templates include both
---    'IndexSettings' and mappings, and a simple 'IndexPattern' that
---    controls if the template will be applied to the index created.
---    Specify mappings as follows: @[toJSON TweetMapping, ...]@
+--   applied to new indices created. The templates include both
+--   'IndexSettings' and mappings, and a simple 'IndexPattern' that
+--   controls if the template will be applied to the index created.
+--   Specify mappings as follows: @[toJSON TweetMapping, ...]@
 --
---    https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html
+--   https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html
 data IndexTemplate = IndexTemplate
   { templatePatterns :: [IndexPattern],
     templateSettings :: Maybe IndexSettings,
@@ -695,12 +695,12 @@ fieldDefinitionLens :: Lens' MappingField FieldDefinition
 fieldDefinitionLens = lens fieldDefinition (\x y -> x {fieldDefinition = y})
 
 -- | Support for type reification of 'Mapping's is currently incomplete, for
---    now the mapping API verbiage expects a 'ToJSON'able blob.
+--   now the mapping API verbiage expects a 'ToJSON'able blob.
 --
---    Indexes have mappings, mappings are schemas for the documents contained
---    in the index. I'd recommend having only one mapping per index, always
---    having a mapping, and keeping different kinds of documents separated
---    if possible.
+--   Indexes have mappings, mappings are schemas for the documents contained
+--   in the index. I'd recommend having only one mapping per index, always
+--   having a mapping, and keeping different kinds of documents separated
+--   if possible.
 newtype Mapping = Mapping {mappingFields :: [MappingField]}
   deriving stock (Eq, Show)
 
@@ -890,7 +890,7 @@ defaultIndexDocumentSettings :: IndexDocumentSettings
 defaultIndexDocumentSettings = IndexDocumentSettings NoVersionControl Nothing
 
 -- | 'IndexSelection' is used for APIs which take a single index, a list of
---    indexes, or the special @_all@ index.
+--   indexes, or the special @_all@ index.
 
 -- TODO: this does not fully support <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/multi-index.html multi-index syntax>. It wouldn't be too hard to implement but you'd have to add the optional parameters (ignore_unavailable, allow_no_indices, expand_wildcards) to any APIs using it. Also would be a breaking API.
 data IndexSelection

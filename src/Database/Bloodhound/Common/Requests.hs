@@ -166,7 +166,7 @@ import Database.Bloodhound.Internal.Utils.Requests
 import Prelude hiding (filter, head)
 
 -- | 'mkShardCount' is a straight-forward smart constructor for 'ShardCount'
---   which rejects 'Int' values below 1 and above 1000.
+--  which rejects 'Int' values below 1 and above 1000.
 --
 -- >>> mkShardCount 10
 -- Just (ShardCount 10)
@@ -177,7 +177,7 @@ mkShardCount n
   | otherwise = Just (ShardCount n)
 
 -- | 'mkReplicaCount' is a straight-forward smart constructor for 'ReplicaCount'
---   which rejects 'Int' values below 0 and above 1000.
+--  which rejects 'Int' values below 0 and above 1000.
 --
 -- >>> mkReplicaCount 10
 -- Just (ReplicaCount 10)
@@ -371,9 +371,9 @@ createIndex indexSettings indexName =
   put [unIndexName indexName] $ encode indexSettings
 
 -- | Create an index, providing it with any number of settings. This
---   is more expressive than 'createIndex' but makes is more verbose
---   for the common case of configuring only the shard count and
---   replica count.
+--  is more expressive than 'createIndex' but makes is more verbose
+--  for the common case of configuring only the shard count and
+--  replica count.
 createIndexWith ::
   [UpdatableIndexSetting] ->
   -- | shard count
@@ -479,7 +479,7 @@ doesExist =
   withBHResponse_ isSuccess . head' @StatusDependant @IgnoredBody
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
---   in IO
+--  in IO
 --
 -- >>> exists <- runBH' $ indexExists testIndex
 indexExists :: IndexName -> BHRequest StatusDependant Bool
@@ -496,8 +496,8 @@ refreshIndex indexName =
   post [unIndexName indexName, "_refresh"] emptyBody
 
 -- | Block until the index becomes available for indexing
---   documents. This is useful for integration tests in which
---   indices are rapidly created and deleted.
+--  documents. This is useful for integration tests in which
+--  indices are rapidly created and deleted.
 waitForYellowIndex :: IndexName -> BHRequest StatusIndependant HealthStatus
 waitForYellowIndex indexName =
   get endpoint
@@ -568,14 +568,14 @@ openOrCloseIndexes oci indexName =
       CloseIndex -> "_close"
 
 -- | 'openIndex' opens an index given a 'Server' and an 'IndexName'. Explained in further detail at
---   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
+--  <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> response <- runBH' $ openIndex testIndex
 openIndex :: IndexName -> BHRequest StatusIndependant Acknowledged
 openIndex = openOrCloseIndexes OpenIndex
 
 -- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at
---   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
+--  <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> response <- runBH' $ closeIndex testIndex
 closeIndex :: IndexName -> BHRequest StatusIndependant Acknowledged
@@ -637,33 +637,33 @@ getIndexAliases =
   get ["_aliases"]
 
 -- | Delete a single alias, removing it from all indices it
---   is currently associated with.
+--  is currently associated with.
 deleteIndexAlias :: IndexAliasName -> BHRequest StatusIndependant Acknowledged
 deleteIndexAlias (IndexAliasName name) =
   delete ["_all", "_alias", unIndexName name]
 
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
---   Explained in further detail at
---   <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html>
+--  Explained in further detail at
+--  <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html>
 --
---   >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
---   >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
+--  >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--  >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
 putTemplate :: IndexTemplate -> TemplateName -> BHRequest StatusIndependant Acknowledged
 putTemplate indexTemplate (TemplateName templateName) =
   put ["_template", templateName] (encode indexTemplate)
 
 -- | 'templateExists' checks to see if a template exists.
 --
---   >>> exists <- runBH' $ templateExists (TemplateName "tweet-tpl")
+--  >>> exists <- runBH' $ templateExists (TemplateName "tweet-tpl")
 templateExists :: TemplateName -> BHRequest StatusDependant Bool
 templateExists (TemplateName templateName) =
   doesExist ["_template", templateName]
 
 -- | 'deleteTemplate' is an HTTP DELETE and deletes a template.
 --
---   >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
---   >>> _ <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
---   >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
+--  >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--  >>> _ <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
+--  >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
 deleteTemplate :: TemplateName -> BHRequest StatusIndependant Acknowledged
 deleteTemplate (TemplateName templateName) =
   delete ["_template", templateName]
@@ -699,12 +699,12 @@ versionCtlParams cfg =
       ]
 
 -- | 'indexDocument' is the primary way to save a single document in
---   Elasticsearch. The document itself is simply something we can
---   convert into a JSON 'Value'. The 'DocId' will function as the
---   primary key for the document. You are encouraged to generate
---   your own id's and not rely on Elasticsearch's automatic id
---   generation. Read more about it here:
---   https://github.com/bitemyapp/bloodhound/issues/107
+--  Elasticsearch. The document itself is simply something we can
+--  convert into a JSON 'Value'. The 'DocId' will function as the
+--  primary key for the document. You are encouraged to generate
+--  your own id's and not rely on Elasticsearch's automatic id
+--  generation. Read more about it here:
+--  https://github.com/bitemyapp/bloodhound/issues/107
 --
 -- >>> resp <- runBH' $ indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
@@ -901,11 +901,11 @@ instance FromJSON DeletedDocumentsRetries where
           .: "search"
 
 -- | 'bulk' uses
---    <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
---    to perform bulk operations. The 'BulkOperation' data type encodes the
---    index\/update\/delete\/create operations. You pass a 'V.Vector' of 'BulkOperation's
---    and a 'Server' to 'bulk' in order to send those operations up to your Elasticsearch
---    server to be performed. I changed from [BulkOperation] to a Vector due to memory overhead.
+--   <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
+--   to perform bulk operations. The 'BulkOperation' data type encodes the
+--   index\/update\/delete\/create operations. You pass a 'V.Vector' of 'BulkOperation's
+--   and a 'Server' to 'bulk' in order to send those operations up to your Elasticsearch
+--   server to be performed. I changed from [BulkOperation] to a Vector due to memory overhead.
 --
 -- >>> let stream = V.fromList [BulkIndex testIndex (DocId "2") (toJSON (BulkTest "blah"))]
 -- >>> _ <- runBH' $ bulk stream
@@ -918,7 +918,7 @@ bulk =
   post ["_bulk"] . encodeBulkOperations
 
 -- | 'encodeBulkOperations' is a convenience function for dumping a vector of 'BulkOperation'
---   into an 'L.ByteString'
+--  into an 'L.ByteString'
 --
 -- >>> let bulkOps = V.fromList [BulkIndex testIndex (DocId "2") (toJSON (BulkTest "blah"))]
 -- >>> encodeBulkOperations bulkOps
@@ -965,7 +965,7 @@ mkBulkStreamValueWithMeta meta operation indexName docId =
     ]
 
 -- | 'encodeBulkOperation' is a convenience function for dumping a single 'BulkOperation'
---   into an 'L.ByteString'
+--  into an 'L.ByteString'
 --
 -- >>> let bulkOp = BulkIndex testIndex (DocId "2") (toJSON (BulkTest "blah"))
 -- >>> encodeBulkOperation bulkOp
@@ -1021,8 +1021,8 @@ encodeBulkOperation (BulkCreateEncoding indexName (DocId docId) encoding) =
     blob = fromEncoding metadata <> "\n" <> fromEncoding encoding
 
 -- | 'getDocument' is a straight-forward way to fetch a single document from
---   Elasticsearch using a 'Server', 'IndexName', and a 'DocId'.
---   The 'DocId' is the primary key for your Elasticsearch document.
+--  Elasticsearch using a 'Server', 'IndexName', and a 'DocId'.
+--  The 'DocId' is the primary key for your Elasticsearch document.
 --
 -- >>> yourDoc <- runBH' $ getDocument testIndex (DocId "1")
 getDocument :: (FromJSON a) => IndexName -> DocId -> BHRequest StatusIndependant (EsResult a)
@@ -1049,7 +1049,7 @@ dispatchSearch endpoint search =
           | otherwise = []
 
 -- | 'searchAll', given a 'Search', will perform that search against all indexes
---   on an Elasticsearch server. Try to avoid doing this if it can be helped.
+--  on an Elasticsearch server. Try to avoid doing this if it can be helped.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
@@ -1059,7 +1059,7 @@ searchAll =
   dispatchSearch ["_search"]
 
 -- | 'searchByIndex', given a 'Search' and an 'IndexName', will perform that search
---   within an index on an Elasticsearch server.
+--  within an index on an Elasticsearch server.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
@@ -1069,9 +1069,9 @@ searchByIndex indexName =
   dispatchSearch [unIndexName indexName, "_search"]
 
 -- | 'searchByIndices' is a variant of 'searchByIndex' that executes a
---   'Search' over many indices. This is much faster than using
---   'mapM' to 'searchByIndex' over a collection since it only
---   causes a single HTTP request to be emitted.
+--  'Search' over many indices. This is much faster than using
+--  'mapM' to 'searchByIndex' over a collection since it only
+--  causes a single HTTP request to be emitted.
 searchByIndices :: (FromJSON a) => NonEmpty IndexName -> Search -> BHRequest StatusDependant (SearchResult a)
 searchByIndices ixs =
   dispatchSearch [renderedIxs, "_search"]
@@ -1087,7 +1087,7 @@ dispatchSearchTemplate endpoint search =
   post endpoint $ encode search
 
 -- | 'searchByIndexTemplate', given a 'SearchTemplate' and an 'IndexName', will perform that search
---   within an index on an Elasticsearch server.
+--  within an index on an Elasticsearch server.
 --
 -- >>> let query = SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } }, \"size\" : \"{{my_size}}\"}"
 -- >>> let search = mkSearchTemplate (Right query) Nothing
@@ -1101,9 +1101,9 @@ searchByIndexTemplate indexName =
   dispatchSearchTemplate [unIndexName indexName, "_search", "template"]
 
 -- | 'searchByIndicesTemplate' is a variant of 'searchByIndexTemplate' that executes a
---   'SearchTemplate' over many indices. This is much faster than using
---   'mapM' to 'searchByIndexTemplate' over a collection since it only
---   causes a single HTTP request to be emitted.
+--  'SearchTemplate' over many indices. This is much faster than using
+--  'mapM' to 'searchByIndexTemplate' over a collection since it only
+--  causes a single HTTP request to be emitted.
 searchByIndicesTemplate ::
   (FromJSON a) =>
   NonEmpty IndexName ->
@@ -1183,9 +1183,9 @@ advanceScroll (ScrollId sid) scroll =
         ]
 
 -- | 'mkSearch' is a helper function for defaulting additional fields of a 'Search'
---   to Nothing in case you only care about your 'Query' and 'Filter'. Use record update
---   syntax if you want to add things like aggregations or highlights while still using
---   this helper function.
+--  to Nothing in case you only care about your 'Query' and 'Filter'. Use record update
+--  syntax if you want to add things like aggregations or highlights while still using
+--  this helper function.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> mkSearch (Just query) Nothing
@@ -1211,7 +1211,7 @@ mkSearch query filter =
     }
 
 -- | 'mkAggregateSearch' is a helper function that defaults everything in a 'Search' except for
---   the 'Query' and the 'Aggregation'.
+--  the 'Query' and the 'Aggregation'.
 --
 -- >>> let terms = TermsAgg $ (mkTermsAggregation "user") { termCollectMode = Just BreadthFirst }
 -- >>> terms
@@ -1238,7 +1238,7 @@ mkAggregateSearch query mkSearchAggs =
     }
 
 -- | 'mkHighlightSearch' is a helper function that defaults everything in a 'Search' except for
---   the 'Query' and the 'Aggregation'.
+--  the 'Query' and the 'Aggregation'.
 --
 -- >>> let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
 -- >>> let testHighlight = Highlights Nothing [FieldHighlight (FieldName "message") Nothing]
@@ -1264,14 +1264,14 @@ mkHighlightSearch query searchHighlights =
     }
 
 -- | 'mkSearchTemplate' is a helper function for defaulting additional fields of a 'SearchTemplate'
---   to Nothing. Use record update syntax if you want to add things.
+--  to Nothing. Use record update syntax if you want to add things.
 mkSearchTemplate :: Either SearchTemplateId SearchTemplateSource -> TemplateQueryKeyValuePairs -> SearchTemplate
 mkSearchTemplate id_ params = SearchTemplate id_ params Nothing Nothing
 
 -- | 'pageSearch' is a helper function that takes a search and assigns the from
---    and size fields for the search. The from parameter defines the offset
---    from the first result you want to fetch. The size parameter allows you to
---    configure the maximum amount of hits to be returned.
+--   and size fields for the search. The from parameter defines the offset
+--   from the first result you want to fetch. The size parameter allows you to
+--   configure the maximum amount of hits to be returned.
 --
 -- >>> let query = QueryMatchQuery $ mkMatchQuery (FieldName "_all") (QueryString "haskell")
 -- >>> let search = mkSearch (Just query) Nothing

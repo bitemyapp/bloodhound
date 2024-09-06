@@ -273,7 +273,7 @@ instance FromJSON Query where
       queryWildcardQuery = pure . QueryWildcardQuery
 
 -- | As of Elastic 2.0, 'Filters' are just 'Queries' housed in a
---   Bool Query, and flagged in a different context.
+--  Bool Query, and flagged in a different context.
 newtype Filter = Filter {unFilter :: Query}
   deriving stock (Eq, Show)
 
@@ -825,7 +825,7 @@ instance FromJSON TemplateQueryKeyValuePairs where
     fail "error parsing TemplateQueryKeyValuePairs"
 
 -- | 'Cache' is for telling ES whether it should cache a 'Filter' not.
---    'Query's cannot be cached.
+--   'Query's cannot be cached.
 type Cache = Bool -- caching on/off
 
 defaultCache :: Cache

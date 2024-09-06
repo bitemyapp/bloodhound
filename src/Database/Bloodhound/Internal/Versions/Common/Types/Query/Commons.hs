@@ -30,7 +30,7 @@ instance FromJSON ZeroTermsQuery where
       parse q = fail ("Unexpected ZeroTermsQuery: " <> show q)
 
 -- | 'BooleanOperator' is the usual And/Or operators with an ES compatible
---    JSON encoding baked in. Used all over the place.
+--   JSON encoding baked in. Used all over the place.
 data BooleanOperator = And | Or deriving stock (Eq, Show, Generic)
 
 instance ToJSON BooleanOperator where

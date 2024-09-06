@@ -325,7 +325,7 @@ statusCodeIs :: (Int, Int) -> BHResponse parsingContext body -> Bool
 statusCodeIs r resp = inRange r $ NHTS.statusCode (responseStatus $ getResponse resp)
 
 -- | 'EsResult' describes the standard wrapper JSON document that you see in
---    successful Elasticsearch lookups or lookups that couldn't find the document.
+--   successful Elasticsearch lookups or lookups that couldn't find the document.
 data EsResult a = EsResult
   { _index :: Text,
     _type :: Maybe Text,
@@ -337,7 +337,7 @@ data EsResult a = EsResult
 {-# DEPRECATED _type "deprecated since ElasticSearch 6.0" #-}
 
 -- | 'EsResultFound' contains the document and its metadata inside of an
---    'EsResult' when the document was successfully found.
+--   'EsResult' when the document was successfully found.
 data EsResultFound a = EsResultFound
   { _version :: DocVersion,
     _source :: a
@@ -371,8 +371,8 @@ instance (FromJSON a) => FromJSON (EsResultFound a) where
   parseJSON _ = empty
 
 -- | 'EsError' is the generic type that will be returned when there was a
---    problem. If you can't parse the expected response, its a good idea to
---    try parsing this.
+--   problem. If you can't parse the expected response, its a good idea to
+--   try parsing this.
 data EsError = EsError
   { errorStatus :: Maybe Int,
     errorMessage :: Text

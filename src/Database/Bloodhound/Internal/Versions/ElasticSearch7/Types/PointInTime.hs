@@ -11,7 +11,7 @@ data OpenPointInTimeResponse = OpenPointInTimeResponse
   deriving stock (Eq, Show)
 
 oPitIdLens :: Lens' OpenPointInTimeResponse Text
-oPitIdLens = lens oPitId (\x y -> x { oPitId = y })
+oPitIdLens = lens oPitId (\x y -> x {oPitId = y})
 
 instance ToJSON OpenPointInTimeResponse where
   toJSON OpenPointInTimeResponse {..} =
@@ -40,9 +40,8 @@ data ClosePointInTimeResponse = ClosePointInTimeResponse
   }
   deriving stock (Eq, Show)
 
-
 cPitIdLens :: Lens' ClosePointInTime Text
-cPitIdLens = lens cPitId (\x y -> x { cPitId = y })
+cPitIdLens = lens cPitId (\x y -> x {cPitId = y})
 
 instance ToJSON ClosePointInTimeResponse where
   toJSON ClosePointInTimeResponse {..} =
@@ -59,7 +58,7 @@ instance FromJSON ClosePointInTimeResponse where
   parseJSON x = typeMismatch "ClosePointInTimeResponse" x
 
 succeededLens :: Lens' ClosePointInTimeResponse Bool
-succeededLens = lens succeeded (\x y -> x { succeeded = y })
+succeededLens = lens succeeded (\x y -> x {succeeded = y})
 
 numFreedLens :: Lens' ClosePointInTimeResponse Int
-numFreedLens = lens numFreed (\x y -> x { numFreed = y })
+numFreedLens = lens numFreed (\x y -> x {numFreed = y})

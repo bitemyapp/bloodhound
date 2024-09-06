@@ -286,9 +286,9 @@ createIndex :: (MonadBH m) => IndexSettings -> IndexName -> m Acknowledged
 createIndex indexSettings indexName = performBHRequest $ Requests.createIndex indexSettings indexName
 
 -- | Create an index, providing it with any number of settings. This
---   is more expressive than 'createIndex' but makes is more verbose
---   for the common case of configuring only the shard count and
---   replica count.
+--  is more expressive than 'createIndex' but makes is more verbose
+--  for the common case of configuring only the shard count and
+--  replica count.
 createIndexWith ::
   (MonadBH m) =>
   [UpdatableIndexSetting] ->
@@ -359,7 +359,7 @@ forceMergeIndex :: (MonadBH m) => IndexSelection -> ForceMergeIndexSettings -> m
 forceMergeIndex ixs settings = performBHRequest $ Requests.forceMergeIndex ixs settings
 
 -- | 'indexExists' enables you to check if an index exists. Returns 'Bool'
---   in IO
+--  in IO
 --
 -- >>> exists <- runBH' $ indexExists testIndex
 indexExists :: (MonadBH m) => IndexName -> m Bool
@@ -374,20 +374,20 @@ refreshIndex :: (MonadBH m) => IndexName -> m ShardResult
 refreshIndex indexName = performBHRequest $ Requests.refreshIndex indexName
 
 -- | Block until the index becomes available for indexing
---   documents. This is useful for integration tests in which
---   indices are rapidly created and deleted.
+--  documents. This is useful for integration tests in which
+--  indices are rapidly created and deleted.
 waitForYellowIndex :: (MonadBH m) => IndexName -> m Requests.HealthStatus
 waitForYellowIndex indexName = performBHRequest $ Requests.waitForYellowIndex indexName
 
 -- | 'openIndex' opens an index given a 'Server' and an 'IndexName'. Explained in further detail at
---   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
+--  <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> response <- runBH' $ openIndex testIndex
 openIndex :: (MonadBH m) => IndexName -> m Acknowledged
 openIndex indexName = performBHRequest $ Requests.openIndex indexName
 
 -- | 'closeIndex' closes an index given a 'Server' and an 'IndexName'. Explained in further detail at
---   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
+--  <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
 --
 -- >>> response <- runBH' $ closeIndex testIndex
 closeIndex :: (MonadBH m) => IndexName -> m Acknowledged
@@ -426,30 +426,30 @@ getIndexAliases :: (MonadBH m) => m IndexAliasesSummary
 getIndexAliases = performBHRequest $ Requests.getIndexAliases
 
 -- | Delete a single alias, removing it from all indices it
---   is currently associated with.
+--  is currently associated with.
 deleteIndexAlias :: (MonadBH m) => IndexAliasName -> m Acknowledged
 deleteIndexAlias indexAliasName = performBHRequest $ Requests.deleteIndexAlias indexAliasName
 
 -- | 'putTemplate' creates a template given an 'IndexTemplate' and a 'TemplateName'.
---   Explained in further detail at
---   <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html>
+--  Explained in further detail at
+--  <https://www.elastic.co/guide/en/elasticsearch/reference/1.7/indices-templates.html>
 --
---   >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
---   >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
+--  >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--  >>> resp <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
 putTemplate :: (MonadBH m) => IndexTemplate -> TemplateName -> m Acknowledged
 putTemplate indexTemplate templateName = performBHRequest $ Requests.putTemplate indexTemplate templateName
 
 -- | 'templateExists' checks to see if a template exists.
 --
---   >>> exists <- runBH' $ templateExists (TemplateName "tweet-tpl")
+--  >>> exists <- runBH' $ templateExists (TemplateName "tweet-tpl")
 templateExists :: (MonadBH m) => TemplateName -> m Bool
 templateExists templateName = performBHRequest $ Requests.templateExists templateName
 
 -- | 'deleteTemplate' is an HTTP DELETE and deletes a template.
 --
---   >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
---   >>> _ <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
---   >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
+--  >>> let idxTpl = IndexTemplate [IndexPattern "tweet-*"] (Just (IndexSettings (ShardCount 1) (ReplicaCount 1))) [toJSON TweetMapping]
+--  >>> _ <- runBH' $ putTemplate idxTpl (TemplateName "tweet-tpl")
+--  >>> resp <- runBH' $ deleteTemplate (TemplateName "tweet-tpl")
 deleteTemplate :: (MonadBH m) => TemplateName -> m Acknowledged
 deleteTemplate templateName = performBHRequest $ Requests.deleteTemplate templateName
 
@@ -465,12 +465,12 @@ putMapping indexName mapping = performBHRequest $ Requests.putMapping indexName 
 {-# DEPRECATED putMapping "See <https://www.elastic.co/guide/en/elasticsearch/reference/7.17/removal-of-types.html>" #-}
 
 -- | 'indexDocument' is the primary way to save a single document in
---   Elasticsearch. The document itself is simply something we can
---   convert into a JSON 'Value'. The 'DocId' will function as the
---   primary key for the document. You are encouraged to generate
---   your own id's and not rely on Elasticsearch's automatic id
---   generation. Read more about it here:
---   https://github.com/bitemyapp/bloodhound/issues/107
+--  Elasticsearch. The document itself is simply something we can
+--  convert into a JSON 'Value'. The 'DocId' will function as the
+--  primary key for the document. You are encouraged to generate
+--  your own id's and not rely on Elasticsearch's automatic id
+--  generation. Read more about it here:
+--  https://github.com/bitemyapp/bloodhound/issues/107
 --
 -- >>> resp <- runBH' $ indexDocument testIndex defaultIndexDocumentSettings exampleTweet (DocId "1")
 -- >>> print resp
@@ -514,11 +514,11 @@ deleteByQuery :: (MonadBH m) => IndexName -> Query -> m Requests.DeletedDocument
 deleteByQuery indexName query = performBHRequest $ Requests.deleteByQuery indexName query
 
 -- | 'bulk' uses
---    <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
---    to perform bulk operations. The 'BulkOperation' data type encodes the
---    index\/update\/delete\/create operations. You pass a 'V.Vector' of 'BulkOperation's
---    and a 'Server' to 'bulk' in order to send those operations up to your Elasticsearch
---    server to be performed. I changed from [BulkOperation] to a Vector due to memory overhead.
+--   <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>
+--   to perform bulk operations. The 'BulkOperation' data type encodes the
+--   index\/update\/delete\/create operations. You pass a 'V.Vector' of 'BulkOperation's
+--   and a 'Server' to 'bulk' in order to send those operations up to your Elasticsearch
+--   server to be performed. I changed from [BulkOperation] to a Vector due to memory overhead.
 --
 -- >>> let stream = V.fromList [BulkIndex testIndex (DocId "2") (toJSON (BulkTest "blah"))]
 -- >>> _ <- runBH' $ bulk stream
@@ -535,7 +535,7 @@ documentExists :: (MonadBH m) => IndexName -> DocId -> m Bool
 documentExists indexName docId = performBHRequest $ Requests.documentExists indexName docId
 
 -- | 'searchAll', given a 'Search', will perform that search against all indexes
---   on an Elasticsearch server. Try to avoid doing this if it can be helped.
+--  on an Elasticsearch server. Try to avoid doing this if it can be helped.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
@@ -544,7 +544,7 @@ searchAll :: forall a m. (MonadBH m, FromJSON a) => Search -> m (SearchResult a)
 searchAll search = performBHRequest $ Requests.searchAll search
 
 -- | 'searchByIndex', given a 'Search' and an 'IndexName', will perform that search
---   within an index on an Elasticsearch server.
+--  within an index on an Elasticsearch server.
 --
 -- >>> let query = TermQuery (Term "user" "bitemyapp") Nothing
 -- >>> let search = mkSearch (Just query) Nothing
@@ -553,14 +553,14 @@ searchByIndex :: forall a m. (MonadBH m, FromJSON a) => IndexName -> Search -> m
 searchByIndex indexName search = performBHRequest $ Requests.searchByIndex indexName search
 
 -- | 'searchByIndices' is a variant of 'searchByIndex' that executes a
---   'Search' over many indices. This is much faster than using
---   'mapM' to 'searchByIndex' over a collection since it only
---   causes a single HTTP request to be emitted.
+--  'Search' over many indices. This is much faster than using
+--  'mapM' to 'searchByIndex' over a collection since it only
+--  causes a single HTTP request to be emitted.
 searchByIndices :: forall a m. (MonadBH m, FromJSON a) => NonEmpty IndexName -> Search -> m (SearchResult a)
 searchByIndices ixs search = performBHRequest $ Requests.searchByIndices ixs search
 
 -- | 'searchByIndexTemplate', given a 'SearchTemplate' and an 'IndexName', will perform that search
---   within an index on an Elasticsearch server.
+--  within an index on an Elasticsearch server.
 --
 -- >>> let query = SearchTemplateSource "{\"query\": { \"match\" : { \"{{my_field}}\" : \"{{my_value}}\" } }, \"size\" : \"{{my_size}}\"}"
 -- >>> let search = mkSearchTemplate (Right query) Nothing
@@ -574,9 +574,9 @@ searchByIndexTemplate ::
 searchByIndexTemplate indexName search = performBHRequest $ Requests.searchByIndexTemplate indexName search
 
 -- | 'searchByIndicesTemplate' is a variant of 'searchByIndexTemplate' that executes a
---   'SearchTemplate' over many indices. This is much faster than using
---   'mapM' to 'searchByIndexTemplate' over a collection since it only
---   causes a single HTTP request to be emitted.
+--  'SearchTemplate' over many indices. This is much faster than using
+--  'mapM' to 'searchByIndexTemplate' over a collection since it only
+--  causes a single HTTP request to be emitted.
 searchByIndicesTemplate ::
   forall a m.
   (MonadBH m, FromJSON a) =>

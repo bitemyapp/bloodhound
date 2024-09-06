@@ -32,7 +32,7 @@ import Network.HTTP.Client
 import qualified Network.URI as URI
 
 -- | Common environment for Elasticsearch calls. Connections will be
---    pipelined according to the provided HTTP connection manager.
+--   pipelined according to the provided HTTP connection manager.
 data BHEnv = BHEnv
   { bhServer :: Server,
     bhManager :: Manager,
@@ -41,10 +41,10 @@ data BHEnv = BHEnv
   }
 
 -- | All API calls to Elasticsearch operate within
---    MonadBH
---    . The idea is that it can be easily embedded in your
---    own monad transformer stack. A default instance for a ReaderT and
---    alias 'BH' is provided for the simple case.
+--   MonadBH
+--   . The idea is that it can be easily embedded in your
+--   own monad transformer stack. A default instance for a ReaderT and
+--   alias 'BH' is provided for the simple case.
 class (Functor m, Applicative m, MonadIO m, MonadCatch m) => MonadBH m where
   dispatch :: BHRequest contextualized body -> m (BHResponse contextualized body)
   tryEsError :: m a -> m (Either EsError a)

@@ -26,13 +26,13 @@ instance FromJSON OpenPointInTimeResponse where
   parseJSON x = typeMismatch "OpenPointInTimeResponse" x
 
 oos2PitIdLens :: Lens' OpenPointInTimeResponse Text
-oos2PitIdLens = lens oos2PitId (\x y -> x { oos2PitId = y })
+oos2PitIdLens = lens oos2PitId (\x y -> x {oos2PitId = y})
 
 oos2ShardsLens :: Lens' OpenPointInTimeResponse ShardResult
-oos2ShardsLens = lens oos2Shards (\x y -> x { oos2Shards = y })
+oos2ShardsLens = lens oos2Shards (\x y -> x {oos2Shards = y})
 
 oos2CreationTimeLens :: Lens' OpenPointInTimeResponse POSIXTime
-oos2CreationTimeLens = lens oos2CreationTime (\x y -> x { oos2CreationTime = y })
+oos2CreationTimeLens = lens oos2CreationTime (\x y -> x {oos2CreationTime = y})
 
 data ClosePointInTime = ClosePointInTime
   { cPitId :: Text
@@ -48,7 +48,7 @@ instance FromJSON ClosePointInTime where
   parseJSON x = typeMismatch "ClosePointInTime" x
 
 cPitIdLens :: Lens' ClosePointInTime Text
-cPitIdLens = lens cPitId (\x y -> x { cPitId = y })
+cPitIdLens = lens cPitId (\x y -> x {cPitId = y})
 
 data ClosePointInTimeResponse = ClosePointInTimeResponse
   { succeeded :: Bool,
@@ -71,7 +71,7 @@ instance FromJSON ClosePointInTimeResponse where
   parseJSON x = typeMismatch "ClosePointInTimeResponse" x
 
 succeededLens :: Lens' ClosePointInTimeResponse Bool
-succeededLens = lens succeeded (\x y -> x { succeeded = y })
+succeededLens = lens succeeded (\x y -> x {succeeded = y})
 
 numFreedLens :: Lens' ClosePointInTimeResponse Int
-numFreedLens = lens numFreed (\x y -> x { numFreed = y })
+numFreedLens = lens numFreed (\x y -> x {numFreed = y})

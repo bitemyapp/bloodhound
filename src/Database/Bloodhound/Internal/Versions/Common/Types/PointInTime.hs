@@ -23,7 +23,7 @@ instance FromJSON PointInTime where
   parseJSON x = typeMismatch "PointInTime" x
 
 pointInTimeIdLens :: Lens' PointInTime Text
-pointInTimeIdLens = lens pointInTimeId (\x y -> x { pointInTimeId = y })
+pointInTimeIdLens = lens pointInTimeId (\x y -> x {pointInTimeId = y})
 
 pointInTimeKeepAliveLens :: Lens' PointInTime Text
-pointInTimeKeepAliveLens = lens pointInTimeKeepAlive (\x y -> x { pointInTimeKeepAlive = y })
+pointInTimeKeepAliveLens = lens pointInTimeKeepAlive (\x y -> x {pointInTimeKeepAlive = y})

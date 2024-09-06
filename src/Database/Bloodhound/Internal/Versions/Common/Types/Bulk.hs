@@ -51,17 +51,17 @@ data UpsertPayload
   deriving stock (Eq, Show)
 
 -- | 'BulkOperation' is a sum type for expressing the four kinds of bulk
---    operation index, create, delete, and update. 'BulkIndex' behaves like an
---    "upsert", 'BulkCreate' will fail if a document already exists at the DocId.
---    Consult the <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html#docs-bulk Bulk API documentation>
---    for further explanation.
---    Warning: Bulk operations suffixed with @Auto@ rely on Elasticsearch to
---    generate the id. Often, people use auto-generated identifiers when
---    Elasticsearch is the only place that their data is stored. Do not let
---    Elasticsearch be the only place your data is stored. It does not guarantee
---    durability, and it may silently discard data.
---    This <https://github.com/elastic/elasticsearch/issues/10708 issue> is
---    discussed further on github.
+--   operation index, create, delete, and update. 'BulkIndex' behaves like an
+--   "upsert", 'BulkCreate' will fail if a document already exists at the DocId.
+--   Consult the <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html#docs-bulk Bulk API documentation>
+--   for further explanation.
+--   Warning: Bulk operations suffixed with @Auto@ rely on Elasticsearch to
+--   generate the id. Often, people use auto-generated identifiers when
+--   Elasticsearch is the only place that their data is stored. Do not let
+--   Elasticsearch be the only place your data is stored. It does not guarantee
+--   durability, and it may silently discard data.
+--   This <https://github.com/elastic/elasticsearch/issues/10708 issue> is
+--   discussed further on github.
 data BulkOperation
   = -- | Create the document, replacing it if it already exists.
     BulkIndex IndexName DocId Value

@@ -90,7 +90,7 @@ analyzerDefinitionCharFilterLens :: Lens' AnalyzerDefinition [CharFilter]
 analyzerDefinitionCharFilterLens = lens analyzerDefinitionCharFilter (\x y -> x {analyzerDefinitionCharFilter = y})
 
 -- | Character filters are used to preprocess the stream of characters
---   before it is passed to the tokenizer.
+--  before it is passed to the tokenizer.
 data CharFilterDefinition
   = CharFilterDefinitionMapping (M.Map Text Text)
   | CharFilterDefinitionPatternReplace
@@ -371,10 +371,10 @@ instance FromJSON EdgeNgramFilterSide where
       _ -> fail $ "EdgeNgramFilterSide can only be 'front' or 'back', found: " <> T.unpack t
 
 -- | The set of languages that can be passed to various analyzers,
---   filters, etc. in Elasticsearch. Most data types in this module
---   that have a 'Language' field are actually only actually to
---   handle a subset of these languages. Consult the official
---   Elasticsearch documentation to see what is actually supported.
+--  filters, etc. in Elasticsearch. Most data types in this module
+--  that have a 'Language' field are actually only actually to
+--  handle a subset of these languages. Consult the official
+--  Elasticsearch documentation to see what is actually supported.
 data Language
   = Arabic
   | Armenian
