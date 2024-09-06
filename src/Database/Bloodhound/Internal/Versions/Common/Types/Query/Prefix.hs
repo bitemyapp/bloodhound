@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.Prefix
@@ -16,7 +15,7 @@ data PrefixQuery = PrefixQuery
     prefixQueryPrefixValue :: Text,
     prefixQueryBoost :: Maybe Boost
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON PrefixQuery where
   toJSON (PrefixQuery (FieldName fieldName) queryValue boost) =

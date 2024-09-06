@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.Wildcard
@@ -16,7 +15,7 @@ data WildcardQuery = WildcardQuery
     wildcardQuery :: Key,
     wildcardQueryBoost :: Maybe Boost
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON WildcardQuery where
   toJSON

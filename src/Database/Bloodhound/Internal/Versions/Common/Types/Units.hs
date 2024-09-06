@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Units
@@ -14,7 +12,6 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Units
 where
 
 import Database.Bloodhound.Internal.Utils.Imports
-import GHC.Generics
 import Text.Read (Read (..))
 import qualified Text.Read as TR
 
@@ -31,7 +28,7 @@ import qualified Text.Read as TR
 -- Bytes 9000
 newtype Bytes
   = Bytes Int
-  deriving (Eq, Show, Generic, Ord, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, Ord, ToJSON, FromJSON)
 
 gigabytes :: Int -> Bytes
 gigabytes n = megabytes (1000 * n)
@@ -48,7 +45,7 @@ data TimeInterval
   | Hours
   | Minutes
   | Seconds
-  deriving (Eq)
+  deriving stock (Eq)
 
 instance Show TimeInterval where
   show Weeks = "w"
@@ -76,7 +73,7 @@ data Interval
   | Hour
   | Minute
   | Second
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON Interval where
   toJSON Year = "year"

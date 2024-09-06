@@ -20,7 +20,7 @@ import Numeric.Natural
 import Optics.Lens
 
 newtype CountQuery = CountQuery {countQuery :: Query}
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON CountQuery where
   toJSON (CountQuery q) =
@@ -30,7 +30,7 @@ data CountResponse = CountResponse
   { crCount :: Natural,
     crShards :: CountShards
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON CountResponse where
   parseJSON =
@@ -53,7 +53,7 @@ data CountShards = CountShards
     csSuccessful :: Int,
     csFailed :: Int
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON CountShards where
   parseJSON =

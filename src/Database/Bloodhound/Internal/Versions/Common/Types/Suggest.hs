@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -16,7 +14,7 @@ data Suggest = Suggest
     suggestName :: Text,
     suggestType :: SuggestType
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON Suggest where
   toJSON Suggest {..} =
@@ -40,17 +38,17 @@ instance FromJSON Suggest where
   parseJSON x = typeMismatch "Suggest" x
 
 suggestTextLens :: Lens' Suggest Text
-suggestTextLens = lens suggestText (\x y -> x { suggestText = y })
+suggestTextLens = lens suggestText (\x y -> x {suggestText = y})
 
 suggestNameLens :: Lens' Suggest Text
-suggestNameLens = lens suggestName (\x y -> x { suggestName = y })
+suggestNameLens = lens suggestName (\x y -> x {suggestName = y})
 
 suggestTypeLens :: Lens' Suggest SuggestType
-suggestTypeLens = lens suggestType (\x y -> x { suggestType = y })
+suggestTypeLens = lens suggestType (\x y -> x {suggestType = y})
 
 data SuggestType
   = SuggestTypePhraseSuggester PhraseSuggester -- TODO GDF
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON SuggestType where
   toJSON (SuggestTypePhraseSuggester x) =
@@ -78,7 +76,7 @@ data PhraseSuggester = PhraseSuggester
     phraseSuggesterCollate :: Maybe PhraseSuggesterCollate,
     phraseSuggesterCandidateGenerators :: [DirectGenerators]
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON PhraseSuggester where
   toJSON PhraseSuggester {..} =
@@ -134,52 +132,52 @@ mkPhraseSuggester fName =
     []
 
 phraseSuggesterFieldLens :: Lens' PhraseSuggester FieldName
-phraseSuggesterFieldLens = lens phraseSuggesterField (\x y -> x { phraseSuggesterField = y })
+phraseSuggesterFieldLens = lens phraseSuggesterField (\x y -> x {phraseSuggesterField = y})
 
 phraseSuggesterGramSizeLens :: Lens' PhraseSuggester (Maybe Int)
-phraseSuggesterGramSizeLens = lens phraseSuggesterGramSize (\x y -> x { phraseSuggesterGramSize = y })
+phraseSuggesterGramSizeLens = lens phraseSuggesterGramSize (\x y -> x {phraseSuggesterGramSize = y})
 
 phraseSuggesterRealWordErrorLikelihoodLens :: Lens' PhraseSuggester (Maybe Int)
-phraseSuggesterRealWordErrorLikelihoodLens = lens phraseSuggesterRealWordErrorLikelihood (\x y -> x { phraseSuggesterRealWordErrorLikelihood = y })
+phraseSuggesterRealWordErrorLikelihoodLens = lens phraseSuggesterRealWordErrorLikelihood (\x y -> x {phraseSuggesterRealWordErrorLikelihood = y})
 
 phraseSuggesterConfidenceLens :: Lens' PhraseSuggester (Maybe Int)
-phraseSuggesterConfidenceLens = lens phraseSuggesterConfidence (\x y -> x { phraseSuggesterConfidence = y })
+phraseSuggesterConfidenceLens = lens phraseSuggesterConfidence (\x y -> x {phraseSuggesterConfidence = y})
 
 phraseSuggesterMaxErrorsLens :: Lens' PhraseSuggester (Maybe Int)
-phraseSuggesterMaxErrorsLens = lens phraseSuggesterMaxErrors (\x y -> x { phraseSuggesterMaxErrors = y })
+phraseSuggesterMaxErrorsLens = lens phraseSuggesterMaxErrors (\x y -> x {phraseSuggesterMaxErrors = y})
 
 phraseSuggesterSeparatorLens :: Lens' PhraseSuggester (Maybe Text)
-phraseSuggesterSeparatorLens = lens phraseSuggesterSeparator (\x y -> x { phraseSuggesterSeparator = y })
+phraseSuggesterSeparatorLens = lens phraseSuggesterSeparator (\x y -> x {phraseSuggesterSeparator = y})
 
 phraseSuggesterSizeLens :: Lens' PhraseSuggester (Maybe Size)
-phraseSuggesterSizeLens = lens phraseSuggesterSize (\x y -> x { phraseSuggesterSize = y })
+phraseSuggesterSizeLens = lens phraseSuggesterSize (\x y -> x {phraseSuggesterSize = y})
 
 phraseSuggesterAnalyzerLens :: Lens' PhraseSuggester (Maybe Analyzer)
-phraseSuggesterAnalyzerLens = lens phraseSuggesterAnalyzer (\x y -> x { phraseSuggesterAnalyzer = y })
+phraseSuggesterAnalyzerLens = lens phraseSuggesterAnalyzer (\x y -> x {phraseSuggesterAnalyzer = y})
 
 phraseSuggesterShardSizeLens :: Lens' PhraseSuggester (Maybe Int)
-phraseSuggesterShardSizeLens = lens phraseSuggesterShardSize (\x y -> x { phraseSuggesterShardSize = y })
+phraseSuggesterShardSizeLens = lens phraseSuggesterShardSize (\x y -> x {phraseSuggesterShardSize = y})
 
 phraseSuggesterHighlightLens :: Lens' PhraseSuggester (Maybe PhraseSuggesterHighlighter)
-phraseSuggesterHighlightLens = lens phraseSuggesterHighlight (\x y -> x { phraseSuggesterHighlight = y })
+phraseSuggesterHighlightLens = lens phraseSuggesterHighlight (\x y -> x {phraseSuggesterHighlight = y})
 
 phraseSuggesterCollateLens :: Lens' PhraseSuggester (Maybe PhraseSuggesterCollate)
-phraseSuggesterCollateLens = lens phraseSuggesterCollate (\x y -> x { phraseSuggesterCollate = y })
+phraseSuggesterCollateLens = lens phraseSuggesterCollate (\x y -> x {phraseSuggesterCollate = y})
 
 phraseSuggesterCandidateGeneratorsLens :: Lens' PhraseSuggester [DirectGenerators]
-phraseSuggesterCandidateGeneratorsLens = lens phraseSuggesterCandidateGenerators (\x y -> x { phraseSuggesterCandidateGenerators = y })
+phraseSuggesterCandidateGeneratorsLens = lens phraseSuggesterCandidateGenerators (\x y -> x {phraseSuggesterCandidateGenerators = y})
 
 data PhraseSuggesterHighlighter = PhraseSuggesterHighlighter
   { phraseSuggesterHighlighterPreTag :: Text,
     phraseSuggesterHighlighterPostTag :: Text
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 phraseSuggesterHighlighterPreTagLens :: Lens' PhraseSuggesterHighlighter Text
-phraseSuggesterHighlighterPreTagLens = lens phraseSuggesterHighlighterPreTag (\x y -> x { phraseSuggesterHighlighterPreTag = y })
+phraseSuggesterHighlighterPreTagLens = lens phraseSuggesterHighlighterPreTag (\x y -> x {phraseSuggesterHighlighterPreTag = y})
 
 phraseSuggesterHighlighterPostTagLens :: Lens' PhraseSuggesterHighlighter Text
-phraseSuggesterHighlighterPostTagLens = lens phraseSuggesterHighlighterPostTag (\x y -> x { phraseSuggesterHighlighterPostTag = y })
+phraseSuggesterHighlighterPostTagLens = lens phraseSuggesterHighlighterPostTag (\x y -> x {phraseSuggesterHighlighterPostTag = y})
 
 instance ToJSON PhraseSuggesterHighlighter where
   toJSON PhraseSuggesterHighlighter {..} =
@@ -201,7 +199,7 @@ data PhraseSuggesterCollate = PhraseSuggesterCollate
     phraseSuggesterCollateParams :: TemplateQueryKeyValuePairs,
     phraseSuggesterCollatePrune :: Bool
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON PhraseSuggesterCollate where
   toJSON PhraseSuggesterCollate {..} =
@@ -224,13 +222,13 @@ instance FromJSON PhraseSuggesterCollate where
   parseJSON x = typeMismatch "PhraseSuggesterCollate" x
 
 phraseSuggesterCollateTemplateQueryLens :: Lens' PhraseSuggesterCollate Query
-phraseSuggesterCollateTemplateQueryLens = lens phraseSuggesterCollateTemplateQuery (\x y -> x { phraseSuggesterCollateTemplateQuery = y })
+phraseSuggesterCollateTemplateQueryLens = lens phraseSuggesterCollateTemplateQuery (\x y -> x {phraseSuggesterCollateTemplateQuery = y})
 
 phraseSuggesterCollateParamsLens :: Lens' PhraseSuggesterCollate TemplateQueryKeyValuePairs
-phraseSuggesterCollateParamsLens = lens phraseSuggesterCollateParams (\x y -> x { phraseSuggesterCollateParams = y })
+phraseSuggesterCollateParamsLens = lens phraseSuggesterCollateParams (\x y -> x {phraseSuggesterCollateParams = y})
 
 phraseSuggesterCollatePruneLens :: Lens' PhraseSuggesterCollate Bool
-phraseSuggesterCollatePruneLens = lens phraseSuggesterCollatePrune (\x y -> x { phraseSuggesterCollatePrune = y })
+phraseSuggesterCollatePruneLens = lens phraseSuggesterCollatePrune (\x y -> x {phraseSuggesterCollatePrune = y})
 
 data SuggestOptions = SuggestOptions
   { suggestOptionsText :: Text,
@@ -238,7 +236,7 @@ data SuggestOptions = SuggestOptions
     suggestOptionsFreq :: Maybe Int,
     suggestOptionsHighlighted :: Maybe Text
   }
-  deriving (Eq, Read, Show)
+  deriving stock (Eq, Read, Show)
 
 instance FromJSON SuggestOptions where
   parseJSON = withObject "SuggestOptions" parse
@@ -251,16 +249,16 @@ instance FromJSON SuggestOptions where
           <*> o .:? "highlighted"
 
 suggestOptionsTextLens :: Lens' SuggestOptions Text
-suggestOptionsTextLens = lens suggestOptionsText (\x y -> x { suggestOptionsText = y })
+suggestOptionsTextLens = lens suggestOptionsText (\x y -> x {suggestOptionsText = y})
 
 suggestOptionsScoreLens :: Lens' SuggestOptions Double
-suggestOptionsScoreLens = lens suggestOptionsScore (\x y -> x { suggestOptionsScore = y })
+suggestOptionsScoreLens = lens suggestOptionsScore (\x y -> x {suggestOptionsScore = y})
 
 suggestOptionsFreqLens :: Lens' SuggestOptions (Maybe Int)
-suggestOptionsFreqLens = lens suggestOptionsFreq (\x y -> x { suggestOptionsFreq = y })
+suggestOptionsFreqLens = lens suggestOptionsFreq (\x y -> x {suggestOptionsFreq = y})
 
 suggestOptionsHighlightedLens :: Lens' SuggestOptions (Maybe Text)
-suggestOptionsHighlightedLens = lens suggestOptionsHighlighted (\x y -> x { suggestOptionsHighlighted = y })
+suggestOptionsHighlightedLens = lens suggestOptionsHighlighted (\x y -> x {suggestOptionsHighlighted = y})
 
 data SuggestResponse = SuggestResponse
   { suggestResponseText :: Text,
@@ -268,7 +266,7 @@ data SuggestResponse = SuggestResponse
     suggestResponseLength :: Int,
     suggestResponseOptions :: [SuggestOptions]
   }
-  deriving (Eq, Read, Show)
+  deriving stock (Eq, Read, Show)
 
 instance FromJSON SuggestResponse where
   parseJSON = withObject "SuggestResponse" parse
@@ -281,22 +279,22 @@ instance FromJSON SuggestResponse where
           <*> o .: "options"
 
 suggestResponseTextLens :: Lens' SuggestResponse Text
-suggestResponseTextLens = lens suggestResponseText (\x y -> x { suggestResponseText = y })
+suggestResponseTextLens = lens suggestResponseText (\x y -> x {suggestResponseText = y})
 
 suggestResponseOffsetLens :: Lens' SuggestResponse Int
-suggestResponseOffsetLens = lens suggestResponseOffset (\x y -> x { suggestResponseOffset = y })
+suggestResponseOffsetLens = lens suggestResponseOffset (\x y -> x {suggestResponseOffset = y})
 
 suggestResponseLengthLens :: Lens' SuggestResponse Int
-suggestResponseLengthLens = lens suggestResponseLength (\x y -> x { suggestResponseLength = y })
+suggestResponseLengthLens = lens suggestResponseLength (\x y -> x {suggestResponseLength = y})
 
 suggestResponseOptionsLens :: Lens' SuggestResponse [SuggestOptions]
-suggestResponseOptionsLens = lens suggestResponseOptions (\x y -> x { suggestResponseOptions = y })
+suggestResponseOptionsLens = lens suggestResponseOptions (\x y -> x {suggestResponseOptions = y})
 
 data NamedSuggestionResponse = NamedSuggestionResponse
   { nsrName :: Text,
     nsrResponses :: [SuggestResponse]
   }
-  deriving (Eq, Read, Show)
+  deriving stock (Eq, Read, Show)
 
 instance FromJSON NamedSuggestionResponse where
   parseJSON (Object o) = do
@@ -308,16 +306,16 @@ instance FromJSON NamedSuggestionResponse where
   parseJSON x = typeMismatch "NamedSuggestionResponse" x
 
 nsrNameLens :: Lens' NamedSuggestionResponse Text
-nsrNameLens = lens nsrName (\x y -> x { nsrName = y })
+nsrNameLens = lens nsrName (\x y -> x {nsrName = y})
 
 nsrResponsesLens :: Lens' NamedSuggestionResponse [SuggestResponse]
-nsrResponsesLens = lens nsrResponses (\x y -> x { nsrResponses = y })
+nsrResponsesLens = lens nsrResponses (\x y -> x {nsrResponses = y})
 
 data DirectGeneratorSuggestModeTypes
   = DirectGeneratorSuggestModeMissing
   | DirectGeneratorSuggestModePopular
   | DirectGeneratorSuggestModeAlways
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON DirectGeneratorSuggestModeTypes where
   toJSON DirectGeneratorSuggestModeMissing = "missing"
@@ -349,7 +347,7 @@ data DirectGenerators = DirectGenerators
     directGeneratorPreFilter :: Maybe Text,
     directGeneratorPostFilter :: Maybe Text
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON DirectGenerators where
   toJSON DirectGenerators {..} =
@@ -400,34 +398,34 @@ mkDirectGenerators fn =
     Nothing
 
 directGeneratorsFieldLens :: Lens' DirectGenerators FieldName
-directGeneratorsFieldLens = lens directGeneratorsField (\x y -> x { directGeneratorsField = y })
+directGeneratorsFieldLens = lens directGeneratorsField (\x y -> x {directGeneratorsField = y})
 
 directGeneratorsSizeLens :: Lens' DirectGenerators (Maybe Int)
-directGeneratorsSizeLens = lens directGeneratorsSize (\x y -> x { directGeneratorsSize = y })
+directGeneratorsSizeLens = lens directGeneratorsSize (\x y -> x {directGeneratorsSize = y})
 
 directGeneratorSuggestModeLens :: Lens' DirectGenerators DirectGeneratorSuggestModeTypes
-directGeneratorSuggestModeLens = lens directGeneratorSuggestMode (\x y -> x { directGeneratorSuggestMode = y })
+directGeneratorSuggestModeLens = lens directGeneratorSuggestMode (\x y -> x {directGeneratorSuggestMode = y})
 
 directGeneratorMaxEditsLens :: Lens' DirectGenerators (Maybe Double)
-directGeneratorMaxEditsLens = lens directGeneratorMaxEdits (\x y -> x { directGeneratorMaxEdits = y })
+directGeneratorMaxEditsLens = lens directGeneratorMaxEdits (\x y -> x {directGeneratorMaxEdits = y})
 
 directGeneratorPrefixLengthLens :: Lens' DirectGenerators (Maybe Int)
-directGeneratorPrefixLengthLens = lens directGeneratorPrefixLength (\x y -> x { directGeneratorPrefixLength = y })
+directGeneratorPrefixLengthLens = lens directGeneratorPrefixLength (\x y -> x {directGeneratorPrefixLength = y})
 
 directGeneratorMinWordLengthLens :: Lens' DirectGenerators (Maybe Int)
-directGeneratorMinWordLengthLens = lens directGeneratorMinWordLength (\x y -> x { directGeneratorMinWordLength = y })
+directGeneratorMinWordLengthLens = lens directGeneratorMinWordLength (\x y -> x {directGeneratorMinWordLength = y})
 
 directGeneratorMaxInspectionsLens :: Lens' DirectGenerators (Maybe Int)
-directGeneratorMaxInspectionsLens = lens directGeneratorMaxInspections (\x y -> x { directGeneratorMaxInspections = y })
+directGeneratorMaxInspectionsLens = lens directGeneratorMaxInspections (\x y -> x {directGeneratorMaxInspections = y})
 
 directGeneratorMinDocFreqLens :: Lens' DirectGenerators (Maybe Double)
-directGeneratorMinDocFreqLens = lens directGeneratorMinDocFreq (\x y -> x { directGeneratorMinDocFreq = y })
+directGeneratorMinDocFreqLens = lens directGeneratorMinDocFreq (\x y -> x {directGeneratorMinDocFreq = y})
 
 directGeneratorMaxTermFreqLens :: Lens' DirectGenerators (Maybe Double)
-directGeneratorMaxTermFreqLens = lens directGeneratorMaxTermFreq (\x y -> x { directGeneratorMaxTermFreq = y })
+directGeneratorMaxTermFreqLens = lens directGeneratorMaxTermFreq (\x y -> x {directGeneratorMaxTermFreq = y})
 
 directGeneratorPreFilterLens :: Lens' DirectGenerators (Maybe Text)
-directGeneratorPreFilterLens = lens directGeneratorPreFilter (\x y -> x { directGeneratorPreFilter = y })
+directGeneratorPreFilterLens = lens directGeneratorPreFilter (\x y -> x {directGeneratorPreFilter = y})
 
 directGeneratorPostFilterLens :: Lens' DirectGenerators (Maybe Text)
-directGeneratorPostFilterLens = lens directGeneratorPostFilter (\x y -> x { directGeneratorPostFilter = y })
+directGeneratorPostFilterLens = lens directGeneratorPostFilter (\x y -> x {directGeneratorPostFilter = y})

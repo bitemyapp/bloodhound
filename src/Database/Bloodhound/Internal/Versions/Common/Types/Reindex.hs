@@ -1,6 +1,3 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -23,7 +20,7 @@ data ReindexRequest = ReindexRequest
     reindexDest :: ReindexDest,
     reindexScript :: Maybe ReindexScript
   }
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ReindexRequest where
   toJSON ReindexRequest {..} =
@@ -57,7 +54,7 @@ reindexScriptLens = lens reindexScript (\x y -> x {reindexScript = y})
 data ReindexConflicts
   = ReindexAbortOnConflicts
   | ReindexProceedOnConflicts
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance FromJSON ReindexConflicts where
   parseJSON = withText "ReindexConflicts" $ \case
@@ -79,7 +76,7 @@ data ReindexSource = ReindexSource
     reindexSourceSize :: Maybe Int,
     reindexSourceSlice :: Maybe ReindexSlice
   }
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ReindexSource where
   toJSON ReindexSource {..} =
@@ -119,7 +116,7 @@ data ReindexSlice = ReindexSlice
   { reindexSliceId :: Maybe Int,
     reindexSliceMax :: Maybe Int
   }
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ReindexSlice where
   toJSON ReindexSlice {..} =
@@ -140,7 +137,7 @@ data ReindexDest = ReindexDest
     reindexDestVersionType :: Maybe VersionType,
     reindexDestOpType :: Maybe ReindexOpType
   }
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ReindexDest where
   toJSON ReindexDest {..} =
@@ -171,7 +168,7 @@ data VersionType
   | VersionTypeExternal
   | VersionTypeExternalGT
   | VersionTypeExternalGTE
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON VersionType where
   toJSON =
@@ -192,7 +189,7 @@ instance FromJSON VersionType where
 data ReindexOpType
   = OpCreate
   | OpIndex
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance FromJSON ReindexOpType where
   parseJSON = withText "ReindexOpType" $ \case
@@ -208,7 +205,7 @@ data ReindexScript = ReindexScript
   { reindexScriptLanguage :: ScriptLanguage,
     reindexScriptSource :: Text
   }
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ReindexScript where
   toJSON ReindexScript {..} =
@@ -258,7 +255,7 @@ data ReindexResponse = ReindexResponse
     reindexResponseVersionConflicts :: Int,
     reindexResponseThrottledMillis :: Int
   }
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ReindexResponse where
   toJSON ReindexResponse {..} =

@@ -8,7 +8,7 @@ import Database.Bloodhound.Internal.Utils.Imports
 data OpenPointInTimeResponse = OpenPointInTimeResponse
   { oPitId :: Text
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 oPitIdLens :: Lens' OpenPointInTimeResponse Text
 oPitIdLens = lens oPitId (\x y -> x { oPitId = y })
@@ -24,7 +24,7 @@ instance FromJSON OpenPointInTimeResponse where
 data ClosePointInTime = ClosePointInTime
   { cPitId :: Text
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON ClosePointInTime where
   toJSON ClosePointInTime {..} =
@@ -38,7 +38,7 @@ data ClosePointInTimeResponse = ClosePointInTimeResponse
   { succeeded :: Bool,
     numFreed :: Int
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 
 cPitIdLens :: Lens' ClosePointInTime Text

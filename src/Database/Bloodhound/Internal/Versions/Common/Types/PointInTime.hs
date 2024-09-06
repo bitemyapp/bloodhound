@@ -9,7 +9,7 @@ data PointInTime = PointInTime
   { pointInTimeId :: Text,
     pointInTimeKeepAlive :: Text
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON PointInTime where
   toJSON PointInTime {..} =

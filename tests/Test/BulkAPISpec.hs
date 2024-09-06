@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Test.BulkAPISpec (spec) where
 
@@ -13,7 +12,7 @@ import TestsUtils.Import
 
 newtype BulkTest
   = BulkTest Text
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON BulkTest where
   toJSON (BulkTest name') =
@@ -30,7 +29,7 @@ data BulkScriptTest = BulkScriptTest
   { bstName :: Text,
     bstCounter :: Int
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON BulkScriptTest where
   toJSON (BulkScriptTest name' count) =

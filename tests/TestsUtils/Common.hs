@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
 
 module TestsUtils.Common where
 
@@ -25,7 +24,7 @@ data Location = Location
   { lat :: Double,
     lon :: Double
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data Tweet = Tweet
   { user :: Text,
@@ -35,12 +34,12 @@ data Tweet = Tweet
     location :: Location,
     extra :: Maybe Text
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 $(deriveJSON defaultOptions ''Location)
 $(deriveJSON defaultOptions ''Tweet)
 
-data ConversationMapping = ConversationMapping deriving (Eq, Show)
+data ConversationMapping = ConversationMapping deriving stock (Eq, Show)
 
 instance ToJSON ConversationMapping where
   toJSON ConversationMapping =
@@ -94,7 +93,7 @@ validateStatus resp expected =
     actual = NHTS.statusCode (responseStatus $ getResponse resp)
     body = responseBody $ getResponse resp
 
-data TweetMapping = TweetMapping deriving (Eq, Show)
+data TweetMapping = TweetMapping deriving stock (Eq, Show)
 
 instance ToJSON TweetMapping where
   toJSON TweetMapping =

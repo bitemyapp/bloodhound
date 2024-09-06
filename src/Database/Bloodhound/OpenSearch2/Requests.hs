@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Database.Bloodhound.OpenSearch2.Requests
   ( module Reexport,

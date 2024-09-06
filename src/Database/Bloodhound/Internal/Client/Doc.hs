@@ -1,6 +1,3 @@
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Database.Bloodhound.Internal.Client.Doc
   ( DocVersion (..),
     ExternalDocVersion (..),
@@ -54,7 +51,7 @@ instance FromJSON DocVersion where
 -- | 'ExternalDocVersion' is a convenience wrapper if your code uses its
 -- own version numbers instead of ones from ES.
 newtype ExternalDocVersion = ExternalDocVersion DocVersion
-  deriving (Eq, Show, Ord, Bounded, Enum, ToJSON)
+  deriving newtype (Eq, Ord, Show, Bounded, Enum, ToJSON)
 
 -- | 'VersionControl' is specified when indexing documents as a
 -- optimistic concurrency control.
@@ -88,4 +85,4 @@ data VersionControl
     -- typically used for correcting errors. Use with
     -- care, as this could result in data loss.
     ForceVersion ExternalDocVersion
-  deriving (Eq, Show, Ord)
+  deriving stock (Eq, Show, Ord)

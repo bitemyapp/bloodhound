@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.MoreLikeThis
@@ -26,7 +25,7 @@ data MoreLikeThisQuery = MoreLikeThisQuery
     moreLikeThisBoost :: Maybe Boost,
     moreLikeThisAnalyzer :: Maybe Analyzer
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON MoreLikeThisQuery where
   toJSON

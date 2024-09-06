@@ -1,8 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Database.Bloodhound.Client.Cluster
@@ -63,7 +61,7 @@ mkBHEnv s m = BHEnv s m return
 newtype BH m a = BH
   { unBH :: ReaderT BHEnv (ExceptT EsError m) a
   }
-  deriving
+  deriving newtype
     ( Functor,
       Applicative,
       Monad,

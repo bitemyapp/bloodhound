@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module TestsUtils.Generators where
@@ -600,7 +599,7 @@ instance Arbitrary UpdatableIndexSetting where
 
 newtype UpdatableIndexSetting'
   = UpdatableIndexSetting' UpdatableIndexSetting
-  deriving (Eq, Show, Typeable)
+  deriving stock (Eq, Show, Typeable)
   deriving newtype (ToJSON, FromJSON, ApproxEq)
 
 instance Arbitrary UpdatableIndexSetting' where

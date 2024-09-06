@@ -1,7 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.Match
   ( MatchQuery (..),
@@ -32,7 +29,7 @@ data MatchQuery = MatchQuery
     matchQueryMinimumShouldMatch :: Maybe Text,
     matchQueryFuzziness :: Maybe Fuzziness
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON MatchQuery where
   toJSON
@@ -91,7 +88,7 @@ mkMatchQuery field query = MatchQuery field query Or ZeroTermsNone Nothing Nothi
 data MatchQueryType
   = MatchPhrase
   | MatchPhrasePrefix
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON MatchQueryType where
   toJSON MatchPhrase = "phrase"
@@ -116,7 +113,7 @@ data MultiMatchQuery = MultiMatchQuery
     multiMatchQueryMaxExpansions :: Maybe MaxExpansions,
     multiMatchQueryLenient :: Maybe Lenient
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON MultiMatchQuery where
   toJSON
@@ -187,7 +184,7 @@ data MultiMatchQueryType
   | MultiMatchCrossFields
   | MultiMatchPhrase
   | MultiMatchPhrasePrefix
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON MultiMatchQueryType where
   toJSON MultiMatchBestFields = "best_fields"

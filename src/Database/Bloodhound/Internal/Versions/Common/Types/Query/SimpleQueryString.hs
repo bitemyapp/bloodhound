@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -23,7 +22,7 @@ data SimpleQueryStringQuery = SimpleQueryStringQuery
     simpleQueryStringLowercaseExpanded :: Maybe LowercaseExpanded,
     simpleQueryStringLocale :: Maybe Locale
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON SimpleQueryStringQuery where
   toJSON SimpleQueryStringQuery {..} =
@@ -67,7 +66,7 @@ data SimpleQueryFlag
   | SimpleQueryFuzzy
   | SimpleQueryNear
   | SimpleQuerySlop
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON SimpleQueryFlag where
   toJSON SimpleQueryAll = "ALL"
@@ -103,7 +102,7 @@ instance FromJSON SimpleQueryFlag where
 data FieldOrFields
   = FofField FieldName
   | FofFields (NonEmpty FieldName)
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON FieldOrFields where
   toJSON (FofField fieldName) =

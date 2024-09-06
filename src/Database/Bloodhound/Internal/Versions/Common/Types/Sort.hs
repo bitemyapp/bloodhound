@@ -1,6 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Sort where
 
@@ -16,7 +14,7 @@ data SortMode
   | SortMax
   | SortSum
   | SortAvg
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON SortMode where
   toJSON SortMin = String "min"
@@ -42,7 +40,7 @@ type Sort = [SortSpec]
 data SortSpec
   = DefaultSortSpec DefaultSort
   | GeoDistanceSortSpec SortOrder GeoPoint DistanceUnit
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON SortSpec where
   toJSON
@@ -88,25 +86,25 @@ data DefaultSort = DefaultSort
     missingSort :: Maybe Missing,
     nestedFilter :: Maybe Filter
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 sortFieldNameLens :: Lens' DefaultSort FieldName
-sortFieldNameLens = lens sortFieldName (\x y -> x { sortFieldName = y })
+sortFieldNameLens = lens sortFieldName (\x y -> x {sortFieldName = y})
 
 sortOrderLens :: Lens' DefaultSort SortOrder
-sortOrderLens = lens sortOrder (\x y -> x { sortOrder = y })
+sortOrderLens = lens sortOrder (\x y -> x {sortOrder = y})
 
 ignoreUnmappedLens :: Lens' DefaultSort (Maybe Text)
-ignoreUnmappedLens = lens ignoreUnmapped (\x y -> x { ignoreUnmapped = y })
+ignoreUnmappedLens = lens ignoreUnmapped (\x y -> x {ignoreUnmapped = y})
 
 sortModeLens :: Lens' DefaultSort (Maybe SortMode)
-sortModeLens = lens sortMode (\x y -> x { sortMode = y })
+sortModeLens = lens sortMode (\x y -> x {sortMode = y})
 
 missingSortLens :: Lens' DefaultSort (Maybe Missing)
-missingSortLens = lens missingSort (\x y -> x { missingSort = y })
+missingSortLens = lens missingSort (\x y -> x {missingSort = y})
 
 nestedFilterLens :: Lens' DefaultSort (Maybe Filter)
-nestedFilterLens = lens nestedFilter (\x y -> x { nestedFilter = y })
+nestedFilterLens = lens nestedFilter (\x y -> x {nestedFilter = y})
 
 -- | 'SortOrder' is 'Ascending' or 'Descending', as you might expect. These get
 --    encoded into "asc" or "desc" when turned into JSON.
@@ -115,7 +113,7 @@ nestedFilterLens = lens nestedFilter (\x y -> x { nestedFilter = y })
 data SortOrder
   = Ascending
   | Descending
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON SortOrder where
   toJSON Ascending = String "asc"
@@ -129,7 +127,7 @@ data Missing
   = LastMissing
   | FirstMissing
   | CustomMissing Text
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON Missing where
   toJSON LastMissing = String "_last"

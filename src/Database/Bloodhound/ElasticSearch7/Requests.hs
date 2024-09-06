@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Database.Bloodhound.ElasticSearch7.Requests
   ( module Reexport,

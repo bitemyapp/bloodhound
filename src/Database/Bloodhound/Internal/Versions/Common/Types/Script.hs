@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Script where
@@ -11,38 +9,38 @@ import GHC.Generics
 
 newtype ScriptFields
   = ScriptFields (KeyMap ScriptFieldValue)
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 type ScriptFieldValue = Value
 
 data ScriptSource
   = ScriptId Text
   | ScriptInline Text
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data Script = Script
   { scriptLanguage :: Maybe ScriptLanguage,
     scriptSource :: ScriptSource,
     scriptParams :: Maybe ScriptParams
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 scriptLanguageLens :: Lens' Script (Maybe ScriptLanguage)
-scriptLanguageLens = lens scriptLanguage (\x y -> x { scriptLanguage = y })
+scriptLanguageLens = lens scriptLanguage (\x y -> x {scriptLanguage = y})
 
 scriptSourceLens :: Lens' Script ScriptSource
-scriptSourceLens = lens scriptSource (\x y -> x { scriptSource = y })
+scriptSourceLens = lens scriptSource (\x y -> x {scriptSource = y})
 
 scriptParamsLens :: Lens' Script (Maybe ScriptParams)
-scriptParamsLens = lens scriptParams (\x y -> x { scriptParams = y })
+scriptParamsLens = lens scriptParams (\x y -> x {scriptParams = y})
 
 newtype ScriptLanguage
   = ScriptLanguage Text
-  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+  deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 newtype ScriptParams
   = ScriptParams (KeyMap ScriptParamValue)
-  deriving (Eq, Show)
+  deriving newtype (Eq, Show)
 
 type ScriptParamValue = Value
 
@@ -53,7 +51,7 @@ data BoostMode
   | BoostModeAvg
   | BoostModeMax
   | BoostModeMin
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data ScoreMode
   = ScoreModeMultiply
@@ -62,21 +60,21 @@ data ScoreMode
   | ScoreModeFirst
   | ScoreModeMax
   | ScoreModeMin
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data FunctionScoreFunction
   = FunctionScoreFunctionScript Script
   | FunctionScoreFunctionRandom Seed
   | FunctionScoreFunctionFieldValueFactor FieldValueFactor
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 newtype Weight
   = Weight Float
-  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+  deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 newtype Seed
   = Seed Float
-  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+  deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 data FieldValueFactor = FieldValueFactor
   { fieldValueFactorField :: FieldName,
@@ -84,11 +82,11 @@ data FieldValueFactor = FieldValueFactor
     fieldValueFactorModifier :: Maybe FactorModifier,
     fieldValueFactorMissing :: Maybe FactorMissingFieldValue
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 newtype Factor
   = Factor Float
-  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+  deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 data FactorModifier
   = FactorModifierNone
@@ -101,11 +99,11 @@ data FactorModifier
   | FactorModifierSquare
   | FactorModifierSqrt
   | FactorModifierReciprocal
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 newtype FactorMissingFieldValue
   = FactorMissingFieldValue Float
-  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+  deriving newtype (Eq, Show, FromJSON, ToJSON)
 
 instance ToJSON BoostMode where
   toJSON BoostModeMultiply = "multiply"

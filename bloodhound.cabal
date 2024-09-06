@@ -107,6 +107,15 @@ library
     , vector >=0.10.9 && <1
     , versions >= 5.0.2 && <7
   default-language: Haskell2010
+  default-extensions:
+      DataKinds
+      DeriveAnyClass
+      DeriveGeneric
+      DerivingStrategies
+      DerivingVia
+      GeneralizedNewtypeDeriving
+      KindSignatures
+      TypeApplications
 
 test-suite bloodhound-tests
   type: exitcode-stdio-1.0

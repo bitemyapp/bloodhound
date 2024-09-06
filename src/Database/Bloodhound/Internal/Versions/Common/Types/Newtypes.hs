@@ -1,9 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
   ( From (..),
@@ -383,7 +379,7 @@ newtype IndexAliasName = IndexAliasName {indexAliasName :: IndexName}
   deriving newtype (Eq, Show, ToJSON)
 
 newtype MaybeNA a = MaybeNA {unMaybeNA :: Maybe a}
-  deriving newtype (Show, Eq, Functor, Applicative, Monad)
+  deriving newtype (Eq, Show, Functor, Applicative, Monad)
 
 instance (FromJSON a) => FromJSON (MaybeNA a) where
   parseJSON (String "NA") = pure $ MaybeNA Nothing

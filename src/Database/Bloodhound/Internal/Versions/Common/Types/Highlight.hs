@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Highlight where
@@ -14,7 +13,7 @@ data Highlights = Highlights
   { globalsettings :: Maybe HighlightSettings,
     highlightFields :: [FieldHighlight]
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON Highlights where
   toJSON (Highlights global fields) =
@@ -25,7 +24,7 @@ instance ToJSON Highlights where
 
 data FieldHighlight
   = FieldHighlight FieldName (Maybe HighlightSettings)
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON FieldHighlight where
   toJSON (FieldHighlight (FieldName fName) (Just fSettings)) =
@@ -37,7 +36,7 @@ data HighlightSettings
   = Plain PlainHighlight
   | Postings PostingsHighlight
   | FastVector FastVectorHighlight
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON HighlightSettings where
   toJSON hs = omitNulls (highlightSettingsPairs (Just hs))
@@ -46,12 +45,12 @@ data PlainHighlight = PlainHighlight
   { plainCommon :: Maybe CommonHighlight,
     plainNonPost :: Maybe NonPostings
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- This requires that index_options are set to 'offset' in the mapping.
 data PostingsHighlight
   = PostingsHighlight (Maybe CommonHighlight)
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- This requires that term_vector is set to 'with_positions_offsets' in the mapping.
 data FastVectorHighlight = FastVectorHighlight
@@ -63,7 +62,7 @@ data FastVectorHighlight = FastVectorHighlight
     matchedFields :: [Text],
     phraseLimit :: Maybe Int
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data CommonHighlight = CommonHighlight
   { order :: Maybe Text,
@@ -74,19 +73,19 @@ data CommonHighlight = CommonHighlight
     highlightQuery :: Maybe Query,
     requireFieldMatch :: Maybe Bool
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- Settings that are only applicable to FastVector and Plain highlighters.
 data NonPostings = NonPostings
   { fragmentSize :: Maybe Int,
     numberOfFragments :: Maybe Int
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data HighlightEncoder
   = DefaultEncoder
   | HTMLEncoder
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON HighlightEncoder where
   toJSON DefaultEncoder = String "default"
@@ -97,7 +96,7 @@ data HighlightTag
   = TagSchema Text
   | -- Only uses more than the first value in the lists if fvh
     CustomTags ([Text], [Text])
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 highlightSettingsPairs :: Maybe HighlightSettings -> [Pair]
 highlightSettingsPairs Nothing = []

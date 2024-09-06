@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.QueryString
@@ -32,7 +31,7 @@ data QueryStringQuery = QueryStringQuery
     queryStringLenient :: Maybe Lenient,
     queryStringLocale :: Maybe Locale
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON QueryStringQuery where
   toJSON

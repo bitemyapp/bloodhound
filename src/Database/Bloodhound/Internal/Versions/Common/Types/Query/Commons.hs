@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.Commons
@@ -17,7 +16,7 @@ import GHC.Generics
 data ZeroTermsQuery
   = ZeroTermsNone
   | ZeroTermsAll
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ZeroTermsQuery where
   toJSON ZeroTermsNone = String "none"
@@ -32,7 +31,7 @@ instance FromJSON ZeroTermsQuery where
 
 -- | 'BooleanOperator' is the usual And/Or operators with an ES compatible
 --    JSON encoding baked in. Used all over the place.
-data BooleanOperator = And | Or deriving (Eq, Show, Generic)
+data BooleanOperator = And | Or deriving stock (Eq, Show, Generic)
 
 instance ToJSON BooleanOperator where
   toJSON And = String "and"
@@ -49,7 +48,7 @@ instance FromJSON BooleanOperator where
 -- See:
 -- https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#fuzziness
 data Fuzziness = Fuzziness Double | FuzzinessAuto
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON Fuzziness where
   toJSON (Fuzziness n) = toJSON n

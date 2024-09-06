@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.Regexp
@@ -22,7 +20,7 @@ data RegexpQuery = RegexpQuery
     regexpQueryFlags :: RegexpFlags,
     regexpQueryBoost :: Maybe Boost
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON RegexpQuery where
   toJSON
@@ -49,13 +47,13 @@ instance FromJSON RegexpQuery where
           <*> o .: "flags"
           <*> o .:? "boost"
 
-newtype Regexp = Regexp Text deriving (Eq, Show, Generic, FromJSON)
+newtype Regexp = Regexp Text deriving newtype (Eq, Show, FromJSON)
 
 data RegexpFlags
   = AllRegexpFlags
   | NoRegexpFlags
   | SomeRegexpFlags (NonEmpty RegexpFlag)
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON RegexpFlags where
   toJSON AllRegexpFlags = String "ALL"
@@ -84,7 +82,7 @@ data RegexpFlag
   | Empty
   | Intersection
   | Interval
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance FromJSON RegexpFlag where
   parseJSON = withText "RegexpFlag" parse

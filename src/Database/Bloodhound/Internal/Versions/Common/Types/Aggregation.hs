@@ -33,7 +33,7 @@ data Aggregation
   | TopHitsAgg TopHitsAggregation
   | StatsAgg StatisticsAggregation
   | SumAgg SumAggregation
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON Aggregation where
   toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
@@ -129,7 +129,7 @@ data TopHitsAggregation = TopHitsAggregation
     taSize :: Maybe Size,
     taSort :: Maybe Sort
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 taFromLens :: Lens' TopHitsAggregation (Maybe From)
 taFromLens = lens taFrom (\x y -> x { taFrom = y })
@@ -143,7 +143,7 @@ taSortLens = lens taSort (\x y -> x { taSort = y })
 data MissingAggregation = MissingAggregation
   { maField :: Text
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 maFieldLens :: Lens' MissingAggregation Text
 maFieldLens = lens maField (\x y -> x { maField = y })
@@ -160,7 +160,7 @@ data TermsAggregation = TermsAggregation
     termExecutionHint :: Maybe ExecutionHint,
     termAggs :: Maybe Aggregations
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 termLens :: Lens' TermsAggregation (Either Text Text)
 termLens = lens term (\x y -> x { term = y })
@@ -196,7 +196,7 @@ data CardinalityAggregation = CardinalityAggregation
   { cardinalityField :: FieldName,
     precisionThreshold :: Maybe Int
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 cardinalityFieldLens :: Lens' CardinalityAggregation FieldName
 cardinalityFieldLens = lens cardinalityField (\x y -> x { cardinalityField = y })
@@ -215,7 +215,7 @@ data DateHistogramAggregation = DateHistogramAggregation
     datePostOffset :: Maybe Text,
     dateAggs :: Maybe Aggregations
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 dateFieldLens :: Lens' DateHistogramAggregation FieldName
 dateFieldLens = lens dateField (\x y -> x { dateField = y })
@@ -246,7 +246,7 @@ data DateRangeAggregation = DateRangeAggregation
     draFormat :: Maybe Text,
     draRanges :: NonEmpty DateRangeAggRange
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON DateRangeAggregation where
   toJSON DateRangeAggregation {..} =
@@ -269,7 +269,7 @@ data DateRangeAggRange
   = DateRangeFrom DateMathExpr
   | DateRangeTo DateMathExpr
   | DateRangeFromAndTo DateMathExpr DateMathExpr
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON DateRangeAggRange where
   toJSON (DateRangeFrom e) = object ["from" .= e]
@@ -280,14 +280,14 @@ instance ToJSON DateRangeAggRange where
 data ValueCountAggregation
   = FieldValueCount FieldName
   | ScriptValueCount Script
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | Single-bucket filter aggregations. See <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html#search-aggregations-bucket-filter-aggregation> for more information.
 data FilterAggregation = FilterAggregation
   { faFilter :: Filter,
     faAggs :: Maybe Aggregations
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 faFilterLens :: Lens' FilterAggregation Filter
 faFilterLens = lens faFilter (\x y -> x { faFilter = y })
@@ -299,7 +299,7 @@ data StatisticsAggregation = StatisticsAggregation
   { statsType :: StatsType,
     statsField :: FieldName
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 statsTypeLens :: Lens' StatisticsAggregation StatsType
 statsTypeLens = lens statsType (\x y -> x { statsType = y })
@@ -310,10 +310,10 @@ statsFieldLens = lens statsField (\x y -> x { statsField = y })
 data StatsType
   = Basic
   | Extended
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 newtype SumAggregation = SumAggregation {sumAggregationField :: FieldName}
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 mkTermsAggregation :: Text -> TermsAggregation
 mkTermsAggregation t =
@@ -380,7 +380,7 @@ instance FromJSON BucketValue where
 data TermInclusion
   = TermInclusion Text
   | TermPattern Text Text
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON TermInclusion where
   toJSON (TermInclusion x) = toJSON x
@@ -394,7 +394,7 @@ data TermOrder = TermOrder
   { termSortField :: Text,
     termSortOrder :: SortOrder
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON TermOrder where
   toJSON (TermOrder termSortField termSortOrder) =
@@ -409,7 +409,7 @@ termSortOrderLens = lens termSortOrder (\x y -> x { termSortOrder = y })
 data CollectionMode
   = BreadthFirst
   | DepthFirst
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON CollectionMode where
   toJSON BreadthFirst = "breadth_first"
@@ -418,7 +418,7 @@ instance ToJSON CollectionMode where
 data ExecutionHint
   = GlobalOrdinals
   | Map
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON ExecutionHint where
   toJSON GlobalOrdinals = "global_ordinals"
@@ -427,7 +427,7 @@ instance ToJSON ExecutionHint where
 -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math> for more information.
 data DateMathExpr
   = DateMathExpr DateMathAnchor [DateMathModifier]
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON DateMathExpr where
   toJSON (DateMathExpr a mods) = String (fmtA a <> mconcat (fmtMod <$> mods))
@@ -449,13 +449,13 @@ instance ToJSON DateMathExpr where
 data DateMathAnchor
   = DMNow
   | DMDate Day
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data DateMathModifier
   = AddTime Int DateMathUnit
   | SubtractTime Int DateMathUnit
   | RoundDownTo DateMathUnit
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data DateMathUnit
   = DMYear
@@ -465,7 +465,7 @@ data DateMathUnit
   | DMHour
   | DMMinute
   | DMSecond
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data TermsResult = TermsResult
   { termKey :: BucketValue,
@@ -546,7 +546,7 @@ data DateRangeResult = DateRangeResult
     dateRangeDocCount :: Int,
     dateRangeAggs :: Maybe AggregationResults
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON DateRangeResult where
   parseJSON = withObject "DateRangeResult" parse
@@ -637,7 +637,7 @@ instance FromJSON MissingResult where
 data TopHitResult a = TopHitResult
   { tarHits :: (SearchHits a)
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance (FromJSON a) => FromJSON (TopHitResult a) where
   parseJSON (Object v) =
@@ -645,7 +645,7 @@ instance (FromJSON a) => FromJSON (TopHitResult a) where
       <$> v .: "hits"
   parseJSON _ = fail "Failure in FromJSON (TopHitResult a)"
 
-data HitsTotalRelation = HTR_EQ | HTR_GTE deriving (Eq, Show)
+data HitsTotalRelation = HTR_EQ | HTR_GTE deriving stock (Eq, Show)
 
 instance FromJSON HitsTotalRelation where
   parseJSON (String "eq") = pure HTR_EQ
@@ -656,7 +656,7 @@ data HitsTotal = HitsTotal
   { value :: Int,
     relation :: HitsTotalRelation
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON HitsTotal where
   parseJSON (Object v) =
@@ -681,7 +681,7 @@ data SearchHits a = SearchHits
     maxScore :: Score,
     hits :: [Hit a]
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance (FromJSON a) => FromJSON (SearchHits a) where
   parseJSON (Object v) =
@@ -720,7 +720,7 @@ data Hit a = Hit
     hitHighlight :: Maybe HitHighlight,
     hitInnerHits :: Maybe (X.KeyMap (TopHitResult Value))
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance (FromJSON a) => FromJSON (Hit a) where
   parseJSON (Object v) =

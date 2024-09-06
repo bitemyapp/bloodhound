@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.CommonTerms
@@ -24,7 +23,7 @@ data CommonTermsQuery = CommonTermsQuery
     commonAnalyzer :: Maybe Analyzer,
     commonDisableCoord :: Maybe DisableCoord
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON CommonTermsQuery where
   toJSON
@@ -69,7 +68,7 @@ instance FromJSON CommonTermsQuery where
 data CommonMinimumMatch
   = CommonMinimumMatchHighLow MinimumMatchHighLow
   | CommonMinimumMatch MinimumMatch
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON CommonMinimumMatch where
   toJSON (CommonMinimumMatch mm) = toJSON mm
@@ -99,4 +98,4 @@ data MinimumMatchHighLow = MinimumMatchHighLow
   { lowFreq :: MinimumMatch,
     highFreq :: MinimumMatch
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)

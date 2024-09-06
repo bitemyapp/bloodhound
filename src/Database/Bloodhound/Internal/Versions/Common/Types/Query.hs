@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query
@@ -90,7 +89,7 @@ data Query
   | QueryExistsQuery FieldName
   | QueryMatchNoneQuery
   | QueryWildcardQuery WildcardQuery
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON Query where
   toJSON (TermQuery (Term termQueryField termQueryValue) boost) =
@@ -276,7 +275,7 @@ instance FromJSON Query where
 -- | As of Elastic 2.0, 'Filters' are just 'Queries' housed in a
 --   Bool Query, and flagged in a different context.
 newtype Filter = Filter {unFilter :: Query}
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON Filter where
   toJSON = toJSON . unFilter
@@ -290,7 +289,7 @@ data NestedQuery = NestedQuery
     nestedQuery :: Query,
     nestedQueryInnerHits :: Maybe InnerHits
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON NestedQuery where
   toJSON (NestedQuery nqPath nqScoreType nqQuery nqInnerHits) =
@@ -317,7 +316,7 @@ data IndicesQuery = IndicesQuery
     -- default "all"
     indicesQueryNoMatch :: Maybe Query
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON IndicesQuery where
   toJSON (IndicesQuery indices query noMatch) =
@@ -342,7 +341,7 @@ data HasParentQuery = HasParentQuery
     hasParentQueryScore :: Maybe AggregateParentScore,
     hasParentIgnoreUnmapped :: Maybe IgnoreUnmapped
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON HasParentQuery where
   toJSON (HasParentQuery queryType query scoreType ignoreUnmapped) =
@@ -371,7 +370,7 @@ data HasChildQuery = HasChildQuery
     hasChildMinChildren :: Maybe MinChildren,
     hasChildMaxChildren :: Maybe MaxChildren
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON HasChildQuery where
   toJSON (HasChildQuery queryType query scoreType ignoreUnmapped minChildren maxChildren) =
@@ -401,7 +400,7 @@ data ScoreType
   | ScoreTypeSum
   | ScoreTypeAvg
   | ScoreTypeNone
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ScoreType where
   toJSON ScoreTypeMax = "max"
@@ -424,7 +423,7 @@ data DisMaxQuery = DisMaxQuery
     disMaxTiebreaker :: Tiebreaker,
     disMaxBoost :: Maybe Boost
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON DisMaxQuery where
   toJSON (DisMaxQuery queries tiebreaker boost) =
@@ -454,7 +453,7 @@ data BoolQuery = BoolQuery
     boolQueryBoost :: Maybe Boost,
     boolQueryDisableCoord :: Maybe DisableCoord
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON BoolQuery where
   toJSON (BoolQuery mustM filterM' notM shouldM bqMin boost disableCoord) =
@@ -492,7 +491,7 @@ data BoostingQuery = BoostingQuery
     negativeQuery :: Query,
     negativeBoost :: Boost
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON BoostingQuery where
   toJSON (BoostingQuery bqPositiveQuery bqNegativeQuery bqNegativeBoost) =
@@ -514,7 +513,7 @@ instance FromJSON BoostingQuery where
 data RangeExecution
   = RangeExecutionIndex
   | RangeExecutionFielddata
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 -- index for smaller ranges, fielddata for longer ranges
 instance ToJSON RangeExecution where
@@ -532,7 +531,7 @@ data Term = Term
   { termField :: Key,
     termValue :: Text
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON Term where
   toJSON (Term field value) =
@@ -555,7 +554,7 @@ data BoolMatch
   = MustMatch Term Cache
   | MustNotMatch Term Cache
   | ShouldMatch [Term] Cache
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON BoolMatch where
   toJSON (MustMatch term cache) =
@@ -594,7 +593,7 @@ instance FromJSON BoolMatch where
 data GeoFilterType
   = GeoFilterMemory
   | GeoFilterIndexed
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON GeoFilterType where
   toJSON GeoFilterMemory = String "memory"
@@ -611,7 +610,7 @@ data LatLon = LatLon
   { lat :: Double,
     lon :: Double
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON LatLon where
   toJSON (LatLon lLat lLon) =
@@ -632,7 +631,7 @@ data GeoBoundingBox = GeoBoundingBox
   { topLeft :: LatLon,
     bottomRight :: LatLon
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON GeoBoundingBox where
   toJSON (GeoBoundingBox gbbTopLeft gbbBottomRight) =
@@ -655,7 +654,7 @@ data GeoBoundingBoxConstraint = GeoBoundingBoxConstraint
     bbConstraintcache :: Cache,
     geoType :: GeoFilterType
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON
@@ -686,7 +685,7 @@ data GeoPoint = GeoPoint
   { geoField :: FieldName,
     latLon :: LatLon
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
@@ -702,7 +701,7 @@ data DistanceUnit
   | Centimeters
   | Millimeters
   | NauticalMiles
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 showDistanceUnit :: DistanceUnit -> Text
 showDistanceUnit x =
@@ -738,7 +737,7 @@ data DistanceType
   = Arc
   | SloppyArc -- doesn't exist <1.0
   | Plane
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON DistanceType where
   toJSON Arc = String "arc"
@@ -756,7 +755,7 @@ instance FromJSON DistanceType where
 data OptimizeBbox
   = OptimizeGeoFilterType GeoFilterType
   | NoOptimizeBbox
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON OptimizeBbox where
   toJSON NoOptimizeBbox = String "none"
@@ -775,7 +774,7 @@ data Distance = Distance
   { coefficient :: Double,
     unit :: DistanceUnit
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON Distance where
   toJSON (Distance dCoefficient dUnit) =
@@ -805,13 +804,13 @@ data DistanceRange = DistanceRange
   { distanceFrom :: Distance,
     distanceTo :: Distance
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 type TemplateQueryValue = Text
 
 newtype TemplateQueryKeyValuePairs
   = TemplateQueryKeyValuePairs (X.KeyMap TemplateQueryValue)
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON TemplateQueryKeyValuePairs where
   toJSON (TemplateQueryKeyValuePairs x) = Object $ String <$> x
@@ -841,7 +840,7 @@ data FunctionScoreQuery = FunctionScoreQuery
     functionScoreMinScore :: Score,
     functionScoreScoreMode :: Maybe ScoreMode
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON FunctionScoreQuery where
   toJSON (FunctionScoreQuery query boost fns maxBoost boostMode minScore scoreMode) =
@@ -880,14 +879,14 @@ instance FromJSON FunctionScoreQuery where
 data FunctionScoreFunctions
   = FunctionScoreSingle FunctionScoreFunction
   | FunctionScoreMultiple (NonEmpty ComponentFunctionScoreFunction)
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data ComponentFunctionScoreFunction = ComponentFunctionScoreFunction
   { componentScoreFunctionFilter :: Maybe Filter,
     componentScoreFunction :: FunctionScoreFunction,
     componentScoreFunctionWeight :: Maybe Weight
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ComponentFunctionScoreFunction where
   toJSON (ComponentFunctionScoreFunction filter' fn weight) =
@@ -918,7 +917,7 @@ data InnerHits = InnerHits
   { innerHitsFrom :: Maybe Integer,
     innerHitsSize :: Maybe Integer
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON InnerHits where
   toJSON (InnerHits ihFrom ihSize) =

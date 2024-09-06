@@ -1,11 +1,8 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -103,18 +100,18 @@ import GHC.Generics
 data SnapshotRepoSelection
   = SnapshotRepoList (NonEmpty SnapshotRepoPattern)
   | AllSnapshotRepos
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | Either specifies an exact repo name or one with globs in it,
 -- e.g. @RepoPattern "foo*"@ __NOTE__: Patterns are not supported on ES < 1.7
 data SnapshotRepoPattern
   = ExactRepo SnapshotRepoName
   | RepoPattern Text
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | The unique name of a snapshot repository.
 newtype SnapshotRepoName = SnapshotRepoName {snapshotRepoName :: Text}
-  deriving (Eq, Ord, Show, Generic, ToJSON, FromJSON)
+  deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
 
 snapshotRepoNameLens :: Lens' SnapshotRepoName Text
 snapshotRepoNameLens = lens snapshotRepoName (\x y -> x {snapshotRepoName = y})
@@ -130,7 +127,7 @@ data GenericSnapshotRepo = GenericSnapshotRepo
     gSnapshotRepoType :: SnapshotRepoType,
     gSnapshotRepoSettings :: GenericSnapshotRepoSettings
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance SnapshotRepo GenericSnapshotRepo where
   toGSnapshotRepo = id
@@ -146,7 +143,7 @@ gSnapshotRepoSettingsLens :: Lens' GenericSnapshotRepo GenericSnapshotRepoSettin
 gSnapshotRepoSettingsLens = lens gSnapshotRepoSettings (\x y -> x {gSnapshotRepoSettings = y})
 
 newtype SnapshotRepoType = SnapshotRepoType {snapshotRepoType :: Text}
-  deriving (Eq, Ord, Show, ToJSON, FromJSON)
+  deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
 
 snapshotRepoTypeLens :: Lens' SnapshotRepoType Text
 snapshotRepoTypeLens = lens snapshotRepoType (\x y -> x {snapshotRepoType = y})
@@ -154,7 +151,7 @@ snapshotRepoTypeLens = lens snapshotRepoType (\x y -> x {snapshotRepoType = y})
 -- | Opaque representation of snapshot repo settings. Instances of
 -- 'SnapshotRepo' will produce this.
 newtype GenericSnapshotRepoSettings = GenericSnapshotRepoSettings {gSnapshotRepoSettingsObject :: Object}
-  deriving (Eq, Show, ToJSON)
+  deriving newtype (Eq, Show, ToJSON)
 
 -- Regardless of whether you send strongly typed json, my version of
 -- ES sends back stringly typed json in the settings, e.g. booleans
@@ -169,7 +166,7 @@ gSnapshotRepoSettingsObjectLens = lens gSnapshotRepoSettingsObject (\x y -> x {g
 newtype SnapshotVerification = SnapshotVerification
   { snapshotNodeVerifications :: [SnapshotNodeVerification]
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON SnapshotVerification where
   parseJSON = withObject "SnapshotVerification" parse
@@ -188,7 +185,7 @@ data SnapshotNodeVerification = SnapshotNodeVerification
   { snvFullId :: FullNodeId,
     snvNodeName :: NodeName
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 snvFullIdLens :: Lens' SnapshotNodeVerification FullNodeId
 snvFullIdLens = lens snvFullId (\x y -> x {snvFullId = y})
@@ -204,7 +201,7 @@ data SnapshotState
   | SnapshotAborted
   | SnapshotMissing
   | SnapshotWaiting
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON SnapshotState where
   parseJSON = withText "SnapshotState" parse
@@ -257,7 +254,7 @@ data SnapshotRestoreSettings = SnapshotRestoreSettings
     -- revert back to the server default during the restore process.
     snapRestoreIgnoreIndexSettings :: Maybe (NonEmpty Text)
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 snapRestoreWaitForCompletionLens :: Lens' SnapshotRestoreSettings Bool
 snapRestoreWaitForCompletionLens = lens snapRestoreWaitForCompletion (\x y -> x {snapRestoreWaitForCompletion = y})
@@ -296,7 +293,7 @@ newtype SnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings
     -- with 'verifySnapshotRepo'.
     repoUpdateVerify :: Bool
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 repoUpdateVerifyLens :: Lens' SnapshotRepoUpdateSettings Bool
 repoUpdateVerifyLens = lens repoUpdateVerify (\x y -> x {repoUpdateVerify = y})
@@ -321,7 +318,7 @@ data FsSnapshotRepo = FsSnapshotRepo
     -- | Throttle node snapshot rate. If not supplied, defaults to 40mb/sec
     fsrMaxSnapshotBytesPerSec :: Maybe Bytes
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance SnapshotRepo FsSnapshotRepo where
   toGSnapshotRepo FsSnapshotRepo {..} =
@@ -392,7 +389,7 @@ data SnapshotRepoConversionError
   = -- | Expected type and actual type
     RepoTypeMismatch SnapshotRepoType SnapshotRepoType
   | OtherRepoConversionError Text
-  deriving (Show, Eq)
+  deriving stock (Eq, Show)
 
 instance Exception SnapshotRepoConversionError
 
@@ -414,7 +411,7 @@ data SnapshotCreateSettings = SnapshotCreateSettings
     -- shards are available), should the process proceed?
     snapPartial :: Bool
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 snapWaitForCompletionLens :: Lens' SnapshotCreateSettings Bool
 snapWaitForCompletionLens = lens snapWaitForCompletion (\x y -> x {snapWaitForCompletion = y})
@@ -451,7 +448,7 @@ defaultSnapshotCreateSettings =
 data SnapshotSelection
   = SnapshotList (NonEmpty SnapshotPattern)
   | AllSnapshots
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | Either specifies an exact snapshot name or one with globs in it,
 -- e.g. @SnapPattern "foo*"@ __NOTE__: Patterns are not supported on
@@ -459,7 +456,7 @@ data SnapshotSelection
 data SnapshotPattern
   = ExactSnap SnapshotName
   | SnapPattern Text
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | General information about the state of a snapshot. Has some
 -- redundancies with 'SnapshotStatus'
@@ -473,7 +470,7 @@ data SnapshotInfo = SnapshotInfo
     snapInfoIndices :: [IndexName],
     snapInfoName :: SnapshotName
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON SnapshotInfo where
   parseJSON = withObject "SnapshotInfo" parse
@@ -524,7 +521,7 @@ data SnapshotShardFailure = SnapshotShardFailure
     snapShardFailureReason :: Text,
     snapShardFailureShardId :: ShardId
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON SnapshotShardFailure where
   parseJSON = withObject "SnapshotShardFailure" parse
@@ -554,7 +551,7 @@ snapShardFailureShardIdLens = lens snapShardFailureShardId (\x y -> x {snapShard
 
 -- | Regex-stype pattern, e.g. "index_(.+)" to match index names
 newtype RestoreRenamePattern = RestoreRenamePattern {rrPattern :: Text}
-  deriving (Eq, Show, Ord, ToJSON)
+  deriving newtype (Eq, Ord, Show, ToJSON)
 
 rrPatternLens :: Lens' RestoreRenamePattern Text
 rrPatternLens = lens rrPattern (\x y -> x {rrPattern = y})
@@ -570,12 +567,12 @@ data RestoreRenameToken
     RRSubWholeMatch
   | -- | A specific reference to a group number
     RRSubGroup RRGroupRefNum
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | A group number for regex matching. Only values from 1-9 are
 -- supported. Construct with 'mkRRGroupRefNum'
 newtype RRGroupRefNum = RRGroupRefNum {rrGroupRefNum :: Int}
-  deriving (Eq, Ord, Show)
+  deriving stock (Eq, Ord, Show)
 
 instance Bounded RRGroupRefNum where
   minBound = RRGroupRefNum 1
@@ -622,7 +619,7 @@ defaultSnapshotRestoreSettings =
 newtype RestoreIndexSettings = RestoreIndexSettings
   { restoreOverrideReplicas :: Maybe ReplicaCount
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON RestoreIndexSettings where
   toJSON RestoreIndexSettings {..} = object prs

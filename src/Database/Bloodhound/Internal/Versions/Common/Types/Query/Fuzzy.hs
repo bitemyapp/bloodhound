@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- TODO Fuzziness ???
@@ -22,7 +21,7 @@ data FuzzyQuery = FuzzyQuery
     fuzzyQueryFuzziness :: Fuzziness,
     fuzzyQueryBoost :: Maybe Boost
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON FuzzyQuery where
   toJSON
@@ -66,7 +65,7 @@ data FuzzyLikeFieldQuery = FuzzyLikeFieldQuery
     fuzzyLikeFieldBoost :: Boost,
     fuzzyLikeFieldAnalyzer :: Maybe Analyzer
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON FuzzyLikeFieldQuery where
   toJSON
@@ -116,7 +115,7 @@ data FuzzyLikeThisQuery = FuzzyLikeThisQuery
     fuzzyLikeBoost :: Boost,
     fuzzyLikeAnalyzer :: Maybe Analyzer
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON FuzzyLikeThisQuery where
   toJSON

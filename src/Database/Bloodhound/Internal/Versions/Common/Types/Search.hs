@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -78,7 +77,7 @@ data Search = Search
     suggestBody :: Maybe Suggest,
     pointInTime :: Maybe PointInTime
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON Search where
   toJSON
@@ -129,7 +128,7 @@ instance ToJSON Search where
 data SearchType
   = SearchTypeQueryThenFetch
   | SearchTypeDfsQueryThenFetch
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON SearchType where
   toJSON SearchTypeQueryThenFetch = String "query_then_fetch"
@@ -144,7 +143,7 @@ data Source
   = NoSource
   | SourcePatterns PatternOrPatterns
   | SourceIncludeExclude Include Exclude
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON Source where
   toJSON NoSource = toJSON False
@@ -154,15 +153,15 @@ instance ToJSON Source where
 data PatternOrPatterns
   = PopPattern Pattern
   | PopPatterns [Pattern]
-  deriving (Eq, Read, Show)
+  deriving stock (Eq, Read, Show)
 
 instance ToJSON PatternOrPatterns where
   toJSON (PopPattern pattern) = toJSON pattern
   toJSON (PopPatterns patterns) = toJSON patterns
 
-data Include = Include [Pattern] deriving (Eq, Read, Show)
+data Include = Include [Pattern] deriving stock (Eq, Read, Show)
 
-data Exclude = Exclude [Pattern] deriving (Eq, Read, Show)
+data Exclude = Exclude [Pattern] deriving stock (Eq, Read, Show)
 
 instance ToJSON Include where
   toJSON (Include patterns) = toJSON patterns
@@ -170,7 +169,7 @@ instance ToJSON Include where
 instance ToJSON Exclude where
   toJSON (Exclude patterns) = toJSON patterns
 
-newtype Pattern = Pattern Text deriving (Eq, Read, Show)
+newtype Pattern = Pattern Text deriving stock (Eq, Read, Show)
 
 instance ToJSON Pattern where
   toJSON (Pattern pattern) = toJSON pattern
@@ -187,7 +186,7 @@ data SearchResult a = SearchResult
     suggest :: Maybe NamedSuggestionResponse,
     pitId :: Maybe Text
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance (FromJSON a) => FromJSON (SearchResult a) where
   parseJSON (Object v) =
@@ -236,14 +235,14 @@ pitIdLens = lens pitId (\x y -> x {pitId = y})
 
 newtype ScrollId
   = ScrollId Text
-  deriving (Eq, Show, Ord, ToJSON, FromJSON)
+  deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
 
-newtype SearchTemplateId = SearchTemplateId Text deriving (Eq, Show)
+newtype SearchTemplateId = SearchTemplateId Text deriving stock (Eq, Show)
 
 instance ToJSON SearchTemplateId where
   toJSON (SearchTemplateId x) = toJSON x
 
-newtype SearchTemplateSource = SearchTemplateSource Text deriving (Eq, Show)
+newtype SearchTemplateSource = SearchTemplateSource Text deriving stock (Eq, Show)
 
 instance ToJSON SearchTemplateSource where
   toJSON (SearchTemplateSource x) = toJSON x
@@ -257,7 +256,7 @@ data ExpandWildcards
   | ExpandWildcardsOpen
   | ExpandWildcardsClosed
   | ExpandWildcardsNone
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON ExpandWildcards where
   toJSON ExpandWildcardsAll = String "all"
@@ -280,7 +279,7 @@ data TimeUnits
   | TimeUnitMilliseconds
   | TimeUnitMicroseconds
   | TimeUnitNanoseconds
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON TimeUnits where
   toJSON TimeUnitDays = String "d"
@@ -307,7 +306,7 @@ data SearchTemplate = SearchTemplate
     explainSearchTemplate :: Maybe Bool,
     profileSearchTemplate :: Maybe Bool
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON SearchTemplate where
   toJSON SearchTemplate {..} =
@@ -325,7 +324,7 @@ data GetTemplateScript = GetTemplateScript
     getTemplateScriptId :: Text,
     getTemplateScriptFound :: Bool
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON GetTemplateScript where
   parseJSON (Object v) = do

@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.Range
@@ -26,7 +25,7 @@ data RangeQuery = RangeQuery
     rangeQueryRange :: RangeValue,
     rangeQueryBoost :: Boost
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) range boost) =
@@ -45,21 +44,21 @@ instance FromJSON RangeQuery where
 mkRangeQuery :: FieldName -> RangeValue -> RangeQuery
 mkRangeQuery f r = RangeQuery f r (Boost 1.0)
 
-newtype LessThan = LessThan Double deriving (Eq, Show, Generic)
+newtype LessThan = LessThan Double deriving stock (Eq, Show, Generic)
 
-newtype LessThanEq = LessThanEq Double deriving (Eq, Show, Generic)
+newtype LessThanEq = LessThanEq Double deriving stock (Eq, Show, Generic)
 
-newtype GreaterThan = GreaterThan Double deriving (Eq, Show, Generic)
+newtype GreaterThan = GreaterThan Double deriving stock (Eq, Show, Generic)
 
-newtype GreaterThanEq = GreaterThanEq Double deriving (Eq, Show, Generic)
+newtype GreaterThanEq = GreaterThanEq Double deriving stock (Eq, Show, Generic)
 
-newtype LessThanD = LessThanD UTCTime deriving (Eq, Show, Generic)
+newtype LessThanD = LessThanD UTCTime deriving stock (Eq, Show, Generic)
 
-newtype LessThanEqD = LessThanEqD UTCTime deriving (Eq, Show, Generic)
+newtype LessThanEqD = LessThanEqD UTCTime deriving stock (Eq, Show, Generic)
 
-newtype GreaterThanD = GreaterThanD UTCTime deriving (Eq, Show, Generic)
+newtype GreaterThanD = GreaterThanD UTCTime deriving stock (Eq, Show, Generic)
 
-newtype GreaterThanEqD = GreaterThanEqD UTCTime deriving (Eq, Show, Generic)
+newtype GreaterThanEqD = GreaterThanEqD UTCTime deriving stock (Eq, Show, Generic)
 
 data RangeValue
   = RangeDateLte LessThanEqD
@@ -78,7 +77,7 @@ data RangeValue
   | RangeDoubleGteLte GreaterThanEq LessThanEq
   | RangeDoubleGteLt GreaterThanEq LessThan
   | RangeDoubleGtLte GreaterThan LessThanEq
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 parseRangeValue ::
   ( FromJSON t4,

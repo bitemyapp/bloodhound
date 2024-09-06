@@ -1,11 +1,8 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- |
@@ -335,7 +332,7 @@ data EsResult a = EsResult
     _id :: Text,
     foundResult :: Maybe (EsResultFound a)
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 {-# DEPRECATED _type "deprecated since ElasticSearch 6.0" #-}
 
@@ -345,7 +342,7 @@ data EsResultFound a = EsResultFound
   { _version :: DocVersion,
     _source :: a
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance (FromJSON a) => FromJSON (EsResult a) where
   parseJSON jsonVal@(Object v) = do
@@ -380,7 +377,7 @@ data EsError = EsError
   { errorStatus :: Maybe Int,
     errorMessage :: Text
   }
-  deriving (Eq, Show, Typeable)
+  deriving stock (Eq, Show, Typeable)
 
 {-# DEPRECATED errorStatus "deprecated since ElasticSearch 6.0" #-}
 
@@ -411,7 +408,7 @@ data EsProtocolException = EsProtocolException
   { esProtoExMessage :: !Text,
     esProtoExResponse :: !BL.ByteString
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Exception EsProtocolException
 

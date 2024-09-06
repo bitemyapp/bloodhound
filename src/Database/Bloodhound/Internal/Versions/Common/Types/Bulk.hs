@@ -39,7 +39,7 @@ import Database.Bloodhound.Internal.Versions.Common.Types.Query
 data UpsertActionMetadata
   = UA_RetryOnConflict Int
   | UA_Version Int
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 buildUpsertActionMetadata :: UpsertActionMetadata -> Pair
 buildUpsertActionMetadata (UA_RetryOnConflict i) = "retry_on_conflict" .= i
@@ -48,7 +48,7 @@ buildUpsertActionMetadata (UA_Version i) = "_version" .= i
 data UpsertPayload
   = UpsertDoc Value
   | UpsertScript Bool Script Value
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | 'BulkOperation' is a sum type for expressing the four kinds of bulk
 --    operation index, create, delete, and update. 'BulkIndex' behaves like an
@@ -79,14 +79,14 @@ data BulkOperation
     BulkUpdate IndexName DocId Value
   | -- | Update the document if it already exists, otherwise insert it.
     BulkUpsert IndexName DocId UpsertPayload [UpsertActionMetadata]
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data BulkResponse = BulkResponse
   { bulkTook :: Int,
     bulkErrors :: Bool,
     bulkActionItems :: [BulkActionItem]
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 bulkTookLens :: Lens' BulkResponse Int
 bulkTookLens = lens bulkTook (\x y -> x {bulkTook = y})
@@ -101,7 +101,7 @@ data BulkActionItem = BulkActionItem
   { baiAction :: BulkAction,
     baiItem :: BulkItem
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 baiActionLens :: Lens' BulkActionItem BulkAction
 baiActionLens = lens baiAction (\x y -> x {baiAction = y})
@@ -115,7 +115,7 @@ data BulkItem = BulkItem
     biStatus :: Maybe Int,
     biError :: Maybe BulkError
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 biIndexLens :: Lens' BulkItem Text
 biIndexLens = lens biIndex (\x y -> x {biIndex = y})
@@ -130,13 +130,13 @@ biErrorLens :: Lens' BulkItem (Maybe BulkError)
 biErrorLens = lens biError (\x y -> x {biError = y})
 
 data BulkAction = Index | Create | Delete | Update
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data BulkError = BulkError
   { beType :: Text,
     beReason :: Text
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 beTypeLens :: Lens' BulkError Text
 beTypeLens = lens beType (\x y -> x {beType = y})

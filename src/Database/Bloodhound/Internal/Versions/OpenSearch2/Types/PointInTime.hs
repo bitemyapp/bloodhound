@@ -11,7 +11,7 @@ data OpenPointInTimeResponse = OpenPointInTimeResponse
     oos2Shards :: ShardResult,
     oos2CreationTime :: POSIXTime
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON OpenPointInTimeResponse where
   toJSON OpenPointInTimeResponse {..} =
@@ -37,7 +37,7 @@ oos2CreationTimeLens = lens oos2CreationTime (\x y -> x { oos2CreationTime = y }
 data ClosePointInTime = ClosePointInTime
   { cPitId :: Text
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON ClosePointInTime where
   toJSON ClosePointInTime {..} =
@@ -54,7 +54,7 @@ data ClosePointInTimeResponse = ClosePointInTimeResponse
   { succeeded :: Bool,
     numFreed :: Int
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON ClosePointInTimeResponse where
   toJSON ClosePointInTimeResponse {..} =

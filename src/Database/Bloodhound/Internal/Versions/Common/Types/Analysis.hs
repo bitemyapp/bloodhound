@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Analysis where
@@ -17,7 +15,7 @@ data Analysis = Analysis
     analysisTokenFilter :: M.Map Text TokenFilterDefinition,
     analysisCharFilter :: M.Map Text CharFilterDefinition
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON Analysis where
   toJSON (Analysis analyzer tokenizer tokenFilter charFilter) =
@@ -44,27 +42,27 @@ instance FromJSON Analysis where
         .!= M.empty
 
 analysisAnalyzerLens :: Lens' Analysis (M.Map Text AnalyzerDefinition)
-analysisAnalyzerLens = lens analysisAnalyzer (\x y -> x { analysisAnalyzer = y })
+analysisAnalyzerLens = lens analysisAnalyzer (\x y -> x {analysisAnalyzer = y})
 
 analysisTokenizerLens :: Lens' Analysis (M.Map Text TokenizerDefinition)
-analysisTokenizerLens = lens analysisTokenizer (\x y -> x { analysisTokenizer = y })
+analysisTokenizerLens = lens analysisTokenizer (\x y -> x {analysisTokenizer = y})
 
 analysisTokenFilterLens :: Lens' Analysis (M.Map Text TokenFilterDefinition)
-analysisTokenFilterLens = lens analysisTokenFilter (\x y -> x { analysisTokenFilter = y })
+analysisTokenFilterLens = lens analysisTokenFilter (\x y -> x {analysisTokenFilter = y})
 
 analysisCharFilterLens :: Lens' Analysis (M.Map Text CharFilterDefinition)
-analysisCharFilterLens = lens analysisCharFilter (\x y -> x { analysisCharFilter = y })
+analysisCharFilterLens = lens analysisCharFilter (\x y -> x {analysisCharFilter = y})
 
 newtype Tokenizer
   = Tokenizer Text
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, ToJSON, FromJSON)
 
 data AnalyzerDefinition = AnalyzerDefinition
   { analyzerDefinitionTokenizer :: Maybe Tokenizer,
     analyzerDefinitionFilter :: [TokenFilter],
     analyzerDefinitionCharFilter :: [CharFilter]
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON AnalyzerDefinition where
   toJSON (AnalyzerDefinition tokenizer tokenFilter charFilter) =
@@ -83,13 +81,13 @@ instance FromJSON AnalyzerDefinition where
       <*> m .:? "char_filter" .!= []
 
 analyzerDefinitionTokenizerLens :: Lens' AnalyzerDefinition (Maybe Tokenizer)
-analyzerDefinitionTokenizerLens = lens analyzerDefinitionTokenizer (\x y -> x { analyzerDefinitionTokenizer = y })
+analyzerDefinitionTokenizerLens = lens analyzerDefinitionTokenizer (\x y -> x {analyzerDefinitionTokenizer = y})
 
 analyzerDefinitionFilterLens :: Lens' AnalyzerDefinition [TokenFilter]
-analyzerDefinitionFilterLens = lens analyzerDefinitionFilter (\x y -> x { analyzerDefinitionFilter = y })
+analyzerDefinitionFilterLens = lens analyzerDefinitionFilter (\x y -> x {analyzerDefinitionFilter = y})
 
 analyzerDefinitionCharFilterLens :: Lens' AnalyzerDefinition [CharFilter]
-analyzerDefinitionCharFilterLens = lens analyzerDefinitionCharFilter (\x y -> x { analyzerDefinitionCharFilter = y })
+analyzerDefinitionCharFilterLens = lens analyzerDefinitionCharFilter (\x y -> x {analyzerDefinitionCharFilter = y})
 
 -- | Character filters are used to preprocess the stream of characters
 --   before it is passed to the tokenizer.
@@ -100,7 +98,7 @@ data CharFilterDefinition
         charFilterDefinitionPatternReplaceReplacement :: Text,
         charFilterDefinitionPatternReplaceFlags :: Maybe Text
       }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON CharFilterDefinition where
   toJSON (CharFilterDefinitionMapping ms) =
@@ -139,7 +137,7 @@ instance FromJSON CharFilterDefinition where
 data TokenizerDefinition
   = TokenizerDefinitionNgram Ngram
   | TokenizerDefinitionEdgeNgram Ngram
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON TokenizerDefinition where
   toJSON x =
@@ -177,7 +175,7 @@ data Ngram = Ngram
     ngramMaxGram :: Int,
     ngramTokenChars :: [TokenChar]
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data TokenChar
   = TokenLetter
@@ -185,7 +183,7 @@ data TokenChar
   | TokenWhitespace
   | TokenPunctuation
   | TokenSymbol
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON TokenChar where
   toJSON t = String $ case t of
@@ -217,7 +215,7 @@ data TokenFilterDefinition
   | TokenFilterDefinitionEdgeNgram NgramFilter (Maybe EdgeNgramFilterSide)
   | TokenFilterDefinitionNgram NgramFilter
   | TokenFilterTruncate Int
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON TokenFilterDefinition where
   toJSON x = case x of
@@ -340,7 +338,7 @@ data NgramFilter = NgramFilter
   { ngramFilterMinGram :: Int,
     ngramFilterMaxGram :: Int
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 ngramFilterToPairs :: NgramFilter -> [Pair]
 ngramFilterToPairs (NgramFilter minGram maxGram) =
@@ -359,7 +357,7 @@ ngramFilterFromJSONObject o =
 data EdgeNgramFilterSide
   = EdgeNgramFilterSideFront
   | EdgeNgramFilterSideBack
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON EdgeNgramFilterSide where
   toJSON EdgeNgramFilterSideFront = String "front"
@@ -416,7 +414,7 @@ data Language
   | Swedish
   | Thai
   | Turkish
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON Language where
   toJSON = String . languageToText
@@ -517,22 +515,22 @@ data Shingle = Shingle
     shingleTokenSeparator :: Text,
     shingleFillerToken :: Text
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 shingleMaxSizeLens :: Lens' Shingle Int
-shingleMaxSizeLens = lens shingleMaxSize (\x y -> x { shingleMaxSize = y })
+shingleMaxSizeLens = lens shingleMaxSize (\x y -> x {shingleMaxSize = y})
 
 shingleMinSizeLens :: Lens' Shingle Int
-shingleMinSizeLens = lens shingleMinSize (\x y -> x { shingleMinSize = y })
+shingleMinSizeLens = lens shingleMinSize (\x y -> x {shingleMinSize = y})
 
 shingleOutputUnigramsLens :: Lens' Shingle Bool
-shingleOutputUnigramsLens = lens shingleOutputUnigrams (\x y -> x { shingleOutputUnigrams = y })
+shingleOutputUnigramsLens = lens shingleOutputUnigrams (\x y -> x {shingleOutputUnigrams = y})
 
 shingleOutputUnigramsIfNoShinglesLens :: Lens' Shingle Bool
-shingleOutputUnigramsIfNoShinglesLens = lens shingleOutputUnigramsIfNoShingles (\x y -> x { shingleOutputUnigramsIfNoShingles = y })
+shingleOutputUnigramsIfNoShinglesLens = lens shingleOutputUnigramsIfNoShingles (\x y -> x {shingleOutputUnigramsIfNoShingles = y})
 
 shingleTokenSeparatorLens :: Lens' Shingle Text
-shingleTokenSeparatorLens = lens shingleTokenSeparator (\x y -> x { shingleTokenSeparator = y })
+shingleTokenSeparatorLens = lens shingleTokenSeparator (\x y -> x {shingleTokenSeparator = y})
 
 shingleFillerTokenLens :: Lens' Shingle Text
-shingleFillerTokenLens = lens shingleFillerToken (\x y -> x { shingleFillerToken = y })
+shingleFillerTokenLens = lens shingleFillerToken (\x y -> x {shingleFillerToken = y})

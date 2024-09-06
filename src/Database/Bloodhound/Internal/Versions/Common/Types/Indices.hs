@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -107,7 +105,7 @@ data Status = Status
     version :: Version,
     tagline :: Text
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON Status where
   parseJSON (Object v) =
@@ -148,7 +146,7 @@ data IndexSettings = IndexSettings
     indexReplicas :: ReplicaCount,
     indexMappingsLimits :: IndexMappingsLimits
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON IndexSettings where
   toJSON (IndexSettings s r l) =
@@ -200,7 +198,7 @@ data IndexMappingsLimits = IndexMappingsLimits
     indexMappingsLimitNestedObjects :: Maybe Int,
     indexMappingsLimitFieldNameLength :: Maybe Int
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON IndexMappingsLimits where
   toJSON (IndexMappingsLimits d f o n) =
@@ -253,7 +251,7 @@ data ForceMergeIndexSettings = ForceMergeIndexSettings
     -- | Should a flush be performed after the optimize.
     flushAfterOptimize :: Bool
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 maxNumSegmentsLens :: Lens' ForceMergeIndexSettings (Maybe Int)
 maxNumSegmentsLens = lens maxNumSegments (\x y -> x {maxNumSegments = y})
@@ -328,7 +326,7 @@ data UpdatableIndexSetting
     AnalysisSetting Analysis
   | -- | Sets a delay to the allocation of replica shards which become unassigned because a node has left, giving them chance to return. See <https://www.elastic.co/guide/en/elasticsearch/reference/5.6/delayed-allocation.html>
     UnassignedNodeLeftDelayedTimeout NominalDiffTime
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 attrFilterJSON :: NonEmpty NodeAttrFilter -> Value
 attrFilterJSON fs =
@@ -500,7 +498,7 @@ data ReplicaBounds
   = ReplicasBounded Int Int
   | ReplicasLowerBounded Int
   | ReplicasUnbounded
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON ReplicaBounds where
   toJSON (ReplicasBounded a b) = String (showText a <> "-" <> showText b)
@@ -529,7 +527,7 @@ data Compression
     --   <https://www.elastic.co/blog/elasticsearch-storage-the-true-story-2.0 blogs>
     --   that this can reduce disk use by 15%-25%.
     CompressionBest
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON Compression where
   toJSON x = case x of
@@ -545,7 +543,7 @@ instance FromJSON Compression where
 data FSType
   = FSSimple
   | FSBuffered
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON FSType where
   toJSON FSSimple = "simple"
@@ -562,7 +560,7 @@ data CompoundFormat
   = CompoundFileFormat Bool
   | -- | percentage between 0 and 1 where 0 is false, 1 is true
     MergeSegmentVsTotalIndex Double
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON CompoundFormat where
   toJSON (CompoundFileFormat x) = Bool x
@@ -590,7 +588,7 @@ data IndexSettingsSummary = IndexSettingsSummary
     sSummaryFixedSettings :: IndexSettings,
     sSummaryUpdateable :: [UpdatableIndexSetting]
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 sSummaryIndexNameLens :: Lens' IndexSettingsSummary IndexName
 sSummaryIndexNameLens = lens sSummaryIndexName (\x y -> x {sSummaryIndexName = y})
@@ -628,7 +626,7 @@ instance FromJSON IndexSettingsSummary where
 -- | 'OpenCloseIndex' is a sum type for opening and closing indices.
 --
 --   <http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-open-close.html>
-data OpenCloseIndex = OpenIndex | CloseIndex deriving (Eq, Show)
+data OpenCloseIndex = OpenIndex | CloseIndex deriving stock (Eq, Show)
 
 data FieldType
   = GeoPointType
@@ -638,12 +636,12 @@ data FieldType
   | LongType
   | ShortType
   | ByteType
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 newtype FieldDefinition = FieldDefinition
   { fieldType :: FieldType
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 fieldTypeLens :: Lens' FieldDefinition FieldType
 fieldTypeLens = lens fieldType (\x y -> x {fieldType = y})
@@ -688,7 +686,7 @@ data MappingField = MappingField
   { mappingFieldName :: FieldName,
     fieldDefinition :: FieldDefinition
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 mappingFieldNameLens :: Lens' MappingField FieldName
 mappingFieldNameLens = lens mappingFieldName (\x y -> x {mappingFieldName = y})
@@ -704,7 +702,7 @@ fieldDefinitionLens = lens fieldDefinition (\x y -> x {fieldDefinition = y})
 --    having a mapping, and keeping different kinds of documents separated
 --    if possible.
 newtype Mapping = Mapping {mappingFields :: [MappingField]}
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 mappingFieldsLens :: Lens' Mapping [MappingField]
 mappingFieldsLens = lens mappingFields (\x y -> x {mappingFields = y})
@@ -718,7 +716,7 @@ data AllocationPolicy
     AllocNewPrimaries
   | -- | No shard allocation is allowed
     AllocNone
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON AllocationPolicy where
   toJSON AllocAll = String "all"
@@ -739,7 +737,7 @@ data IndexAlias = IndexAlias
   { srcIndex :: IndexName,
     indexAlias :: IndexAliasName
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 srcIndexLens :: Lens' IndexAlias IndexName
 srcIndexLens = lens srcIndex (\x y -> x {srcIndex = y})
@@ -750,13 +748,13 @@ indexAliasLens = lens indexAlias (\x y -> x {indexAlias = y})
 data IndexAliasAction
   = AddAlias IndexAlias IndexAliasCreate
   | RemoveAlias IndexAlias
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data IndexAliasCreate = IndexAliasCreate
   { aliasCreateRouting :: Maybe AliasRouting,
     aliasCreateFilter :: Maybe Filter
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 aliasCreateRoutingLens :: Lens' IndexAliasCreate (Maybe AliasRouting)
 aliasCreateRoutingLens = lens aliasCreateRouting (\x y -> x {aliasCreateRouting = y})
@@ -767,11 +765,11 @@ aliasCreateFilterLens = lens aliasCreateFilter (\x y -> x {aliasCreateFilter = y
 data AliasRouting
   = AllAliasRouting RoutingValue
   | GranularAliasRouting (Maybe SearchAliasRouting) (Maybe IndexAliasRouting)
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 newtype SearchAliasRouting
   = SearchAliasRouting (NonEmpty RoutingValue)
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON SearchAliasRouting where
   toJSON (SearchAliasRouting rvs) = toJSON (T.intercalate "," (routingValue <$> toList rvs))
@@ -783,16 +781,16 @@ instance FromJSON SearchAliasRouting where
 
 newtype IndexAliasRouting
   = IndexAliasRouting RoutingValue
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, ToJSON, FromJSON)
 
 newtype RoutingValue = RoutingValue {routingValue :: Text}
-  deriving (Eq, Show, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, ToJSON, FromJSON)
 
 routingValueLens :: Lens' RoutingValue Text
 routingValueLens = lens routingValue (\x y -> x {routingValue = y})
 
 newtype IndexAliasesSummary = IndexAliasesSummary {indexAliasesSummary :: [IndexAliasSummary]}
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance FromJSON IndexAliasesSummary where
   parseJSON = withObject "IndexAliasesSummary" parse
@@ -859,7 +857,7 @@ data IndexAliasSummary = IndexAliasSummary
   { indexAliasSummaryAlias :: IndexAlias,
     indexAliasSummaryCreate :: IndexAliasCreate
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 indexAliasSummaryAliasLens :: Lens' IndexAliasSummary IndexAlias
 indexAliasSummaryAliasLens = lens indexAliasSummaryAlias (\x y -> x {indexAliasSummaryAlias = y})
@@ -870,7 +868,7 @@ indexAliasSummaryCreateLens = lens indexAliasSummaryCreate (\x y -> x {indexAlia
 data JoinRelation
   = ParentDocument FieldName RelationName
   | ChildDocument FieldName RelationName DocId
-  deriving (Show, Eq)
+  deriving stock (Eq, Show)
 
 -- | 'IndexDocumentSettings' are special settings supplied when indexing
 -- a document. For the best backwards compatiblity when new fields are
@@ -879,7 +877,7 @@ data IndexDocumentSettings = IndexDocumentSettings
   { idsVersionControl :: VersionControl,
     idsJoinRelation :: Maybe JoinRelation
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 idsVersionControlLens :: Lens' IndexDocumentSettings VersionControl
 idsVersionControlLens = lens idsVersionControl (\x y -> x {idsVersionControl = y})
@@ -898,13 +896,13 @@ defaultIndexDocumentSettings = IndexDocumentSettings NoVersionControl Nothing
 data IndexSelection
   = IndexList (NonEmpty IndexName)
   | AllIndexes
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | 'TemplateName' is used to describe which template to query/create/delete
-newtype TemplateName = TemplateName Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype TemplateName = TemplateName Text deriving newtype (Eq, Show, ToJSON, FromJSON)
 
 -- | 'IndexPattern' represents a pattern which is matched against index names
-newtype IndexPattern = IndexPattern Text deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype IndexPattern = IndexPattern Text deriving newtype (Eq, Show, ToJSON, FromJSON)
 
 -- * Utils
 

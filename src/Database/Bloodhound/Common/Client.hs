@@ -1,9 +1,7 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-warnings-deprecations #-}
 
 -- |
@@ -157,7 +155,7 @@ import Prelude hiding (filter, head)
 -- >>> let runBH' = withBH defaultManagerSettings testServer
 -- >>> let testIndex = IndexName "twitter"
 -- >>> let defaultIndexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0)
--- >>> data TweetMapping = TweetMapping deriving (Eq, Show)
+-- >>> data TweetMapping = TweetMapping deriving stock (Eq, Show)
 -- >>> _ <- runBH' $ deleteIndex testIndex
 -- >>> _ <- runBH' $ deleteIndex (IndexName "didimakeanindex")
 -- >>> import GHC.Generics
@@ -170,12 +168,12 @@ import Prelude hiding (filter, head)
 --              object ["location" .=
 --                object ["type" .= ("geo_point" :: Text)]]]
 -- data Location = Location { lat :: Double
---                         , lon :: Double } deriving (Eq, Generic, Show)
+--                         , lon :: Double } deriving stock (Eq, Generic, Show)
 -- data Tweet = Tweet { user     :: Text
 --                    , postDate :: UTCTime
 --                    , message  :: Text
 --                    , age      :: Int
---                    , location :: Location } deriving (Eq, Generic, Show)
+--                    , location :: Location } deriving stock (Eq, Generic, Show)
 -- exampleTweet = Tweet { user     = "bitemyapp"
 --                      , postDate = UTCTime
 --                                   (ModifiedJulianDay 55000)
@@ -191,7 +189,7 @@ import Prelude hiding (filter, head)
 --  toJSON = genericToJSON defaultOptions
 -- instance FromJSON Location where
 --  parseJSON = genericParseJSON defaultOptions
--- data BulkTest = BulkTest { name :: Text } deriving (Eq, Generic, Show)
+-- data BulkTest = BulkTest { name :: Text } deriving stock (Eq, Generic, Show)
 -- instance FromJSON BulkTest where
 --  parseJSON = genericParseJSON defaultOptions
 -- instance ToJSON BulkTest where

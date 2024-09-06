@@ -1,6 +1,3 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Task where
@@ -16,7 +13,7 @@ data TaskResponse a = TaskResponse
     taskResponseReponse :: Maybe a,
     taskResponseError :: Maybe Object
   }
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance (FromJSON a) => FromJSON (TaskResponse a) where
   parseJSON = withObject "TaskResponse" $ \v ->
@@ -49,7 +46,7 @@ data Task a = Task
     taskRunningTimeInNanos :: Integer,
     taskCancellable :: Bool
   }
-  deriving (Show, Eq, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance (FromJSON a) => FromJSON (Task a) where
   parseJSON = withObject "Task" $ \v ->
@@ -65,7 +62,7 @@ instance (FromJSON a) => FromJSON (Task a) where
       <*> v .: "cancellable"
 
 newtype TaskNodeId = TaskNodeId Text
-  deriving (Show, Eq)
+  deriving stock (Eq, Show)
 
 instance FromJSON TaskNodeId where
   parseJSON = withObject "TaskNodeId" $ \o -> TaskNodeId <$> o .: "task"
