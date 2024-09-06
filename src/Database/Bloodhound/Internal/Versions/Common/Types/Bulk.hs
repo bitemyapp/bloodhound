@@ -13,6 +13,19 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Bulk
     BulkItem (..),
     BulkAction (..),
     BulkError (..),
+
+    -- * Optics
+    bulkTookLens,
+    bulkErrorsLens,
+    bulkActionItemsLens,
+    baiActionLens,
+    baiItemLens,
+    biIndexLens,
+    biIdLens,
+    biStatusLens,
+    biErrorLens,
+    beTypeLens,
+    beReasonLens,
   )
 where
 
@@ -75,11 +88,26 @@ data BulkResponse = BulkResponse
   }
   deriving (Eq, Show)
 
+bulkTookLens :: Lens' BulkResponse Int
+bulkTookLens = lens bulkTook (\x y -> x {bulkTook = y})
+
+bulkErrorsLens :: Lens' BulkResponse Bool
+bulkErrorsLens = lens bulkErrors (\x y -> x {bulkErrors = y})
+
+bulkActionItemsLens :: Lens' BulkResponse [BulkActionItem]
+bulkActionItemsLens = lens bulkActionItems (\x y -> x {bulkActionItems = y})
+
 data BulkActionItem = BulkActionItem
   { baiAction :: BulkAction,
     baiItem :: BulkItem
   }
   deriving (Eq, Show)
+
+baiActionLens :: Lens' BulkActionItem BulkAction
+baiActionLens = lens baiAction (\x y -> x {baiAction = y})
+
+baiItemLens :: Lens' BulkActionItem BulkItem
+baiItemLens = lens baiItem (\x y -> x {baiItem = y})
 
 data BulkItem = BulkItem
   { biIndex :: Text,
@@ -89,6 +117,18 @@ data BulkItem = BulkItem
   }
   deriving (Eq, Show)
 
+biIndexLens :: Lens' BulkItem Text
+biIndexLens = lens biIndex (\x y -> x {biIndex = y})
+
+biIdLens :: Lens' BulkItem Text
+biIdLens = lens biId (\x y -> x {biId = y})
+
+biStatusLens :: Lens' BulkItem (Maybe Int)
+biStatusLens = lens biStatus (\x y -> x {biStatus = y})
+
+biErrorLens :: Lens' BulkItem (Maybe BulkError)
+biErrorLens = lens biError (\x y -> x {biError = y})
+
 data BulkAction = Index | Create | Delete | Update
   deriving (Eq, Show)
 
@@ -97,6 +137,12 @@ data BulkError = BulkError
     beReason :: Text
   }
   deriving (Eq, Show)
+
+beTypeLens :: Lens' BulkError Text
+beTypeLens = lens beType (\x y -> x {beType = y})
+
+beReasonLens :: Lens' BulkError Text
+beReasonLens = lens beReason (\x y -> x {beReason = y})
 
 instance FromJSON BulkResponse where
   parseJSON = withObject "BulkResponse" $ \o ->

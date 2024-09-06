@@ -4,12 +4,20 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Count
   ( CountQuery (..),
     CountResponse (..),
     CountShards (..),
+
+    -- * Optics
+    crCountLens,
+    crShardsLens,
+    csTotalLens,
+    csSuccessfulLens,
+    csFailedLens,
   )
 where
 
 import Data.Aeson
 import Database.Bloodhound.Internal.Versions.Common.Types.Query
 import Numeric.Natural
+import Optics.Lens
 
 newtype CountQuery = CountQuery {countQuery :: Query}
   deriving (Eq, Show)
@@ -34,6 +42,12 @@ instance FromJSON CountResponse where
           <*> o
             .: "_shards"
 
+crCountLens :: Lens' CountResponse Natural
+crCountLens = lens crCount (\x y -> x {crCount = y})
+
+crShardsLens :: Lens' CountResponse CountShards
+crShardsLens = lens crShards (\x y -> x {crShards = y})
+
 data CountShards = CountShards
   { csTotal :: Int,
     csSuccessful :: Int,
@@ -52,3 +66,12 @@ instance FromJSON CountShards where
             .: "successful"
           <*> o
             .: "failed"
+
+csTotalLens :: Lens' CountShards Int
+csTotalLens = lens csTotal (\x y -> x {csTotal = y})
+
+csSuccessfulLens :: Lens' CountShards Int
+csSuccessfulLens = lens csSuccessful (\x y -> x {csSuccessful = y})
+
+csFailedLens :: Lens' CountShards Int
+csFailedLens = lens csFailed (\x y -> x {csFailed = y})

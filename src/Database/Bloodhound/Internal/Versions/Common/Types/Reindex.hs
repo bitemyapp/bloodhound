@@ -15,6 +15,7 @@ import Database.Bloodhound.Internal.Versions.Common.Types.Newtypes (IndexName)
 import Database.Bloodhound.Internal.Versions.Common.Types.Query (Query)
 import Database.Bloodhound.Internal.Versions.Common.Types.Script (ScriptLanguage)
 import GHC.Generics
+import Optics.Lens
 
 data ReindexRequest = ReindexRequest
   { reindexConflicts :: Maybe ReindexConflicts,
@@ -40,6 +41,18 @@ instance FromJSON ReindexRequest where
       <*> v .: "source"
       <*> v .: "dest"
       <*> v .:? "script"
+
+reindexConflictsLens :: Lens' ReindexRequest (Maybe ReindexConflicts)
+reindexConflictsLens = lens reindexConflicts (\x y -> x {reindexConflicts = y})
+
+reindexSourceLens :: Lens' ReindexRequest ReindexSource
+reindexSourceLens = lens reindexSource (\x y -> x {reindexSource = y})
+
+reindexDestLens :: Lens' ReindexRequest ReindexDest
+reindexDestLens = lens reindexDest (\x y -> x {reindexDest = y})
+
+reindexScriptLens :: Lens' ReindexRequest (Maybe ReindexScript)
+reindexScriptLens = lens reindexScript (\x y -> x {reindexScript = y})
 
 data ReindexConflicts
   = ReindexAbortOnConflicts
@@ -87,6 +100,21 @@ instance FromJSON ReindexSource where
       <*> v .:? "size"
       <*> v .:? "slice"
 
+reindexSourceIndexLens :: Lens' ReindexSource (NonEmpty IndexName)
+reindexSourceIndexLens = lens reindexSourceIndex (\x y -> x {reindexSourceIndex = y})
+
+reindexSourceMaxDocsLens :: Lens' ReindexSource (Maybe Int)
+reindexSourceMaxDocsLens = lens reindexSourceMaxDocs (\x y -> x {reindexSourceMaxDocs = y})
+
+reindexSourceQueryLens :: Lens' ReindexSource (Maybe Query)
+reindexSourceQueryLens = lens reindexSourceQuery (\x y -> x {reindexSourceQuery = y})
+
+reindexSourceSizeLens :: Lens' ReindexSource (Maybe Int)
+reindexSourceSizeLens = lens reindexSourceSize (\x y -> x {reindexSourceSize = y})
+
+reindexSourceSliceLens :: Lens' ReindexSource (Maybe ReindexSlice)
+reindexSourceSliceLens = lens reindexSourceSlice (\x y -> x {reindexSourceSlice = y})
+
 data ReindexSlice = ReindexSlice
   { reindexSliceId :: Maybe Int,
     reindexSliceMax :: Maybe Int
@@ -100,6 +128,12 @@ instance ToJSON ReindexSlice where
 instance FromJSON ReindexSlice where
   parseJSON = withObject "ReindexSlice" $ \v ->
     ReindexSlice <$> v .:? "id" <*> v .:? "max"
+
+reindexSliceIdLens :: Lens' ReindexSlice (Maybe Int)
+reindexSliceIdLens = lens reindexSliceId (\x y -> x {reindexSliceId = y})
+
+reindexSliceMaxLens :: Lens' ReindexSlice (Maybe Int)
+reindexSliceMaxLens = lens reindexSliceMax (\x y -> x {reindexSliceMax = y})
 
 data ReindexDest = ReindexDest
   { reindexDestIndex :: IndexName,
@@ -122,6 +156,15 @@ instance FromJSON ReindexDest where
       <$> v .: "index"
       <*> v .:? "version_type"
       <*> v .:? "op_type"
+
+reindexDestIndexLens :: Lens' ReindexDest IndexName
+reindexDestIndexLens = lens reindexDestIndex (\x y -> x {reindexDestIndex = y})
+
+reindexDestVersionTypeLens :: Lens' ReindexDest (Maybe VersionType)
+reindexDestVersionTypeLens = lens reindexDestVersionType (\x y -> x {reindexDestVersionType = y})
+
+reindexDestOpTypeLens :: Lens' ReindexDest (Maybe ReindexOpType)
+reindexDestOpTypeLens = lens reindexDestOpType (\x y -> x {reindexDestOpType = y})
 
 data VersionType
   = VersionTypeInternal
@@ -180,6 +223,12 @@ instance FromJSON ReindexScript where
       <$> v .: "language"
       <*> v .: "source"
 
+reindexScriptLanguageLens :: Lens' ReindexScript ScriptLanguage
+reindexScriptLanguageLens = lens reindexScriptLanguage (\x y -> x {reindexScriptLanguage = y})
+
+reindexScriptSourceLens :: Lens' ReindexScript Text
+reindexScriptSourceLens = lens reindexScriptSource (\x y -> x {reindexScriptSource = y})
+
 mkReindexRequest :: IndexName -> IndexName -> ReindexRequest
 mkReindexRequest src dst =
   ReindexRequest
@@ -231,3 +280,21 @@ instance FromJSON ReindexResponse where
       <*> v .: "batches"
       <*> v .: "version_conflicts"
       <*> v .: "throttled_millis"
+
+reindexResponseTookLens :: Lens' ReindexResponse (Maybe Int)
+reindexResponseTookLens = lens reindexResponseTook (\x y -> x {reindexResponseTook = y})
+
+reindexResponseUpdatedLens :: Lens' ReindexResponse Int
+reindexResponseUpdatedLens = lens reindexResponseUpdated (\x y -> x {reindexResponseUpdated = y})
+
+reindexResponseCreatedLens :: Lens' ReindexResponse Int
+reindexResponseCreatedLens = lens reindexResponseCreated (\x y -> x {reindexResponseCreated = y})
+
+reindexResponseBatchesLens :: Lens' ReindexResponse Int
+reindexResponseBatchesLens = lens reindexResponseBatches (\x y -> x {reindexResponseBatches = y})
+
+reindexResponseVersionConflictsLens :: Lens' ReindexResponse Int
+reindexResponseVersionConflictsLens = lens reindexResponseVersionConflicts (\x y -> x {reindexResponseVersionConflicts = y})
+
+reindexResponseThrottledMillisLens :: Lens' ReindexResponse Int
+reindexResponseThrottledMillisLens = lens reindexResponseThrottledMillis (\x y -> x {reindexResponseThrottledMillis = y})

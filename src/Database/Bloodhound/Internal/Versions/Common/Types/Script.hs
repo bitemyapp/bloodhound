@@ -27,6 +27,15 @@ data Script = Script
   }
   deriving (Eq, Show, Generic)
 
+scriptLanguageLens :: Lens' Script (Maybe ScriptLanguage)
+scriptLanguageLens = lens scriptLanguage (\x y -> x { scriptLanguage = y })
+
+scriptSourceLens :: Lens' Script ScriptSource
+scriptSourceLens = lens scriptSource (\x y -> x { scriptSource = y })
+
+scriptParamsLens :: Lens' Script (Maybe ScriptParams)
+scriptParamsLens = lens scriptParams (\x y -> x { scriptParams = y })
+
 newtype ScriptLanguage
   = ScriptLanguage Text
   deriving (Eq, Show, Generic, FromJSON, ToJSON)

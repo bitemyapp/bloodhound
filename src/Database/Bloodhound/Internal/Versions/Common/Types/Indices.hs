@@ -40,6 +40,43 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Indices
     defaultIndexDocumentSettings,
     defaultIndexMappingsLimits,
     defaultIndexSettings,
+
+    -- * Optics
+    nameLens,
+    clusterNameLens,
+    clusterUuidLens,
+    versionLens,
+    taglineLens,
+    indexShardsLens,
+    indexReplicasLens,
+    indexMappingsLimitsLens,
+    indexMappingsLimitDepthLens,
+    indexMappingsLimitNestedFieldsLens,
+    indexMappingsLimitNestedObjectsLens,
+    indexMappingsLimitFieldNameLengthLens,
+    maxNumSegmentsLens,
+    onlyExpungeDeletesLens,
+    flushAfterOptimizeLens,
+    sSummaryIndexNameLens,
+    sSummaryFixedSettingsLens,
+    sSummaryUpdateableLens,
+    fieldTypeLens,
+    templatePatternsLens,
+    templateSettingsLens,
+    templateMappingsLens,
+    mappingFieldNameLens,
+    fieldDefinitionLens,
+    mappingFieldsLens,
+    srcIndexLens,
+    indexAliasLens,
+    aliasCreateRoutingLens,
+    aliasCreateFilterLens,
+    routingValueLens,
+    indexAliasesSummaryLens,
+    indexAliasSummaryAliasLens,
+    indexAliasSummaryCreateLens,
+    idsVersionControlLens,
+    idsJoinRelationLens,
   )
 where
 
@@ -87,6 +124,21 @@ instance FromJSON Status where
         .: "tagline"
   parseJSON _ = empty
 
+nameLens :: Lens' Status Text
+nameLens = lens name (\x y -> x {name = y})
+
+clusterNameLens :: Lens' Status Text
+clusterNameLens = lens cluster_name (\x y -> x {cluster_name = y})
+
+clusterUuidLens :: Lens' Status Text
+clusterUuidLens = lens cluster_uuid (\x y -> x {cluster_uuid = y})
+
+versionLens :: Lens' Status Version
+versionLens = lens version (\x y -> x {version = y})
+
+taglineLens :: Lens' Status Text
+taglineLens = lens tagline (\x y -> x {tagline = y})
+
 -- | 'IndexSettings' is used to configure the shards and replicas when
 --    you create an Elasticsearch Index.
 --
@@ -122,6 +174,15 @@ instance FromJSON IndexSettings where
           <*> i
             .:? "mapping"
             .!= defaultIndexMappingsLimits
+
+indexShardsLens :: Lens' IndexSettings ShardCount
+indexShardsLens = lens indexShards (\x y -> x {indexShards = y})
+
+indexReplicasLens :: Lens' IndexSettings ReplicaCount
+indexReplicasLens = lens indexReplicas (\x y -> x {indexReplicas = y})
+
+indexMappingsLimitsLens :: Lens' IndexSettings IndexMappingsLimits
+indexMappingsLimitsLens = lens indexMappingsLimits (\x y -> x {indexMappingsLimits = y})
 
 -- | 'defaultIndexSettings' is an 'IndexSettings' with 3 shards and
 --    2 replicas.
@@ -166,6 +227,18 @@ instance FromJSON IndexMappingsLimits where
         f <- o .: name
         f .: "limit"
 
+indexMappingsLimitDepthLens :: Lens' IndexMappingsLimits (Maybe Int)
+indexMappingsLimitDepthLens = lens indexMappingsLimitDepth (\x y -> x {indexMappingsLimitDepth = y})
+
+indexMappingsLimitNestedFieldsLens :: Lens' IndexMappingsLimits (Maybe Int)
+indexMappingsLimitNestedFieldsLens = lens indexMappingsLimitNestedFields (\x y -> x {indexMappingsLimitNestedFields = y})
+
+indexMappingsLimitNestedObjectsLens :: Lens' IndexMappingsLimits (Maybe Int)
+indexMappingsLimitNestedObjectsLens = lens indexMappingsLimitNestedObjects (\x y -> x {indexMappingsLimitNestedObjects = y})
+
+indexMappingsLimitFieldNameLengthLens :: Lens' IndexMappingsLimits (Maybe Int)
+indexMappingsLimitFieldNameLengthLens = lens indexMappingsLimitFieldNameLength (\x y -> x {indexMappingsLimitFieldNameLength = y})
+
 defaultIndexMappingsLimits :: IndexMappingsLimits
 defaultIndexMappingsLimits = IndexMappingsLimits Nothing Nothing Nothing Nothing
 
@@ -181,6 +254,15 @@ data ForceMergeIndexSettings = ForceMergeIndexSettings
     flushAfterOptimize :: Bool
   }
   deriving (Eq, Show)
+
+maxNumSegmentsLens :: Lens' ForceMergeIndexSettings (Maybe Int)
+maxNumSegmentsLens = lens maxNumSegments (\x y -> x {maxNumSegments = y})
+
+onlyExpungeDeletesLens :: Lens' ForceMergeIndexSettings Bool
+onlyExpungeDeletesLens = lens onlyExpungeDeletes (\x y -> x {onlyExpungeDeletes = y})
+
+flushAfterOptimizeLens :: Lens' ForceMergeIndexSettings Bool
+flushAfterOptimizeLens = lens flushAfterOptimize (\x y -> x {flushAfterOptimize = y})
 
 -- | 'defaultForceMergeIndexSettings' implements the default settings that
 --    Elasticsearch uses for index optimization. 'maxNumSegments' is Nothing,
@@ -510,6 +592,15 @@ data IndexSettingsSummary = IndexSettingsSummary
   }
   deriving (Eq, Show)
 
+sSummaryIndexNameLens :: Lens' IndexSettingsSummary IndexName
+sSummaryIndexNameLens = lens sSummaryIndexName (\x y -> x {sSummaryIndexName = y})
+
+sSummaryFixedSettingsLens :: Lens' IndexSettingsSummary IndexSettings
+sSummaryFixedSettingsLens = lens sSummaryFixedSettings (\x y -> x {sSummaryFixedSettings = y})
+
+sSummaryUpdateableLens :: Lens' IndexSettingsSummary [UpdatableIndexSetting]
+sSummaryUpdateableLens = lens sSummaryUpdateable (\x y -> x {sSummaryUpdateable = y})
+
 parseSettings :: Object -> Parser [UpdatableIndexSetting]
 parseSettings o = do
   o' <- o .: "index"
@@ -554,6 +645,9 @@ newtype FieldDefinition = FieldDefinition
   }
   deriving (Eq, Show)
 
+fieldTypeLens :: Lens' FieldDefinition FieldType
+fieldTypeLens = lens fieldType (\x y -> x {fieldType = y})
+
 -- | An 'IndexTemplate' defines a template that will automatically be
 --    applied to new indices created. The templates include both
 --    'IndexSettings' and mappings, and a simple 'IndexPattern' that
@@ -581,11 +675,26 @@ instance ToJSON IndexTemplate where
       merge o Null = o
       merge _ _ = undefined
 
+templatePatternsLens :: Lens' IndexTemplate [IndexPattern]
+templatePatternsLens = lens templatePatterns (\x y -> x {templatePatterns = y})
+
+templateSettingsLens :: Lens' IndexTemplate (Maybe IndexSettings)
+templateSettingsLens = lens templateSettings (\x y -> x {templateSettings = y})
+
+templateMappingsLens :: Lens' IndexTemplate Value
+templateMappingsLens = lens templateMappings (\x y -> x {templateMappings = y})
+
 data MappingField = MappingField
   { mappingFieldName :: FieldName,
     fieldDefinition :: FieldDefinition
   }
   deriving (Eq, Show)
+
+mappingFieldNameLens :: Lens' MappingField FieldName
+mappingFieldNameLens = lens mappingFieldName (\x y -> x {mappingFieldName = y})
+
+fieldDefinitionLens :: Lens' MappingField FieldDefinition
+fieldDefinitionLens = lens fieldDefinition (\x y -> x {fieldDefinition = y})
 
 -- | Support for type reification of 'Mapping's is currently incomplete, for
 --    now the mapping API verbiage expects a 'ToJSON'able blob.
@@ -596,6 +705,9 @@ data MappingField = MappingField
 --    if possible.
 newtype Mapping = Mapping {mappingFields :: [MappingField]}
   deriving (Eq, Show)
+
+mappingFieldsLens :: Lens' Mapping [MappingField]
+mappingFieldsLens = lens mappingFields (\x y -> x {mappingFields = y})
 
 data AllocationPolicy
   = -- | Allows shard allocation for all shards.
@@ -629,6 +741,12 @@ data IndexAlias = IndexAlias
   }
   deriving (Eq, Show)
 
+srcIndexLens :: Lens' IndexAlias IndexName
+srcIndexLens = lens srcIndex (\x y -> x {srcIndex = y})
+
+indexAliasLens :: Lens' IndexAlias IndexAliasName
+indexAliasLens = lens indexAlias (\x y -> x {indexAlias = y})
+
 data IndexAliasAction
   = AddAlias IndexAlias IndexAliasCreate
   | RemoveAlias IndexAlias
@@ -639,6 +757,12 @@ data IndexAliasCreate = IndexAliasCreate
     aliasCreateFilter :: Maybe Filter
   }
   deriving (Eq, Show)
+
+aliasCreateRoutingLens :: Lens' IndexAliasCreate (Maybe AliasRouting)
+aliasCreateRoutingLens = lens aliasCreateRouting (\x y -> x {aliasCreateRouting = y})
+
+aliasCreateFilterLens :: Lens' IndexAliasCreate (Maybe Filter)
+aliasCreateFilterLens = lens aliasCreateFilter (\x y -> x {aliasCreateFilter = y})
 
 data AliasRouting
   = AllAliasRouting RoutingValue
@@ -664,6 +788,9 @@ newtype IndexAliasRouting
 newtype RoutingValue = RoutingValue {routingValue :: Text}
   deriving (Eq, Show, ToJSON, FromJSON)
 
+routingValueLens :: Lens' RoutingValue Text
+routingValueLens = lens routingValue (\x y -> x {routingValue = y})
+
 newtype IndexAliasesSummary = IndexAliasesSummary {indexAliasesSummary :: [IndexAliasSummary]}
   deriving (Eq, Show)
 
@@ -677,6 +804,9 @@ instance FromJSON IndexAliasesSummary where
         forM (HM.toList aliases) $ \(aName, v) -> do
           let indexAlias = IndexAlias indexName (IndexAliasName aName)
           IndexAliasSummary indexAlias <$> parseJSON v
+
+indexAliasesSummaryLens :: Lens' IndexAliasesSummary [IndexAliasSummary]
+indexAliasesSummaryLens = lens indexAliasesSummary (\x y -> x {indexAliasesSummary = y})
 
 instance ToJSON IndexAliasAction where
   toJSON (AddAlias ia opts) = object ["add" .= (jsonObject ia <> jsonObject opts)]
@@ -731,6 +861,12 @@ data IndexAliasSummary = IndexAliasSummary
   }
   deriving (Eq, Show)
 
+indexAliasSummaryAliasLens :: Lens' IndexAliasSummary IndexAlias
+indexAliasSummaryAliasLens = lens indexAliasSummaryAlias (\x y -> x {indexAliasSummaryAlias = y})
+
+indexAliasSummaryCreateLens :: Lens' IndexAliasSummary IndexAliasCreate
+indexAliasSummaryCreateLens = lens indexAliasSummaryCreate (\x y -> x {indexAliasSummaryCreate = y})
+
 data JoinRelation
   = ParentDocument FieldName RelationName
   | ChildDocument FieldName RelationName DocId
@@ -744,6 +880,12 @@ data IndexDocumentSettings = IndexDocumentSettings
     idsJoinRelation :: Maybe JoinRelation
   }
   deriving (Eq, Show)
+
+idsVersionControlLens :: Lens' IndexDocumentSettings VersionControl
+idsVersionControlLens = lens idsVersionControl (\x y -> x {idsVersionControl = y})
+
+idsJoinRelationLens :: Lens' IndexDocumentSettings (Maybe JoinRelation)
+idsJoinRelationLens = lens idsJoinRelation (\x y -> x {idsJoinRelation = y})
 
 -- | Reasonable default settings. Chooses no version control and no parent.
 defaultIndexDocumentSettings :: IndexDocumentSettings

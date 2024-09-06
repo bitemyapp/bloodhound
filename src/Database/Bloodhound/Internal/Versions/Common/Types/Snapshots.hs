@@ -37,6 +37,53 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Snapshots
     defaultSnapshotRepoUpdateSettings,
     defaultSnapshotRestoreSettings,
     mkRRGroupRefNum,
+
+    -- * Optics
+    snapshotRepoNameLens,
+    gSnapshotRepoNameLens,
+    gSnapshotRepoTypeLens,
+    gSnapshotRepoSettingsLens,
+    snapshotRepoTypeLens,
+    gSnapshotRepoSettingsObjectLens,
+    snapshotNodeVerificationsLens,
+    snvFullIdLens,
+    snvNodeNameLens,
+    snapRestoreWaitForCompletionLens,
+    snapRestoreIndicesLens,
+    snapRestoreIgnoreUnavailableLens,
+    snapRestoreIncludeGlobalStateLens,
+    snapRestoreRenamePatternLens,
+    snapRestoreRenameReplacementLens,
+    snapRestorePartialLens,
+    snapRestoreIncludeAliasesLens,
+    snapRestoreIndexSettingsOverridesLens,
+    snapRestoreIgnoreIndexSettingsLens,
+    repoUpdateVerifyLens,
+    fsrNameLens,
+    fsrLocationLens,
+    fsrCompressMetadataLens,
+    fsrChunkSizeLens,
+    fsrMaxRestoreBytesPerSecLens,
+    fsrMaxSnapshotBytesPerSecLens,
+    snapWaitForCompletionLens,
+    snapIndicesLens,
+    snapIgnoreUnavailableLens,
+    snapIncludeGlobalStateLens,
+    snapPartialLens,
+    snapInfoShardsLens,
+    snapInfoFailuresLens,
+    snapInfoDurationLens,
+    snapInfoEndTimeLens,
+    snapInfoStartTimeLens,
+    snapInfoStateLens,
+    snapInfoIndicesLens,
+    snapInfoNameLens,
+    snapShardFailureIndexLens,
+    snapShardFailureNodeIdLens,
+    snapShardFailureReasonLens,
+    snapShardFailureShardIdLens,
+    rrPatternLens,
+    restoreOverrideReplicasLens,
   )
 where
 
@@ -69,6 +116,9 @@ data SnapshotRepoPattern
 newtype SnapshotRepoName = SnapshotRepoName {snapshotRepoName :: Text}
   deriving (Eq, Ord, Show, Generic, ToJSON, FromJSON)
 
+snapshotRepoNameLens :: Lens' SnapshotRepoName Text
+snapshotRepoNameLens = lens snapshotRepoName (\x y -> x {snapshotRepoName = y})
+
 -- | A generic representation of a snapshot repo. This is what gets
 -- sent to and parsed from the server. For repo types enabled by
 -- plugins that aren't exported by this library, consider making a
@@ -86,8 +136,20 @@ instance SnapshotRepo GenericSnapshotRepo where
   toGSnapshotRepo = id
   fromGSnapshotRepo = Right
 
+gSnapshotRepoNameLens :: Lens' GenericSnapshotRepo SnapshotRepoName
+gSnapshotRepoNameLens = lens gSnapshotRepoName (\x y -> x {gSnapshotRepoName = y})
+
+gSnapshotRepoTypeLens :: Lens' GenericSnapshotRepo SnapshotRepoType
+gSnapshotRepoTypeLens = lens gSnapshotRepoType (\x y -> x {gSnapshotRepoType = y})
+
+gSnapshotRepoSettingsLens :: Lens' GenericSnapshotRepo GenericSnapshotRepoSettings
+gSnapshotRepoSettingsLens = lens gSnapshotRepoSettings (\x y -> x {gSnapshotRepoSettings = y})
+
 newtype SnapshotRepoType = SnapshotRepoType {snapshotRepoType :: Text}
   deriving (Eq, Ord, Show, ToJSON, FromJSON)
+
+snapshotRepoTypeLens :: Lens' SnapshotRepoType Text
+snapshotRepoTypeLens = lens snapshotRepoType (\x y -> x {snapshotRepoType = y})
 
 -- | Opaque representation of snapshot repo settings. Instances of
 -- 'SnapshotRepo' will produce this.
@@ -99,6 +161,9 @@ newtype GenericSnapshotRepoSettings = GenericSnapshotRepoSettings {gSnapshotRepo
 -- as strings, so we'll try to convert them.
 instance FromJSON GenericSnapshotRepoSettings where
   parseJSON = fmap (GenericSnapshotRepoSettings . fmap unStringlyTypeJSON) . parseJSON
+
+gSnapshotRepoSettingsObjectLens :: Lens' GenericSnapshotRepoSettings Object
+gSnapshotRepoSettingsObjectLens = lens gSnapshotRepoSettingsObject (\x y -> x {gSnapshotRepoSettingsObject = y})
 
 -- | The result of running 'verifySnapshotRepo'.
 newtype SnapshotVerification = SnapshotVerification
@@ -115,12 +180,21 @@ instance FromJSON SnapshotVerification where
       parse' rawFullId = withObject "SnapshotNodeVerification" $ \o ->
         SnapshotNodeVerification (FullNodeId rawFullId) <$> o .: "name"
 
+snapshotNodeVerificationsLens :: Lens' SnapshotVerification [SnapshotNodeVerification]
+snapshotNodeVerificationsLens = lens snapshotNodeVerifications (\x y -> x {snapshotNodeVerifications = y})
+
 -- | A node that has verified a snapshot
 data SnapshotNodeVerification = SnapshotNodeVerification
   { snvFullId :: FullNodeId,
     snvNodeName :: NodeName
   }
   deriving (Eq, Show)
+
+snvFullIdLens :: Lens' SnapshotNodeVerification FullNodeId
+snvFullIdLens = lens snvFullId (\x y -> x {snvFullId = y})
+
+snvNodeNameLens :: Lens' SnapshotNodeVerification NodeName
+snvNodeNameLens = lens snvNodeName (\x y -> x {snvNodeName = y})
 
 data SnapshotState
   = SnapshotInit
@@ -185,6 +259,36 @@ data SnapshotRestoreSettings = SnapshotRestoreSettings
   }
   deriving (Eq, Show)
 
+snapRestoreWaitForCompletionLens :: Lens' SnapshotRestoreSettings Bool
+snapRestoreWaitForCompletionLens = lens snapRestoreWaitForCompletion (\x y -> x {snapRestoreWaitForCompletion = y})
+
+snapRestoreIndicesLens :: Lens' SnapshotRestoreSettings (Maybe IndexSelection)
+snapRestoreIndicesLens = lens snapRestoreIndices (\x y -> x {snapRestoreIndices = y})
+
+snapRestoreIgnoreUnavailableLens :: Lens' SnapshotRestoreSettings Bool
+snapRestoreIgnoreUnavailableLens = lens snapRestoreIgnoreUnavailable (\x y -> x {snapRestoreIgnoreUnavailable = y})
+
+snapRestoreIncludeGlobalStateLens :: Lens' SnapshotRestoreSettings Bool
+snapRestoreIncludeGlobalStateLens = lens snapRestoreIncludeGlobalState (\x y -> x {snapRestoreIncludeGlobalState = y})
+
+snapRestoreRenamePatternLens :: Lens' SnapshotRestoreSettings (Maybe RestoreRenamePattern)
+snapRestoreRenamePatternLens = lens snapRestoreRenamePattern (\x y -> x {snapRestoreRenamePattern = y})
+
+snapRestoreRenameReplacementLens :: Lens' SnapshotRestoreSettings (Maybe (NonEmpty RestoreRenameToken))
+snapRestoreRenameReplacementLens = lens snapRestoreRenameReplacement (\x y -> x {snapRestoreRenameReplacement = y})
+
+snapRestorePartialLens :: Lens' SnapshotRestoreSettings Bool
+snapRestorePartialLens = lens snapRestorePartial (\x y -> x {snapRestorePartial = y})
+
+snapRestoreIncludeAliasesLens :: Lens' SnapshotRestoreSettings Bool
+snapRestoreIncludeAliasesLens = lens snapRestoreIncludeAliases (\x y -> x {snapRestoreIncludeAliases = y})
+
+snapRestoreIndexSettingsOverridesLens :: Lens' SnapshotRestoreSettings (Maybe RestoreIndexSettings)
+snapRestoreIndexSettingsOverridesLens = lens snapRestoreIndexSettingsOverrides (\x y -> x {snapRestoreIndexSettingsOverrides = y})
+
+snapRestoreIgnoreIndexSettingsLens :: Lens' SnapshotRestoreSettings (Maybe (NonEmpty Text))
+snapRestoreIgnoreIndexSettingsLens = lens snapRestoreIgnoreIndexSettings (\x y -> x {snapRestoreIgnoreIndexSettings = y})
+
 newtype SnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings
   { -- | After creation/update, synchronously check that nodes can
     -- write to this repo. Defaults to True. You may use False if you
@@ -193,6 +297,9 @@ newtype SnapshotRepoUpdateSettings = SnapshotRepoUpdateSettings
     repoUpdateVerify :: Bool
   }
   deriving (Eq, Show)
+
+repoUpdateVerifyLens :: Lens' SnapshotRepoUpdateSettings Bool
+repoUpdateVerifyLens = lens repoUpdateVerify (\x y -> x {repoUpdateVerify = y})
 
 -- | Reasonable defaults for repo creation/update
 --
@@ -250,6 +357,24 @@ instance SnapshotRepo FsSnapshotRepo where
               .:? "max_snapshot_bytes_per_sec"
     | otherwise = Left (RepoTypeMismatch fsRepoType gSnapshotRepoType)
 
+fsrNameLens :: Lens' FsSnapshotRepo SnapshotRepoName
+fsrNameLens = lens fsrName (\x y -> x {fsrName = y})
+
+fsrLocationLens :: Lens' FsSnapshotRepo FilePath
+fsrLocationLens = lens fsrLocation (\x y -> x {fsrLocation = y})
+
+fsrCompressMetadataLens :: Lens' FsSnapshotRepo Bool
+fsrCompressMetadataLens = lens fsrCompressMetadata (\x y -> x {fsrCompressMetadata = y})
+
+fsrChunkSizeLens :: Lens' FsSnapshotRepo (Maybe Bytes)
+fsrChunkSizeLens = lens fsrChunkSize (\x y -> x {fsrChunkSize = y})
+
+fsrMaxRestoreBytesPerSecLens :: Lens' FsSnapshotRepo (Maybe Bytes)
+fsrMaxRestoreBytesPerSecLens = lens fsrMaxRestoreBytesPerSec (\x y -> x {fsrMaxRestoreBytesPerSec = y})
+
+fsrMaxSnapshotBytesPerSecLens :: Lens' FsSnapshotRepo (Maybe Bytes)
+fsrMaxSnapshotBytesPerSecLens = lens fsrMaxSnapshotBytesPerSec (\x y -> x {fsrMaxSnapshotBytesPerSec = y})
+
 parseRepo :: Parser a -> Either SnapshotRepoConversionError a
 parseRepo parser = case parseEither (const parser) () of
   Left e -> Left (OtherRepoConversionError (T.pack e))
@@ -290,6 +415,21 @@ data SnapshotCreateSettings = SnapshotCreateSettings
     snapPartial :: Bool
   }
   deriving (Eq, Show)
+
+snapWaitForCompletionLens :: Lens' SnapshotCreateSettings Bool
+snapWaitForCompletionLens = lens snapWaitForCompletion (\x y -> x {snapWaitForCompletion = y})
+
+snapIndicesLens :: Lens' SnapshotCreateSettings (Maybe IndexSelection)
+snapIndicesLens = lens snapIndices (\x y -> x {snapIndices = y})
+
+snapIgnoreUnavailableLens :: Lens' SnapshotCreateSettings Bool
+snapIgnoreUnavailableLens = lens snapIgnoreUnavailable (\x y -> x {snapIgnoreUnavailable = y})
+
+snapIncludeGlobalStateLens :: Lens' SnapshotCreateSettings Bool
+snapIncludeGlobalStateLens = lens snapIncludeGlobalState (\x y -> x {snapIncludeGlobalState = y})
+
+snapPartialLens :: Lens' SnapshotCreateSettings Bool
+snapPartialLens = lens snapPartial (\x y -> x {snapPartial = y})
 
 -- | Reasonable defaults for snapshot creation
 --
@@ -354,6 +494,30 @@ instance FromJSON SnapshotInfo where
           <*> o
             .: "snapshot"
 
+snapInfoShardsLens :: Lens' SnapshotInfo ShardResult
+snapInfoShardsLens = lens snapInfoShards (\x y -> x {snapInfoShards = y})
+
+snapInfoFailuresLens :: Lens' SnapshotInfo [SnapshotShardFailure]
+snapInfoFailuresLens = lens snapInfoFailures (\x y -> x {snapInfoFailures = y})
+
+snapInfoDurationLens :: Lens' SnapshotInfo NominalDiffTime
+snapInfoDurationLens = lens snapInfoDuration (\x y -> x {snapInfoDuration = y})
+
+snapInfoEndTimeLens :: Lens' SnapshotInfo UTCTime
+snapInfoEndTimeLens = lens snapInfoEndTime (\x y -> x {snapInfoEndTime = y})
+
+snapInfoStartTimeLens :: Lens' SnapshotInfo UTCTime
+snapInfoStartTimeLens = lens snapInfoStartTime (\x y -> x {snapInfoStartTime = y})
+
+snapInfoStateLens :: Lens' SnapshotInfo SnapshotState
+snapInfoStateLens = lens snapInfoState (\x y -> x {snapInfoState = y})
+
+snapInfoIndicesLens :: Lens' SnapshotInfo [IndexName]
+snapInfoIndicesLens = lens snapInfoIndices (\x y -> x {snapInfoIndices = y})
+
+snapInfoNameLens :: Lens' SnapshotInfo SnapshotName
+snapInfoNameLens = lens snapInfoName (\x y -> x {snapInfoName = y})
+
 data SnapshotShardFailure = SnapshotShardFailure
   { snapShardFailureIndex :: IndexName,
     snapShardFailureNodeId :: Maybe NodeName, -- I'm not 100% sure this isn't actually 'FullNodeId'
@@ -376,9 +540,24 @@ instance FromJSON SnapshotShardFailure where
           <*> o
             .: "shard_id"
 
+snapShardFailureIndexLens :: Lens' SnapshotShardFailure IndexName
+snapShardFailureIndexLens = lens snapShardFailureIndex (\x y -> x {snapShardFailureIndex = y})
+
+snapShardFailureNodeIdLens :: Lens' SnapshotShardFailure (Maybe NodeName)
+snapShardFailureNodeIdLens = lens snapShardFailureNodeId (\x y -> x {snapShardFailureNodeId = y})
+
+snapShardFailureReasonLens :: Lens' SnapshotShardFailure Text
+snapShardFailureReasonLens = lens snapShardFailureReason (\x y -> x {snapShardFailureReason = y})
+
+snapShardFailureShardIdLens :: Lens' SnapshotShardFailure ShardId
+snapShardFailureShardIdLens = lens snapShardFailureShardId (\x y -> x {snapShardFailureShardId = y})
+
 -- | Regex-stype pattern, e.g. "index_(.+)" to match index names
 newtype RestoreRenamePattern = RestoreRenamePattern {rrPattern :: Text}
   deriving (Eq, Show, Ord, ToJSON)
+
+rrPatternLens :: Lens' RestoreRenamePattern Text
+rrPatternLens = lens rrPattern (\x y -> x {rrPattern = y})
 
 -- | A single token in a index renaming scheme for a restore. These
 -- are concatenated into a string before being sent to
@@ -449,3 +628,6 @@ instance ToJSON RestoreIndexSettings where
   toJSON RestoreIndexSettings {..} = object prs
     where
       prs = catMaybes [("index.number_of_replicas" .=) <$> restoreOverrideReplicas]
+
+restoreOverrideReplicasLens :: Lens' RestoreIndexSettings (Maybe ReplicaCount)
+restoreOverrideReplicasLens = lens restoreOverrideReplicas (\x y -> x {restoreOverrideReplicas = y})

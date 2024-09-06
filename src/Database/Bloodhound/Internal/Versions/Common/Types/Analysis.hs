@@ -43,6 +43,18 @@ instance FromJSON Analysis where
         .:? "char_filter"
         .!= M.empty
 
+analysisAnalyzerLens :: Lens' Analysis (M.Map Text AnalyzerDefinition)
+analysisAnalyzerLens = lens analysisAnalyzer (\x y -> x { analysisAnalyzer = y })
+
+analysisTokenizerLens :: Lens' Analysis (M.Map Text TokenizerDefinition)
+analysisTokenizerLens = lens analysisTokenizer (\x y -> x { analysisTokenizer = y })
+
+analysisTokenFilterLens :: Lens' Analysis (M.Map Text TokenFilterDefinition)
+analysisTokenFilterLens = lens analysisTokenFilter (\x y -> x { analysisTokenFilter = y })
+
+analysisCharFilterLens :: Lens' Analysis (M.Map Text CharFilterDefinition)
+analysisCharFilterLens = lens analysisCharFilter (\x y -> x { analysisCharFilter = y })
+
 newtype Tokenizer
   = Tokenizer Text
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
@@ -69,6 +81,15 @@ instance FromJSON AnalyzerDefinition where
       <$> m .:? "tokenizer"
       <*> m .:? "filter" .!= []
       <*> m .:? "char_filter" .!= []
+
+analyzerDefinitionTokenizerLens :: Lens' AnalyzerDefinition (Maybe Tokenizer)
+analyzerDefinitionTokenizerLens = lens analyzerDefinitionTokenizer (\x y -> x { analyzerDefinitionTokenizer = y })
+
+analyzerDefinitionFilterLens :: Lens' AnalyzerDefinition [TokenFilter]
+analyzerDefinitionFilterLens = lens analyzerDefinitionFilter (\x y -> x { analyzerDefinitionFilter = y })
+
+analyzerDefinitionCharFilterLens :: Lens' AnalyzerDefinition [CharFilter]
+analyzerDefinitionCharFilterLens = lens analyzerDefinitionCharFilter (\x y -> x { analyzerDefinitionCharFilter = y })
 
 -- | Character filters are used to preprocess the stream of characters
 --   before it is passed to the tokenizer.
@@ -497,3 +518,21 @@ data Shingle = Shingle
     shingleFillerToken :: Text
   }
   deriving (Eq, Show, Generic)
+
+shingleMaxSizeLens :: Lens' Shingle Int
+shingleMaxSizeLens = lens shingleMaxSize (\x y -> x { shingleMaxSize = y })
+
+shingleMinSizeLens :: Lens' Shingle Int
+shingleMinSizeLens = lens shingleMinSize (\x y -> x { shingleMinSize = y })
+
+shingleOutputUnigramsLens :: Lens' Shingle Bool
+shingleOutputUnigramsLens = lens shingleOutputUnigrams (\x y -> x { shingleOutputUnigrams = y })
+
+shingleOutputUnigramsIfNoShinglesLens :: Lens' Shingle Bool
+shingleOutputUnigramsIfNoShinglesLens = lens shingleOutputUnigramsIfNoShingles (\x y -> x { shingleOutputUnigramsIfNoShingles = y })
+
+shingleTokenSeparatorLens :: Lens' Shingle Text
+shingleTokenSeparatorLens = lens shingleTokenSeparator (\x y -> x { shingleTokenSeparator = y })
+
+shingleFillerTokenLens :: Lens' Shingle Text
+shingleFillerTokenLens = lens shingleFillerToken (\x y -> x { shingleFillerToken = y })

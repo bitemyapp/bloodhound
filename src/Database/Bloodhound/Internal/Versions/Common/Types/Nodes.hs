@@ -63,6 +63,35 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Nodes
     ThreadPoolType (..),
     Version (..),
     VersionNumber (..),
+
+    -- * Optics
+    nodeOSRefreshIntervalLens,
+    nodeOSNameLens,
+    nodeOSArchLens,
+    nodeOSVersionLens,
+    nodeOSAvailableProcessorsLens,
+    nodeOSAllocatedProcessorsLens,
+    cpuCacheSizeLens,
+    cpuCoresPerSocketLens,
+    cpuTotalSocketsLens,
+    cpuTotalCoresLens,
+    cpuMHZLens,
+    cpuModelLens,
+    cpuVendorLens,
+    nodeProcessMLockAllLens,
+    nodeProcessMaxFileDescriptorsLens,
+    nodeProcessIdLens,
+    nodeProcessRefreshIntervalLens,
+    srShardsLens,
+    shardTotalLens,
+    shardsSuccessfulLens,
+    shardsSkippedLens,
+    shardsFailedLens,
+    versionNumberLens,
+    versionBuildHashLens,
+    versionBuildDateLens,
+    versionBuildSnapshotLens,
+    versionLuceneVersionLens,
   )
 where
 
@@ -563,6 +592,24 @@ data NodeOSInfo = NodeOSInfo
   }
   deriving (Eq, Show)
 
+nodeOSRefreshIntervalLens :: Lens' NodeOSInfo NominalDiffTime
+nodeOSRefreshIntervalLens = lens nodeOSRefreshInterval (\x y -> x {nodeOSRefreshInterval = y})
+
+nodeOSNameLens :: Lens' NodeOSInfo Text
+nodeOSNameLens = lens nodeOSName (\x y -> x {nodeOSName = y})
+
+nodeOSArchLens :: Lens' NodeOSInfo Text
+nodeOSArchLens = lens nodeOSArch (\x y -> x {nodeOSArch = y})
+
+nodeOSVersionLens :: Lens' NodeOSInfo Text
+nodeOSVersionLens = lens nodeOSVersion (\x y -> x {nodeOSVersion = y})
+
+nodeOSAvailableProcessorsLens :: Lens' NodeOSInfo Int
+nodeOSAvailableProcessorsLens = lens nodeOSAvailableProcessors (\x y -> x {nodeOSAvailableProcessors = y})
+
+nodeOSAllocatedProcessorsLens :: Lens' NodeOSInfo Int
+nodeOSAllocatedProcessorsLens = lens nodeOSAllocatedProcessors (\x y -> x {nodeOSAllocatedProcessors = y})
+
 data CPUInfo = CPUInfo
   { cpuCacheSize :: Bytes,
     cpuCoresPerSocket :: Int,
@@ -574,6 +621,27 @@ data CPUInfo = CPUInfo
   }
   deriving (Eq, Show)
 
+cpuCacheSizeLens :: Lens' CPUInfo Bytes
+cpuCacheSizeLens = lens cpuCacheSize (\x y -> x {cpuCacheSize = y})
+
+cpuCoresPerSocketLens :: Lens' CPUInfo Int
+cpuCoresPerSocketLens = lens cpuCoresPerSocket (\x y -> x {cpuCoresPerSocket = y})
+
+cpuTotalSocketsLens :: Lens' CPUInfo Int
+cpuTotalSocketsLens = lens cpuTotalSockets (\x y -> x {cpuTotalSockets = y})
+
+cpuTotalCoresLens :: Lens' CPUInfo Int
+cpuTotalCoresLens = lens cpuTotalCores (\x y -> x {cpuTotalCores = y})
+
+cpuMHZLens :: Lens' CPUInfo Int
+cpuMHZLens = lens cpuMHZ (\x y -> x {cpuMHZ = y})
+
+cpuModelLens :: Lens' CPUInfo Text
+cpuModelLens = lens cpuModel (\x y -> x {cpuModel = y})
+
+cpuVendorLens :: Lens' CPUInfo Text
+cpuVendorLens = lens cpuVendor (\x y -> x {cpuVendor = y})
+
 data NodeProcessInfo = NodeProcessInfo
   { -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.html>
     nodeProcessMLockAll :: Bool,
@@ -582,6 +650,18 @@ data NodeProcessInfo = NodeProcessInfo
     nodeProcessRefreshInterval :: NominalDiffTime
   }
   deriving (Eq, Show)
+
+nodeProcessMLockAllLens :: Lens' NodeProcessInfo Bool
+nodeProcessMLockAllLens = lens nodeProcessMLockAll (\x y -> x {nodeProcessMLockAll = y})
+
+nodeProcessMaxFileDescriptorsLens :: Lens' NodeProcessInfo (Maybe Int)
+nodeProcessMaxFileDescriptorsLens = lens nodeProcessMaxFileDescriptors (\x y -> x {nodeProcessMaxFileDescriptors = y})
+
+nodeProcessIdLens :: Lens' NodeProcessInfo PID
+nodeProcessIdLens = lens nodeProcessId (\x y -> x {nodeProcessId = y})
+
+nodeProcessRefreshIntervalLens :: Lens' NodeProcessInfo NominalDiffTime
+nodeProcessRefreshIntervalLens = lens nodeProcessRefreshInterval (\x y -> x {nodeProcessRefreshInterval = y})
 
 instance FromJSON NodesInfo where
   parseJSON = withObject "NodesInfo" parse
@@ -1358,6 +1438,9 @@ instance FromJSON ShardsResult where
         <$> v
           .: "_shards"
 
+srShardsLens :: Lens' ShardsResult ShardResult
+srShardsLens = lens srShards (\x y -> x {srShards = y})
+
 data ShardResult = ShardResult
   { shardTotal :: Int,
     shardsSuccessful :: Int,
@@ -1383,6 +1466,18 @@ instance ToJSON ShardResult where
         "skipped" .= shardsSkipped,
         "failed" .= shardsFailed
       ]
+
+shardTotalLens :: Lens' ShardResult Int
+shardTotalLens = lens shardTotal (\x y -> x {shardTotal = y})
+
+shardsSuccessfulLens :: Lens' ShardResult Int
+shardsSuccessfulLens = lens shardsSuccessful (\x y -> x {shardsSuccessful = y})
+
+shardsSkippedLens :: Lens' ShardResult Int
+shardsSkippedLens = lens shardsSkipped (\x y -> x {shardsSkipped = y})
+
+shardsFailedLens :: Lens' ShardResult Int
+shardsFailedLens = lens shardsFailed (\x y -> x {shardsFailed = y})
 
 -- | 'Version' is embedded in 'Status'
 data Version = Version
@@ -1419,6 +1514,21 @@ instance FromJSON Version where
             .: "build_snapshot"
           <*> o
             .: "lucene_version"
+
+versionNumberLens :: Lens' Version VersionNumber
+versionNumberLens = lens number (\x y -> x {number = y})
+
+versionBuildHashLens :: Lens' Version BuildHash
+versionBuildHashLens = lens build_hash (\x y -> x {build_hash = y})
+
+versionBuildDateLens :: Lens' Version UTCTime
+versionBuildDateLens = lens build_date (\x y -> x {build_date = y})
+
+versionBuildSnapshotLens :: Lens' Version Bool
+versionBuildSnapshotLens = lens build_snapshot (\x y -> x {build_snapshot = y})
+
+versionLuceneVersionLens :: Lens' Version VersionNumber
+versionLuceneVersionLens = lens lucene_version (\x y -> x {lucene_version = y})
 
 -- | Traditional software versioning number
 newtype VersionNumber = VersionNumber

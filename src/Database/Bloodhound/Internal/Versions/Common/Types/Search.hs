@@ -24,6 +24,21 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Search
     TimeUnits (..),
     TrackSortScores,
     unpackId,
+
+    -- * Optics
+    tookLens,
+    timedOutLens,
+    shardsLens,
+    searchHitsLens,
+    aggregationsLens,
+    scrollIdLens,
+    suggestLens,
+    pitIdLens,
+    getTemplateScriptLangLens,
+    getTemplateScriptSourceLens,
+    getTemplateScriptOptionsLens,
+    getTemplateScriptIdLens,
+    getTemplateScriptFoundLens,
   )
 where
 
@@ -195,6 +210,30 @@ instance (FromJSON a) => FromJSON (SearchResult a) where
         .:? "pit_id"
   parseJSON _ = empty
 
+tookLens :: Lens' (SearchResult a) Int
+tookLens = lens took (\x y -> x {took = y})
+
+timedOutLens :: Lens' (SearchResult a) Bool
+timedOutLens = lens timedOut (\x y -> x {timedOut = y})
+
+shardsLens :: Lens' (SearchResult a) ShardResult
+shardsLens = lens shards (\x y -> x {shards = y})
+
+searchHitsLens :: Lens' (SearchResult a) (SearchHits a)
+searchHitsLens = lens searchHits (\x y -> x {searchHits = y})
+
+aggregationsLens :: Lens' (SearchResult a) (Maybe AggregationResults)
+aggregationsLens = lens aggregations (\x y -> x {aggregations = y})
+
+scrollIdLens :: Lens' (SearchResult a) (Maybe ScrollId)
+scrollIdLens = lens scrollId (\x y -> x {scrollId = y})
+
+suggestLens :: Lens' (SearchResult a) (Maybe NamedSuggestionResponse)
+suggestLens = lens suggest (\x y -> x {suggest = y})
+
+pitIdLens :: Lens' (SearchResult a) (Maybe Text)
+pitIdLens = lens pitId (\x y -> x {pitId = y})
+
 newtype ScrollId
   = ScrollId Text
   deriving (Eq, Show, Ord, ToJSON, FromJSON)
@@ -308,3 +347,18 @@ instance FromJSON GetTemplateScript where
       )
       script
   parseJSON _ = empty
+
+getTemplateScriptLangLens :: Lens' GetTemplateScript (Maybe Text)
+getTemplateScriptLangLens = lens getTemplateScriptLang (\x y -> x {getTemplateScriptLang = y})
+
+getTemplateScriptSourceLens :: Lens' GetTemplateScript (Maybe SearchTemplateSource)
+getTemplateScriptSourceLens = lens getTemplateScriptSource (\x y -> x {getTemplateScriptSource = y})
+
+getTemplateScriptOptionsLens :: Lens' GetTemplateScript (Maybe (HM.HashMap Text Text))
+getTemplateScriptOptionsLens = lens getTemplateScriptOptions (\x y -> x {getTemplateScriptOptions = y})
+
+getTemplateScriptIdLens :: Lens' GetTemplateScript Text
+getTemplateScriptIdLens = lens getTemplateScriptId (\x y -> x {getTemplateScriptId = y})
+
+getTemplateScriptFoundLens :: Lens' GetTemplateScript Bool
+getTemplateScriptFoundLens = lens getTemplateScriptFound (\x y -> x {getTemplateScriptFound = y})

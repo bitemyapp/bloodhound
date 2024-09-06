@@ -10,6 +10,9 @@ data OpenPointInTimeResponse = OpenPointInTimeResponse
   }
   deriving (Eq, Show)
 
+oPitIdLens :: Lens' OpenPointInTimeResponse Text
+oPitIdLens = lens oPitId (\x y -> x { oPitId = y })
+
 instance ToJSON OpenPointInTimeResponse where
   toJSON OpenPointInTimeResponse {..} =
     object ["id" .= oPitId]
@@ -37,6 +40,10 @@ data ClosePointInTimeResponse = ClosePointInTimeResponse
   }
   deriving (Eq, Show)
 
+
+cPitIdLens :: Lens' ClosePointInTime Text
+cPitIdLens = lens cPitId (\x y -> x { cPitId = y })
+
 instance ToJSON ClosePointInTimeResponse where
   toJSON ClosePointInTimeResponse {..} =
     object
@@ -50,3 +57,9 @@ instance FromJSON ClosePointInTimeResponse where
     numFreed' <- o .: "num_freed"
     return $ ClosePointInTimeResponse succeeded' numFreed'
   parseJSON x = typeMismatch "ClosePointInTimeResponse" x
+
+succeededLens :: Lens' ClosePointInTimeResponse Bool
+succeededLens = lens succeeded (\x y -> x { succeeded = y })
+
+numFreedLens :: Lens' ClosePointInTimeResponse Int
+numFreedLens = lens numFreed (\x y -> x { numFreed = y })

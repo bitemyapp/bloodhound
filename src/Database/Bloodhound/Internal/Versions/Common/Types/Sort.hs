@@ -90,6 +90,24 @@ data DefaultSort = DefaultSort
   }
   deriving (Eq, Show)
 
+sortFieldNameLens :: Lens' DefaultSort FieldName
+sortFieldNameLens = lens sortFieldName (\x y -> x { sortFieldName = y })
+
+sortOrderLens :: Lens' DefaultSort SortOrder
+sortOrderLens = lens sortOrder (\x y -> x { sortOrder = y })
+
+ignoreUnmappedLens :: Lens' DefaultSort (Maybe Text)
+ignoreUnmappedLens = lens ignoreUnmapped (\x y -> x { ignoreUnmapped = y })
+
+sortModeLens :: Lens' DefaultSort (Maybe SortMode)
+sortModeLens = lens sortMode (\x y -> x { sortMode = y })
+
+missingSortLens :: Lens' DefaultSort (Maybe Missing)
+missingSortLens = lens missingSort (\x y -> x { missingSort = y })
+
+nestedFilterLens :: Lens' DefaultSort (Maybe Filter)
+nestedFilterLens = lens nestedFilter (\x y -> x { nestedFilter = y })
+
 -- | 'SortOrder' is 'Ascending' or 'Descending', as you might expect. These get
 --    encoded into "asc" or "desc" when turned into JSON.
 --
