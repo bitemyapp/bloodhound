@@ -57,7 +57,7 @@ upsertDocs ::
 upsertDocs f as = do
   let batch = as <&> (\(id_, doc) -> BulkUpsert testIndex id_ (f $ toJSON doc) []) & V.fromList
   _ <- performBHRequest (bulk @StatusDependant batch)
-  performBHRequest (refreshIndex testIndex)
+  _ <- performBHRequest (refreshIndex testIndex)
   pure ()
 
 spec :: Spec

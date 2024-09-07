@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module TestsUtils.Generators where
 
@@ -284,89 +285,89 @@ instance Arbitrary IndexName where
     indewName <- T.pack <$> replicateM n (chooseEnum ('a', 'z'))
     return $ either (\e -> error $ "Invalid generated IndexName " <> show indewName <> ":" <> T.unpack e) id $ mkIndexName indewName
 
-instance Arbitrary DocId where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary DocId
 
 instance Arbitrary Version where arbitrary = genericArbitraryU
 
-instance Arbitrary BuildHash where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary BuildHash
 
-instance Arbitrary IndexAliasRouting where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary IndexAliasRouting
 
-instance Arbitrary ShardCount where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary ShardCount
 
-instance Arbitrary ReplicaCount where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary ReplicaCount
 
-instance Arbitrary TemplateName where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary TemplateName
 
-instance Arbitrary IndexPattern where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary IndexPattern
 
-instance Arbitrary QueryString where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary QueryString
 
-instance Arbitrary CacheName where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary CacheName
 
-instance Arbitrary CacheKey where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary CacheKey
 
-instance Arbitrary Existence where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Existence
 
-instance Arbitrary CutoffFrequency where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary CutoffFrequency
 
-instance Arbitrary Analyzer where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Analyzer
 
-instance Arbitrary MaxExpansions where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MaxExpansions
 
-instance Arbitrary Lenient where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Lenient
 
-instance Arbitrary Tiebreaker where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Tiebreaker
 
-instance Arbitrary Boost where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Boost
 
-instance Arbitrary BoostTerms where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary BoostTerms
 
-instance Arbitrary MinimumMatch where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MinimumMatch
 
-instance Arbitrary DisableCoord where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary DisableCoord
 
-instance Arbitrary IgnoreTermFrequency where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary IgnoreTermFrequency
 
-instance Arbitrary MinimumTermFrequency where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MinimumTermFrequency
 
-instance Arbitrary MaxQueryTerms where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MaxQueryTerms
 
 instance Arbitrary Fuzziness where arbitrary = genericArbitraryU
 
-instance Arbitrary PrefixLength where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary PrefixLength
 
-instance Arbitrary RelationName where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary RelationName
 
-instance Arbitrary PercentMatch where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary PercentMatch
 
-instance Arbitrary StopWord where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary StopWord
 
-instance Arbitrary QueryPath where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary QueryPath
 
-instance Arbitrary AllowLeadingWildcard where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary AllowLeadingWildcard
 
-instance Arbitrary LowercaseExpanded where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary LowercaseExpanded
 
-instance Arbitrary EnablePositionIncrements where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary EnablePositionIncrements
 
-instance Arbitrary AnalyzeWildcard where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary AnalyzeWildcard
 
-instance Arbitrary GeneratePhraseQueries where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary GeneratePhraseQueries
 
-instance Arbitrary Locale where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Locale
 
-instance Arbitrary MaxWordLength where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MaxWordLength
 
-instance Arbitrary MinWordLength where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MinWordLength
 
-instance Arbitrary PhraseSlop where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary PhraseSlop
 
-instance Arbitrary MinDocFrequency where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MinDocFrequency
 
-instance Arbitrary MaxDocFrequency where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MaxDocFrequency
 
-instance Arbitrary Regexp where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Regexp
 
 instance Arbitrary SimpleQueryStringQuery where arbitrary = genericArbitraryU
 
@@ -392,13 +393,13 @@ instance Arbitrary MoreLikeThisQuery where arbitrary = genericArbitraryU
 
 instance Arbitrary IndicesQuery where arbitrary = genericArbitraryU
 
-instance Arbitrary IgnoreUnmapped where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary IgnoreUnmapped
 
-instance Arbitrary MinChildren where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MinChildren
 
-instance Arbitrary MaxChildren where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary MaxChildren
 
-instance Arbitrary AggregateParentScore where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary AggregateParentScore
 
 instance Arbitrary HasParentQuery where arbitrary = genericArbitraryU
 
@@ -436,7 +437,7 @@ instance Arbitrary GreaterThanEq where arbitrary = genericArbitraryU
 
 instance Arbitrary GeoPoint where arbitrary = genericArbitraryU
 
-instance Arbitrary NullValue where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary NullValue
 
 instance Arbitrary MinimumMatchHighLow where arbitrary = genericArbitraryU
 
@@ -494,7 +495,7 @@ instance Arbitrary Ngram where arbitrary = genericArbitraryU
 
 instance Arbitrary TokenizerDefinition where arbitrary = genericArbitraryU
 
-instance Arbitrary TokenFilter where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary TokenFilter
 
 instance Arbitrary NgramFilter where arbitrary = genericArbitraryU
 
@@ -506,7 +507,7 @@ instance Arbitrary Language where arbitrary = genericArbitraryU
 
 instance Arbitrary Shingle where arbitrary = genericArbitraryU
 
-instance Arbitrary CharFilter where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary CharFilter
 
 instance Arbitrary AnalyzerDefinition where arbitrary = genericArbitraryU
 
@@ -530,11 +531,11 @@ instance Arbitrary CharFilterDefinition where
 
 instance Arbitrary Analysis where arbitrary = genericArbitraryU
 
-instance Arbitrary Tokenizer where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Tokenizer
 
 instance Arbitrary Compression where arbitrary = genericArbitraryU
 
-instance Arbitrary Bytes where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Bytes
 
 instance Arbitrary AllocationPolicy where arbitrary = genericArbitraryU
 
@@ -546,7 +547,7 @@ instance Arbitrary CompoundFormat where arbitrary = genericArbitraryU
 
 instance Arbitrary FsSnapshotRepo where arbitrary = genericArbitraryU
 
-instance Arbitrary SnapshotRepoName where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary SnapshotRepoName
 
 instance Arbitrary DirectGeneratorSuggestModeTypes where arbitrary = genericArbitraryU
 
@@ -556,7 +557,7 @@ instance Arbitrary PhraseSuggesterCollate where arbitrary = genericArbitraryU
 
 instance Arbitrary PhraseSuggesterHighlighter where arbitrary = genericArbitraryU
 
-instance Arbitrary Size where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Size
 
 instance Arbitrary PhraseSuggester where arbitrary = genericArbitraryU
 
@@ -574,7 +575,7 @@ instance Arbitrary ComponentFunctionScoreFunction where arbitrary = genericArbit
 
 instance Arbitrary Script where arbitrary = genericArbitraryU
 
-instance Arbitrary ScriptLanguage where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary ScriptLanguage
 
 instance Arbitrary ScriptSource where arbitrary = genericArbitraryU
 
@@ -582,15 +583,15 @@ instance Arbitrary ScoreMode where arbitrary = genericArbitraryU
 
 instance Arbitrary BoostMode where arbitrary = genericArbitraryU
 
-instance Arbitrary Seed where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Seed
 
 instance Arbitrary FieldValueFactor where arbitrary = genericArbitraryU
 
-instance Arbitrary Weight where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Weight
 
-instance Arbitrary Factor where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary Factor
 
-instance Arbitrary FactorMissingFieldValue where arbitrary = genericArbitraryU
+deriving newtype instance Arbitrary FactorMissingFieldValue
 
 instance Arbitrary FactorModifier where arbitrary = genericArbitraryU
 
