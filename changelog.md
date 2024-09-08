@@ -41,7 +41,7 @@ fd --type file -x sed -i -e 's/Database.Bloodhound.Internal.Task/Database.Bloodh
 - @robinp
   - Add proper `BulkResponse` to `bulk` (#293)
 
-0.23.0.0
+0.22.0.0
 ========
 - @blackheaven
   - Fix `EsError` for OpenSearch
