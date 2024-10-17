@@ -3,49 +3,38 @@
 
 .DEFAULT_GOAL = help
 
-stack = STACK_YAML='stack.yaml' stack
 ghc_perf_options = --ghc-options '+RTS -A128M -RTS'
 build = build $(ghc_perf_options)
-ghci = ghci $(ghc_perf_options)
+ghci = repl $(ghc_perf_options)
 test = test $(ghc_perf_options)
-stack-8.0 = STACK_YAML="stack-8.0.yaml" stack
-stack-8.2 = STACK_YAML="stack-8.2.yaml" stack
-stack-8.4 = STACK_YAML="stack-8.4.yaml" stack
-stack-8.6 = STACK_YAML="stack-8.6.yaml" stack
-
-# stack build --ghc-options '+RTS -A128M -RTS'
 
 ## run build
 build:
-	$(stack) $(build)
+	cabal $(build)
 
 ## build with validation options (Wall, Werror)
 build-validate:
-	$(stack) build --fast --ghc-options '-Wall -Werror +RTS -A128M -RTS'
+	cabal build --disable-optimization --ghc-options '-Wall -Werror +RTS -A128M -RTS'
 
 ## run ghci
 ghci:
-	$(stack) $(ghci)
+	cabal $(ghci)
 
 ## run tests
 test: echo-warn
-	$(stack) $(test)
+	cabal $(test)
 
 ## run tests with forced re-run via "-r"
 test-rerun: echo-warn
-	$(stack) $(test) --test-arguments "-r"
+	cabal $(test) --test-options='-r --failure-report test-failure-report'
 
 ## run ghci with test stanza
 test-ghci:
-	$(stack) $(ghci) bloodhound:test:bloodhound-tests
+	cabal $(ghci) bloodhound:test:bloodhound-tests
 
 ## run ghcid
 ghcid:
-	ghcid -c "$(stack) ghci bloodhound:lib --test --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is bloodhound:test:bloodhound-tests"
-
-## run ghcid with validate options (Werror, etc.)
-ghcid-validate:
-	ghcid -c "$(stack) ghci bloodhound:lib --test --ghci-options='-Werror -fobject-code -fno-warn-unused-do-bind' --main-is bloodhound:test:bloodhound-tests"
+	ghcid
 
 ## run weeder
 weeder:
@@ -64,34 +53,6 @@ hlint-watch:
 
 echo-warn:
 	@echo "Make certain you have an elasticsearch instance on localhost:9200 !"
-
-## Test with GHC 8.0 and ES 5.x
-test-8.0:
-	STACK_YAML="stack-8.0.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500"
-
-## Test with GHC 8.2 and ES 5.x
-test-8.2:
-	STACK_YAML="stack.yaml" stack test --fast bloodhound:test:bloodhound-tests --test-arguments="--qc-max-success 500"
-
-## Build with the GHC 8.0 Stack YAML
-build-8.0:
-	$(stack-8.0) $(build)
-
-## Build with the GHC 8.2 Stack YAML
-build-8.2:
-	$(stack-8.2) $(build)
-
-## Build with the GHC 8.4 Stack YAML
-build-8.4:
-	$(stack-8.4) $(build)
-
-## Build with the GHC 8.6 Stack YAML
-build-8.6:
-	$(stack-8.6) $(build)
-
-## Upload the package to Hackage
-upload:
-	stack upload --no-signature .
 
 # Create ES instance
 
