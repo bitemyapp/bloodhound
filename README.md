@@ -33,15 +33,16 @@ Bloodhound is stable for production use. I will strive to avoid breaking API com
 Testing
 -------
 
-The TravisCI tests are run using [Stack](http://docs.haskellstack.org/en/stable/README.html). You should use Stack instead of `cabal` to build and test Bloodhound to avoid compatibility problems. You will also need to have an Elasticsearch instance running at `localhost:9200` in order to execute some of the tests. See the "Version compatibility" section above for a list of Elasticsearch versions that are officially validated against in TravisCI.
+The Bloodhound project uses Github workflows using Cabal to test for regressions
+and compatibility. A convenient development environment is provided by Nix and a
+Makefile, though the project can be built with only Cabal.
 
-Steps to run the tests locally:
-  1. Dig through the [past releases] (https://www.elastic.co/downloads/past-releases) section of the Elasticsearch download page and install the desired Elasticsearch versions.
-  2. Install [Stack] (http://docs.haskellstack.org/en/stable/README.html#how-to-install)
-  3. In your local Bloodhound directory, run `stack setup && stack build`
-  4. Start the desired version of Elasticsearch at `localhost:9200`, which should be the default.
-  5. Run `stack test` in your local Bloodhound directory.
-  6. The unit tests will pass if you re-execute `stack test`. If you want to start with a clean slate, stop your Elasticsearch instance, delete the `data/` folder in the Elasticsearch installation, restart Elasticsearch, and re-run `stack test`.
+To run the tests:
+1. Get into the Nix environment by running `nix develop` (or `nix-shell` for a non-flake setup)
+1. Start Elasticsearch defined by `docker-compose.yml`: `make compose`
+1. Run the tests with Cabal: `cabal test`
+
+The second step can be left out if ElasticSearch (or OpenSearch) is started manually.
 
 Contributions
 -------------
