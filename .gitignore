@@ -17,3 +17,4 @@ build-docs.*
 .direnv
 .env
 result
+test-failure-report
