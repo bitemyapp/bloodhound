@@ -390,11 +390,26 @@ instance Monoid EsError where
   mempty = EsError Nothing "Monoid value, shouldn't happen"
 
 instance FromJSON EsError where
-  parseJSON (Object v) =
-    EsError
-      <$> v
-        .:? "status"
-      <*> (v .: "error" <|> (v .: "error" >>= (.: "reason")))
+  parseJSON (Object v) = p1 <|> p2 <|> p3
+    where
+      p1 =
+        EsError
+          <$> v .:? "status"
+          <*> v .: "error"
+      p2 =
+        EsError
+          <$> v .:? "status"
+          <*> (v .: "error" >>= (.: "reason"))
+      p3 = do
+        failures <- v .: "failures"
+        -- This is a bit imprecise: We're only using the first error, ignoring
+        -- all others.
+        case failures of
+          (failure : _) ->
+            EsError
+              <$> failure .:? "status"
+              <*> (failure .: "cause" >>= (.: "reason"))
+          [] -> fail "could not find field `failure`"
   parseJSON _ = empty
 
 -- | 'EsProtocolException' will be thrown if Bloodhound cannot parse a response
