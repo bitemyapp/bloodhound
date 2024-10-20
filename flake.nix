@@ -44,13 +44,14 @@
               };
             in
             pkgs.mkShell {
-              buildInputs = [pkgs.docker-compose] ++ (with haskellPackages; [
+              buildInputs = with haskellPackages; [
+                pkgs.docker-compose
                 haskell-language-server
                 ghcid
                 cabal-install
                 scripts
                 ormolu
-              ]);
+              ];
               inputsFrom = [
                 (enableTests self.defaultPackage.${system}).env
               ];
