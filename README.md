@@ -1,4 +1,9 @@
-Bloodhound [![TravisCI](https://travis-ci.org/bitemyapp/bloodhound.svg)](https://travis-ci.org/bitemyapp/bloodhound) [![Hackage](https://img.shields.io/hackage/v/bloodhound.svg?style=flat)](https://hackage.haskell.org/package/bloodhound)
+Bloodhound 
+![compatbuild](https://github.com/bitemyapp/bloodhound/actions/workflows/compat.yml/badge.svg)
+![haskell-ci](https://github.com/bitemyapp/bloodhound/actions/workflows/haskell-ci.yml/badge.svg)
+![nix](https://github.com/bitemyapp/bloodhound/actions/workflows/nix.yml/badge.svg)
+![ormolu](https://github.com/bitemyapp/bloodhound/actions/workflows/ormolu.yml/badge.svg)
+[![Hackage](https://img.shields.io/hackage/v/bloodhound.svg?style=flat)](https://hackage.haskell.org/package/bloodhound)
 ==========
 
 ![Bloodhound (dog)](./bloodhound.jpg)
@@ -21,8 +26,11 @@ Endorsements
 Version compatibility
 ---------------------
 
-See our [TravisCI](https://travis-ci.org/bitemyapp/bloodhound) for a
-listing of Elasticsearch version we test against.
+See the [Github compatibility workflow](./.github/workflows/compat.yml) for a
+listing of Elasticsearch and OpenSearch versions we test against.
+
+The workflow executions can be seen in the [Github actions
+view](https://github.com/bitemyapp/bloodhound/actions/workflows/compat.yml).
 
 
 Stability
