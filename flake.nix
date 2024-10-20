@@ -46,6 +46,7 @@
             in
             pkgs.mkShell {
               buildInputs = with haskellPackages; [
+                pkgs.docker-compose
                 haskell-language-server
                 ghcid
                 cabal-install
