@@ -14,9 +14,9 @@ jobs:
             dockerCommand: |
               docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.17.25
             readyCondition: GREEN
-          - versionTitle: OpenSearch 1.3.12
+          - versionTitle: OpenSearch 1.3.19
             dockerCommand: |
-              docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9600 -e "discovery.type=single-node" -e DISABLE_SECURITY_PLUGIN="true" -e DISABLE_INSTALL_DEMO_CONFIG="true" opensearchproject/opensearch:1.3.12
+              docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9600 -e "discovery.type=single-node" -e DISABLE_SECURITY_PLUGIN="true" -e DISABLE_INSTALL_DEMO_CONFIG="true" opensearchproject/opensearch:1.3.19
             readyCondition: Init AD version hash ring successfully
           - versionTitle: OpenSearch 2.9.0
             dockerCommand: |
