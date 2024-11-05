@@ -38,6 +38,21 @@ spec =
           Right (res', _) -> liftIO $ isVersionConflict res' `shouldBe` True
           Left e -> liftIO $ errorStatus e `shouldBe` Just 409
 
+    it "can use predicates on the response" $
+      withTestEnv $ do
+        let ev = ExternalDocVersion minBound
+        let cfg = defaultIndexDocumentSettings {idsVersionControl = ExternalGT ev}
+        resetIndex
+        (res, _) <- insertData' cfg
+        liftIO $ isCreated res `shouldBe` True
+        liftIO $ isSuccess res `shouldBe` True
+        liftIO $ isVersionConflict res `shouldBe` False
+
+        res' <- insertData'' cfg
+        liftIO $ isCreated res' `shouldBe` False
+        liftIO $ isSuccess res' `shouldBe` False
+        liftIO $ isVersionConflict res' `shouldBe` True
+
     it "indexes two documents in a parent/child relationship and checks that the child exists" $
       withTestEnv $ do
         resetIndex

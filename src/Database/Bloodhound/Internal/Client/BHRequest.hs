@@ -304,7 +304,7 @@ eitherDecodeResponse ::
 eitherDecodeResponse = eitherDecode . responseBody . getResponse
 
 -- | Was there an optimistic concurrency control conflict when
--- indexing a document?
+-- indexing a document? (Check '409' status code.)
 isVersionConflict :: BHResponse parsingContext a -> Bool
 isVersionConflict = statusCheck (== 409)
 

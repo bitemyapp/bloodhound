@@ -205,6 +205,13 @@ insertData' ids = do
   _ <- performBHRequest $ refreshIndex testIndex
   return r
 
+-- | Returns the `BHResponse` of `indexDocument` without any parsing
+insertData'' :: IndexDocumentSettings -> BH IO (BHResponse StatusDependant IndexedDocument)
+insertData'' ids = do
+  r <- dispatch $ indexDocument testIndex ids exampleTweet (DocId "1")
+  _ <- performBHRequest $ refreshIndex testIndex
+  return r
+
 insertTweetWithDocId :: Tweet -> Text -> BH IO IndexedDocument
 insertTweetWithDocId tweet docId = do
   let ids = defaultIndexDocumentSettings
