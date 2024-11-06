@@ -35,7 +35,7 @@ spec =
         liftIO $ isCreated res `shouldBe` True
         insertedConflict <- tryEsError $ insertData' cfg
         case insertedConflict of
-          Right (res', _) -> liftIO $ isVersionConflict res' `shouldBe` True
+          Right _ -> liftIO $ expectationFailure "This should never not happen."
           Left e -> liftIO $ errorStatus e `shouldBe` Just 409
 
     it "indexes two documents in a parent/child relationship and checks that the child exists" $
