@@ -1,0 +1,98 @@
+name: Haskell
+on:
+  - push
+  - pull_request
+
+env:
+  project-cabal-file: bloodhound.cabal
+
+jobs:
+  approval:
+    runs-on: ubuntu-24.04
+    steps:
+      - if: ${{ github.event_name != 'push' }}
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: blackheaven
+
+  generate-matrix:
+    name: "Generate matrix from cabal"
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract the tested GHC versions
+        id: set-matrix
+        uses: kleidukos/get-tested@33b05af03a3fd3ad313cfbff4434ca12da5c84da
+        with:
+          cabal-file: ${{ env.project-cabal-file }}
+          ubuntu-version: "latest"
+          version: 0.1.7.1
+
+  tests:
+    name: ${{ matrix.ghc }} on ${{ matrix.os }}
+    needs: generate-matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: '3.10'
+
+      - name: Restore build and dependency cache
+        uses: actions/cache/restore@v4
+        id: restore-build-cache
+        with:
+          key: build-${{ matrix.os }}-${{ matrix.ghc }}-${{ hashFiles(env.project-cabal-file) }}
+          restore-keys: |
+            build-${{ matrix.os }}-${{ matrix.ghc }}-
+          path: |
+            ~/.cabal/config
+            ~/.cabal/packages
+            ~/.cabal/store
+            dist-newstyle
+
+      - name: Build dependencies
+        run: |
+          cabal update
+          cabal v2-build all --enable-tests --enable-benchmarks --only-dependencies
+
+      - name: Build
+        run: cabal v2-build all --enable-tests --enable-benchmarks
+
+      - name: haddock
+        run: |
+          cabal v2-haddock all
+
+      - name: Launch docker
+        run: |
+          docker run -d --rm --name es -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+          until docker logs es | grep GREEN
+          do
+            sleep 1
+          done
+
+      - name: Run test
+        run: cabal v2-test all
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
+          path: |
+            ~/.cabal/config
+            ~/.cabal/packages
+            ~/.cabal/store
+            dist-newstyle
+
+      - name: Stop docker
+        if: always()
+        run: |
+          docker logs es
+          docker rm -f es
