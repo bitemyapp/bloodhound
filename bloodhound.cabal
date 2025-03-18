@@ -146,6 +146,8 @@ test-suite bloodhound-tests
       TestsUtils.Generators
       TestsUtils.Import
       Paths_bloodhound
+  autogen-modules:
+      Paths_bloodhound
   hs-source-dirs:
       tests
   ghc-options: -Wall -fno-warn-orphans
@@ -199,6 +201,11 @@ test-suite doctests
   type:             exitcode-stdio-1.0
   hs-source-dirs:   tests
   main-is:          Doctests.hs
+  autogen-modules:
+      Paths_bloodhound
+  other-modules:
+      Paths_bloodhound
+  default-language: Haskell2010
   ghc-options:      -threaded
   build-depends: 
       aeson
