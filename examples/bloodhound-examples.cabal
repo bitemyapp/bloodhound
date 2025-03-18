@@ -40,7 +40,6 @@ executable tweet-example
     , bloodhound
     , http-client
     , pretty-show
-    , semigroups
     , text
     , time
     , vector
