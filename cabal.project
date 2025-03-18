@@ -6,4 +6,4 @@ package bloodhound-examples
 source-repository-package
   type: git
   location: https://github.com/blackheaven/aeson-optics
-  tag: 4e4d92950de737e1744e9a5e9245f351652bc897
+  tag: c9b4430c6d45b6c91b354a624183dce160baf099
