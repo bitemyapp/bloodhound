@@ -1,3 +1,14 @@
+0.23.0.1
+========
+- @arybczak
+  - add GHC 9.10/9.12 support
+- @supersvan
+  - chore: Improve Haddock of `isVersionConflict`
+  - chore: Add test to check response predicates
+- @blackheaven
+  - chore: migrate CI from `Haskell-CI` to `get-checked`
+  - fix: various bugfixes
+
 0.23.0.0
 ========
 - @blackheaven
