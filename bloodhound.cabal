@@ -1,7 +1,7 @@
 cabal-version:  3.4
 
 name:           bloodhound
-version:        0.23.0.0
+version:        0.23.0.1
 synopsis:       Elasticsearch client library for Haskell
 description:    Elasticsearch made awesome for Haskell hackers
 category:       Database, Search
@@ -16,7 +16,7 @@ build-type:     Simple
 extra-doc-files:
     README.md
     changelog.md
-tested-with: GHC==9.6.2, GHC==9.4.5, GHC==9.2.7, GHC==9.0.2, GHC==8.10.7
+tested-with: GHC==8.10.7, GHC==9.0.2, GHC==9.2.8, GHC==9.4.8, GHC==9.6.6, GHC==9.8.4, GHC==9.10.1, GHC==9.12.1
 
 
 source-repository head
