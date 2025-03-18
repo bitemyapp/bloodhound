@@ -1,0 +1,4 @@
+packages: *.cabal, examples/*.cabal
+
+package bloodhound
+package bloodhound-examples
