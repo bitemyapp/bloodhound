@@ -61,6 +61,7 @@ jobs:
       - name: Build dependencies
         run: |
           cabal update
+          cabal install hspec-discover
           cabal v2-build all --enable-tests --enable-benchmarks --only-dependencies
 
       - name: Build
