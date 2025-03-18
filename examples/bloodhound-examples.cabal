@@ -39,7 +39,6 @@ executable tweet-example
     , base >=4.14 && <5
     , bloodhound
     , http-client
-    , pretty-show
     , text
     , time
     , vector

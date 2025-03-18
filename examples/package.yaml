@@ -15,7 +15,6 @@ dependencies:
 - bloodhound
 - aeson
 - http-client
-- pretty-show
 - semigroups
 - text
 - time
