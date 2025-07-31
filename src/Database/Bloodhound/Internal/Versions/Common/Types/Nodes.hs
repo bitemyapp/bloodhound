@@ -93,7 +93,6 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Nodes
   )
 where
 
-import Control.Monad.Except
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.HashMap.Strict as HM
 import Data.Map.Strict (Map)
@@ -1004,122 +1003,122 @@ instance FromJSON NodeIndicesStats where
         NodeIndicesStats
           <$> (fmap unMS <$> mRecovery .:: "throttle_time_in_millis")
           <*> mRecovery
-          .:: "current_as_target"
+            .:: "current_as_target"
           <*> mRecovery
-          .:: "current_as_source"
+            .:: "current_as_source"
           <*> mQueryCache
-          .:: "miss_count"
+            .:: "miss_count"
           <*> mQueryCache
-          .:: "hit_count"
+            .:: "hit_count"
           <*> mQueryCache
-          .:: "evictions"
+            .:: "evictions"
           <*> mQueryCache
-          .:: "memory_size_in_bytes"
+            .:: "memory_size_in_bytes"
           <*> mSuggest
-          .:: "current"
+            .:: "current"
           <*> (fmap unMS <$> mSuggest .:: "time_in_millis")
           <*> mSuggest
-          .:: "total"
+            .:: "total"
           <*> translog
-          .: "size_in_bytes"
+            .: "size_in_bytes"
           <*> translog
-          .: "operations"
+            .: "operations"
           <*> segments
-          .:? "fixed_bit_set_memory_in_bytes"
+            .:? "fixed_bit_set_memory_in_bytes"
           <*> segments
-          .: "version_map_memory_in_bytes"
+            .: "version_map_memory_in_bytes"
           <*> segments
-          .:? "index_writer_max_memory_in_bytes"
+            .:? "index_writer_max_memory_in_bytes"
           <*> segments
-          .: "index_writer_memory_in_bytes"
+            .: "index_writer_memory_in_bytes"
           <*> segments
-          .: "memory_in_bytes"
+            .: "memory_in_bytes"
           <*> segments
-          .: "count"
+            .: "count"
           <*> completion
-          .: "size_in_bytes"
+            .: "size_in_bytes"
           <*> mPercolate
-          .:: "queries"
+            .:: "queries"
           <*> mPercolate
-          .:: "memory_size_in_bytes"
+            .:: "memory_size_in_bytes"
           <*> mPercolate
-          .:: "current"
+            .:: "current"
           <*> (fmap unMS <$> mPercolate .:: "time_in_millis")
           <*> mPercolate
-          .:: "total"
+            .:: "total"
           <*> fielddata
-          .: "evictions"
+            .: "evictions"
           <*> fielddata
-          .: "memory_size_in_bytes"
+            .: "memory_size_in_bytes"
           <*> (unMS <$> warmer .: "total_time_in_millis")
           <*> warmer
-          .: "total"
+            .: "total"
           <*> warmer
-          .: "current"
+            .: "current"
           <*> (unMS <$> flush .: "total_time_in_millis")
           <*> flush
-          .: "total"
+            .: "total"
           <*> (unMS <$> refresh .: "total_time_in_millis")
           <*> refresh
-          .: "total"
+            .: "total"
           <*> merges
-          .: "total_size_in_bytes"
+            .: "total_size_in_bytes"
           <*> merges
-          .: "total_docs"
+            .: "total_docs"
           <*> (unMS <$> merges .: "total_time_in_millis")
           <*> merges
-          .: "total"
+            .: "total"
           <*> merges
-          .: "current_size_in_bytes"
+            .: "current_size_in_bytes"
           <*> merges
-          .: "current_docs"
+            .: "current_docs"
           <*> merges
-          .: "current"
+            .: "current"
           <*> search
-          .: "fetch_current"
+            .: "fetch_current"
           <*> (unMS <$> search .: "fetch_time_in_millis")
           <*> search
-          .: "fetch_total"
+            .: "fetch_total"
           <*> search
-          .: "query_current"
+            .: "query_current"
           <*> (unMS <$> search .: "query_time_in_millis")
           <*> search
-          .: "query_total"
+            .: "query_total"
           <*> search
-          .: "open_contexts"
+            .: "open_contexts"
           <*> getStats
-          .: "current"
+            .: "current"
           <*> (unMS <$> getStats .: "missing_time_in_millis")
           <*> getStats
-          .: "missing_total"
+            .: "missing_total"
           <*> (unMS <$> getStats .: "exists_time_in_millis")
           <*> getStats
-          .: "exists_total"
+            .: "exists_total"
           <*> (unMS <$> getStats .: "time_in_millis")
           <*> getStats
-          .: "total"
+            .: "total"
           <*> (fmap unMS <$> indexing .:? "throttle_time_in_millis")
           <*> indexing
-          .:? "is_throttled"
+            .:? "is_throttled"
           <*> indexing
-          .:? "noop_update_total"
+            .:? "noop_update_total"
           <*> indexing
-          .: "delete_current"
+            .: "delete_current"
           <*> (unMS <$> indexing .: "delete_time_in_millis")
           <*> indexing
-          .: "delete_total"
+            .: "delete_total"
           <*> indexing
-          .: "index_current"
+            .: "index_current"
           <*> (unMS <$> indexing .: "index_time_in_millis")
           <*> indexing
-          .: "index_total"
+            .: "index_total"
           <*> (fmap unMS <$> store .:? "throttle_time_in_millis")
           <*> store
-          .: "size_in_bytes"
+            .: "size_in_bytes"
           <*> docs
-          .: "deleted"
+            .: "deleted"
           <*> docs
-          .: "count"
+            .: "count"
 
 instance FromJSON NodeBreakersStats where
   parseJSON = withObject "NodeBreakersStats" parse
@@ -1409,7 +1408,8 @@ data InitialShardCount
 instance FromJSON InitialShardCount where
   parseJSON v =
     withText "InitialShardCount" parseText v
-      <|> ExplicitShards <$> parseJSON v
+      <|> ExplicitShards
+      <$> parseJSON v
     where
       parseText "quorum" = pure QuorumShards
       parseText "quorum-1" = pure QuorumMinus1Shards

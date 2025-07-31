@@ -78,7 +78,6 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Indices
   )
 where
 
-import Control.Monad.Except
 import qualified Data.Aeson.KeyMap as X
 import qualified Data.HashMap.Strict as HM
 import Data.Maybe (mapMaybe)
@@ -387,67 +386,67 @@ instance FromJSON UpdatableIndexSetting where
         numberOfReplicas
           `taggedAt` ["index", "number_of_replicas"]
           <|> autoExpandReplicas
-            `taggedAt` ["index", "auto_expand_replicas"]
+          `taggedAt` ["index", "auto_expand_replicas"]
           <|> refreshInterval
-            `taggedAt` ["index", "refresh_interval"]
+          `taggedAt` ["index", "refresh_interval"]
           <|> indexConcurrency
-            `taggedAt` ["index", "concurrency"]
+          `taggedAt` ["index", "concurrency"]
           <|> failOnMergeFailure
-            `taggedAt` ["index", "fail_on_merge_failure"]
+          `taggedAt` ["index", "fail_on_merge_failure"]
           <|> translogFlushThresholdOps
-            `taggedAt` ["index", "translog", "flush_threshold_ops"]
+          `taggedAt` ["index", "translog", "flush_threshold_ops"]
           <|> translogFlushThresholdSize
-            `taggedAt` ["index", "translog", "flush_threshold_size"]
+          `taggedAt` ["index", "translog", "flush_threshold_size"]
           <|> translogFlushThresholdPeriod
-            `taggedAt` ["index", "translog", "flush_threshold_period"]
+          `taggedAt` ["index", "translog", "flush_threshold_period"]
           <|> translogDisableFlush
-            `taggedAt` ["index", "translog", "disable_flush"]
+          `taggedAt` ["index", "translog", "disable_flush"]
           <|> cacheFilterMaxSize
-            `taggedAt` ["index", "cache", "filter", "max_size"]
+          `taggedAt` ["index", "cache", "filter", "max_size"]
           <|> cacheFilterExpire
-            `taggedAt` ["index", "cache", "filter", "expire"]
+          `taggedAt` ["index", "cache", "filter", "expire"]
           <|> gatewaySnapshotInterval
-            `taggedAt` ["index", "gateway", "snapshot_interval"]
+          `taggedAt` ["index", "gateway", "snapshot_interval"]
           <|> routingAllocationInclude
-            `taggedAt` ["index", "routing", "allocation", "include"]
+          `taggedAt` ["index", "routing", "allocation", "include"]
           <|> routingAllocationExclude
-            `taggedAt` ["index", "routing", "allocation", "exclude"]
+          `taggedAt` ["index", "routing", "allocation", "exclude"]
           <|> routingAllocationRequire
-            `taggedAt` ["index", "routing", "allocation", "require"]
+          `taggedAt` ["index", "routing", "allocation", "require"]
           <|> routingAllocationEnable
-            `taggedAt` ["index", "routing", "allocation", "enable"]
+          `taggedAt` ["index", "routing", "allocation", "enable"]
           <|> routingAllocationShardsPerNode
-            `taggedAt` ["index", "routing", "allocation", "total_shards_per_node"]
+          `taggedAt` ["index", "routing", "allocation", "total_shards_per_node"]
           <|> recoveryInitialShards
-            `taggedAt` ["index", "recovery", "initial_shards"]
+          `taggedAt` ["index", "recovery", "initial_shards"]
           <|> gcDeletes
-            `taggedAt` ["index", "gc_deletes"]
+          `taggedAt` ["index", "gc_deletes"]
           <|> ttlDisablePurge
-            `taggedAt` ["index", "ttl", "disable_purge"]
+          `taggedAt` ["index", "ttl", "disable_purge"]
           <|> translogFSType
-            `taggedAt` ["index", "translog", "fs", "type"]
+          `taggedAt` ["index", "translog", "fs", "type"]
           <|> compressionSetting
-            `taggedAt` ["index", "codec"]
+          `taggedAt` ["index", "codec"]
           <|> compoundFormat
-            `taggedAt` ["index", "compound_format"]
+          `taggedAt` ["index", "compound_format"]
           <|> compoundOnFlush
-            `taggedAt` ["index", "compound_on_flush"]
+          `taggedAt` ["index", "compound_on_flush"]
           <|> warmerEnabled
-            `taggedAt` ["index", "warmer", "enabled"]
+          `taggedAt` ["index", "warmer", "enabled"]
           <|> blocksReadOnly
-            `taggedAt` ["blocks", "read_only"]
+          `taggedAt` ["blocks", "read_only"]
           <|> blocksRead
-            `taggedAt` ["blocks", "read"]
+          `taggedAt` ["blocks", "read"]
           <|> blocksWrite
-            `taggedAt` ["blocks", "write"]
+          `taggedAt` ["blocks", "write"]
           <|> blocksMetaData
-            `taggedAt` ["blocks", "metadata"]
+          `taggedAt` ["blocks", "metadata"]
           <|> mappingTotalFieldsLimit
-            `taggedAt` ["index", "mapping", "total_fields", "limit"]
+          `taggedAt` ["index", "mapping", "total_fields", "limit"]
           <|> analysisSetting
-            `taggedAt` ["index", "analysis"]
+          `taggedAt` ["index", "analysis"]
           <|> unassignedNodeLeftDelayedTimeout
-            `taggedAt` ["index", "unassigned", "node_left", "delayed_timeout"]
+          `taggedAt` ["index", "unassigned", "node_left", "delayed_timeout"]
         where
           taggedAt :: (FromJSON a) => (a -> Parser b) -> [Key] -> Parser b
           taggedAt f ks = taggedAt' f (Object o) ks
@@ -568,8 +567,10 @@ instance ToJSON CompoundFormat where
 
 instance FromJSON CompoundFormat where
   parseJSON v =
-    CompoundFileFormat <$> parseJSON v
-      <|> MergeSegmentVsTotalIndex <$> parseJSON v
+    CompoundFileFormat
+      <$> parseJSON v
+        <|> MergeSegmentVsTotalIndex
+      <$> parseJSON v
 
 newtype NominalDiffTimeJSON = NominalDiffTimeJSON {ndtJSON :: NominalDiffTime}
 
