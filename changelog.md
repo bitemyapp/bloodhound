@@ -1,3 +1,8 @@
+0.24.0.0
+========
+- @blackheaven
+  - fix: remove `putMapping` deprecation
+
 0.23.0.1
 ========
 - @arybczak

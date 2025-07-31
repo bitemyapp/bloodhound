@@ -462,7 +462,6 @@ deleteTemplate templateName = performBHRequest $ Requests.deleteTemplate templat
 -- Response {responseStatus = Status {statusCode = 200, statusMessage = "OK"}, responseVersion = HTTP/1.1, responseHeaders = [("content-type","application/json; charset=UTF-8"),("content-encoding","gzip"),("transfer-encoding","chunked")], responseBody = "{\"acknowledged\":true}", responseCookieJar = CJ {expose = []}, responseClose' = ResponseClose}
 putMapping :: forall r a m. (MonadBH m, FromJSON r, ToJSON a) => IndexName -> a -> m r
 putMapping indexName mapping = performBHRequest $ Requests.putMapping indexName mapping
-{-# DEPRECATED putMapping "See <https://www.elastic.co/guide/en/elasticsearch/reference/7.17/removal-of-types.html>" #-}
 
 -- | 'indexDocument' is the primary way to save a single document in
 --  Elasticsearch. The document itself is simply something we can
