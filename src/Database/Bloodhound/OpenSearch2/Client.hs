@@ -22,7 +22,7 @@ import Database.Bloodhound.OpenSearch2.Types
 import Prelude hiding (filter, head)
 
 -- | 'pitSearch' uses the point in time (PIT) API of elastic, for a given
--- 'IndexName'. Requires Elasticsearch >=7.10. Note that this will consume the
+-- 'IndexName'. Note that this will consume the
 -- entire search result set and will be doing O(n) list appends so this may
 -- not be suitable for large result sets. In that case, the point in time API
 -- should be used directly with `openPointInTime` and `closePointInTime`.
