@@ -1,7 +1,9 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -15,11 +17,14 @@ module Database.Bloodhound.Client.Cluster
     WithBackend,
     WithBackendType,
     MkBH (..),
+    SBackendType (..),
     emptyBody,
     mkBHEnv,
     performBHRequest,
     runBH,
     tryPerformBHRequest,
+    unsafePerformBH,
+    withDynamicBH,
   )
 where
 
@@ -36,16 +41,16 @@ import Database.Bloodhound.Internal.Versions.Common.Types.Indices as ReexportCom
 import Database.Bloodhound.Internal.Versions.Common.Types.Nodes as ReexportCompat
 import Database.Bloodhound.Internal.Versions.Common.Types.Snapshots as ReexportCompat
 import Database.Bloodhound.Internal.Versions.Common.Types.Units as ReexportCompat
-import Network.HTTP.Client
+import qualified Network.HTTP.Client as HTTP
 import qualified Network.URI as URI
 
 -- | Common environment for Elasticsearch calls. Connections will be
 --   pipelined according to the provided HTTP connection manager.
 data BHEnv = BHEnv
   { bhServer :: Server,
-    bhManager :: Manager,
+    bhManager :: HTTP.Manager,
     -- | Low-level hook that is run before every request is sent. Used to implement custom authentication strategies. Defaults to 'return' with 'mkBHEnv'.
-    bhRequestHook :: Request -> IO Request
+    bhRequestHook :: HTTP.Request -> IO HTTP.Request
   }
 
 -- | All API calls to Elasticsearch operate within
@@ -80,7 +85,7 @@ type WithBackend (backend :: BackendType) (m :: Type -> Type) = WithBackendType 
 -- it further, e.g.:
 --
 -- >> (mkBHEnv myServer myManager) { bhRequestHook = customHook }
-mkBHEnv :: Server -> Manager -> BHEnv
+mkBHEnv :: Server -> HTTP.Manager -> BHEnv
 mkBHEnv s m = BHEnv s m return
 
 -- | Basic BH implementation
@@ -119,20 +124,20 @@ instance (Functor m, Applicative m, MonadIO m, MonadCatch m, MonadThrow m) => Mo
     let url = getEndpoint (bhServer env) (bhRequestEndpoint request)
     initReq <- liftIO $ parseUrl' url
     let reqHook = bhRequestHook env
-    let reqBody = RequestBodyLBS $ fromMaybe emptyBody $ bhRequestBody request
+    let reqBody = HTTP.RequestBodyLBS $ fromMaybe emptyBody $ bhRequestBody request
     req <-
       liftIO $
         reqHook $
-          setRequestIgnoreStatus $
+          HTTP.setRequestIgnoreStatus $
             initReq
-              { method = bhRequestMethod request,
-                requestHeaders =
-                  ("Content-Type", "application/json") : requestHeaders initReq,
-                requestBody = reqBody
+              { HTTP.method = bhRequestMethod request,
+                HTTP.requestHeaders =
+                  ("Content-Type", "application/json") : HTTP.requestHeaders initReq,
+                HTTP.requestBody = reqBody
               }
 
     let mgr = bhManager env
-    BHResponse <$> liftIO (httpLbs req mgr)
+    BHResponse <$> liftIO (HTTP.httpLbs req mgr)
   tryEsError = try
   throwEsError = throwM
 
@@ -151,8 +156,8 @@ performBHRequest req = tryPerformBHRequest req >>= either throwEsError return
 emptyBody :: L.ByteString
 emptyBody = L.pack ""
 
-parseUrl' :: (MonadThrow m) => Text -> m Request
-parseUrl' t = parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack t))
+parseUrl' :: (MonadThrow m) => Text -> m HTTP.Request
+parseUrl' t = HTTP.parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack t))
 
 runBH :: BHEnv -> BH m a -> m (Either EsError a)
 runBH e f = runExceptT $ runReaderT (unBH f) e
@@ -184,3 +189,26 @@ instance (MonadBH m) => MonadBH (MkBH backend m) where
   dispatch = MkBH . dispatch
   tryEsError = MkBH . tryEsError . runMkBH
   throwEsError = MkBH . throwEsError
+
+-- | Run a piece of code as-if we are on a given backen
+unsafePerformBH :: MkBH backend m a -> m a
+unsafePerformBH = runMkBH
+
+-- | Dependently-typed version of 'BackendType'
+data SBackendType :: BackendType -> Type where
+  SElasticSearch7 :: SBackendType 'ElasticSearch7
+  SOpenSearch1 :: SBackendType 'OpenSearch1
+  SOpenSearch2 :: SBackendType 'OpenSearch2
+
+-- | Run an action given an actual backend
+withDynamicBH ::
+  (MonadBH m) =>
+  BackendType ->
+  (forall backend. SBackendType backend -> MkBH backend m a) ->
+  m a
+withDynamicBH backend f =
+  case backend of
+    ElasticSearch7 -> unsafePerformBH $ f SElasticSearch7
+    OpenSearch1 -> unsafePerformBH $ f SOpenSearch1
+    OpenSearch2 -> unsafePerformBH $ f SOpenSearch2
+    Dynamic -> throwEsError $ EsError Nothing "Cannot perform on a 'Dynamic' backend"

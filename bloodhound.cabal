@@ -33,6 +33,7 @@ library
       Database.Bloodhound.Common.Client
       Database.Bloodhound.Common.Requests
       Database.Bloodhound.Common.Types
+      Database.Bloodhound.Dynamic.Client
       Database.Bloodhound.ElasticSearch7.Client
       Database.Bloodhound.ElasticSearch7.Requests
       Database.Bloodhound.ElasticSearch7.Types
@@ -96,6 +97,7 @@ library
     , hashable >=1 && <2
     , http-client >=0.4.30 && <1
     , http-types >=0.8 && <1
+    , microlens >=0.4
     , mtl >=1.0 && <3
     , network-uri >=2.6 && <3
     , optics-core >=0.4 && <0.5
