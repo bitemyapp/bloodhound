@@ -33,7 +33,12 @@ import Prelude hiding (filter, head)
 --
 -- For more information see
 -- <https://opensearch.org/docs/latest/search-plugins/point-in-time/>.
-pitSearch :: forall a m. (FromJSON a, MonadBH m) => IndexName -> Search -> m [Hit a]
+pitSearch ::
+  forall a m.
+  (FromJSON a, MonadBH m, WithBackend OpenSearch2 m) =>
+  IndexName ->
+  Search ->
+  m [Hit a]
 pitSearch indexName search = do
   openResp <- openPointInTime indexName
   case openResp of
@@ -75,7 +80,7 @@ pitSearch indexName search = do
 -- For more information see
 -- <https://opensearch.org/docs/latest/search-plugins/point-in-time/>.
 openPointInTime ::
-  (MonadBH m) =>
+  (MonadBH m, WithBackend OpenSearch2 m) =>
   IndexName ->
   m (ParsedEsResponse OpenPointInTimeResponse)
 openPointInTime indexName = performBHRequest $ Requests.openPointInTime indexName
@@ -85,7 +90,7 @@ openPointInTime indexName = performBHRequest $ Requests.openPointInTime indexNam
 -- For more information see
 -- <https://opensearch.org/docs/latest/search-plugins/point-in-time/>.
 closePointInTime ::
-  (MonadBH m) =>
+  (MonadBH m, WithBackend OpenSearch2 m) =>
   ClosePointInTime ->
   m (ParsedEsResponse ClosePointInTimeResponse)
 closePointInTime q = performBHRequest $ Requests.closePointInTime q

@@ -1,6 +1,9 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Database.Bloodhound.Client.Cluster
@@ -8,6 +11,10 @@ module Database.Bloodhound.Client.Cluster
     BH (..),
     BHEnv (..),
     MonadBH (..),
+    BackendType (..),
+    WithBackend,
+    WithBackendType,
+    MkBH (..),
     emptyBody,
     mkBHEnv,
     performBHRequest,
@@ -19,6 +26,7 @@ where
 import Control.Monad.Catch
 import Control.Monad.Except
 import qualified Data.ByteString.Lazy.Char8 as L
+import Data.Kind
 import qualified Data.Text as T
 import Database.Bloodhound.Internal.Client.BHRequest
 import Database.Bloodhound.Internal.Utils.Imports
@@ -46,9 +54,26 @@ data BHEnv = BHEnv
 --   own monad transformer stack. A default instance for a ReaderT and
 --   alias 'BH' is provided for the simple case.
 class (Functor m, Applicative m, MonadIO m, MonadCatch m) => MonadBH m where
+  type Backend m :: BackendType
   dispatch :: BHRequest contextualized body -> m (BHResponse contextualized body)
   tryEsError :: m a -> m (Either EsError a)
   throwEsError :: EsError -> m a
+
+-- | Backend (i.e. implementation) the queries are ran against
+data BackendType
+  = ElasticSearch7
+  | OpenSearch1
+  | OpenSearch2
+  | -- | unknown, can be anything
+    Dynamic
+
+-- | Best-effort, by-passed for 'Dynamic', statically enforced implementation
+type family WithBackendType (expected :: BackendType) (actual :: BackendType) :: Constraint where
+  WithBackendType e 'Dynamic = ()
+  WithBackendType e a = e ~ a
+
+-- | Helper for 'WithBackendType'
+type WithBackend (backend :: BackendType) (m :: Type -> Type) = WithBackendType backend (Backend m)
 
 -- | Create a 'BHEnv' with all optional fields defaulted. HTTP hook
 -- will be a noop. You can use the exported fields to customize
@@ -58,6 +83,7 @@ class (Functor m, Applicative m, MonadIO m, MonadCatch m) => MonadBH m where
 mkBHEnv :: Server -> Manager -> BHEnv
 mkBHEnv s m = BHEnv s m return
 
+-- | Basic BH implementation
 newtype BH m a = BH
   { unBH :: ReaderT BHEnv (ExceptT EsError m) a
   }
@@ -87,6 +113,7 @@ instance (MonadReader r m) => MonadReader r (BH m) where
       local f (m r)
 
 instance (Functor m, Applicative m, MonadIO m, MonadCatch m, MonadThrow m) => MonadBH (BH m) where
+  type Backend (BH m) = 'Dynamic
   dispatch request = BH $ do
     env <- ask @BHEnv
     let url = getEndpoint (bhServer env) (bhRequestEndpoint request)
@@ -100,12 +127,10 @@ instance (Functor m, Applicative m, MonadIO m, MonadCatch m, MonadThrow m) => Mo
             initReq
               { method = bhRequestMethod request,
                 requestHeaders =
-                  -- "application/x-ndjson" for bulk
                   ("Content-Type", "application/json") : requestHeaders initReq,
                 requestBody = reqBody
               }
-    -- req <- liftIO $ reqHook $ setRequestIgnoreStatus $ initReq { method = dMethod
-    --                                                            , requestBody = reqBody }
+
     let mgr = bhManager env
     BHResponse <$> liftIO (httpLbs req mgr)
   tryEsError = try
@@ -131,3 +156,31 @@ parseUrl' t = parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpack t))
 
 runBH :: BHEnv -> BH m a -> m (Either EsError a)
 runBH e f = runExceptT $ runReaderT (unBH f) e
+
+newtype MkBH (backend :: BackendType) m a = MkBH
+  {runMkBH :: m a}
+  deriving newtype
+    ( Functor,
+      Applicative,
+      Monad,
+      MonadIO,
+      MonadReader r,
+      MonadState s,
+      MonadWriter w,
+      Alternative,
+      MonadPlus,
+      MonadFix,
+      MonadThrow,
+      MonadCatch,
+      MonadFail,
+      MonadMask
+    )
+
+instance MonadTrans (MkBH backend) where
+  lift = MkBH
+
+instance (MonadBH m) => MonadBH (MkBH backend m) where
+  type Backend (MkBH backend m) = backend
+  dispatch = MkBH . dispatch
+  tryEsError = MkBH . tryEsError . runMkBH
+  throwEsError = MkBH . throwEsError

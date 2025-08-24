@@ -32,7 +32,12 @@ import Prelude hiding (filter, head)
 --
 -- For more information see
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
-pitSearch :: forall a m. (FromJSON a, MonadBH m) => IndexName -> Search -> m [Hit a]
+pitSearch ::
+  forall a m.
+  (FromJSON a, MonadBH m, WithBackend ElasticSearch7 m) =>
+  IndexName ->
+  Search ->
+  m [Hit a]
 pitSearch indexName search = do
   openResp <- openPointInTime indexName
   case openResp of
@@ -74,7 +79,7 @@ pitSearch indexName search = do
 -- For more information see
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
 openPointInTime ::
-  (MonadBH m) =>
+  (MonadBH m, WithBackend ElasticSearch7 m) =>
   IndexName ->
   m (ParsedEsResponse OpenPointInTimeResponse)
 openPointInTime indexName = performBHRequest $ Requests.openPointInTime indexName
@@ -84,7 +89,7 @@ openPointInTime indexName = performBHRequest $ Requests.openPointInTime indexNam
 -- For more information see
 -- <https://www.elastic.co/guide/en/elasticsearch/reference/current/point-in-time-api.html>.
 closePointInTime ::
-  (MonadBH m) =>
+  (MonadBH m, WithBackend ElasticSearch7 m) =>
   ClosePointInTime ->
   m (ParsedEsResponse ClosePointInTimeResponse)
 closePointInTime q = performBHRequest $ Requests.closePointInTime q

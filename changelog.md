@@ -2,6 +2,7 @@
 ========
 - @blackheaven
   - fix: remove `putMapping` deprecation
+  - strong type backend
 
 0.23.0.1
 ========
