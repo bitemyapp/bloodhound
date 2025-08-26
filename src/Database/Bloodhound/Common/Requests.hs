@@ -505,60 +505,6 @@ waitForYellowIndex indexName =
     endpoint = ["_cluster", "health", unIndexName indexName] `withQueries` params
     params = [("wait_for_status", Just "yellow"), ("timeout", Just "10s")]
 
-data HealthStatus = HealthStatus
-  { healthStatusClusterName :: Text,
-    healthStatusStatus :: Text,
-    healthStatusTimedOut :: Bool,
-    healthStatusNumberOfNodes :: Int,
-    healthStatusNumberOfDataNodes :: Int,
-    healthStatusActivePrimaryShards :: Int,
-    healthStatusActiveShards :: Int,
-    healthStatusRelocatingShards :: Int,
-    healthStatusInitializingShards :: Int,
-    healthStatusUnassignedShards :: Int,
-    healthStatusDelayedUnassignedShards :: Int,
-    healthStatusNumberOfPendingTasks :: Int,
-    healthStatusNumberOfInFlightFetch :: Int,
-    healthStatusTaskMaxWaitingInQueueMillis :: Int,
-    healthStatusActiveShardsPercentAsNumber :: Float
-  }
-  deriving stock (Eq, Show)
-
-instance FromJSON HealthStatus where
-  parseJSON =
-    withObject "HealthStatus" $ \v ->
-      HealthStatus
-        <$> v
-          .: "cluster_name"
-        <*> v
-          .: "status"
-        <*> v
-          .: "timed_out"
-        <*> v
-          .: "number_of_nodes"
-        <*> v
-          .: "number_of_data_nodes"
-        <*> v
-          .: "active_primary_shards"
-        <*> v
-          .: "active_shards"
-        <*> v
-          .: "relocating_shards"
-        <*> v
-          .: "initializing_shards"
-        <*> v
-          .: "unassigned_shards"
-        <*> v
-          .: "delayed_unassigned_shards"
-        <*> v
-          .: "number_of_pending_tasks"
-        <*> v
-          .: "number_of_in_flight_fetch"
-        <*> v
-          .: "task_max_waiting_in_queue_millis"
-        <*> v
-          .: "active_shards_percent_as_number"
-
 openOrCloseIndexes :: OpenCloseIndex -> IndexName -> BHRequest StatusIndependant Acknowledged
 openOrCloseIndexes oci indexName =
   post [unIndexName indexName, stringifyOCIndex] emptyBody
@@ -722,41 +668,6 @@ indexDocument indexName cfg document (DocId docId) =
     endpoint = [unIndexName indexName, "_doc", docId] `withQueries` indexQueryString cfg (DocId docId)
     body = encodeDocument cfg document
 
-data IndexedDocument = IndexedDocument
-  { idxDocIndex :: Text,
-    idxDocType :: Maybe Text,
-    idxDocId :: Text,
-    idxDocVersion :: Int,
-    idxDocResult :: Text,
-    idxDocShards :: ShardResult,
-    idxDocSeqNo :: Int,
-    idxDocPrimaryTerm :: Int
-  }
-  deriving stock (Eq, Show)
-
-{-# DEPRECATED idxDocType "deprecated since ElasticSearch 6.0" #-}
-
-instance FromJSON IndexedDocument where
-  parseJSON =
-    withObject "IndexedDocument" $ \v ->
-      IndexedDocument
-        <$> v
-          .: "_index"
-        <*> v
-          .:? "_type"
-        <*> v
-          .: "_id"
-        <*> v
-          .: "_version"
-        <*> v
-          .: "result"
-        <*> v
-          .: "_shards"
-        <*> v
-          .: "_seq_no"
-        <*> v
-          .: "_primary_term"
-
 -- | 'updateDocument' provides a way to perform an partial update of a
 -- an already indexed document.
 updateDocument ::
@@ -839,66 +750,6 @@ deleteByQuery indexName query =
   post [unIndexName indexName, "_delete_by_query"] (encode body)
   where
     body = object ["query" .= query]
-
-data DeletedDocuments = DeletedDocuments
-  { delDocsTook :: Int,
-    delDocsTimedOut :: Bool,
-    delDocsTotal :: Int,
-    delDocsDeleted :: Int,
-    delDocsBatches :: Int,
-    delDocsVersionConflicts :: Int,
-    delDocsNoops :: Int,
-    delDocsRetries :: DeletedDocumentsRetries,
-    delDocsThrottledMillis :: Int,
-    delDocsRequestsPerSecond :: Float,
-    delDocsThrottledUntilMillis :: Int,
-    delDocsFailures :: [Value] -- TODO find examples
-  }
-  deriving stock (Eq, Show)
-
-instance FromJSON DeletedDocuments where
-  parseJSON =
-    withObject "DeletedDocuments" $ \v ->
-      DeletedDocuments
-        <$> v
-          .: "took"
-        <*> v
-          .: "timed_out"
-        <*> v
-          .: "total"
-        <*> v
-          .: "deleted"
-        <*> v
-          .: "batches"
-        <*> v
-          .: "version_conflicts"
-        <*> v
-          .: "noops"
-        <*> v
-          .: "retries"
-        <*> v
-          .: "throttled_millis"
-        <*> v
-          .: "requests_per_second"
-        <*> v
-          .: "throttled_until_millis"
-        <*> v
-          .: "failures"
-
-data DeletedDocumentsRetries = DeletedDocumentsRetries
-  { delDocsRetriesBulk :: Int,
-    delDocsRetriesSearch :: Int
-  }
-  deriving stock (Eq, Show)
-
-instance FromJSON DeletedDocumentsRetries where
-  parseJSON =
-    withObject "DeletedDocumentsRetries" $ \v ->
-      DeletedDocumentsRetries
-        <$> v
-          .: "bulk"
-        <*> v
-          .: "search"
 
 -- | 'bulk' uses
 --   <http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html Elasticsearch's bulk API>

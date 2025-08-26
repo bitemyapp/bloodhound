@@ -6,10 +6,14 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Nodes
     BuildHash (..),
     CPUInfo (..),
     ClusterName (..),
+    DeletedDocuments (..),
+    DeletedDocumentsRetries (..),
     EsAddress (..),
     EsPassword (..),
     EsUsername (..),
     FullNodeId (..),
+    HealthStatus (..),
+    IndexedDocument (..),
     InitialShardCount (..),
     JVMBufferPoolStats (..),
     JVMGCCollector (..),
@@ -1543,3 +1547,152 @@ instance FromJSON VersionNumber where
         case Versions.version t of
           (Left err) -> fail $ show err
           (Right v) -> return (VersionNumber v)
+
+data HealthStatus = HealthStatus
+  { healthStatusClusterName :: Text,
+    healthStatusStatus :: Text,
+    healthStatusTimedOut :: Bool,
+    healthStatusNumberOfNodes :: Int,
+    healthStatusNumberOfDataNodes :: Int,
+    healthStatusActivePrimaryShards :: Int,
+    healthStatusActiveShards :: Int,
+    healthStatusRelocatingShards :: Int,
+    healthStatusInitializingShards :: Int,
+    healthStatusUnassignedShards :: Int,
+    healthStatusDelayedUnassignedShards :: Int,
+    healthStatusNumberOfPendingTasks :: Int,
+    healthStatusNumberOfInFlightFetch :: Int,
+    healthStatusTaskMaxWaitingInQueueMillis :: Int,
+    healthStatusActiveShardsPercentAsNumber :: Float
+  }
+  deriving stock (Eq, Show)
+
+instance FromJSON HealthStatus where
+  parseJSON =
+    withObject "HealthStatus" $ \v ->
+      HealthStatus
+        <$> v
+          .: "cluster_name"
+        <*> v
+          .: "status"
+        <*> v
+          .: "timed_out"
+        <*> v
+          .: "number_of_nodes"
+        <*> v
+          .: "number_of_data_nodes"
+        <*> v
+          .: "active_primary_shards"
+        <*> v
+          .: "active_shards"
+        <*> v
+          .: "relocating_shards"
+        <*> v
+          .: "initializing_shards"
+        <*> v
+          .: "unassigned_shards"
+        <*> v
+          .: "delayed_unassigned_shards"
+        <*> v
+          .: "number_of_pending_tasks"
+        <*> v
+          .: "number_of_in_flight_fetch"
+        <*> v
+          .: "task_max_waiting_in_queue_millis"
+        <*> v
+          .: "active_shards_percent_as_number"
+
+data IndexedDocument = IndexedDocument
+  { idxDocIndex :: Text,
+    idxDocType :: Maybe Text,
+    idxDocId :: Text,
+    idxDocVersion :: Int,
+    idxDocResult :: Text,
+    idxDocShards :: ShardResult,
+    idxDocSeqNo :: Int,
+    idxDocPrimaryTerm :: Int
+  }
+  deriving stock (Eq, Show)
+
+{-# DEPRECATED idxDocType "deprecated since ElasticSearch 6.0" #-}
+
+instance FromJSON IndexedDocument where
+  parseJSON =
+    withObject "IndexedDocument" $ \v ->
+      IndexedDocument
+        <$> v
+          .: "_index"
+        <*> v
+          .:? "_type"
+        <*> v
+          .: "_id"
+        <*> v
+          .: "_version"
+        <*> v
+          .: "result"
+        <*> v
+          .: "_shards"
+        <*> v
+          .: "_seq_no"
+        <*> v
+          .: "_primary_term"
+
+data DeletedDocuments = DeletedDocuments
+  { delDocsTook :: Int,
+    delDocsTimedOut :: Bool,
+    delDocsTotal :: Int,
+    delDocsDeleted :: Int,
+    delDocsBatches :: Int,
+    delDocsVersionConflicts :: Int,
+    delDocsNoops :: Int,
+    delDocsRetries :: DeletedDocumentsRetries,
+    delDocsThrottledMillis :: Int,
+    delDocsRequestsPerSecond :: Float,
+    delDocsThrottledUntilMillis :: Int,
+    delDocsFailures :: [Value] -- TODO find examples
+  }
+  deriving stock (Eq, Show)
+
+instance FromJSON DeletedDocuments where
+  parseJSON =
+    withObject "DeletedDocuments" $ \v ->
+      DeletedDocuments
+        <$> v
+          .: "took"
+        <*> v
+          .: "timed_out"
+        <*> v
+          .: "total"
+        <*> v
+          .: "deleted"
+        <*> v
+          .: "batches"
+        <*> v
+          .: "version_conflicts"
+        <*> v
+          .: "noops"
+        <*> v
+          .: "retries"
+        <*> v
+          .: "throttled_millis"
+        <*> v
+          .: "requests_per_second"
+        <*> v
+          .: "throttled_until_millis"
+        <*> v
+          .: "failures"
+
+data DeletedDocumentsRetries = DeletedDocumentsRetries
+  { delDocsRetriesBulk :: Int,
+    delDocsRetriesSearch :: Int
+  }
+  deriving stock (Eq, Show)
+
+instance FromJSON DeletedDocumentsRetries where
+  parseJSON =
+    withObject "DeletedDocumentsRetries" $ \v ->
+      DeletedDocumentsRetries
+        <$> v
+          .: "bulk"
+        <*> v
+          .: "search"
