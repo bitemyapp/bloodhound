@@ -50,7 +50,7 @@ withFetchedBackendType :: (MonadBH m) => (forall backend. SBackendType backend -
 withFetchedBackendType f = do
   nodeInfo <- getNodesInfo LocalNode
   let backend = fromMaybe Dynamic $ listToMaybe (nodesInfo nodeInfo) >>= guessBackendType
-  withDynamicBH backend $ MkBH . f
+  withDynamicBH backend $ StaticBH . f
 
 -- | 'pitSearch' uses the point in time (PIT) API of elastic, for a given
 -- 'IndexName'. Requires Elasticsearch >=7.10 or OpenSearch >=2. Note that this will consume the

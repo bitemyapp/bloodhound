@@ -16,7 +16,7 @@ module Database.Bloodhound.Client.Cluster
     BackendType (..),
     WithBackend,
     WithBackendType,
-    MkBH (..),
+    StaticBH (..),
     SBackendType (..),
     emptyBody,
     mkBHEnv,
@@ -162,8 +162,11 @@ parseUrl' t = HTTP.parseRequest (URI.escapeURIString URI.isAllowedInURI (T.unpac
 runBH :: BHEnv -> BH m a -> m (Either EsError a)
 runBH e f = runExceptT $ runReaderT (unBH f) e
 
-newtype MkBH (backend :: BackendType) m a = MkBH
-  {runMkBH :: m a}
+-- | Statically-type backend.
+--
+-- It's also an useful wrapper for 'DerivingVia'
+newtype StaticBH (backend :: BackendType) m a = StaticBH
+  {runStaticBH :: m a}
   deriving newtype
     ( Functor,
       Applicative,
@@ -181,18 +184,18 @@ newtype MkBH (backend :: BackendType) m a = MkBH
       MonadMask
     )
 
-instance MonadTrans (MkBH backend) where
-  lift = MkBH
+instance MonadTrans (StaticBH backend) where
+  lift = StaticBH
 
-instance (MonadBH m) => MonadBH (MkBH backend m) where
-  type Backend (MkBH backend m) = backend
-  dispatch = MkBH . dispatch
-  tryEsError = MkBH . tryEsError . runMkBH
-  throwEsError = MkBH . throwEsError
+instance (MonadBH m) => MonadBH (StaticBH backend m) where
+  type Backend (StaticBH backend m) = backend
+  dispatch = StaticBH . dispatch
+  tryEsError = StaticBH . tryEsError . runStaticBH
+  throwEsError = StaticBH . throwEsError
 
--- | Run a piece of code as-if we are on a given backen
-unsafePerformBH :: MkBH backend m a -> m a
-unsafePerformBH = runMkBH
+-- | Run a piece of code as-if we are on a given backend
+unsafePerformBH :: StaticBH backend m a -> m a
+unsafePerformBH = runStaticBH
 
 -- | Dependently-typed version of 'BackendType'
 data SBackendType :: BackendType -> Type where
@@ -204,7 +207,7 @@ data SBackendType :: BackendType -> Type where
 withDynamicBH ::
   (MonadBH m) =>
   BackendType ->
-  (forall backend. SBackendType backend -> MkBH backend m a) ->
+  (forall backend. SBackendType backend -> StaticBH backend m a) ->
   m a
 withDynamicBH backend f =
   case backend of
