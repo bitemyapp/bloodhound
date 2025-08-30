@@ -36,6 +36,69 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Query
     functionScoreFunctionsPair,
     mkBoolQuery,
     showDistanceUnit,
+
+    -- * Optics
+    nestedQueryPathLens,
+    nestedQueryScoreTypeLens,
+    nestedQueryLens,
+    nestedQueryInnerHitsLens,
+    indicesQueryIndicesLens,
+    indicesQueryLens,
+    indicesQueryNoMatchLens,
+    hasParentQueryTypeLens,
+    hasParentQueryLens,
+    hasParentQueryScoreLens,
+    hasParentIgnoreUnmappedLens,
+    hasChildQueryTypeLens,
+    hasChildQueryLens,
+    hasChildQueryScoreTypeLens,
+    hasChildIgnoreUnmapppedLens,
+    hasChildMinChildrenLens,
+    hasChildMaxChildrenLens,
+    disMaxQueriesLens,
+    disMaxTiebreakerLens,
+    disMaxBoostLens,
+    boolQueryMustMatchLens,
+    boolQueryFilterLens,
+    boolQueryMustNotMatchLens,
+    boolQueryShouldMatchLens,
+    boolQueryMinimumShouldMatchLens,
+    boolQueryBoostLens,
+    boolQueryDisableCoordLens,
+    boostingQueryPositiveQueryLens,
+    boostingQueryNegativeQueryLens,
+    boostingQueryNegativeBoostLens,
+    termFieldLens,
+    termValueLens,
+    boolMatchMustMatchPrism,
+    boolMatchMustNotMatchPrism,
+    boolMatchShouldMatchPrism,
+    latLonLatLens,
+    latLonLonLens,
+    geoBoundingBoxTopLeftLens,
+    geoBoundingBoxBottomRightLens,
+    geoBoundingBoxConstraintGeoBBFieldLens,
+    geoBoundingBoxConstraintConstraintBoxLens,
+    geoBoundingBoxConstraintBbConstraintcacheLens,
+    geoBoundingBoxConstraintGeoTypeLens,
+    geoPointGeoFieldLens,
+    geoPointLatLonLens,
+    distanceCoefficientLens,
+    distanceUnitLens,
+    distanceRangeDistanceFromLens,
+    distanceRangeDistanceToLens,
+    functionScoreQueryLens,
+    functionScoreBoostLens,
+    functionScoreFunctionsLens,
+    functionScoreMaxBoostLens,
+    functionScoreBoostModeLens,
+    functionScoreMinScoreLens,
+    functionScoreScoreModeLens,
+    componentScoreFunctionFilterLens,
+    componentScoreFunctionLens,
+    componentScoreFunctionWeightLens,
+    innerHitsFromLens,
+    innerHitsSizeLens,
   )
 where
 
@@ -179,56 +242,56 @@ instance FromJSON Query where
         termQuery
           `taggedWith` "term"
           <|> termsQuery
-            `taggedWith` "terms"
+          `taggedWith` "terms"
           <|> idsQuery
-            `taggedWith` "ids"
+          `taggedWith` "ids"
           <|> queryQueryStringQuery
-            `taggedWith` "query_string"
+          `taggedWith` "query_string"
           <|> queryMatchQuery
-            `taggedWith` "match"
+          `taggedWith` "match"
           <|> queryMultiMatchQuery
           <|> queryBoolQuery
-            `taggedWith` "bool"
+          `taggedWith` "bool"
           <|> queryBoostingQuery
-            `taggedWith` "boosting"
+          `taggedWith` "boosting"
           <|> queryCommonTermsQuery
-            `taggedWith` "common"
+          `taggedWith` "common"
           <|> constantScoreQuery
-            `taggedWith` "constant_score"
+          `taggedWith` "constant_score"
           <|> queryFunctionScoreQuery
-            `taggedWith` "function_score"
+          `taggedWith` "function_score"
           <|> queryDisMaxQuery
-            `taggedWith` "dis_max"
+          `taggedWith` "dis_max"
           <|> queryFuzzyLikeThisQuery
-            `taggedWith` "fuzzy_like_this"
+          `taggedWith` "fuzzy_like_this"
           <|> queryFuzzyLikeFieldQuery
-            `taggedWith` "fuzzy_like_this_field"
+          `taggedWith` "fuzzy_like_this_field"
           <|> queryFuzzyQuery
-            `taggedWith` "fuzzy"
+          `taggedWith` "fuzzy"
           <|> queryHasChildQuery
-            `taggedWith` "has_child"
+          `taggedWith` "has_child"
           <|> queryHasParentQuery
-            `taggedWith` "has_parent"
+          `taggedWith` "has_parent"
           <|> queryIndicesQuery
-            `taggedWith` "indices"
+          `taggedWith` "indices"
           <|> matchAllQuery
-            `taggedWith` "match_all"
+          `taggedWith` "match_all"
           <|> queryMoreLikeThisQuery
-            `taggedWith` "more_like_this"
+          `taggedWith` "more_like_this"
           <|> queryMoreLikeThisFieldQuery
-            `taggedWith` "more_like_this_field"
+          `taggedWith` "more_like_this_field"
           <|> queryNestedQuery
-            `taggedWith` "nested"
+          `taggedWith` "nested"
           <|> queryPrefixQuery
-            `taggedWith` "prefix"
+          `taggedWith` "prefix"
           <|> queryRangeQuery
-            `taggedWith` "range"
+          `taggedWith` "range"
           <|> queryRegexpQuery
-            `taggedWith` "regexp"
+          `taggedWith` "regexp"
           <|> querySimpleQueryStringQuery
-            `taggedWith` "simple_query_string"
+          `taggedWith` "simple_query_string"
           <|> queryWildcardQuery
-            `taggedWith` "wildcard"
+          `taggedWith` "wildcard"
         where
           taggedWith parser k = parser =<< o .: k
       termQuery = fieldTagged $ \(FieldName fn) o ->
@@ -291,6 +354,18 @@ data NestedQuery = NestedQuery
   }
   deriving stock (Eq, Show, Generic)
 
+nestedQueryPathLens :: Lens' NestedQuery QueryPath
+nestedQueryPathLens = lens nestedQueryPath (\x y -> x {nestedQueryPath = y})
+
+nestedQueryScoreTypeLens :: Lens' NestedQuery ScoreType
+nestedQueryScoreTypeLens = lens nestedQueryScoreType (\x y -> x {nestedQueryScoreType = y})
+
+nestedQueryLens :: Lens' NestedQuery Query
+nestedQueryLens = lens nestedQuery (\x y -> x {nestedQuery = y})
+
+nestedQueryInnerHitsLens :: Lens' NestedQuery (Maybe InnerHits)
+nestedQueryInnerHitsLens = lens nestedQueryInnerHits (\x y -> x {nestedQueryInnerHits = y})
+
 instance ToJSON NestedQuery where
   toJSON (NestedQuery nqPath nqScoreType nqQuery nqInnerHits) =
     omitNulls
@@ -318,6 +393,15 @@ data IndicesQuery = IndicesQuery
   }
   deriving stock (Eq, Show, Generic)
 
+indicesQueryIndicesLens :: Lens' IndicesQuery [IndexName]
+indicesQueryIndicesLens = lens indicesQueryIndices (\x y -> x {indicesQueryIndices = y})
+
+indicesQueryLens :: Lens' IndicesQuery Query
+indicesQueryLens = lens indicesQuery (\x y -> x {indicesQuery = y})
+
+indicesQueryNoMatchLens :: Lens' IndicesQuery (Maybe Query)
+indicesQueryNoMatchLens = lens indicesQueryNoMatch (\x y -> x {indicesQueryNoMatch = y})
+
 instance ToJSON IndicesQuery where
   toJSON (IndicesQuery indices query noMatch) =
     omitNulls
@@ -342,6 +426,18 @@ data HasParentQuery = HasParentQuery
     hasParentIgnoreUnmapped :: Maybe IgnoreUnmapped
   }
   deriving stock (Eq, Show, Generic)
+
+hasParentQueryTypeLens :: Lens' HasParentQuery RelationName
+hasParentQueryTypeLens = lens hasParentQueryType (\x y -> x {hasParentQueryType = y})
+
+hasParentQueryLens :: Lens' HasParentQuery Query
+hasParentQueryLens = lens hasParentQuery (\x y -> x {hasParentQuery = y})
+
+hasParentQueryScoreLens :: Lens' HasParentQuery (Maybe AggregateParentScore)
+hasParentQueryScoreLens = lens hasParentQueryScore (\x y -> x {hasParentQueryScore = y})
+
+hasParentIgnoreUnmappedLens :: Lens' HasParentQuery (Maybe IgnoreUnmapped)
+hasParentIgnoreUnmappedLens = lens hasParentIgnoreUnmapped (\x y -> x {hasParentIgnoreUnmapped = y})
 
 instance ToJSON HasParentQuery where
   toJSON (HasParentQuery queryType query scoreType ignoreUnmapped) =
@@ -371,6 +467,24 @@ data HasChildQuery = HasChildQuery
     hasChildMaxChildren :: Maybe MaxChildren
   }
   deriving stock (Eq, Show, Generic)
+
+hasChildQueryTypeLens :: Lens' HasChildQuery RelationName
+hasChildQueryTypeLens = lens hasChildQueryType (\x y -> x {hasChildQueryType = y})
+
+hasChildQueryLens :: Lens' HasChildQuery Query
+hasChildQueryLens = lens hasChildQuery (\x y -> x {hasChildQuery = y})
+
+hasChildQueryScoreTypeLens :: Lens' HasChildQuery (Maybe ScoreType)
+hasChildQueryScoreTypeLens = lens hasChildQueryScoreType (\x y -> x {hasChildQueryScoreType = y})
+
+hasChildIgnoreUnmapppedLens :: Lens' HasChildQuery (Maybe IgnoreUnmapped)
+hasChildIgnoreUnmapppedLens = lens hasChildIgnoreUnmappped (\x y -> x {hasChildIgnoreUnmappped = y})
+
+hasChildMinChildrenLens :: Lens' HasChildQuery (Maybe MinChildren)
+hasChildMinChildrenLens = lens hasChildMinChildren (\x y -> x {hasChildMinChildren = y})
+
+hasChildMaxChildrenLens :: Lens' HasChildQuery (Maybe MaxChildren)
+hasChildMaxChildrenLens = lens hasChildMaxChildren (\x y -> x {hasChildMaxChildren = y})
 
 instance ToJSON HasChildQuery where
   toJSON (HasChildQuery queryType query scoreType ignoreUnmapped minChildren maxChildren) =
@@ -425,6 +539,15 @@ data DisMaxQuery = DisMaxQuery
   }
   deriving stock (Eq, Show, Generic)
 
+disMaxQueriesLens :: Lens' DisMaxQuery [Query]
+disMaxQueriesLens = lens disMaxQueries (\x y -> x {disMaxQueries = y})
+
+disMaxTiebreakerLens :: Lens' DisMaxQuery Tiebreaker
+disMaxTiebreakerLens = lens disMaxTiebreaker (\x y -> x {disMaxTiebreaker = y})
+
+disMaxBoostLens :: Lens' DisMaxQuery (Maybe Boost)
+disMaxBoostLens = lens disMaxBoost (\x y -> x {disMaxBoost = y})
+
 instance ToJSON DisMaxQuery where
   toJSON (DisMaxQuery queries tiebreaker boost) =
     omitNulls base
@@ -454,6 +577,27 @@ data BoolQuery = BoolQuery
     boolQueryDisableCoord :: Maybe DisableCoord
   }
   deriving stock (Eq, Show, Generic)
+
+boolQueryMustMatchLens :: Lens' BoolQuery [Query]
+boolQueryMustMatchLens = lens boolQueryMustMatch (\x y -> x {boolQueryMustMatch = y})
+
+boolQueryFilterLens :: Lens' BoolQuery [Filter]
+boolQueryFilterLens = lens boolQueryFilter (\x y -> x {boolQueryFilter = y})
+
+boolQueryMustNotMatchLens :: Lens' BoolQuery [Query]
+boolQueryMustNotMatchLens = lens boolQueryMustNotMatch (\x y -> x {boolQueryMustNotMatch = y})
+
+boolQueryShouldMatchLens :: Lens' BoolQuery [Query]
+boolQueryShouldMatchLens = lens boolQueryShouldMatch (\x y -> x {boolQueryShouldMatch = y})
+
+boolQueryMinimumShouldMatchLens :: Lens' BoolQuery (Maybe MinimumMatch)
+boolQueryMinimumShouldMatchLens = lens boolQueryMinimumShouldMatch (\x y -> x {boolQueryMinimumShouldMatch = y})
+
+boolQueryBoostLens :: Lens' BoolQuery (Maybe Boost)
+boolQueryBoostLens = lens boolQueryBoost (\x y -> x {boolQueryBoost = y})
+
+boolQueryDisableCoordLens :: Lens' BoolQuery (Maybe DisableCoord)
+boolQueryDisableCoordLens = lens boolQueryDisableCoord (\x y -> x {boolQueryDisableCoord = y})
 
 instance ToJSON BoolQuery where
   toJSON (BoolQuery mustM filterM' notM shouldM bqMin boost disableCoord) =
@@ -492,6 +636,15 @@ data BoostingQuery = BoostingQuery
     negativeBoost :: Boost
   }
   deriving stock (Eq, Show, Generic)
+
+boostingQueryPositiveQueryLens :: Lens' BoostingQuery Query
+boostingQueryPositiveQueryLens = lens positiveQuery (\x y -> x {positiveQuery = y})
+
+boostingQueryNegativeQueryLens :: Lens' BoostingQuery Query
+boostingQueryNegativeQueryLens = lens negativeQuery (\x y -> x {negativeQuery = y})
+
+boostingQueryNegativeBoostLens :: Lens' BoostingQuery Boost
+boostingQueryNegativeBoostLens = lens negativeBoost (\x y -> x {negativeBoost = y})
 
 instance ToJSON BoostingQuery where
   toJSON (BoostingQuery bqPositiveQuery bqNegativeQuery bqNegativeBoost) =
@@ -533,6 +686,12 @@ data Term = Term
   }
   deriving stock (Eq, Show, Generic)
 
+termFieldLens :: Lens' Term Key
+termFieldLens = lens termField (\x y -> x {termField = y})
+
+termValueLens :: Lens' Term Text
+termValueLens = lens termValue (\x y -> x {termValue = y})
+
 instance ToJSON Term where
   toJSON (Term field value) =
     object
@@ -555,6 +714,30 @@ data BoolMatch
   | MustNotMatch Term Cache
   | ShouldMatch [Term] Cache
   deriving stock (Eq, Show, Generic)
+
+boolMatchMustMatchPrism :: Prism' BoolMatch (Term, Cache)
+boolMatchMustMatchPrism = prism (uncurry MustMatch) extract
+  where
+    extract bm =
+      case bm of
+        MustMatch t c -> Right (t, c)
+        _ -> Left bm
+
+boolMatchMustNotMatchPrism :: Prism' BoolMatch (Term, Cache)
+boolMatchMustNotMatchPrism = prism (uncurry MustNotMatch) extract
+  where
+    extract bm =
+      case bm of
+        MustNotMatch t c -> Right (t, c)
+        _ -> Left bm
+
+boolMatchShouldMatchPrism :: Prism' BoolMatch ([Term], Cache)
+boolMatchShouldMatchPrism = prism (uncurry ShouldMatch) extract
+  where
+    extract bm =
+      case bm of
+        ShouldMatch t c -> Right (t, c)
+        _ -> Left bm
 
 instance ToJSON BoolMatch where
   toJSON (MustMatch term cache) =
@@ -580,9 +763,9 @@ instance FromJSON BoolMatch where
         mustMatch
           `taggedWith` "must"
           <|> mustNotMatch
-            `taggedWith` "must_not"
+          `taggedWith` "must_not"
           <|> shouldMatch
-            `taggedWith` "should"
+          `taggedWith` "should"
         where
           taggedWith parser k = parser =<< o .: k
           mustMatch t = MustMatch t <$> o .:? "_cache" .!= defaultCache
@@ -612,6 +795,12 @@ data LatLon = LatLon
   }
   deriving stock (Eq, Show, Generic)
 
+latLonLatLens :: Lens' LatLon Double
+latLonLatLens = lens lat (\x y -> x {lat = y})
+
+latLonLonLens :: Lens' LatLon Double
+latLonLonLens = lens lon (\x y -> x {lon = y})
+
 instance ToJSON LatLon where
   toJSON (LatLon lLat lLon) =
     object
@@ -632,6 +821,12 @@ data GeoBoundingBox = GeoBoundingBox
     bottomRight :: LatLon
   }
   deriving stock (Eq, Show, Generic)
+
+geoBoundingBoxTopLeftLens :: Lens' GeoBoundingBox LatLon
+geoBoundingBoxTopLeftLens = lens topLeft (\x y -> x {topLeft = y})
+
+geoBoundingBoxBottomRightLens :: Lens' GeoBoundingBox LatLon
+geoBoundingBoxBottomRightLens = lens bottomRight (\x y -> x {bottomRight = y})
 
 instance ToJSON GeoBoundingBox where
   toJSON (GeoBoundingBox gbbTopLeft gbbBottomRight) =
@@ -655,6 +850,18 @@ data GeoBoundingBoxConstraint = GeoBoundingBoxConstraint
     geoType :: GeoFilterType
   }
   deriving stock (Eq, Show, Generic)
+
+geoBoundingBoxConstraintGeoBBFieldLens :: Lens' GeoBoundingBoxConstraint FieldName
+geoBoundingBoxConstraintGeoBBFieldLens = lens geoBBField (\x y -> x {geoBBField = y})
+
+geoBoundingBoxConstraintConstraintBoxLens :: Lens' GeoBoundingBoxConstraint GeoBoundingBox
+geoBoundingBoxConstraintConstraintBoxLens = lens constraintBox (\x y -> x {constraintBox = y})
+
+geoBoundingBoxConstraintBbConstraintcacheLens :: Lens' GeoBoundingBoxConstraint Cache
+geoBoundingBoxConstraintBbConstraintcacheLens = lens bbConstraintcache (\x y -> x {bbConstraintcache = y})
+
+geoBoundingBoxConstraintGeoTypeLens :: Lens' GeoBoundingBoxConstraint GeoFilterType
+geoBoundingBoxConstraintGeoTypeLens = lens geoType (\x y -> x {geoType = y})
 
 instance ToJSON GeoBoundingBoxConstraint where
   toJSON
@@ -686,6 +893,12 @@ data GeoPoint = GeoPoint
     latLon :: LatLon
   }
   deriving stock (Eq, Show, Generic)
+
+geoPointGeoFieldLens :: Lens' GeoPoint FieldName
+geoPointGeoFieldLens = lens geoField (\x y -> x {geoField = y})
+
+geoPointLatLonLens :: Lens' GeoPoint LatLon
+geoPointLatLonLens = lens latLon (\x y -> x {latLon = y})
 
 instance ToJSON GeoPoint where
   toJSON (GeoPoint (FieldName geoPointField) geoPointLatLon) =
@@ -776,6 +989,12 @@ data Distance = Distance
   }
   deriving stock (Eq, Show, Generic)
 
+distanceCoefficientLens :: Lens' Distance Double
+distanceCoefficientLens = lens coefficient (\x y -> x {coefficient = y})
+
+distanceUnitLens :: Lens' Distance DistanceUnit
+distanceUnitLens = lens unit (\x y -> x {unit = y})
+
 instance ToJSON Distance where
   toJSON (Distance dCoefficient dUnit) =
     String boltedTogether
@@ -805,6 +1024,12 @@ data DistanceRange = DistanceRange
     distanceTo :: Distance
   }
   deriving stock (Eq, Show, Generic)
+
+distanceRangeDistanceFromLens :: Lens' DistanceRange Distance
+distanceRangeDistanceFromLens = lens distanceFrom (\x y -> x {distanceFrom = y})
+
+distanceRangeDistanceToLens :: Lens' DistanceRange Distance
+distanceRangeDistanceToLens = lens distanceTo (\x y -> x {distanceTo = y})
 
 type TemplateQueryValue = Text
 
@@ -842,6 +1067,27 @@ data FunctionScoreQuery = FunctionScoreQuery
   }
   deriving stock (Eq, Show, Generic)
 
+functionScoreQueryLens :: Lens' FunctionScoreQuery (Maybe Query)
+functionScoreQueryLens = lens functionScoreQuery (\x y -> x {functionScoreQuery = y})
+
+functionScoreBoostLens :: Lens' FunctionScoreQuery (Maybe Boost)
+functionScoreBoostLens = lens functionScoreBoost (\x y -> x {functionScoreBoost = y})
+
+functionScoreFunctionsLens :: Lens' FunctionScoreQuery FunctionScoreFunctions
+functionScoreFunctionsLens = lens functionScoreFunctions (\x y -> x {functionScoreFunctions = y})
+
+functionScoreMaxBoostLens :: Lens' FunctionScoreQuery (Maybe Boost)
+functionScoreMaxBoostLens = lens functionScoreMaxBoost (\x y -> x {functionScoreMaxBoost = y})
+
+functionScoreBoostModeLens :: Lens' FunctionScoreQuery (Maybe BoostMode)
+functionScoreBoostModeLens = lens functionScoreBoostMode (\x y -> x {functionScoreBoostMode = y})
+
+functionScoreMinScoreLens :: Lens' FunctionScoreQuery Score
+functionScoreMinScoreLens = lens functionScoreMinScore (\x y -> x {functionScoreMinScore = y})
+
+functionScoreScoreModeLens :: Lens' FunctionScoreQuery (Maybe ScoreMode)
+functionScoreScoreModeLens = lens functionScoreScoreMode (\x y -> x {functionScoreScoreMode = y})
+
 instance ToJSON FunctionScoreQuery where
   toJSON (FunctionScoreQuery query boost fns maxBoost boostMode minScore scoreMode) =
     omitNulls base
@@ -865,7 +1111,7 @@ instance FromJSON FunctionScoreQuery where
           <*> o .:? "boost"
           <*> ( singleFunction o
                   <|> multipleFunctions
-                    `taggedWith` "functions"
+                  `taggedWith` "functions"
               )
           <*> o .:? "max_boost"
           <*> o .:? "boost_mode"
@@ -887,6 +1133,15 @@ data ComponentFunctionScoreFunction = ComponentFunctionScoreFunction
     componentScoreFunctionWeight :: Maybe Weight
   }
   deriving stock (Eq, Show, Generic)
+
+componentScoreFunctionFilterLens :: Lens' ComponentFunctionScoreFunction (Maybe Filter)
+componentScoreFunctionFilterLens = lens componentScoreFunctionFilter (\x y -> x {componentScoreFunctionFilter = y})
+
+componentScoreFunctionLens :: Lens' ComponentFunctionScoreFunction FunctionScoreFunction
+componentScoreFunctionLens = lens componentScoreFunction (\x y -> x {componentScoreFunction = y})
+
+componentScoreFunctionWeightLens :: Lens' ComponentFunctionScoreFunction (Maybe Weight)
+componentScoreFunctionWeightLens = lens componentScoreFunctionWeight (\x y -> x {componentScoreFunctionWeight = y})
 
 instance ToJSON ComponentFunctionScoreFunction where
   toJSON (ComponentFunctionScoreFunction filter' fn weight) =
@@ -918,6 +1173,12 @@ data InnerHits = InnerHits
     innerHitsSize :: Maybe Integer
   }
   deriving stock (Eq, Show, Generic)
+
+innerHitsFromLens :: Lens' InnerHits (Maybe Integer)
+innerHitsFromLens = lens innerHitsFrom (\x y -> x {innerHitsFrom = y})
+
+innerHitsSizeLens :: Lens' InnerHits (Maybe Integer)
+innerHitsSizeLens = lens innerHitsSize (\x y -> x {innerHitsSize = y})
 
 instance ToJSON InnerHits where
   toJSON (InnerHits ihFrom ihSize) =

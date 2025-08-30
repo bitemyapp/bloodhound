@@ -5,6 +5,12 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Query.Regexp
     RegexpFlag (..),
     RegexpFlags (..),
     RegexpQuery (..),
+
+    -- * Optics
+    regexpQueryFieldLens,
+    regexpQueryLens,
+    regexpQueryFlagsLens,
+    regexpQueryBoostLens,
   )
 where
 
@@ -21,6 +27,18 @@ data RegexpQuery = RegexpQuery
     regexpQueryBoost :: Maybe Boost
   }
   deriving stock (Eq, Show, Generic)
+
+regexpQueryFieldLens :: Lens' RegexpQuery FieldName
+regexpQueryFieldLens = lens regexpQueryField (\x y -> x {regexpQueryField = y})
+
+regexpQueryLens :: Lens' RegexpQuery Regexp
+regexpQueryLens = lens regexpQuery (\x y -> x {regexpQuery = y})
+
+regexpQueryFlagsLens :: Lens' RegexpQuery RegexpFlags
+regexpQueryFlagsLens = lens regexpQueryFlags (\x y -> x {regexpQueryFlags = y})
+
+regexpQueryBoostLens :: Lens' RegexpQuery (Maybe Boost)
+regexpQueryBoostLens = lens regexpQueryBoost (\x y -> x {regexpQueryBoost = y})
 
 instance ToJSON RegexpQuery where
   toJSON

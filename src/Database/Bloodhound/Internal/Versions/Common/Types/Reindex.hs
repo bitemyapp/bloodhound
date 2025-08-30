@@ -39,17 +39,17 @@ instance FromJSON ReindexRequest where
       <*> v .: "dest"
       <*> v .:? "script"
 
-reindexConflictsLens :: Lens' ReindexRequest (Maybe ReindexConflicts)
-reindexConflictsLens = lens reindexConflicts (\x y -> x {reindexConflicts = y})
+reindexRequestConflictsLens :: Lens' ReindexRequest (Maybe ReindexConflicts)
+reindexRequestConflictsLens = lens reindexConflicts (\x y -> x {reindexConflicts = y})
 
-reindexSourceLens :: Lens' ReindexRequest ReindexSource
-reindexSourceLens = lens reindexSource (\x y -> x {reindexSource = y})
+reindexRequestSourceLens :: Lens' ReindexRequest ReindexSource
+reindexRequestSourceLens = lens reindexSource (\x y -> x {reindexSource = y})
 
-reindexDestLens :: Lens' ReindexRequest ReindexDest
-reindexDestLens = lens reindexDest (\x y -> x {reindexDest = y})
+reindexRequestDestLens :: Lens' ReindexRequest ReindexDest
+reindexRequestDestLens = lens reindexDest (\x y -> x {reindexDest = y})
 
-reindexScriptLens :: Lens' ReindexRequest (Maybe ReindexScript)
-reindexScriptLens = lens reindexScript (\x y -> x {reindexScript = y})
+reindexRequestScriptLens :: Lens' ReindexRequest (Maybe ReindexScript)
+reindexRequestScriptLens = lens reindexScript (\x y -> x {reindexScript = y})
 
 data ReindexConflicts
   = ReindexAbortOnConflicts

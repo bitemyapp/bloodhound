@@ -5,6 +5,15 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Query.SimpleQueryStrin
   ( FieldOrFields (..),
     SimpleQueryFlag (..),
     SimpleQueryStringQuery (..),
+
+    -- * Optics
+    simpleQueryStringQueryQueryLens,
+    simpleQueryStringQueryFieldLens,
+    simpleQueryStringQueryOperatorLens,
+    simpleQueryStringQueryAnalyzerLens,
+    simpleQueryStringQueryFlagsLens,
+    simpleQueryStringQueryLowercaseExpandedLens,
+    simpleQueryStringQueryLocaleLens,
   )
 where
 
@@ -23,6 +32,27 @@ data SimpleQueryStringQuery = SimpleQueryStringQuery
     simpleQueryStringLocale :: Maybe Locale
   }
   deriving stock (Eq, Show, Generic)
+
+simpleQueryStringQueryQueryLens :: Lens' SimpleQueryStringQuery QueryString
+simpleQueryStringQueryQueryLens = lens simpleQueryStringQuery (\x y -> x {simpleQueryStringQuery = y})
+
+simpleQueryStringQueryFieldLens :: Lens' SimpleQueryStringQuery (Maybe FieldOrFields)
+simpleQueryStringQueryFieldLens = lens simpleQueryStringField (\x y -> x {simpleQueryStringField = y})
+
+simpleQueryStringQueryOperatorLens :: Lens' SimpleQueryStringQuery (Maybe BooleanOperator)
+simpleQueryStringQueryOperatorLens = lens simpleQueryStringOperator (\x y -> x {simpleQueryStringOperator = y})
+
+simpleQueryStringQueryAnalyzerLens :: Lens' SimpleQueryStringQuery (Maybe Analyzer)
+simpleQueryStringQueryAnalyzerLens = lens simpleQueryStringAnalyzer (\x y -> x {simpleQueryStringAnalyzer = y})
+
+simpleQueryStringQueryFlagsLens :: Lens' SimpleQueryStringQuery (Maybe (NonEmpty SimpleQueryFlag))
+simpleQueryStringQueryFlagsLens = lens simpleQueryStringFlags (\x y -> x {simpleQueryStringFlags = y})
+
+simpleQueryStringQueryLowercaseExpandedLens :: Lens' SimpleQueryStringQuery (Maybe LowercaseExpanded)
+simpleQueryStringQueryLowercaseExpandedLens = lens simpleQueryStringLowercaseExpanded (\x y -> x {simpleQueryStringLowercaseExpanded = y})
+
+simpleQueryStringQueryLocaleLens :: Lens' SimpleQueryStringQuery (Maybe Locale)
+simpleQueryStringQueryLocaleLens = lens simpleQueryStringLocale (\x y -> x {simpleQueryStringLocale = y})
 
 instance ToJSON SimpleQueryStringQuery where
   toJSON SimpleQueryStringQuery {..} =
@@ -112,5 +142,7 @@ instance ToJSON FieldOrFields where
 
 instance FromJSON FieldOrFields where
   parseJSON v =
-    FofField <$> parseJSON v
-      <|> FofFields <$> (parseNEJSON =<< parseJSON v)
+    FofField
+      <$> parseJSON v
+        <|> FofFields
+      <$> (parseNEJSON =<< parseJSON v)

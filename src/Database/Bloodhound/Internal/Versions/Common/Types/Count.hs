@@ -6,11 +6,11 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Count
     CountShards (..),
 
     -- * Optics
-    crCountLens,
-    crShardsLens,
-    csTotalLens,
-    csSuccessfulLens,
-    csFailedLens,
+    countResponseCountLens,
+    countResponseShardsLens,
+    countShardsTotalLens,
+    countShardsSuccessfulLens,
+    countShardsFailedLens,
   )
 where
 
@@ -42,11 +42,11 @@ instance FromJSON CountResponse where
           <*> o
             .: "_shards"
 
-crCountLens :: Lens' CountResponse Natural
-crCountLens = lens crCount (\x y -> x {crCount = y})
+countResponseCountLens :: Lens' CountResponse Natural
+countResponseCountLens = lens crCount (\x y -> x {crCount = y})
 
-crShardsLens :: Lens' CountResponse CountShards
-crShardsLens = lens crShards (\x y -> x {crShards = y})
+countResponseShardsLens :: Lens' CountResponse CountShards
+countResponseShardsLens = lens crShards (\x y -> x {crShards = y})
 
 data CountShards = CountShards
   { csTotal :: Int,
@@ -67,11 +67,11 @@ instance FromJSON CountShards where
           <*> o
             .: "failed"
 
-csTotalLens :: Lens' CountShards Int
-csTotalLens = lens csTotal (\x y -> x {csTotal = y})
+countShardsTotalLens :: Lens' CountShards Int
+countShardsTotalLens = lens csTotal (\x y -> x {csTotal = y})
 
-csSuccessfulLens :: Lens' CountShards Int
-csSuccessfulLens = lens csSuccessful (\x y -> x {csSuccessful = y})
+countShardsSuccessfulLens :: Lens' CountShards Int
+countShardsSuccessfulLens = lens csSuccessful (\x y -> x {csSuccessful = y})
 
-csFailedLens :: Lens' CountShards Int
-csFailedLens = lens csFailed (\x y -> x {csFailed = y})
+countShardsFailedLens :: Lens' CountShards Int
+countShardsFailedLens = lens csFailed (\x y -> x {csFailed = y})

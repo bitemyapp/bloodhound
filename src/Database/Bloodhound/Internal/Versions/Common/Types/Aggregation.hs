@@ -35,6 +35,86 @@ data Aggregation
   | SumAgg SumAggregation
   deriving stock (Eq, Show)
 
+aggregationTermsAggPrism :: Prism' Aggregation TermsAggregation
+aggregationTermsAggPrism = prism TermsAgg extract
+  where
+    extract s =
+      case s of
+        TermsAgg x -> Right x
+        _ -> Left s
+
+aggregationCardinalityAggPrism :: Prism' Aggregation CardinalityAggregation
+aggregationCardinalityAggPrism = prism CardinalityAgg extract
+  where
+    extract s =
+      case s of
+        CardinalityAgg x -> Right x
+        _ -> Left s
+
+aggregationDateHistogramAggPrism :: Prism' Aggregation DateHistogramAggregation
+aggregationDateHistogramAggPrism = prism DateHistogramAgg extract
+  where
+    extract s =
+      case s of
+        DateHistogramAgg x -> Right x
+        _ -> Left s
+
+aggregationValueCountAggPrism :: Prism' Aggregation ValueCountAggregation
+aggregationValueCountAggPrism = prism ValueCountAgg extract
+  where
+    extract s =
+      case s of
+        ValueCountAgg x -> Right x
+        _ -> Left s
+
+aggregationFilterAggPrism :: Prism' Aggregation FilterAggregation
+aggregationFilterAggPrism = prism FilterAgg extract
+  where
+    extract s =
+      case s of
+        FilterAgg x -> Right x
+        _ -> Left s
+
+aggregationDateRangeAggPrism :: Prism' Aggregation DateRangeAggregation
+aggregationDateRangeAggPrism = prism DateRangeAgg extract
+  where
+    extract s =
+      case s of
+        DateRangeAgg x -> Right x
+        _ -> Left s
+
+aggregationMissingAggPrism :: Prism' Aggregation MissingAggregation
+aggregationMissingAggPrism = prism MissingAgg extract
+  where
+    extract s =
+      case s of
+        MissingAgg x -> Right x
+        _ -> Left s
+
+aggregationTopHitsAggPrism :: Prism' Aggregation TopHitsAggregation
+aggregationTopHitsAggPrism = prism TopHitsAgg extract
+  where
+    extract s =
+      case s of
+        TopHitsAgg x -> Right x
+        _ -> Left s
+
+aggregationStatsAggPrism :: Prism' Aggregation StatisticsAggregation
+aggregationStatsAggPrism = prism StatsAgg extract
+  where
+    extract s =
+      case s of
+        StatsAgg x -> Right x
+        _ -> Left s
+
+aggregationSumAggPrism :: Prism' Aggregation SumAggregation
+aggregationSumAggPrism = prism SumAgg extract
+  where
+    extract s =
+      case s of
+        SumAgg x -> Right x
+        _ -> Left s
+
 instance ToJSON Aggregation where
   toJSON (TermsAgg (TermsAggregation term include exclude order minDocCount size shardSize collectMode executionHint termAggs)) =
     omitNulls
@@ -131,22 +211,22 @@ data TopHitsAggregation = TopHitsAggregation
   }
   deriving stock (Eq, Show)
 
-taFromLens :: Lens' TopHitsAggregation (Maybe From)
-taFromLens = lens taFrom (\x y -> x {taFrom = y})
+topHitsAggregationFromLens :: Lens' TopHitsAggregation (Maybe From)
+topHitsAggregationFromLens = lens taFrom (\x y -> x {taFrom = y})
 
-taSizeLens :: Lens' TopHitsAggregation (Maybe Size)
-taSizeLens = lens taSize (\x y -> x {taSize = y})
+topHitsAggregationSizeLens :: Lens' TopHitsAggregation (Maybe Size)
+topHitsAggregationSizeLens = lens taSize (\x y -> x {taSize = y})
 
-taSortLens :: Lens' TopHitsAggregation (Maybe Sort)
-taSortLens = lens taSort (\x y -> x {taSort = y})
+topHitsAggregationSortLens :: Lens' TopHitsAggregation (Maybe Sort)
+topHitsAggregationSortLens = lens taSort (\x y -> x {taSort = y})
 
 data MissingAggregation = MissingAggregation
   { maField :: Text
   }
   deriving stock (Eq, Show)
 
-maFieldLens :: Lens' MissingAggregation Text
-maFieldLens = lens maField (\x y -> x {maField = y})
+missingAggregationFieldLens :: Lens' MissingAggregation Text
+missingAggregationFieldLens = lens maField (\x y -> x {maField = y})
 
 data TermsAggregation = TermsAggregation
   { term :: Either Text Text,
@@ -162,35 +242,35 @@ data TermsAggregation = TermsAggregation
   }
   deriving stock (Eq, Show)
 
-termLens :: Lens' TermsAggregation (Either Text Text)
-termLens = lens term (\x y -> x {term = y})
+termAggregationTermLens :: Lens' TermsAggregation (Either Text Text)
+termAggregationTermLens = lens term (\x y -> x {term = y})
 
-termIncludeLens :: Lens' TermsAggregation (Maybe TermInclusion)
-termIncludeLens = lens termInclude (\x y -> x {termInclude = y})
+termAggregationIncludeLens :: Lens' TermsAggregation (Maybe TermInclusion)
+termAggregationIncludeLens = lens termInclude (\x y -> x {termInclude = y})
 
-termExcludeLens :: Lens' TermsAggregation (Maybe TermInclusion)
-termExcludeLens = lens termExclude (\x y -> x {termExclude = y})
+termAggregationExcludeLens :: Lens' TermsAggregation (Maybe TermInclusion)
+termAggregationExcludeLens = lens termExclude (\x y -> x {termExclude = y})
 
-termOrderLens :: Lens' TermsAggregation (Maybe TermOrder)
-termOrderLens = lens termOrder (\x y -> x {termOrder = y})
+termAggregationOrderLens :: Lens' TermsAggregation (Maybe TermOrder)
+termAggregationOrderLens = lens termOrder (\x y -> x {termOrder = y})
 
-termMinDocCountLens :: Lens' TermsAggregation (Maybe Int)
-termMinDocCountLens = lens termMinDocCount (\x y -> x {termMinDocCount = y})
+termAggregationMinDocCountLens :: Lens' TermsAggregation (Maybe Int)
+termAggregationMinDocCountLens = lens termMinDocCount (\x y -> x {termMinDocCount = y})
 
-termSizeLens :: Lens' TermsAggregation (Maybe Int)
-termSizeLens = lens termSize (\x y -> x {termSize = y})
+termAggregationSizeLens :: Lens' TermsAggregation (Maybe Int)
+termAggregationSizeLens = lens termSize (\x y -> x {termSize = y})
 
-termShardSizeLens :: Lens' TermsAggregation (Maybe Int)
-termShardSizeLens = lens termShardSize (\x y -> x {termShardSize = y})
+termAggregationShardSizeLens :: Lens' TermsAggregation (Maybe Int)
+termAggregationShardSizeLens = lens termShardSize (\x y -> x {termShardSize = y})
 
-termCollectModeLens :: Lens' TermsAggregation (Maybe CollectionMode)
-termCollectModeLens = lens termCollectMode (\x y -> x {termCollectMode = y})
+termAggregationCollectModeLens :: Lens' TermsAggregation (Maybe CollectionMode)
+termAggregationCollectModeLens = lens termCollectMode (\x y -> x {termCollectMode = y})
 
-termExecutionHintLens :: Lens' TermsAggregation (Maybe ExecutionHint)
-termExecutionHintLens = lens termExecutionHint (\x y -> x {termExecutionHint = y})
+termAggregationExecutionHintLens :: Lens' TermsAggregation (Maybe ExecutionHint)
+termAggregationExecutionHintLens = lens termExecutionHint (\x y -> x {termExecutionHint = y})
 
-termAggsLens :: Lens' TermsAggregation (Maybe Aggregations)
-termAggsLens = lens termAggs (\x y -> x {termAggs = y})
+termAggregationAggsLens :: Lens' TermsAggregation (Maybe Aggregations)
+termAggregationAggsLens = lens termAggs (\x y -> x {termAggs = y})
 
 data CardinalityAggregation = CardinalityAggregation
   { cardinalityField :: FieldName,
@@ -198,11 +278,11 @@ data CardinalityAggregation = CardinalityAggregation
   }
   deriving stock (Eq, Show)
 
-cardinalityFieldLens :: Lens' CardinalityAggregation FieldName
-cardinalityFieldLens = lens cardinalityField (\x y -> x {cardinalityField = y})
+cardinalityAggregationFieldLens :: Lens' CardinalityAggregation FieldName
+cardinalityAggregationFieldLens = lens cardinalityField (\x y -> x {cardinalityField = y})
 
-precisionThresholdLens :: Lens' CardinalityAggregation (Maybe Int)
-precisionThresholdLens = lens precisionThreshold (\x y -> x {precisionThreshold = y})
+cardinalityAggregationPrecisionThresholdLens :: Lens' CardinalityAggregation (Maybe Int)
+cardinalityAggregationPrecisionThresholdLens = lens precisionThreshold (\x y -> x {precisionThreshold = y})
 
 data DateHistogramAggregation = DateHistogramAggregation
   { dateField :: FieldName,
@@ -217,29 +297,29 @@ data DateHistogramAggregation = DateHistogramAggregation
   }
   deriving stock (Eq, Show)
 
-dateFieldLens :: Lens' DateHistogramAggregation FieldName
-dateFieldLens = lens dateField (\x y -> x {dateField = y})
+dateHistogramAggregationFieldLens :: Lens' DateHistogramAggregation FieldName
+dateHistogramAggregationFieldLens = lens dateField (\x y -> x {dateField = y})
 
-dateIntervalLens :: Lens' DateHistogramAggregation Interval
-dateIntervalLens = lens dateInterval (\x y -> x {dateInterval = y})
+dateHistogramAggregationIntervalLens :: Lens' DateHistogramAggregation Interval
+dateHistogramAggregationIntervalLens = lens dateInterval (\x y -> x {dateInterval = y})
 
-dateFormatLens :: Lens' DateHistogramAggregation (Maybe Text)
-dateFormatLens = lens dateFormat (\x y -> x {dateFormat = y})
+dateHistogramAggregationFormatLens :: Lens' DateHistogramAggregation (Maybe Text)
+dateHistogramAggregationFormatLens = lens dateFormat (\x y -> x {dateFormat = y})
 
-datePreZoneLens :: Lens' DateHistogramAggregation (Maybe Text)
-datePreZoneLens = lens datePreZone (\x y -> x {datePreZone = y})
+dateHistogramAggregationPreZoneLens :: Lens' DateHistogramAggregation (Maybe Text)
+dateHistogramAggregationPreZoneLens = lens datePreZone (\x y -> x {datePreZone = y})
 
-datePostZoneLens :: Lens' DateHistogramAggregation (Maybe Text)
-datePostZoneLens = lens datePostZone (\x y -> x {datePostZone = y})
+dateHistogramAggregationPostZoneLens :: Lens' DateHistogramAggregation (Maybe Text)
+dateHistogramAggregationPostZoneLens = lens datePostZone (\x y -> x {datePostZone = y})
 
-datePreOffsetLens :: Lens' DateHistogramAggregation (Maybe Text)
-datePreOffsetLens = lens datePreOffset (\x y -> x {datePreOffset = y})
+dateHistogramAggregationPreOffsetLens :: Lens' DateHistogramAggregation (Maybe Text)
+dateHistogramAggregationPreOffsetLens = lens datePreOffset (\x y -> x {datePreOffset = y})
 
-datePostOffsetLens :: Lens' DateHistogramAggregation (Maybe Text)
-datePostOffsetLens = lens datePostOffset (\x y -> x {datePostOffset = y})
+dateHistogramAggregationPostOffsetLens :: Lens' DateHistogramAggregation (Maybe Text)
+dateHistogramAggregationPostOffsetLens = lens datePostOffset (\x y -> x {datePostOffset = y})
 
-dateAggsLens :: Lens' DateHistogramAggregation (Maybe Aggregations)
-dateAggsLens = lens dateAggs (\x y -> x {dateAggs = y})
+dateHistogramAggregationAggsLens :: Lens' DateHistogramAggregation (Maybe Aggregations)
+dateHistogramAggregationAggsLens = lens dateAggs (\x y -> x {dateAggs = y})
 
 data DateRangeAggregation = DateRangeAggregation
   { draField :: FieldName,
@@ -256,20 +336,44 @@ instance ToJSON DateRangeAggregation where
         "ranges" .= toList draRanges
       ]
 
-draFieldLens :: Lens' DateRangeAggregation FieldName
-draFieldLens = lens draField (\x y -> x {draField = y})
+dateRangeAggregationFieldLens :: Lens' DateRangeAggregation FieldName
+dateRangeAggregationFieldLens = lens draField (\x y -> x {draField = y})
 
-draFormatLens :: Lens' DateRangeAggregation (Maybe Text)
-draFormatLens = lens draFormat (\x y -> x {draFormat = y})
+dateRangeAggregationFormatLens :: Lens' DateRangeAggregation (Maybe Text)
+dateRangeAggregationFormatLens = lens draFormat (\x y -> x {draFormat = y})
 
-draRangesLens :: Lens' DateRangeAggregation (NonEmpty DateRangeAggRange)
-draRangesLens = lens draRanges (\x y -> x {draRanges = y})
+dateRangeAggregationRangesLens :: Lens' DateRangeAggregation (NonEmpty DateRangeAggRange)
+dateRangeAggregationRangesLens = lens draRanges (\x y -> x {draRanges = y})
 
 data DateRangeAggRange
   = DateRangeFrom DateMathExpr
   | DateRangeTo DateMathExpr
   | DateRangeFromAndTo DateMathExpr DateMathExpr
   deriving stock (Eq, Show)
+
+dateRangeAggRangeDateRangeFromPrism :: Prism' DateRangeAggRange DateMathExpr
+dateRangeAggRangeDateRangeFromPrism = prism DateRangeFrom extract
+  where
+    extract s =
+      case s of
+        DateRangeFrom x -> Right x
+        _ -> Left s
+
+dateRangeAggRangeDateRangeToPrism :: Prism' DateRangeAggRange DateMathExpr
+dateRangeAggRangeDateRangeToPrism = prism DateRangeTo extract
+  where
+    extract s =
+      case s of
+        DateRangeTo x -> Right x
+        _ -> Left s
+
+dateRangeAggRangeDateRangeFromAndToPrism :: Prism' DateRangeAggRange (DateMathExpr, DateMathExpr)
+dateRangeAggRangeDateRangeFromAndToPrism = prism (uncurry DateRangeFromAndTo) extract
+  where
+    extract s =
+      case s of
+        DateRangeFromAndTo x y -> Right (x, y)
+        _ -> Left s
 
 instance ToJSON DateRangeAggRange where
   toJSON (DateRangeFrom e) = object ["from" .= e]
@@ -289,11 +393,11 @@ data FilterAggregation = FilterAggregation
   }
   deriving stock (Eq, Show)
 
-faFilterLens :: Lens' FilterAggregation Filter
-faFilterLens = lens faFilter (\x y -> x {faFilter = y})
+filterAggregationFilterLens :: Lens' FilterAggregation Filter
+filterAggregationFilterLens = lens faFilter (\x y -> x {faFilter = y})
 
-faAggsLens :: Lens' FilterAggregation (Maybe Aggregations)
-faAggsLens = lens faAggs (\x y -> x {faAggs = y})
+filterAggregationAggsLens :: Lens' FilterAggregation (Maybe Aggregations)
+filterAggregationAggsLens = lens faAggs (\x y -> x {faAggs = y})
 
 data StatisticsAggregation = StatisticsAggregation
   { statsType :: StatsType,
@@ -301,11 +405,11 @@ data StatisticsAggregation = StatisticsAggregation
   }
   deriving stock (Eq, Show)
 
-statsTypeLens :: Lens' StatisticsAggregation StatsType
-statsTypeLens = lens statsType (\x y -> x {statsType = y})
+statisticsAggregationTypeLens :: Lens' StatisticsAggregation StatsType
+statisticsAggregationTypeLens = lens statsType (\x y -> x {statsType = y})
 
-statsFieldLens :: Lens' StatisticsAggregation FieldName
-statsFieldLens = lens statsField (\x y -> x {statsField = y})
+statisticsAggregationFieldLens :: Lens' StatisticsAggregation FieldName
+statisticsAggregationFieldLens = lens statsField (\x y -> x {statsField = y})
 
 data StatsType
   = Basic
@@ -400,11 +504,11 @@ instance ToJSON TermOrder where
   toJSON (TermOrder termSortField termSortOrder) =
     object [fromText termSortField .= termSortOrder]
 
-termSortFieldLens :: Lens' TermOrder Text
-termSortFieldLens = lens termSortField (\x y -> x {termSortField = y})
+termOrderSortFieldLens :: Lens' TermOrder Text
+termOrderSortFieldLens = lens termSortField (\x y -> x {termSortField = y})
 
-termSortOrderLens :: Lens' TermOrder SortOrder
-termSortOrderLens = lens termSortOrder (\x y -> x {termSortOrder = y})
+termOrderSortOrderLens :: Lens' TermOrder SortOrder
+termOrderSortOrderLens = lens termSortOrder (\x y -> x {termSortOrder = y})
 
 data CollectionMode
   = BreadthFirst
@@ -479,7 +583,7 @@ instance FromJSON TermsResult where
     TermsResult
       <$> v .: "key"
       <*> v .: "doc_count"
-      <*> (pure $ getNamedSubAgg v ["key", "doc_count"])
+      <*> pure (getNamedSubAgg v ["key", "doc_count"])
   parseJSON _ = mempty
 
 instance BucketAggregation TermsResult where
@@ -487,14 +591,14 @@ instance BucketAggregation TermsResult where
   docCount = termsDocCount
   aggs = termsAggs
 
-termKeyLens :: Lens' TermsResult BucketValue
-termKeyLens = lens termKey (\x y -> x {termKey = y})
+termsResultKeyLens :: Lens' TermsResult BucketValue
+termsResultKeyLens = lens termKey (\x y -> x {termKey = y})
 
-termsDocCountLens :: Lens' TermsResult Int
-termsDocCountLens = lens termsDocCount (\x y -> x {termsDocCount = y})
+termsResultDocCountLens :: Lens' TermsResult Int
+termsResultDocCountLens = lens termsDocCount (\x y -> x {termsDocCount = y})
 
-termsAggsLens :: Lens' TermsResult (Maybe AggregationResults)
-termsAggsLens = lens termsAggs (\x y -> x {termsAggs = y})
+termsResultAggsLens :: Lens' TermsResult (Maybe AggregationResults)
+termsResultAggsLens = lens termsAggs (\x y -> x {termsAggs = y})
 
 data DateHistogramResult = DateHistogramResult
   { dateKey :: Int,
@@ -525,17 +629,17 @@ instance BucketAggregation DateHistogramResult where
   docCount = dateDocCount
   aggs = dateHistogramAggs
 
-dateKeyLens :: Lens' DateHistogramResult Int
-dateKeyLens = lens dateKey (\x y -> x {dateKey = y})
+dateHistogramResultKeyLens :: Lens' DateHistogramResult Int
+dateHistogramResultKeyLens = lens dateKey (\x y -> x {dateKey = y})
 
-dateKeyStrLens :: Lens' DateHistogramResult (Maybe Text)
-dateKeyStrLens = lens dateKeyStr (\x y -> x {dateKeyStr = y})
+dateHistogramResultKeyStrLens :: Lens' DateHistogramResult (Maybe Text)
+dateHistogramResultKeyStrLens = lens dateKeyStr (\x y -> x {dateKeyStr = y})
 
-dateDocCountLens :: Lens' DateHistogramResult Int
-dateDocCountLens = lens dateDocCount (\x y -> x {dateDocCount = y})
+dateHistogramResultDocCountLens :: Lens' DateHistogramResult Int
+dateHistogramResultDocCountLens = lens dateDocCount (\x y -> x {dateDocCount = y})
 
-dateHistogramAggsLens :: Lens' DateHistogramResult (Maybe AggregationResults)
-dateHistogramAggsLens = lens dateHistogramAggs (\x y -> x {dateHistogramAggs = y})
+dateHistogramResultAggsLens :: Lens' DateHistogramResult (Maybe AggregationResults)
+dateHistogramResultAggsLens = lens dateHistogramAggs (\x y -> x {dateHistogramAggs = y})
 
 data DateRangeResult = DateRangeResult
   { dateRangeKey :: Text,
@@ -576,26 +680,26 @@ instance BucketAggregation DateRangeResult where
   docCount = dateRangeDocCount
   aggs = dateRangeAggs
 
-dateRangeKeyLens :: Lens' DateRangeResult Text
-dateRangeKeyLens = lens dateRangeKey (\x y -> x {dateRangeKey = y})
+dateRangeResultKeyLens :: Lens' DateRangeResult Text
+dateRangeResultKeyLens = lens dateRangeKey (\x y -> x {dateRangeKey = y})
 
-dateRangeFromLens :: Lens' DateRangeResult (Maybe UTCTime)
-dateRangeFromLens = lens dateRangeFrom (\x y -> x {dateRangeFrom = y})
+dateRangeResultFromLens :: Lens' DateRangeResult (Maybe UTCTime)
+dateRangeResultFromLens = lens dateRangeFrom (\x y -> x {dateRangeFrom = y})
 
-dateRangeFromAsStringLens :: Lens' DateRangeResult (Maybe Text)
-dateRangeFromAsStringLens = lens dateRangeFromAsString (\x y -> x {dateRangeFromAsString = y})
+dateRangeResultFromAsStringLens :: Lens' DateRangeResult (Maybe Text)
+dateRangeResultFromAsStringLens = lens dateRangeFromAsString (\x y -> x {dateRangeFromAsString = y})
 
-dateRangeToLens :: Lens' DateRangeResult (Maybe UTCTime)
-dateRangeToLens = lens dateRangeTo (\x y -> x {dateRangeTo = y})
+dateRangeResultToLens :: Lens' DateRangeResult (Maybe UTCTime)
+dateRangeResultToLens = lens dateRangeTo (\x y -> x {dateRangeTo = y})
 
-dateRangeToAsStringLens :: Lens' DateRangeResult (Maybe Text)
-dateRangeToAsStringLens = lens dateRangeToAsString (\x y -> x {dateRangeToAsString = y})
+dateRangeResultToAsStringLens :: Lens' DateRangeResult (Maybe Text)
+dateRangeResultToAsStringLens = lens dateRangeToAsString (\x y -> x {dateRangeToAsString = y})
 
-dateRangeDocCountLens :: Lens' DateRangeResult Int
-dateRangeDocCountLens = lens dateRangeDocCount (\x y -> x {dateRangeDocCount = y})
+dateRangeResultDocCountLens :: Lens' DateRangeResult Int
+dateRangeResultDocCountLens = lens dateRangeDocCount (\x y -> x {dateRangeDocCount = y})
 
-dateRangeAggsLens :: Lens' DateRangeResult (Maybe AggregationResults)
-dateRangeAggsLens = lens dateRangeAggs (\x y -> x {dateRangeAggs = y})
+dateRangeResultAggsLens :: Lens' DateRangeResult (Maybe AggregationResults)
+dateRangeResultAggsLens = lens dateRangeAggs (\x y -> x {dateRangeAggs = y})
 
 toTerms :: Key -> AggregationResults -> Maybe (Bucket TermsResult)
 toTerms = toAggResult

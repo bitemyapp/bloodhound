@@ -4,6 +4,21 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Query.CommonTerms
   ( CommonMinimumMatch (..),
     CommonTermsQuery (..),
     MinimumMatchHighLow (..),
+
+    -- * Optics
+    commonTermsQueryFieldLens,
+    commonTermsQueryQueryLens,
+    commonTermsQueryCutoffFrequencyLens,
+    commonTermsQueryLowFreqOperatorLens,
+    commonTermsQueryHighFreqOperatorLens,
+    commonTermsQueryMinimumShouldMatchLens,
+    commonTermsQueryBoostLens,
+    commonTermsQueryAnalyzerLens,
+    commonTermsQueryDisableCoordLens,
+    commonMinimumMatchHighLowPrism,
+    commonMinimumMatchPrism,
+    minimumMatchHighLowLowFreqLens,
+    minimumMatchHighLowHighFreqLens,
   )
 where
 
@@ -24,6 +39,33 @@ data CommonTermsQuery = CommonTermsQuery
     commonDisableCoord :: Maybe DisableCoord
   }
   deriving stock (Eq, Show, Generic)
+
+commonTermsQueryFieldLens :: Lens' CommonTermsQuery FieldName
+commonTermsQueryFieldLens = lens commonField (\x y -> x {commonField = y})
+
+commonTermsQueryQueryLens :: Lens' CommonTermsQuery QueryString
+commonTermsQueryQueryLens = lens commonQuery (\x y -> x {commonQuery = y})
+
+commonTermsQueryCutoffFrequencyLens :: Lens' CommonTermsQuery CutoffFrequency
+commonTermsQueryCutoffFrequencyLens = lens commonCutoffFrequency (\x y -> x {commonCutoffFrequency = y})
+
+commonTermsQueryLowFreqOperatorLens :: Lens' CommonTermsQuery BooleanOperator
+commonTermsQueryLowFreqOperatorLens = lens commonLowFreqOperator (\x y -> x {commonLowFreqOperator = y})
+
+commonTermsQueryHighFreqOperatorLens :: Lens' CommonTermsQuery BooleanOperator
+commonTermsQueryHighFreqOperatorLens = lens commonHighFreqOperator (\x y -> x {commonHighFreqOperator = y})
+
+commonTermsQueryMinimumShouldMatchLens :: Lens' CommonTermsQuery (Maybe CommonMinimumMatch)
+commonTermsQueryMinimumShouldMatchLens = lens commonMinimumShouldMatch (\x y -> x {commonMinimumShouldMatch = y})
+
+commonTermsQueryBoostLens :: Lens' CommonTermsQuery (Maybe Boost)
+commonTermsQueryBoostLens = lens commonBoost (\x y -> x {commonBoost = y})
+
+commonTermsQueryAnalyzerLens :: Lens' CommonTermsQuery (Maybe Analyzer)
+commonTermsQueryAnalyzerLens = lens commonAnalyzer (\x y -> x {commonAnalyzer = y})
+
+commonTermsQueryDisableCoordLens :: Lens' CommonTermsQuery (Maybe DisableCoord)
+commonTermsQueryDisableCoordLens = lens commonDisableCoord (\x y -> x {commonDisableCoord = y})
 
 instance ToJSON CommonTermsQuery where
   toJSON
@@ -70,6 +112,22 @@ data CommonMinimumMatch
   | CommonMinimumMatch MinimumMatch
   deriving stock (Eq, Show, Generic)
 
+commonMinimumMatchHighLowPrism :: Prism' CommonMinimumMatch MinimumMatchHighLow
+commonMinimumMatchHighLowPrism = prism CommonMinimumMatchHighLow extract
+  where
+    extract cmm =
+      case cmm of
+        CommonMinimumMatchHighLow x -> Right x
+        _ -> Left cmm
+
+commonMinimumMatchPrism :: Prism' CommonMinimumMatch MinimumMatch
+commonMinimumMatchPrism = prism CommonMinimumMatch extract
+  where
+    extract cmm =
+      case cmm of
+        CommonMinimumMatch x -> Right x
+        _ -> Left cmm
+
 instance ToJSON CommonMinimumMatch where
   toJSON (CommonMinimumMatch mm) = toJSON mm
   toJSON (CommonMinimumMatchHighLow (MinimumMatchHighLow lowF highF)) =
@@ -99,3 +157,9 @@ data MinimumMatchHighLow = MinimumMatchHighLow
     highFreq :: MinimumMatch
   }
   deriving stock (Eq, Show, Generic)
+
+minimumMatchHighLowLowFreqLens :: Lens' MinimumMatchHighLow MinimumMatch
+minimumMatchHighLowLowFreqLens = lens lowFreq (\x y -> x {lowFreq = y})
+
+minimumMatchHighLowHighFreqLens :: Lens' MinimumMatchHighLow MinimumMatch
+minimumMatchHighLowHighFreqLens = lens highFreq (\x y -> x {highFreq = y})

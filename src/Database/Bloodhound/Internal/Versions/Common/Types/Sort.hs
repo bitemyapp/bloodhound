@@ -88,23 +88,23 @@ data DefaultSort = DefaultSort
   }
   deriving stock (Eq, Show)
 
-sortFieldNameLens :: Lens' DefaultSort FieldName
-sortFieldNameLens = lens sortFieldName (\x y -> x {sortFieldName = y})
+defaultSortFieldNameLens :: Lens' DefaultSort FieldName
+defaultSortFieldNameLens = lens sortFieldName (\x y -> x {sortFieldName = y})
 
-sortOrderLens :: Lens' DefaultSort SortOrder
-sortOrderLens = lens sortOrder (\x y -> x {sortOrder = y})
+defaultSortOrderLens :: Lens' DefaultSort SortOrder
+defaultSortOrderLens = lens sortOrder (\x y -> x {sortOrder = y})
 
-ignoreUnmappedLens :: Lens' DefaultSort (Maybe Text)
-ignoreUnmappedLens = lens ignoreUnmapped (\x y -> x {ignoreUnmapped = y})
+defaultSortIgnoreUnmappedLens :: Lens' DefaultSort (Maybe Text)
+defaultSortIgnoreUnmappedLens = lens ignoreUnmapped (\x y -> x {ignoreUnmapped = y})
 
-sortModeLens :: Lens' DefaultSort (Maybe SortMode)
-sortModeLens = lens sortMode (\x y -> x {sortMode = y})
+defaultSortSortModeLens :: Lens' DefaultSort (Maybe SortMode)
+defaultSortSortModeLens = lens sortMode (\x y -> x {sortMode = y})
 
-missingSortLens :: Lens' DefaultSort (Maybe Missing)
-missingSortLens = lens missingSort (\x y -> x {missingSort = y})
+defaultSortMissingSortLens :: Lens' DefaultSort (Maybe Missing)
+defaultSortMissingSortLens = lens missingSort (\x y -> x {missingSort = y})
 
-nestedFilterLens :: Lens' DefaultSort (Maybe Filter)
-nestedFilterLens = lens nestedFilter (\x y -> x {nestedFilter = y})
+defaultSortNestedFilterLens :: Lens' DefaultSort (Maybe Filter)
+defaultSortNestedFilterLens = lens nestedFilter (\x y -> x {nestedFilter = y})
 
 -- | 'SortOrder' is 'Ascending' or 'Descending', as you might expect. These get
 --   encoded into "asc" or "desc" when turned into JSON.

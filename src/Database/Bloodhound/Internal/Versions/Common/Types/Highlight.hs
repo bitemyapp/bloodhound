@@ -15,6 +15,12 @@ data Highlights = Highlights
   }
   deriving stock (Eq, Show)
 
+highlightsGlobalsettingsLens :: Lens' Highlights (Maybe HighlightSettings)
+highlightsGlobalsettingsLens = lens globalsettings (\x y -> x {globalsettings = y})
+
+highlightsHighlightFieldsLens :: Lens' Highlights [FieldHighlight]
+highlightsHighlightFieldsLens = lens highlightFields (\x y -> x {highlightFields = y})
+
 instance ToJSON Highlights where
   toJSON (Highlights global fields) =
     omitNulls
@@ -22,9 +28,17 @@ instance ToJSON Highlights where
           : highlightSettingsPairs global
       )
 
-data FieldHighlight
-  = FieldHighlight FieldName (Maybe HighlightSettings)
+data FieldHighlight = FieldHighlight
+  { fieldHighlightName :: FieldName,
+    fieldHighlightSettings :: Maybe HighlightSettings
+  }
   deriving stock (Eq, Show)
+
+fieldHighlightNameLens :: Lens' FieldHighlight FieldName
+fieldHighlightNameLens = lens fieldHighlightName (\x y -> x {fieldHighlightName = y})
+
+fieldHighlightSettingsLens :: Lens' FieldHighlight (Maybe HighlightSettings)
+fieldHighlightSettingsLens = lens fieldHighlightSettings (\x y -> x {fieldHighlightSettings = y})
 
 instance ToJSON FieldHighlight where
   toJSON (FieldHighlight (FieldName fName) (Just fSettings)) =
@@ -38,6 +52,30 @@ data HighlightSettings
   | FastVector FastVectorHighlight
   deriving stock (Eq, Show)
 
+highlightSettingsPlainPrism :: Prism' HighlightSettings PlainHighlight
+highlightSettingsPlainPrism = prism Plain extract
+  where
+    extract hs =
+      case hs of
+        Plain x -> Right x
+        _ -> Left hs
+
+highlightSettingsPostingsPrism :: Prism' HighlightSettings PostingsHighlight
+highlightSettingsPostingsPrism = prism Postings extract
+  where
+    extract hs =
+      case hs of
+        Postings x -> Right x
+        _ -> Left hs
+
+highlightSettingsFastVectorPrism :: Prism' HighlightSettings FastVectorHighlight
+highlightSettingsFastVectorPrism = prism FastVector extract
+  where
+    extract hs =
+      case hs of
+        FastVector x -> Right x
+        _ -> Left hs
+
 instance ToJSON HighlightSettings where
   toJSON hs = omitNulls (highlightSettingsPairs (Just hs))
 
@@ -47,10 +85,18 @@ data PlainHighlight = PlainHighlight
   }
   deriving stock (Eq, Show)
 
+plainHighlightCommonLens :: Lens' PlainHighlight (Maybe CommonHighlight)
+plainHighlightCommonLens = lens plainCommon (\x y -> x {plainCommon = y})
+
+plainHighlightNonPostLens :: Lens' PlainHighlight (Maybe NonPostings)
+plainHighlightNonPostLens = lens plainNonPost (\x y -> x {plainNonPost = y})
+
 -- This requires that index_options are set to 'offset' in the mapping.
-data PostingsHighlight
-  = PostingsHighlight (Maybe CommonHighlight)
+newtype PostingsHighlight = PostingsHighlight {getPostingsHighlight :: Maybe CommonHighlight}
   deriving stock (Eq, Show)
+
+postingsHighlightLens :: Lens' PostingsHighlight (Maybe CommonHighlight)
+postingsHighlightLens = lens getPostingsHighlight (\x y -> x {getPostingsHighlight = y})
 
 -- This requires that term_vector is set to 'with_positions_offsets' in the mapping.
 data FastVectorHighlight = FastVectorHighlight
@@ -64,6 +110,27 @@ data FastVectorHighlight = FastVectorHighlight
   }
   deriving stock (Eq, Show)
 
+fastVectorHighlightFvCommonLens :: Lens' FastVectorHighlight (Maybe CommonHighlight)
+fastVectorHighlightFvCommonLens = lens fvCommon (\x y -> x {fvCommon = y})
+
+fastVectorHighlightFvNonPostSettingsLens :: Lens' FastVectorHighlight (Maybe NonPostings)
+fastVectorHighlightFvNonPostSettingsLens = lens fvNonPostSettings (\x y -> x {fvNonPostSettings = y})
+
+fastVectorHighlightBoundaryCharsLens :: Lens' FastVectorHighlight (Maybe Text)
+fastVectorHighlightBoundaryCharsLens = lens boundaryChars (\x y -> x {boundaryChars = y})
+
+fastVectorHighlightBoundaryMaxScanLens :: Lens' FastVectorHighlight (Maybe Int)
+fastVectorHighlightBoundaryMaxScanLens = lens boundaryMaxScan (\x y -> x {boundaryMaxScan = y})
+
+fastVectorHighlightFragmentOffsetLens :: Lens' FastVectorHighlight (Maybe Int)
+fastVectorHighlightFragmentOffsetLens = lens fragmentOffset (\x y -> x {fragmentOffset = y})
+
+fastVectorHighlightMatchedFieldsLens :: Lens' FastVectorHighlight [Text]
+fastVectorHighlightMatchedFieldsLens = lens matchedFields (\x y -> x {matchedFields = y})
+
+fastVectorHighlightPhraseLimitLens :: Lens' FastVectorHighlight (Maybe Int)
+fastVectorHighlightPhraseLimitLens = lens phraseLimit (\x y -> x {phraseLimit = y})
+
 data CommonHighlight = CommonHighlight
   { order :: Maybe Text,
     forceSource :: Maybe Bool,
@@ -75,12 +142,39 @@ data CommonHighlight = CommonHighlight
   }
   deriving stock (Eq, Show)
 
+commonHighlightOrderLens :: Lens' CommonHighlight (Maybe Text)
+commonHighlightOrderLens = lens order (\x y -> x {order = y})
+
+commonHighlightForceSourceLens :: Lens' CommonHighlight (Maybe Bool)
+commonHighlightForceSourceLens = lens forceSource (\x y -> x {forceSource = y})
+
+commonHighlightTagLens :: Lens' CommonHighlight (Maybe HighlightTag)
+commonHighlightTagLens = lens tag (\x y -> x {tag = y})
+
+commonHighlightEncoderLens :: Lens' CommonHighlight (Maybe HighlightEncoder)
+commonHighlightEncoderLens = lens encoder (\x y -> x {encoder = y})
+
+commonHighlightNoMatchSizeLens :: Lens' CommonHighlight (Maybe Int)
+commonHighlightNoMatchSizeLens = lens noMatchSize (\x y -> x {noMatchSize = y})
+
+commonHighlightHighlightQueryLens :: Lens' CommonHighlight (Maybe Query)
+commonHighlightHighlightQueryLens = lens highlightQuery (\x y -> x {highlightQuery = y})
+
+commonHighlightRequireFieldMatchLens :: Lens' CommonHighlight (Maybe Bool)
+commonHighlightRequireFieldMatchLens = lens requireFieldMatch (\x y -> x {requireFieldMatch = y})
+
 -- Settings that are only applicable to FastVector and Plain highlighters.
 data NonPostings = NonPostings
   { fragmentSize :: Maybe Int,
     numberOfFragments :: Maybe Int
   }
   deriving stock (Eq, Show)
+
+nonPostingsFragmentSizeLens :: Lens' NonPostings (Maybe Int)
+nonPostingsFragmentSizeLens = lens fragmentSize (\x y -> x {fragmentSize = y})
+
+nonPostingsNumberOfFragmentsLens :: Lens' NonPostings (Maybe Int)
+nonPostingsNumberOfFragmentsLens = lens numberOfFragments (\x y -> x {numberOfFragments = y})
 
 data HighlightEncoder
   = DefaultEncoder

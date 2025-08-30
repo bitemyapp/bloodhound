@@ -67,33 +67,70 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Nodes
     VersionNumber (..),
 
     -- * Optics
-    nodeOSRefreshIntervalLens,
-    nodeOSNameLens,
-    nodeOSArchLens,
-    nodeOSVersionLens,
-    nodeOSAvailableProcessorsLens,
-    nodeOSAllocatedProcessorsLens,
-    cpuCacheSizeLens,
-    cpuCoresPerSocketLens,
-    cpuTotalSocketsLens,
-    cpuTotalCoresLens,
-    cpuMHZLens,
-    cpuModelLens,
-    cpuVendorLens,
-    nodeProcessMLockAllLens,
-    nodeProcessMaxFileDescriptorsLens,
-    nodeProcessIdLens,
-    nodeProcessRefreshIntervalLens,
-    srShardsLens,
-    shardTotalLens,
-    shardsSuccessfulLens,
-    shardsSkippedLens,
-    shardsFailedLens,
+    nodeOSInfoRefreshIntervalLens,
+    nodeOSInfoNameLens,
+    nodeOSInfoArchLens,
+    nodeOSInfoVersionLens,
+    nodeOSInfoAvailableProcessorsLens,
+    nodeOSInfoAllocatedProcessorsLens,
+    cpuInfoCacheSizeLens,
+    cpuInfoCoresPerSocketLens,
+    cpuInfoTotalSocketsLens,
+    cpuInfoTotalCoresLens,
+    cpuInfoMHZLens,
+    cpuInfoModelLens,
+    cpuInfoVendorLens,
+    nodeProcessInfoMLockAllLens,
+    nodeProcessInfoMaxFileDescriptorsLens,
+    nodeProcessInfoIdLens,
+    nodeProcessInfoRefreshIntervalLens,
+    shardsResultShardsLens,
+    shardResultTotalLens,
+    shardsResultSuccessfulLens,
+    shardsResultResultSkippedLens,
+    shardsResultFailedLens,
     versionNumberLens,
     versionBuildHashLens,
     versionBuildDateLens,
     versionBuildSnapshotLens,
     versionLuceneVersionLens,
+    healthStatusClusterNameLens,
+    healthStatusStatusLens,
+    healthStatusTimedOutLens,
+    healthStatusNumberOfNodesLens,
+    healthStatusNumberOfDataNodesLens,
+    healthStatusActivePrimaryShardsLens,
+    healthStatusActiveShardsLens,
+    healthStatusRelocatingShardsLens,
+    healthStatusInitializingShardsLens,
+    healthStatusUnassignedShardsLens,
+    healthStatusDelayedUnassignedShardsLens,
+    healthStatusNumberOfPendingTasksLens,
+    healthStatusNumberOfInFlightFetchLens,
+    healthStatusTaskMaxWaitingInQueueMillisLens,
+    healthStatusActiveShardsPercentAsNumberLens,
+    indexedDocumentIndexLens,
+    indexedDocumentTypeLens,
+    indexedDocumentIdLens,
+    indexedDocumentVersionLens,
+    indexedDocumentResultLens,
+    indexedDocumentShardsLens,
+    indexedDocumentSeqNoLens,
+    indexedDocumentPrimaryTermLens,
+    deletedDocumentsTookLens,
+    deletedDocumentsTimedOutLens,
+    deletedDocumentsTotalLens,
+    deletedDocumentsDeletedLens,
+    deletedDocumentsBatchesLens,
+    deletedDocumentsVersionConflictsLens,
+    deletedDocumentsNoopsLens,
+    deletedDocumentsRetriesLens,
+    deletedDocumentsThrottledMillisLens,
+    deletedDocumentsRequestsPerSecondLens,
+    deletedDocumentsThrottledUntilMillisLens,
+    deletedDocumentsFailuresLens,
+    deletedDocumentsRetriesBulkLens,
+    deletedDocumentsRetriesSearchLens,
   )
 where
 
@@ -593,23 +630,23 @@ data NodeOSInfo = NodeOSInfo
   }
   deriving stock (Eq, Show)
 
-nodeOSRefreshIntervalLens :: Lens' NodeOSInfo NominalDiffTime
-nodeOSRefreshIntervalLens = lens nodeOSRefreshInterval (\x y -> x {nodeOSRefreshInterval = y})
+nodeOSInfoRefreshIntervalLens :: Lens' NodeOSInfo NominalDiffTime
+nodeOSInfoRefreshIntervalLens = lens nodeOSRefreshInterval (\x y -> x {nodeOSRefreshInterval = y})
 
-nodeOSNameLens :: Lens' NodeOSInfo Text
-nodeOSNameLens = lens nodeOSName (\x y -> x {nodeOSName = y})
+nodeOSInfoNameLens :: Lens' NodeOSInfo Text
+nodeOSInfoNameLens = lens nodeOSName (\x y -> x {nodeOSName = y})
 
-nodeOSArchLens :: Lens' NodeOSInfo Text
-nodeOSArchLens = lens nodeOSArch (\x y -> x {nodeOSArch = y})
+nodeOSInfoArchLens :: Lens' NodeOSInfo Text
+nodeOSInfoArchLens = lens nodeOSArch (\x y -> x {nodeOSArch = y})
 
-nodeOSVersionLens :: Lens' NodeOSInfo Text
-nodeOSVersionLens = lens nodeOSVersion (\x y -> x {nodeOSVersion = y})
+nodeOSInfoVersionLens :: Lens' NodeOSInfo Text
+nodeOSInfoVersionLens = lens nodeOSVersion (\x y -> x {nodeOSVersion = y})
 
-nodeOSAvailableProcessorsLens :: Lens' NodeOSInfo Int
-nodeOSAvailableProcessorsLens = lens nodeOSAvailableProcessors (\x y -> x {nodeOSAvailableProcessors = y})
+nodeOSInfoAvailableProcessorsLens :: Lens' NodeOSInfo Int
+nodeOSInfoAvailableProcessorsLens = lens nodeOSAvailableProcessors (\x y -> x {nodeOSAvailableProcessors = y})
 
-nodeOSAllocatedProcessorsLens :: Lens' NodeOSInfo Int
-nodeOSAllocatedProcessorsLens = lens nodeOSAllocatedProcessors (\x y -> x {nodeOSAllocatedProcessors = y})
+nodeOSInfoAllocatedProcessorsLens :: Lens' NodeOSInfo Int
+nodeOSInfoAllocatedProcessorsLens = lens nodeOSAllocatedProcessors (\x y -> x {nodeOSAllocatedProcessors = y})
 
 data CPUInfo = CPUInfo
   { cpuCacheSize :: Bytes,
@@ -622,26 +659,26 @@ data CPUInfo = CPUInfo
   }
   deriving stock (Eq, Show)
 
-cpuCacheSizeLens :: Lens' CPUInfo Bytes
-cpuCacheSizeLens = lens cpuCacheSize (\x y -> x {cpuCacheSize = y})
+cpuInfoCacheSizeLens :: Lens' CPUInfo Bytes
+cpuInfoCacheSizeLens = lens cpuCacheSize (\x y -> x {cpuCacheSize = y})
 
-cpuCoresPerSocketLens :: Lens' CPUInfo Int
-cpuCoresPerSocketLens = lens cpuCoresPerSocket (\x y -> x {cpuCoresPerSocket = y})
+cpuInfoCoresPerSocketLens :: Lens' CPUInfo Int
+cpuInfoCoresPerSocketLens = lens cpuCoresPerSocket (\x y -> x {cpuCoresPerSocket = y})
 
-cpuTotalSocketsLens :: Lens' CPUInfo Int
-cpuTotalSocketsLens = lens cpuTotalSockets (\x y -> x {cpuTotalSockets = y})
+cpuInfoTotalSocketsLens :: Lens' CPUInfo Int
+cpuInfoTotalSocketsLens = lens cpuTotalSockets (\x y -> x {cpuTotalSockets = y})
 
-cpuTotalCoresLens :: Lens' CPUInfo Int
-cpuTotalCoresLens = lens cpuTotalCores (\x y -> x {cpuTotalCores = y})
+cpuInfoTotalCoresLens :: Lens' CPUInfo Int
+cpuInfoTotalCoresLens = lens cpuTotalCores (\x y -> x {cpuTotalCores = y})
 
-cpuMHZLens :: Lens' CPUInfo Int
-cpuMHZLens = lens cpuMHZ (\x y -> x {cpuMHZ = y})
+cpuInfoMHZLens :: Lens' CPUInfo Int
+cpuInfoMHZLens = lens cpuMHZ (\x y -> x {cpuMHZ = y})
 
-cpuModelLens :: Lens' CPUInfo Text
-cpuModelLens = lens cpuModel (\x y -> x {cpuModel = y})
+cpuInfoModelLens :: Lens' CPUInfo Text
+cpuInfoModelLens = lens cpuModel (\x y -> x {cpuModel = y})
 
-cpuVendorLens :: Lens' CPUInfo Text
-cpuVendorLens = lens cpuVendor (\x y -> x {cpuVendor = y})
+cpuInfoVendorLens :: Lens' CPUInfo Text
+cpuInfoVendorLens = lens cpuVendor (\x y -> x {cpuVendor = y})
 
 data NodeProcessInfo = NodeProcessInfo
   { -- | See <https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.html>
@@ -652,17 +689,17 @@ data NodeProcessInfo = NodeProcessInfo
   }
   deriving stock (Eq, Show)
 
-nodeProcessMLockAllLens :: Lens' NodeProcessInfo Bool
-nodeProcessMLockAllLens = lens nodeProcessMLockAll (\x y -> x {nodeProcessMLockAll = y})
+nodeProcessInfoMLockAllLens :: Lens' NodeProcessInfo Bool
+nodeProcessInfoMLockAllLens = lens nodeProcessMLockAll (\x y -> x {nodeProcessMLockAll = y})
 
-nodeProcessMaxFileDescriptorsLens :: Lens' NodeProcessInfo (Maybe Int)
-nodeProcessMaxFileDescriptorsLens = lens nodeProcessMaxFileDescriptors (\x y -> x {nodeProcessMaxFileDescriptors = y})
+nodeProcessInfoMaxFileDescriptorsLens :: Lens' NodeProcessInfo (Maybe Int)
+nodeProcessInfoMaxFileDescriptorsLens = lens nodeProcessMaxFileDescriptors (\x y -> x {nodeProcessMaxFileDescriptors = y})
 
-nodeProcessIdLens :: Lens' NodeProcessInfo PID
-nodeProcessIdLens = lens nodeProcessId (\x y -> x {nodeProcessId = y})
+nodeProcessInfoIdLens :: Lens' NodeProcessInfo PID
+nodeProcessInfoIdLens = lens nodeProcessId (\x y -> x {nodeProcessId = y})
 
-nodeProcessRefreshIntervalLens :: Lens' NodeProcessInfo NominalDiffTime
-nodeProcessRefreshIntervalLens = lens nodeProcessRefreshInterval (\x y -> x {nodeProcessRefreshInterval = y})
+nodeProcessInfoRefreshIntervalLens :: Lens' NodeProcessInfo NominalDiffTime
+nodeProcessInfoRefreshIntervalLens = lens nodeProcessRefreshInterval (\x y -> x {nodeProcessRefreshInterval = y})
 
 instance FromJSON NodesInfo where
   parseJSON = withObject "NodesInfo" parse
@@ -1440,8 +1477,8 @@ instance FromJSON ShardsResult where
         <$> v
           .: "_shards"
 
-srShardsLens :: Lens' ShardsResult ShardResult
-srShardsLens = lens srShards (\x y -> x {srShards = y})
+shardsResultShardsLens :: Lens' ShardsResult ShardResult
+shardsResultShardsLens = lens srShards (\x y -> x {srShards = y})
 
 data ShardResult = ShardResult
   { shardTotal :: Int,
@@ -1469,17 +1506,17 @@ instance ToJSON ShardResult where
         "failed" .= shardsFailed
       ]
 
-shardTotalLens :: Lens' ShardResult Int
-shardTotalLens = lens shardTotal (\x y -> x {shardTotal = y})
+shardResultTotalLens :: Lens' ShardResult Int
+shardResultTotalLens = lens shardTotal (\x y -> x {shardTotal = y})
 
-shardsSuccessfulLens :: Lens' ShardResult Int
-shardsSuccessfulLens = lens shardsSuccessful (\x y -> x {shardsSuccessful = y})
+shardsResultSuccessfulLens :: Lens' ShardResult Int
+shardsResultSuccessfulLens = lens shardsSuccessful (\x y -> x {shardsSuccessful = y})
 
-shardsSkippedLens :: Lens' ShardResult Int
-shardsSkippedLens = lens shardsSkipped (\x y -> x {shardsSkipped = y})
+shardsResultResultSkippedLens :: Lens' ShardResult Int
+shardsResultResultSkippedLens = lens shardsSkipped (\x y -> x {shardsSkipped = y})
 
-shardsFailedLens :: Lens' ShardResult Int
-shardsFailedLens = lens shardsFailed (\x y -> x {shardsFailed = y})
+shardsResultFailedLens :: Lens' ShardResult Int
+shardsResultFailedLens = lens shardsFailed (\x y -> x {shardsFailed = y})
 
 -- | 'Version' is embedded in 'Status'
 data Version = Version
@@ -1602,6 +1639,51 @@ instance FromJSON HealthStatus where
         <*> v
           .: "active_shards_percent_as_number"
 
+healthStatusClusterNameLens :: Lens' HealthStatus Text
+healthStatusClusterNameLens = lens healthStatusClusterName (\x y -> x {healthStatusClusterName = y})
+
+healthStatusStatusLens :: Lens' HealthStatus Text
+healthStatusStatusLens = lens healthStatusStatus (\x y -> x {healthStatusStatus = y})
+
+healthStatusTimedOutLens :: Lens' HealthStatus Bool
+healthStatusTimedOutLens = lens healthStatusTimedOut (\x y -> x {healthStatusTimedOut = y})
+
+healthStatusNumberOfNodesLens :: Lens' HealthStatus Int
+healthStatusNumberOfNodesLens = lens healthStatusNumberOfNodes (\x y -> x {healthStatusNumberOfNodes = y})
+
+healthStatusNumberOfDataNodesLens :: Lens' HealthStatus Int
+healthStatusNumberOfDataNodesLens = lens healthStatusNumberOfDataNodes (\x y -> x {healthStatusNumberOfDataNodes = y})
+
+healthStatusActivePrimaryShardsLens :: Lens' HealthStatus Int
+healthStatusActivePrimaryShardsLens = lens healthStatusActivePrimaryShards (\x y -> x {healthStatusActivePrimaryShards = y})
+
+healthStatusActiveShardsLens :: Lens' HealthStatus Int
+healthStatusActiveShardsLens = lens healthStatusActiveShards (\x y -> x {healthStatusActiveShards = y})
+
+healthStatusRelocatingShardsLens :: Lens' HealthStatus Int
+healthStatusRelocatingShardsLens = lens healthStatusRelocatingShards (\x y -> x {healthStatusRelocatingShards = y})
+
+healthStatusInitializingShardsLens :: Lens' HealthStatus Int
+healthStatusInitializingShardsLens = lens healthStatusInitializingShards (\x y -> x {healthStatusInitializingShards = y})
+
+healthStatusUnassignedShardsLens :: Lens' HealthStatus Int
+healthStatusUnassignedShardsLens = lens healthStatusUnassignedShards (\x y -> x {healthStatusUnassignedShards = y})
+
+healthStatusDelayedUnassignedShardsLens :: Lens' HealthStatus Int
+healthStatusDelayedUnassignedShardsLens = lens healthStatusDelayedUnassignedShards (\x y -> x {healthStatusDelayedUnassignedShards = y})
+
+healthStatusNumberOfPendingTasksLens :: Lens' HealthStatus Int
+healthStatusNumberOfPendingTasksLens = lens healthStatusNumberOfPendingTasks (\x y -> x {healthStatusNumberOfPendingTasks = y})
+
+healthStatusNumberOfInFlightFetchLens :: Lens' HealthStatus Int
+healthStatusNumberOfInFlightFetchLens = lens healthStatusNumberOfInFlightFetch (\x y -> x {healthStatusNumberOfInFlightFetch = y})
+
+healthStatusTaskMaxWaitingInQueueMillisLens :: Lens' HealthStatus Int
+healthStatusTaskMaxWaitingInQueueMillisLens = lens healthStatusTaskMaxWaitingInQueueMillis (\x y -> x {healthStatusTaskMaxWaitingInQueueMillis = y})
+
+healthStatusActiveShardsPercentAsNumberLens :: Lens' HealthStatus Float
+healthStatusActiveShardsPercentAsNumberLens = lens healthStatusActiveShardsPercentAsNumber (\x y -> x {healthStatusActiveShardsPercentAsNumber = y})
+
 data IndexedDocument = IndexedDocument
   { idxDocIndex :: Text,
     idxDocType :: Maybe Text,
@@ -1636,6 +1718,30 @@ instance FromJSON IndexedDocument where
           .: "_seq_no"
         <*> v
           .: "_primary_term"
+
+indexedDocumentIndexLens :: Lens' IndexedDocument Text
+indexedDocumentIndexLens = lens idxDocIndex (\x y -> x {idxDocIndex = y})
+
+indexedDocumentTypeLens :: Lens' IndexedDocument (Maybe Text)
+indexedDocumentTypeLens = lens idxDocType (\x y -> x {idxDocType = y})
+
+indexedDocumentIdLens :: Lens' IndexedDocument Text
+indexedDocumentIdLens = lens idxDocId (\x y -> x {idxDocId = y})
+
+indexedDocumentVersionLens :: Lens' IndexedDocument Int
+indexedDocumentVersionLens = lens idxDocVersion (\x y -> x {idxDocVersion = y})
+
+indexedDocumentResultLens :: Lens' IndexedDocument Text
+indexedDocumentResultLens = lens idxDocResult (\x y -> x {idxDocResult = y})
+
+indexedDocumentShardsLens :: Lens' IndexedDocument ShardResult
+indexedDocumentShardsLens = lens idxDocShards (\x y -> x {idxDocShards = y})
+
+indexedDocumentSeqNoLens :: Lens' IndexedDocument Int
+indexedDocumentSeqNoLens = lens idxDocSeqNo (\x y -> x {idxDocSeqNo = y})
+
+indexedDocumentPrimaryTermLens :: Lens' IndexedDocument Int
+indexedDocumentPrimaryTermLens = lens idxDocPrimaryTerm (\x y -> x {idxDocPrimaryTerm = y})
 
 data DeletedDocuments = DeletedDocuments
   { delDocsTook :: Int,
@@ -1682,6 +1788,42 @@ instance FromJSON DeletedDocuments where
         <*> v
           .: "failures"
 
+deletedDocumentsTookLens :: Lens' DeletedDocuments Int
+deletedDocumentsTookLens = lens delDocsTook (\x y -> x {delDocsTook = y})
+
+deletedDocumentsTimedOutLens :: Lens' DeletedDocuments Bool
+deletedDocumentsTimedOutLens = lens delDocsTimedOut (\x y -> x {delDocsTimedOut = y})
+
+deletedDocumentsTotalLens :: Lens' DeletedDocuments Int
+deletedDocumentsTotalLens = lens delDocsTotal (\x y -> x {delDocsTotal = y})
+
+deletedDocumentsDeletedLens :: Lens' DeletedDocuments Int
+deletedDocumentsDeletedLens = lens delDocsDeleted (\x y -> x {delDocsDeleted = y})
+
+deletedDocumentsBatchesLens :: Lens' DeletedDocuments Int
+deletedDocumentsBatchesLens = lens delDocsBatches (\x y -> x {delDocsBatches = y})
+
+deletedDocumentsVersionConflictsLens :: Lens' DeletedDocuments Int
+deletedDocumentsVersionConflictsLens = lens delDocsVersionConflicts (\x y -> x {delDocsVersionConflicts = y})
+
+deletedDocumentsNoopsLens :: Lens' DeletedDocuments Int
+deletedDocumentsNoopsLens = lens delDocsNoops (\x y -> x {delDocsNoops = y})
+
+deletedDocumentsRetriesLens :: Lens' DeletedDocuments DeletedDocumentsRetries
+deletedDocumentsRetriesLens = lens delDocsRetries (\x y -> x {delDocsRetries = y})
+
+deletedDocumentsThrottledMillisLens :: Lens' DeletedDocuments Int
+deletedDocumentsThrottledMillisLens = lens delDocsThrottledMillis (\x y -> x {delDocsThrottledMillis = y})
+
+deletedDocumentsRequestsPerSecondLens :: Lens' DeletedDocuments Float
+deletedDocumentsRequestsPerSecondLens = lens delDocsRequestsPerSecond (\x y -> x {delDocsRequestsPerSecond = y})
+
+deletedDocumentsThrottledUntilMillisLens :: Lens' DeletedDocuments Int
+deletedDocumentsThrottledUntilMillisLens = lens delDocsThrottledUntilMillis (\x y -> x {delDocsThrottledUntilMillis = y})
+
+deletedDocumentsFailuresLens :: Lens' DeletedDocuments [Value]
+deletedDocumentsFailuresLens = lens delDocsFailures (\x y -> x {delDocsFailures = y})
+
 data DeletedDocumentsRetries = DeletedDocumentsRetries
   { delDocsRetriesBulk :: Int,
     delDocsRetriesSearch :: Int
@@ -1696,3 +1838,9 @@ instance FromJSON DeletedDocumentsRetries where
           .: "bulk"
         <*> v
           .: "search"
+
+deletedDocumentsRetriesBulkLens :: Lens' DeletedDocumentsRetries Int
+deletedDocumentsRetriesBulkLens = lens delDocsRetriesBulk (\x y -> x {delDocsRetriesBulk = y})
+
+deletedDocumentsRetriesSearchLens :: Lens' DeletedDocumentsRetries Int
+deletedDocumentsRetriesSearchLens = lens delDocsRetriesSearch (\x y -> x {delDocsRetriesSearch = y})

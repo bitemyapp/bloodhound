@@ -47,7 +47,7 @@ suggestTypeLens :: Lens' Suggest SuggestType
 suggestTypeLens = lens suggestType (\x y -> x {suggestType = y})
 
 data SuggestType
-  = SuggestTypePhraseSuggester PhraseSuggester -- TODO GDF
+  = SuggestTypePhraseSuggester PhraseSuggester
   deriving stock (Eq, Show, Generic)
 
 instance ToJSON SuggestType where
@@ -114,6 +114,9 @@ instance FromJSON PhraseSuggester where
           <*> o .:? "highlight"
           <*> o .:? "collate"
           <*> o .:? "direct_generator" .!= []
+
+suggestTypePhraseSuggesterLens :: Lens' SuggestType PhraseSuggester
+suggestTypePhraseSuggesterLens = lens (\(SuggestTypePhraseSuggester x) -> x) (const SuggestTypePhraseSuggester)
 
 mkPhraseSuggester :: FieldName -> PhraseSuggester
 mkPhraseSuggester fName =
@@ -305,11 +308,11 @@ instance FromJSON NamedSuggestionResponse where
     return $ NamedSuggestionResponse (toText suggestionName') suggestionResponses'
   parseJSON x = typeMismatch "NamedSuggestionResponse" x
 
-nsrNameLens :: Lens' NamedSuggestionResponse Text
-nsrNameLens = lens nsrName (\x y -> x {nsrName = y})
+namedSuggestionResponseNameLens :: Lens' NamedSuggestionResponse Text
+namedSuggestionResponseNameLens = lens nsrName (\x y -> x {nsrName = y})
 
-nsrResponsesLens :: Lens' NamedSuggestionResponse [SuggestResponse]
-nsrResponsesLens = lens nsrResponses (\x y -> x {nsrResponses = y})
+namedSuggestionResponseResponsesLens :: Lens' NamedSuggestionResponse [SuggestResponse]
+namedSuggestionResponseResponsesLens = lens nsrResponses (\x y -> x {nsrResponses = y})
 
 data DirectGeneratorSuggestModeTypes
   = DirectGeneratorSuggestModeMissing

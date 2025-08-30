@@ -4,6 +4,7 @@
   - fix: remove `putMapping` deprecation
   - strong type backend
   - add dynamic backend operations
+  - complete/rename (uniformize) `optics` definitions
 
 0.23.0.1
 ========

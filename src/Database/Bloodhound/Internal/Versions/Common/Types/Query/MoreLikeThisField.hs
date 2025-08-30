@@ -2,6 +2,21 @@
 
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.MoreLikeThisField
   ( MoreLikeThisFieldQuery (..),
+
+    -- * Optics
+    moreLikeThisFieldQueryTextLens,
+    moreLikeThisFieldQueryFieldsLens,
+    moreLikeThisFieldQueryPercentMatchLens,
+    moreLikeThisFieldQueryMinimumTermFreqLens,
+    moreLikeThisFieldQueryMaxQueryTermsLens,
+    moreLikeThisFieldQueryStopWordsLens,
+    moreLikeThisFieldQueryMinDocFrequencyLens,
+    moreLikeThisFieldQueryMaxDocFrequencyLens,
+    moreLikeThisFieldQueryMinWordLengthLens,
+    moreLikeThisFieldQueryMaxWordLengthLens,
+    moreLikeThisFieldQueryBoostTermsLens,
+    moreLikeThisFieldQueryBoostLens,
+    moreLikeThisFieldQueryAnalyzerLens,
   )
 where
 
@@ -27,6 +42,45 @@ data MoreLikeThisFieldQuery = MoreLikeThisFieldQuery
     moreLikeThisFieldAnalyzer :: Maybe Analyzer
   }
   deriving stock (Eq, Show, Generic)
+
+moreLikeThisFieldQueryTextLens :: Lens' MoreLikeThisFieldQuery Text
+moreLikeThisFieldQueryTextLens = lens moreLikeThisFieldText (\x y -> x {moreLikeThisFieldText = y})
+
+moreLikeThisFieldQueryFieldsLens :: Lens' MoreLikeThisFieldQuery FieldName
+moreLikeThisFieldQueryFieldsLens = lens moreLikeThisFieldFields (\x y -> x {moreLikeThisFieldFields = y})
+
+moreLikeThisFieldQueryPercentMatchLens :: Lens' MoreLikeThisFieldQuery (Maybe PercentMatch)
+moreLikeThisFieldQueryPercentMatchLens = lens moreLikeThisFieldPercentMatch (\x y -> x {moreLikeThisFieldPercentMatch = y})
+
+moreLikeThisFieldQueryMinimumTermFreqLens :: Lens' MoreLikeThisFieldQuery (Maybe MinimumTermFrequency)
+moreLikeThisFieldQueryMinimumTermFreqLens = lens moreLikeThisFieldMinimumTermFreq (\x y -> x {moreLikeThisFieldMinimumTermFreq = y})
+
+moreLikeThisFieldQueryMaxQueryTermsLens :: Lens' MoreLikeThisFieldQuery (Maybe MaxQueryTerms)
+moreLikeThisFieldQueryMaxQueryTermsLens = lens moreLikeThisFieldMaxQueryTerms (\x y -> x {moreLikeThisFieldMaxQueryTerms = y})
+
+moreLikeThisFieldQueryStopWordsLens :: Lens' MoreLikeThisFieldQuery (Maybe (NonEmpty StopWord))
+moreLikeThisFieldQueryStopWordsLens = lens moreLikeThisFieldStopWords (\x y -> x {moreLikeThisFieldStopWords = y})
+
+moreLikeThisFieldQueryMinDocFrequencyLens :: Lens' MoreLikeThisFieldQuery (Maybe MinDocFrequency)
+moreLikeThisFieldQueryMinDocFrequencyLens = lens moreLikeThisFieldMinDocFrequency (\x y -> x {moreLikeThisFieldMinDocFrequency = y})
+
+moreLikeThisFieldQueryMaxDocFrequencyLens :: Lens' MoreLikeThisFieldQuery (Maybe MaxDocFrequency)
+moreLikeThisFieldQueryMaxDocFrequencyLens = lens moreLikeThisFieldMaxDocFrequency (\x y -> x {moreLikeThisFieldMaxDocFrequency = y})
+
+moreLikeThisFieldQueryMinWordLengthLens :: Lens' MoreLikeThisFieldQuery (Maybe MinWordLength)
+moreLikeThisFieldQueryMinWordLengthLens = lens moreLikeThisFieldMinWordLength (\x y -> x {moreLikeThisFieldMinWordLength = y})
+
+moreLikeThisFieldQueryMaxWordLengthLens :: Lens' MoreLikeThisFieldQuery (Maybe MaxWordLength)
+moreLikeThisFieldQueryMaxWordLengthLens = lens moreLikeThisFieldMaxWordLength (\x y -> x {moreLikeThisFieldMaxWordLength = y})
+
+moreLikeThisFieldQueryBoostTermsLens :: Lens' MoreLikeThisFieldQuery (Maybe BoostTerms)
+moreLikeThisFieldQueryBoostTermsLens = lens moreLikeThisFieldBoostTerms (\x y -> x {moreLikeThisFieldBoostTerms = y})
+
+moreLikeThisFieldQueryBoostLens :: Lens' MoreLikeThisFieldQuery (Maybe Boost)
+moreLikeThisFieldQueryBoostLens = lens moreLikeThisFieldBoost (\x y -> x {moreLikeThisFieldBoost = y})
+
+moreLikeThisFieldQueryAnalyzerLens :: Lens' MoreLikeThisFieldQuery (Maybe Analyzer)
+moreLikeThisFieldQueryAnalyzerLens = lens moreLikeThisFieldAnalyzer (\x y -> x {moreLikeThisFieldAnalyzer = y})
 
 instance ToJSON MoreLikeThisFieldQuery where
   toJSON

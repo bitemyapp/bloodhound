@@ -25,14 +25,14 @@ instance FromJSON OpenPointInTimeResponse where
       <*> o .: "creation_time"
   parseJSON x = typeMismatch "OpenPointInTimeResponse" x
 
-oos2PitIdLens :: Lens' OpenPointInTimeResponse Text
-oos2PitIdLens = lens oos2PitId (\x y -> x {oos2PitId = y})
+openPointInTimeIdLens :: Lens' OpenPointInTimeResponse Text
+openPointInTimeIdLens = lens oos2PitId (\x y -> x {oos2PitId = y})
 
-oos2ShardsLens :: Lens' OpenPointInTimeResponse ShardResult
-oos2ShardsLens = lens oos2Shards (\x y -> x {oos2Shards = y})
+openPointInTimeShardsLens :: Lens' OpenPointInTimeResponse ShardResult
+openPointInTimeShardsLens = lens oos2Shards (\x y -> x {oos2Shards = y})
 
-oos2CreationTimeLens :: Lens' OpenPointInTimeResponse POSIXTime
-oos2CreationTimeLens = lens oos2CreationTime (\x y -> x {oos2CreationTime = y})
+openPointInTimeCreationTimeLens :: Lens' OpenPointInTimeResponse POSIXTime
+openPointInTimeCreationTimeLens = lens oos2CreationTime (\x y -> x {oos2CreationTime = y})
 
 data ClosePointInTime = ClosePointInTime
   { cPitId :: Text
@@ -47,8 +47,8 @@ instance FromJSON ClosePointInTime where
   parseJSON (Object o) = ClosePointInTime <$> o .: "id"
   parseJSON x = typeMismatch "ClosePointInTime" x
 
-cPitIdLens :: Lens' ClosePointInTime Text
-cPitIdLens = lens cPitId (\x y -> x {cPitId = y})
+closePointInTimeIdLens :: Lens' ClosePointInTime Text
+closePointInTimeIdLens = lens cPitId (\x y -> x {cPitId = y})
 
 data ClosePointInTimeResponse = ClosePointInTimeResponse
   { succeeded :: Bool,
@@ -70,8 +70,8 @@ instance FromJSON ClosePointInTimeResponse where
     return $ ClosePointInTimeResponse succeeded' numFreed'
   parseJSON x = typeMismatch "ClosePointInTimeResponse" x
 
-succeededLens :: Lens' ClosePointInTimeResponse Bool
-succeededLens = lens succeeded (\x y -> x {succeeded = y})
+closePointInTimeSucceededLens :: Lens' ClosePointInTimeResponse Bool
+closePointInTimeSucceededLens = lens succeeded (\x y -> x {succeeded = y})
 
-numFreedLens :: Lens' ClosePointInTimeResponse Int
-numFreedLens = lens numFreed (\x y -> x {numFreed = y})
+closePointInTimeNumFreedLens :: Lens' ClosePointInTimeResponse Int
+closePointInTimeNumFreedLens = lens numFreed (\x y -> x {numFreed = y})

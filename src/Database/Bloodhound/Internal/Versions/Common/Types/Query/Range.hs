@@ -12,6 +12,11 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Query.Range
     RangeQuery (..),
     RangeValue (..),
     mkRangeQuery,
+
+    -- * Optics
+    rangeQueryFieldLens,
+    rangeQueryRangeLens,
+    rangeQueryBoostLens,
   )
 where
 
@@ -26,6 +31,15 @@ data RangeQuery = RangeQuery
     rangeQueryBoost :: Boost
   }
   deriving stock (Eq, Show, Generic)
+
+rangeQueryFieldLens :: Lens' RangeQuery FieldName
+rangeQueryFieldLens = lens rangeQueryField (\x y -> x {rangeQueryField = y})
+
+rangeQueryRangeLens :: Lens' RangeQuery RangeValue
+rangeQueryRangeLens = lens rangeQueryRange (\x y -> x {rangeQueryRange = y})
+
+rangeQueryBoostLens :: Lens' RangeQuery Boost
+rangeQueryBoostLens = lens rangeQueryBoost (\x y -> x {rangeQueryBoost = y})
 
 instance ToJSON RangeQuery where
   toJSON (RangeQuery (FieldName fieldName) range boost) =

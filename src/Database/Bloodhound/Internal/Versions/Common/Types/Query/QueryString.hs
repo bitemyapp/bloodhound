@@ -3,6 +3,25 @@
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.QueryString
   ( QueryStringQuery (..),
     mkQueryStringQuery,
+
+    -- * Optics
+    queryStringQueryQueryLens,
+    queryStringQueryDefaultFieldLens,
+    queryStringQueryOperatorLens,
+    queryStringQueryAnalyzerLens,
+    queryStringQueryAllowLeadingWildcardLens,
+    queryStringQueryLowercaseExpandedLens,
+    queryStringQueryEnablePositionIncrementsLens,
+    queryStringQueryFuzzyMaxExpansionsLens,
+    queryStringQueryFuzzinessLens,
+    queryStringQueryFuzzyPrefixLengthLens,
+    queryStringQueryPhraseSlopLens,
+    queryStringQueryBoostLens,
+    queryStringQueryAnalyzeWildcardLens,
+    queryStringQueryGeneratePhraseQueriesLens,
+    queryStringQueryMinimumShouldMatchLens,
+    queryStringQueryLenientLens,
+    queryStringQueryLocaleLens,
   )
 where
 
@@ -32,6 +51,57 @@ data QueryStringQuery = QueryStringQuery
     queryStringLocale :: Maybe Locale
   }
   deriving stock (Eq, Show, Generic)
+
+queryStringQueryQueryLens :: Lens' QueryStringQuery QueryString
+queryStringQueryQueryLens = lens queryStringQuery (\x y -> x {queryStringQuery = y})
+
+queryStringQueryDefaultFieldLens :: Lens' QueryStringQuery (Maybe FieldName)
+queryStringQueryDefaultFieldLens = lens queryStringDefaultField (\x y -> x {queryStringDefaultField = y})
+
+queryStringQueryOperatorLens :: Lens' QueryStringQuery (Maybe BooleanOperator)
+queryStringQueryOperatorLens = lens queryStringOperator (\x y -> x {queryStringOperator = y})
+
+queryStringQueryAnalyzerLens :: Lens' QueryStringQuery (Maybe Analyzer)
+queryStringQueryAnalyzerLens = lens queryStringAnalyzer (\x y -> x {queryStringAnalyzer = y})
+
+queryStringQueryAllowLeadingWildcardLens :: Lens' QueryStringQuery (Maybe AllowLeadingWildcard)
+queryStringQueryAllowLeadingWildcardLens = lens queryStringAllowLeadingWildcard (\x y -> x {queryStringAllowLeadingWildcard = y})
+
+queryStringQueryLowercaseExpandedLens :: Lens' QueryStringQuery (Maybe LowercaseExpanded)
+queryStringQueryLowercaseExpandedLens = lens queryStringLowercaseExpanded (\x y -> x {queryStringLowercaseExpanded = y})
+
+queryStringQueryEnablePositionIncrementsLens :: Lens' QueryStringQuery (Maybe EnablePositionIncrements)
+queryStringQueryEnablePositionIncrementsLens = lens queryStringEnablePositionIncrements (\x y -> x {queryStringEnablePositionIncrements = y})
+
+queryStringQueryFuzzyMaxExpansionsLens :: Lens' QueryStringQuery (Maybe MaxExpansions)
+queryStringQueryFuzzyMaxExpansionsLens = lens queryStringFuzzyMaxExpansions (\x y -> x {queryStringFuzzyMaxExpansions = y})
+
+queryStringQueryFuzzinessLens :: Lens' QueryStringQuery (Maybe Fuzziness)
+queryStringQueryFuzzinessLens = lens queryStringFuzziness (\x y -> x {queryStringFuzziness = y})
+
+queryStringQueryFuzzyPrefixLengthLens :: Lens' QueryStringQuery (Maybe PrefixLength)
+queryStringQueryFuzzyPrefixLengthLens = lens queryStringFuzzyPrefixLength (\x y -> x {queryStringFuzzyPrefixLength = y})
+
+queryStringQueryPhraseSlopLens :: Lens' QueryStringQuery (Maybe PhraseSlop)
+queryStringQueryPhraseSlopLens = lens queryStringPhraseSlop (\x y -> x {queryStringPhraseSlop = y})
+
+queryStringQueryBoostLens :: Lens' QueryStringQuery (Maybe Boost)
+queryStringQueryBoostLens = lens queryStringBoost (\x y -> x {queryStringBoost = y})
+
+queryStringQueryAnalyzeWildcardLens :: Lens' QueryStringQuery (Maybe AnalyzeWildcard)
+queryStringQueryAnalyzeWildcardLens = lens queryStringAnalyzeWildcard (\x y -> x {queryStringAnalyzeWildcard = y})
+
+queryStringQueryGeneratePhraseQueriesLens :: Lens' QueryStringQuery (Maybe GeneratePhraseQueries)
+queryStringQueryGeneratePhraseQueriesLens = lens queryStringGeneratePhraseQueries (\x y -> x {queryStringGeneratePhraseQueries = y})
+
+queryStringQueryMinimumShouldMatchLens :: Lens' QueryStringQuery (Maybe MinimumMatch)
+queryStringQueryMinimumShouldMatchLens = lens queryStringMinimumShouldMatch (\x y -> x {queryStringMinimumShouldMatch = y})
+
+queryStringQueryLenientLens :: Lens' QueryStringQuery (Maybe Lenient)
+queryStringQueryLenientLens = lens queryStringLenient (\x y -> x {queryStringLenient = y})
+
+queryStringQueryLocaleLens :: Lens' QueryStringQuery (Maybe Locale)
+queryStringQueryLocaleLens = lens queryStringLocale (\x y -> x {queryStringLocale = y})
 
 instance ToJSON QueryStringQuery where
   toJSON

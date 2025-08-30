@@ -66,7 +66,9 @@ import qualified Data.Vector as V
 import qualified Network.HTTP.Types.Method as NHTM
 import Optics.Core as X
   ( Lens',
+    Prism',
     lens,
+    prism,
   )
 
 type LByteString = BL.ByteString

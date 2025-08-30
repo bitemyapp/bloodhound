@@ -7,6 +7,30 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Query.Match
     MultiMatchQueryType (..),
     mkMatchQuery,
     mkMultiMatchQuery,
+
+    -- * Optics
+    matchQueryFieldLens,
+    matchQueryQueryStringLens,
+    matchQueryOperatorLens,
+    matchQueryZeroTermsLens,
+    matchQueryCutoffFrequencyLens,
+    matchQueryMatchTypeLens,
+    matchQueryAnalyzerLens,
+    matchQueryMaxExpansionsLens,
+    matchQueryLenientLens,
+    matchQueryBoostLens,
+    matchQueryMinimumShouldMatchLens,
+    matchQueryFuzzinessLens,
+    multiMatchQueryFieldsLens,
+    multiMatchQueryStringLens,
+    multiMatchQueryOperatorLens,
+    multiMatchQueryZeroTermsLens,
+    multiMatchQueryTiebreakerLens,
+    multiMatchQueryTypeLens,
+    multiMatchQueryCutoffFrequencyLens,
+    multiMatchQueryAnalyzerLens,
+    multiMatchQueryMaxExpansionsLens,
+    multiMatchQueryLenientLens,
   )
 where
 
@@ -30,6 +54,42 @@ data MatchQuery = MatchQuery
     matchQueryFuzziness :: Maybe Fuzziness
   }
   deriving stock (Eq, Show, Generic)
+
+matchQueryFieldLens :: Lens' MatchQuery FieldName
+matchQueryFieldLens = lens matchQueryField (\x y -> x {matchQueryField = y})
+
+matchQueryQueryStringLens :: Lens' MatchQuery QueryString
+matchQueryQueryStringLens = lens matchQueryQueryString (\x y -> x {matchQueryQueryString = y})
+
+matchQueryOperatorLens :: Lens' MatchQuery BooleanOperator
+matchQueryOperatorLens = lens matchQueryOperator (\x y -> x {matchQueryOperator = y})
+
+matchQueryZeroTermsLens :: Lens' MatchQuery ZeroTermsQuery
+matchQueryZeroTermsLens = lens matchQueryZeroTerms (\x y -> x {matchQueryZeroTerms = y})
+
+matchQueryCutoffFrequencyLens :: Lens' MatchQuery (Maybe CutoffFrequency)
+matchQueryCutoffFrequencyLens = lens matchQueryCutoffFrequency (\x y -> x {matchQueryCutoffFrequency = y})
+
+matchQueryMatchTypeLens :: Lens' MatchQuery (Maybe MatchQueryType)
+matchQueryMatchTypeLens = lens matchQueryMatchType (\x y -> x {matchQueryMatchType = y})
+
+matchQueryAnalyzerLens :: Lens' MatchQuery (Maybe Analyzer)
+matchQueryAnalyzerLens = lens matchQueryAnalyzer (\x y -> x {matchQueryAnalyzer = y})
+
+matchQueryMaxExpansionsLens :: Lens' MatchQuery (Maybe MaxExpansions)
+matchQueryMaxExpansionsLens = lens matchQueryMaxExpansions (\x y -> x {matchQueryMaxExpansions = y})
+
+matchQueryLenientLens :: Lens' MatchQuery (Maybe Lenient)
+matchQueryLenientLens = lens matchQueryLenient (\x y -> x {matchQueryLenient = y})
+
+matchQueryBoostLens :: Lens' MatchQuery (Maybe Boost)
+matchQueryBoostLens = lens matchQueryBoost (\x y -> x {matchQueryBoost = y})
+
+matchQueryMinimumShouldMatchLens :: Lens' MatchQuery (Maybe Text)
+matchQueryMinimumShouldMatchLens = lens matchQueryMinimumShouldMatch (\x y -> x {matchQueryMinimumShouldMatch = y})
+
+matchQueryFuzzinessLens :: Lens' MatchQuery (Maybe Fuzziness)
+matchQueryFuzzinessLens = lens matchQueryFuzziness (\x y -> x {matchQueryFuzziness = y})
 
 instance ToJSON MatchQuery where
   toJSON
@@ -114,6 +174,36 @@ data MultiMatchQuery = MultiMatchQuery
     multiMatchQueryLenient :: Maybe Lenient
   }
   deriving stock (Eq, Show, Generic)
+
+multiMatchQueryFieldsLens :: Lens' MultiMatchQuery [FieldName]
+multiMatchQueryFieldsLens = lens multiMatchQueryFields (\x y -> x {multiMatchQueryFields = y})
+
+multiMatchQueryStringLens :: Lens' MultiMatchQuery QueryString
+multiMatchQueryStringLens = lens multiMatchQueryString (\x y -> x {multiMatchQueryString = y})
+
+multiMatchQueryOperatorLens :: Lens' MultiMatchQuery BooleanOperator
+multiMatchQueryOperatorLens = lens multiMatchQueryOperator (\x y -> x {multiMatchQueryOperator = y})
+
+multiMatchQueryZeroTermsLens :: Lens' MultiMatchQuery ZeroTermsQuery
+multiMatchQueryZeroTermsLens = lens multiMatchQueryZeroTerms (\x y -> x {multiMatchQueryZeroTerms = y})
+
+multiMatchQueryTiebreakerLens :: Lens' MultiMatchQuery (Maybe Tiebreaker)
+multiMatchQueryTiebreakerLens = lens multiMatchQueryTiebreaker (\x y -> x {multiMatchQueryTiebreaker = y})
+
+multiMatchQueryTypeLens :: Lens' MultiMatchQuery (Maybe MultiMatchQueryType)
+multiMatchQueryTypeLens = lens multiMatchQueryType (\x y -> x {multiMatchQueryType = y})
+
+multiMatchQueryCutoffFrequencyLens :: Lens' MultiMatchQuery (Maybe CutoffFrequency)
+multiMatchQueryCutoffFrequencyLens = lens multiMatchQueryCutoffFrequency (\x y -> x {multiMatchQueryCutoffFrequency = y})
+
+multiMatchQueryAnalyzerLens :: Lens' MultiMatchQuery (Maybe Analyzer)
+multiMatchQueryAnalyzerLens = lens multiMatchQueryAnalyzer (\x y -> x {multiMatchQueryAnalyzer = y})
+
+multiMatchQueryMaxExpansionsLens :: Lens' MultiMatchQuery (Maybe MaxExpansions)
+multiMatchQueryMaxExpansionsLens = lens multiMatchQueryMaxExpansions (\x y -> x {multiMatchQueryMaxExpansions = y})
+
+multiMatchQueryLenientLens :: Lens' MultiMatchQuery (Maybe Lenient)
+multiMatchQueryLenientLens = lens multiMatchQueryLenient (\x y -> x {multiMatchQueryLenient = y})
 
 instance ToJSON MultiMatchQuery where
   toJSON

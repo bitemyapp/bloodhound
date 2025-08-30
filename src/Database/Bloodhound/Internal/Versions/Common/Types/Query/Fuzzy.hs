@@ -1,10 +1,33 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- TODO Fuzziness ???
 module Database.Bloodhound.Internal.Versions.Common.Types.Query.Fuzzy
   ( FuzzyQuery (..),
     FuzzyLikeFieldQuery (..),
     FuzzyLikeThisQuery (..),
+
+    -- * Optics
+    fuzzyQueryFieldLens,
+    fuzzyQueryValueLens,
+    fuzzyQueryPrefixLengthLens,
+    fuzzyQueryMaxExpansionsLens,
+    fuzzyQueryFuzzinessLens,
+    fuzzyQueryBoostLens,
+    fuzzyLikeFieldQueryFieldLens,
+    fuzzyLikeFieldQueryTextLens,
+    fuzzyLikeFieldQueryMaxQueryTermsLens,
+    fuzzyLikeFieldQueryIgnoreTermFrequencyLens,
+    fuzzyLikeFieldQueryFuzzinessLens,
+    fuzzyLikeFieldQueryPrefixLengthLens,
+    fuzzyLikeFieldQueryBoostLens,
+    fuzzyLikeFieldQueryAnalyzerLens,
+    fuzzyLikeThisQueryFieldsLens,
+    fuzzyLikeThisQueryTextLens,
+    fuzzyLikeThisQueryMaxQueryTermsLens,
+    fuzzyLikeThisQueryIgnoreTermFrequencyLens,
+    fuzzyLikeThisQueryFuzzinessLens,
+    fuzzyLikeThisQueryPrefixLengthLens,
+    fuzzyLikeThisQueryBoostLens,
+    fuzzyLikeThisQueryAnalyzerLens,
   )
 where
 
@@ -22,6 +45,24 @@ data FuzzyQuery = FuzzyQuery
     fuzzyQueryBoost :: Maybe Boost
   }
   deriving stock (Eq, Show, Generic)
+
+fuzzyQueryFieldLens :: Lens' FuzzyQuery FieldName
+fuzzyQueryFieldLens = lens fuzzyQueryField (\x y -> x {fuzzyQueryField = y})
+
+fuzzyQueryValueLens :: Lens' FuzzyQuery Text
+fuzzyQueryValueLens = lens fuzzyQueryValue (\x y -> x {fuzzyQueryValue = y})
+
+fuzzyQueryPrefixLengthLens :: Lens' FuzzyQuery PrefixLength
+fuzzyQueryPrefixLengthLens = lens fuzzyQueryPrefixLength (\x y -> x {fuzzyQueryPrefixLength = y})
+
+fuzzyQueryMaxExpansionsLens :: Lens' FuzzyQuery MaxExpansions
+fuzzyQueryMaxExpansionsLens = lens fuzzyQueryMaxExpansions (\x y -> x {fuzzyQueryMaxExpansions = y})
+
+fuzzyQueryFuzzinessLens :: Lens' FuzzyQuery Fuzziness
+fuzzyQueryFuzzinessLens = lens fuzzyQueryFuzziness (\x y -> x {fuzzyQueryFuzziness = y})
+
+fuzzyQueryBoostLens :: Lens' FuzzyQuery (Maybe Boost)
+fuzzyQueryBoostLens = lens fuzzyQueryBoost (\x y -> x {fuzzyQueryBoost = y})
 
 instance ToJSON FuzzyQuery where
   toJSON
@@ -66,6 +107,30 @@ data FuzzyLikeFieldQuery = FuzzyLikeFieldQuery
     fuzzyLikeFieldAnalyzer :: Maybe Analyzer
   }
   deriving stock (Eq, Show, Generic)
+
+fuzzyLikeFieldQueryFieldLens :: Lens' FuzzyLikeFieldQuery FieldName
+fuzzyLikeFieldQueryFieldLens = lens fuzzyLikeField (\x y -> x {fuzzyLikeField = y})
+
+fuzzyLikeFieldQueryTextLens :: Lens' FuzzyLikeFieldQuery Text
+fuzzyLikeFieldQueryTextLens = lens fuzzyLikeFieldText (\x y -> x {fuzzyLikeFieldText = y})
+
+fuzzyLikeFieldQueryMaxQueryTermsLens :: Lens' FuzzyLikeFieldQuery MaxQueryTerms
+fuzzyLikeFieldQueryMaxQueryTermsLens = lens fuzzyLikeFieldMaxQueryTerms (\x y -> x {fuzzyLikeFieldMaxQueryTerms = y})
+
+fuzzyLikeFieldQueryIgnoreTermFrequencyLens :: Lens' FuzzyLikeFieldQuery IgnoreTermFrequency
+fuzzyLikeFieldQueryIgnoreTermFrequencyLens = lens fuzzyLikeFieldIgnoreTermFrequency (\x y -> x {fuzzyLikeFieldIgnoreTermFrequency = y})
+
+fuzzyLikeFieldQueryFuzzinessLens :: Lens' FuzzyLikeFieldQuery Fuzziness
+fuzzyLikeFieldQueryFuzzinessLens = lens fuzzyLikeFieldFuzziness (\x y -> x {fuzzyLikeFieldFuzziness = y})
+
+fuzzyLikeFieldQueryPrefixLengthLens :: Lens' FuzzyLikeFieldQuery PrefixLength
+fuzzyLikeFieldQueryPrefixLengthLens = lens fuzzyLikeFieldPrefixLength (\x y -> x {fuzzyLikeFieldPrefixLength = y})
+
+fuzzyLikeFieldQueryBoostLens :: Lens' FuzzyLikeFieldQuery Boost
+fuzzyLikeFieldQueryBoostLens = lens fuzzyLikeFieldBoost (\x y -> x {fuzzyLikeFieldBoost = y})
+
+fuzzyLikeFieldQueryAnalyzerLens :: Lens' FuzzyLikeFieldQuery (Maybe Analyzer)
+fuzzyLikeFieldQueryAnalyzerLens = lens fuzzyLikeFieldAnalyzer (\x y -> x {fuzzyLikeFieldAnalyzer = y})
 
 instance ToJSON FuzzyLikeFieldQuery where
   toJSON
@@ -116,6 +181,30 @@ data FuzzyLikeThisQuery = FuzzyLikeThisQuery
     fuzzyLikeAnalyzer :: Maybe Analyzer
   }
   deriving stock (Eq, Show, Generic)
+
+fuzzyLikeThisQueryFieldsLens :: Lens' FuzzyLikeThisQuery [FieldName]
+fuzzyLikeThisQueryFieldsLens = lens fuzzyLikeFields (\x y -> x {fuzzyLikeFields = y})
+
+fuzzyLikeThisQueryTextLens :: Lens' FuzzyLikeThisQuery Text
+fuzzyLikeThisQueryTextLens = lens fuzzyLikeText (\x y -> x {fuzzyLikeText = y})
+
+fuzzyLikeThisQueryMaxQueryTermsLens :: Lens' FuzzyLikeThisQuery MaxQueryTerms
+fuzzyLikeThisQueryMaxQueryTermsLens = lens fuzzyLikeMaxQueryTerms (\x y -> x {fuzzyLikeMaxQueryTerms = y})
+
+fuzzyLikeThisQueryIgnoreTermFrequencyLens :: Lens' FuzzyLikeThisQuery IgnoreTermFrequency
+fuzzyLikeThisQueryIgnoreTermFrequencyLens = lens fuzzyLikeIgnoreTermFrequency (\x y -> x {fuzzyLikeIgnoreTermFrequency = y})
+
+fuzzyLikeThisQueryFuzzinessLens :: Lens' FuzzyLikeThisQuery Fuzziness
+fuzzyLikeThisQueryFuzzinessLens = lens fuzzyLikeFuzziness (\x y -> x {fuzzyLikeFuzziness = y})
+
+fuzzyLikeThisQueryPrefixLengthLens :: Lens' FuzzyLikeThisQuery PrefixLength
+fuzzyLikeThisQueryPrefixLengthLens = lens fuzzyLikePrefixLength (\x y -> x {fuzzyLikePrefixLength = y})
+
+fuzzyLikeThisQueryBoostLens :: Lens' FuzzyLikeThisQuery Boost
+fuzzyLikeThisQueryBoostLens = lens fuzzyLikeBoost (\x y -> x {fuzzyLikeBoost = y})
+
+fuzzyLikeThisQueryAnalyzerLens :: Lens' FuzzyLikeThisQuery (Maybe Analyzer)
+fuzzyLikeThisQueryAnalyzerLens = lens fuzzyLikeAnalyzer (\x y -> x {fuzzyLikeAnalyzer = y})
 
 instance ToJSON FuzzyLikeThisQuery where
   toJSON
