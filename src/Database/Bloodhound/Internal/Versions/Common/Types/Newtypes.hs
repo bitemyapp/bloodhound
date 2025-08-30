@@ -169,6 +169,7 @@ newtype Tiebreaker
 -- | 'MinimumMatch' controls how many should clauses in the bool query should
 --    match. Can be an absolute value (2) or a percentage (30%) or a
 --    combination of both.
+--    The current version only support absolute value.
 newtype MinimumMatch
   = MinimumMatch Int
   deriving newtype (Eq, Show, FromJSON, ToJSON)
