@@ -3,6 +3,20 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- |
+-- Module : Database.Bloodhound.Dynamic.Client
+-- Copyright : (C) 2014, 2018 Chris Allen
+-- License : BSD-style (see the file LICENSE)
+-- Maintainer : Chris Allen <cma@bitemyapp.com>
+-- Stability : provisional
+-- Portability : GHC
+--
+-- Dynamically route the query depending on the backend.
+--
+-- @
+-- withFetchedBackendType $ \backend ->
+--   pitSearch backend index search
+-- @
 module Database.Bloodhound.Dynamic.Client
   ( module Reexport,
     guessBackendType,
@@ -31,6 +45,7 @@ guessBackendType nodeInfo =
     Just 2 -> Just OpenSearch2
     _ -> Nothing
 
+-- | Fetch the currently running backend and run backend-dependent code
 withFetchedBackendType :: (MonadBH m) => (forall backend. SBackendType backend -> m a) -> m a
 withFetchedBackendType f = do
   nodeInfo <- getNodesInfo LocalNode
