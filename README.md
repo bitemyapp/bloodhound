@@ -1,6 +1,6 @@
 Bloodhound 
 ![compatbuild](https://github.com/bitemyapp/bloodhound/actions/workflows/compat.yml/badge.svg)
-![haskell-ci](https://github.com/bitemyapp/bloodhound/actions/workflows/haskell-ci.yml/badge.svg)
+[![Haskell](https://github.com/bitemyapp/bloodhound/actions/workflows/haskell.yml/badge.svg)](https://github.com/bitemyapp/bloodhound/actions/workflows/haskell.yml)
 ![nix](https://github.com/bitemyapp/bloodhound/actions/workflows/nix.yml/badge.svg)
 ![ormolu](https://github.com/bitemyapp/bloodhound/actions/workflows/ormolu.yml/badge.svg)
 [![Hackage](https://img.shields.io/hackage/v/bloodhound.svg?style=flat)](https://hackage.haskell.org/package/bloodhound)
