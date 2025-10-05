@@ -30,6 +30,7 @@ spec =
                   searchAfterKey = Just searchAfterKey',
                   fields = Nothing,
                   scriptFields = Nothing,
+                  docvalueFields = Nothing,
                   source = Nothing,
                   suggestBody = Nothing,
                   pointInTime = Nothing

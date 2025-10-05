@@ -28,6 +28,7 @@ spec =
                   fields = Nothing,
                   scriptFields = Nothing,
                   source = Nothing,
+                  docvalueFields = Nothing,
                   suggestBody = Nothing,
                   pointInTime = Nothing
                 }

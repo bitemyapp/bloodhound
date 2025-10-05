@@ -19,6 +19,7 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Search
     SearchTemplateId (..),
     SearchTemplateSource (..),
     SearchType (..),
+    DocvalueField (..),
     Source (..),
     TimeUnits (..),
     TrackSortScores,
@@ -72,6 +73,7 @@ data Search = Search
     searchAfterKey :: Maybe SearchAfterKey,
     fields :: Maybe [FieldName],
     scriptFields :: Maybe ScriptFields,
+    docvalueFields :: Maybe [DocvalueField],
     source :: Maybe Source,
     -- | Only one Suggestion request / response per Search is supported.
     suggestBody :: Maybe Suggest,
@@ -94,6 +96,7 @@ instance ToJSON Search where
         sAfter
         sFields
         sScriptFields
+        sDocvalueFields
         sSource
         sSuggest
         pPointInTime
@@ -109,6 +112,7 @@ instance ToJSON Search where
           "search_after" .= sAfter,
           "fields" .= sFields,
           "script_fields" .= sScriptFields,
+          "docvalue_fields" .= sDocvalueFields,
           "_source" .= sSource,
           "suggest" .= sSuggest,
           "pit" .= pPointInTime
@@ -361,3 +365,17 @@ getTemplateScriptIdLens = lens getTemplateScriptId (\x y -> x {getTemplateScript
 
 getTemplateScriptFoundLens :: Lens' GetTemplateScript Bool
 getTemplateScriptFoundLens = lens getTemplateScriptFound (\x y -> x {getTemplateScriptFound = y})
+
+data DocvalueField
+  = DocvalueFieldName FieldName
+  | DocvalueFieldNameAndFormat FieldName Text
+  deriving stock (Eq, Show)
+
+instance ToJSON DocvalueField where
+  toJSON (DocvalueFieldName fn) = toJSON fn
+  toJSON (DocvalueFieldNameAndFormat fn ft) = object ["field" .= fn, "format" .= ft]
+
+instance FromJSON DocvalueField where
+  parseJSON (String fn) = pure $ DocvalueFieldName $ FieldName fn
+  parseJSON (Object o) = DocvalueFieldNameAndFormat <$> o .: "field" <*> o .: "format"
+  parseJSON _ = empty

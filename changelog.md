@@ -3,6 +3,7 @@
 - @blackheaven
   - add `BHRequest.bhRequestQueryStrings`
   - fix: missing `getDocument` Client
+  - feat: add `Search.docvalueFields`
 
 0.24.0.0
 ========
