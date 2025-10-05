@@ -33,6 +33,8 @@ data Aggregation
   | TopHitsAgg TopHitsAggregation
   | StatsAgg StatisticsAggregation
   | SumAgg SumAggregation
+  | AvgAgg AvgAggregation
+  | MedianAbsoluteDeviationAgg MedianAbsoluteDeviationAggregation
   deriving stock (Eq, Show)
 
 aggregationTermsAggPrism :: Prism' Aggregation TermsAggregation
@@ -113,6 +115,22 @@ aggregationSumAggPrism = prism SumAgg extract
     extract s =
       case s of
         SumAgg x -> Right x
+        _ -> Left s
+
+aggregationAvgAggPrism :: Prism' Aggregation AvgAggregation
+aggregationAvgAggPrism = prism AvgAgg extract
+  where
+    extract s =
+      case s of
+        AvgAgg x -> Right x
+        _ -> Left s
+
+aggregationMedianAbsoluteDeviationAggPrism :: Prism' Aggregation MedianAbsoluteDeviationAggregation
+aggregationMedianAbsoluteDeviationAggPrism = prism MedianAbsoluteDeviationAgg extract
+  where
+    extract s =
+      case s of
+        MedianAbsoluteDeviationAgg x -> Right x
         _ -> Left s
 
 instance ToJSON Aggregation where
@@ -203,6 +221,10 @@ instance ToJSON Aggregation where
         | otherwise = "extended_stats"
   toJSON (SumAgg (SumAggregation (FieldName n))) =
     omitNulls ["sum" .= omitNulls ["field" .= n]]
+  toJSON (AvgAgg (AvgAggregation (FieldName n) m)) =
+    omitNulls ["avg" .= omitNulls ["field" .= n], "missing" .= m]
+  toJSON (MedianAbsoluteDeviationAgg (MedianAbsoluteDeviationAggregation (FieldName n) m)) =
+    omitNulls ["median_absolute_deviation" .= omitNulls ["field" .= n], "missing" .= m]
 
 data TopHitsAggregation = TopHitsAggregation
   { taFrom :: Maybe From,
@@ -417,6 +439,18 @@ data StatsType
   deriving stock (Eq, Show)
 
 newtype SumAggregation = SumAggregation {sumAggregationField :: FieldName}
+  deriving stock (Eq, Show)
+
+data AvgAggregation = AvgAggregation
+  { avgAggregationField :: FieldName,
+    avgAggregationMissing :: Maybe Int
+  }
+  deriving stock (Eq, Show)
+
+data MedianAbsoluteDeviationAggregation = MedianAbsoluteDeviationAggregation
+  { medianAbsoluteDeviationAggregationField :: FieldName,
+    medianAbsoluteDeviationAggregationMissing :: Maybe Int
+  }
   deriving stock (Eq, Show)
 
 mkTermsAggregation :: Text -> TermsAggregation

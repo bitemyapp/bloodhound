@@ -4,6 +4,7 @@
   - add `BHRequest.bhRequestQueryStrings`
   - fix: missing `getDocument` Client
   - feat: add `Search.docvalueFields`
+  - feat: add `MedianAbsoluteDeviationAggregation` and `AvgAbsoluteDeviationAggregation`
 
 0.24.0.0
 ========
