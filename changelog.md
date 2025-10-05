@@ -2,6 +2,7 @@
 ========
 - @blackheaven
   - add `BHRequest.bhRequestQueryStrings`
+  - fix: missing `getDocument` Client
 
 0.24.0.0
 ========

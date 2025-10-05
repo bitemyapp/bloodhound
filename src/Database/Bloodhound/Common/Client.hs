@@ -55,7 +55,7 @@ module Database.Bloodhound.Common.Client
     indexDocument,
     updateDocument,
     updateByQuery,
-    Requests.getDocument,
+    getDocument,
     documentExists,
     deleteDocument,
     deleteByQuery,
@@ -528,6 +528,14 @@ bulk ::
   V.Vector BulkOperation ->
   m BulkResponse
 bulk ops = performBHRequest $ Requests.bulk @StatusDependant ops
+
+-- | 'getDocument' is a straight-forward way to fetch a single document from
+--  Elasticsearch using a 'Server', 'IndexName', and a 'DocId'.
+--  The 'DocId' is the primary key for your Elasticsearch document.
+--
+-- >>> yourDoc <- runBH' $ getDocument testIndex (DocId "1")
+getDocument :: (MonadBH m, FromJSON a) => IndexName -> DocId -> m (EsResult a)
+getDocument indexName docId = performBHRequest $ Requests.getDocument indexName docId
 
 -- | 'documentExists' enables you to check if a document exists.
 documentExists :: (MonadBH m) => IndexName -> DocId -> m Bool
