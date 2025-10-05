@@ -65,6 +65,7 @@ import Control.Applicative as A
 import Control.Monad
 import Control.Monad.Catch
 import Data.Aeson
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Ix
 import Data.Monoid
@@ -122,6 +123,7 @@ data BHRequest parsingContext responseBody = BHRequest
   { bhRequestMethod :: NHTM.Method,
     bhRequestEndpoint :: Endpoint,
     bhRequestBody :: Maybe BL.ByteString,
+    bhRequestQueryStrings :: [(BS.ByteString, Maybe BS.ByteString)],
     bhRequestParser :: BHResponse parsingContext responseBody -> Either EsProtocolException (ParsedEsResponse responseBody)
   }
 
@@ -145,6 +147,7 @@ mkFullRequest method' endpoint body =
     { bhRequestMethod = method',
       bhRequestEndpoint = endpoint,
       bhRequestBody = Just body,
+      bhRequestQueryStrings = [],
       bhRequestParser = parseBHResponse
     }
 
@@ -155,6 +158,7 @@ mkSimpleRequest method' endpoint =
     { bhRequestMethod = method',
       bhRequestEndpoint = endpoint,
       bhRequestBody = Nothing,
+      bhRequestQueryStrings = [],
       bhRequestParser = parseBHResponse
     }
 

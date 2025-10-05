@@ -125,16 +125,21 @@ instance (Functor m, Applicative m, MonadIO m, MonadCatch m, MonadThrow m) => Mo
     initReq <- liftIO $ parseUrl' url
     let reqHook = bhRequestHook env
     let reqBody = HTTP.RequestBodyLBS $ fromMaybe emptyBody $ bhRequestBody request
+    let setQueryStrings =
+          case bhRequestQueryStrings request of
+            [] -> id
+            xs -> HTTP.setQueryString xs
     req <-
       liftIO $
         reqHook $
           HTTP.setRequestIgnoreStatus $
-            initReq
-              { HTTP.method = bhRequestMethod request,
-                HTTP.requestHeaders =
-                  ("Content-Type", "application/json") : HTTP.requestHeaders initReq,
-                HTTP.requestBody = reqBody
-              }
+            setQueryStrings $
+              initReq
+                { HTTP.method = bhRequestMethod request,
+                  HTTP.requestHeaders =
+                    ("Content-Type", "application/json") : HTTP.requestHeaders initReq,
+                  HTTP.requestBody = reqBody
+                }
 
     let mgr = bhManager env
     BHResponse <$> liftIO (HTTP.httpLbs req mgr)

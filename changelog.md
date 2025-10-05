@@ -1,3 +1,8 @@
+0.24.1.0
+========
+- @blackheaven
+  - add `BHRequest.bhRequestQueryStrings`
+
 0.24.0.0
 ========
 - @blackheaven
