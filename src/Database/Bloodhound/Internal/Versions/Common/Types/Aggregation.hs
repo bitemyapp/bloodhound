@@ -443,13 +443,13 @@ newtype SumAggregation = SumAggregation {sumAggregationField :: FieldName}
 
 data AvgAggregation = AvgAggregation
   { avgAggregationField :: FieldName,
-    avgAggregationMissing :: Maybe Int
+    avgAggregationMissing :: Maybe Missing
   }
   deriving stock (Eq, Show)
 
 data MedianAbsoluteDeviationAggregation = MedianAbsoluteDeviationAggregation
   { medianAbsoluteDeviationAggregationField :: FieldName,
-    medianAbsoluteDeviationAggregationMissing :: Maybe Int
+    medianAbsoluteDeviationAggregationMissing :: Maybe Missing
   }
   deriving stock (Eq, Show)
 

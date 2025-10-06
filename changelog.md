@@ -5,6 +5,7 @@
   - fix: missing `getDocument` Client
   - feat: add `Search.docvalueFields`
   - feat: add `MedianAbsoluteDeviationAggregation` and `AvgAbsoluteDeviationAggregation`
+  - feat: extract `Missing` newtype
 
 0.24.0.0
 ========

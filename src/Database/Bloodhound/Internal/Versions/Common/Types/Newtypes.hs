@@ -60,6 +60,7 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
     unMS,
     TokenFilter (..),
     CharFilter (..),
+    Missing (..),
   )
 where
 
@@ -407,4 +408,8 @@ newtype TokenFilter
 
 newtype CharFilter
   = CharFilter Text
+  deriving newtype (Eq, Show, FromJSON, ToJSON)
+
+newtype Missing
+  = Missing Int
   deriving newtype (Eq, Show, FromJSON, ToJSON)
