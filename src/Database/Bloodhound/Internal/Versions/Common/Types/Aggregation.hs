@@ -447,11 +447,23 @@ data AvgAggregation = AvgAggregation
   }
   deriving stock (Eq, Show)
 
+avgAggregationFieldLens :: Lens' AvgAggregation FieldName
+avgAggregationFieldLens = lens avgAggregationField (\x y -> x {avgAggregationField = y})
+
+avgAggregationMissingLens :: Lens' AvgAggregation (Maybe Missing)
+avgAggregationMissingLens = lens avgAggregationMissing (\x y -> x {avgAggregationMissing = y})
+
 data MedianAbsoluteDeviationAggregation = MedianAbsoluteDeviationAggregation
   { medianAbsoluteDeviationAggregationField :: FieldName,
     medianAbsoluteDeviationAggregationMissing :: Maybe Missing
   }
   deriving stock (Eq, Show)
+
+medianAbsoluteDeviationAggregationFieldLens :: Lens' MedianAbsoluteDeviationAggregation FieldName
+medianAbsoluteDeviationAggregationFieldLens = lens medianAbsoluteDeviationAggregationField (\x y -> x {medianAbsoluteDeviationAggregationField = y})
+
+medianAbsoluteDeviationAggregationMissingLens :: Lens' MedianAbsoluteDeviationAggregation (Maybe Missing)
+medianAbsoluteDeviationAggregationMissingLens = lens medianAbsoluteDeviationAggregationMissing (\x y -> x {medianAbsoluteDeviationAggregationMissing = y})
 
 mkTermsAggregation :: Text -> TermsAggregation
 mkTermsAggregation t =

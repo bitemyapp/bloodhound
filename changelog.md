@@ -6,6 +6,7 @@
   - feat: add `Search.docvalueFields`
   - feat: add `MedianAbsoluteDeviationAggregation` and `AvgAbsoluteDeviationAggregation`
   - feat: extract `Missing` newtype
+  - feat: add lenses for `MedianAbsoluteDeviationAggregation` and `AvgAggregation`
 
 0.24.0.0
 ========
