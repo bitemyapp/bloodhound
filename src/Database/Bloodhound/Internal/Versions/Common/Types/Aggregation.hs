@@ -35,6 +35,7 @@ data Aggregation
   | SumAgg SumAggregation
   | AvgAgg AvgAggregation
   | MedianAbsoluteDeviationAgg MedianAbsoluteDeviationAggregation
+  | CompositeAgg CompositeAggregation
   deriving stock (Eq, Show)
 
 aggregationTermsAggPrism :: Prism' Aggregation TermsAggregation
@@ -131,6 +132,14 @@ aggregationMedianAbsoluteDeviationAggPrism = prism MedianAbsoluteDeviationAgg ex
     extract s =
       case s of
         MedianAbsoluteDeviationAgg x -> Right x
+        _ -> Left s
+
+aggregationCompositeAggPrism :: Prism' Aggregation CompositeAggregation
+aggregationCompositeAggPrism = prism CompositeAgg extract
+  where
+    extract s =
+      case s of
+        CompositeAgg x -> Right x
         _ -> Left s
 
 instance ToJSON Aggregation where
@@ -242,6 +251,8 @@ instance ToJSON Aggregation where
     omitNulls ["avg" .= omitNulls ["field" .= n], "missing" .= m]
   toJSON (MedianAbsoluteDeviationAgg (MedianAbsoluteDeviationAggregation (FieldName n) m)) =
     omitNulls ["median_absolute_deviation" .= omitNulls ["field" .= n], "missing" .= m]
+  toJSON (CompositeAgg agg) =
+    object ["composite" .= agg]
 
 data TopHitsAggregation = TopHitsAggregation
   { taFrom :: Maybe From,
@@ -546,6 +557,77 @@ mkStatsAggregation = StatisticsAggregation Basic
 
 mkExtendedStatsAggregation :: FieldName -> StatisticsAggregation
 mkExtendedStatsAggregation = StatisticsAggregation Extended
+
+data CompositeAggregationSourceAggregation
+  = CompositeTermsAgg TermsAggregation
+  | CompositeDateHistogramAgg DateHistogramAggregation
+  deriving stock (Eq, Show)
+
+compositeAggregationSourceAggregationCompositeTermsAggPrism :: Prism' CompositeAggregationSourceAggregation TermsAggregation
+compositeAggregationSourceAggregationCompositeTermsAggPrism = prism CompositeTermsAgg extract
+  where
+    extract s =
+      case s of
+        CompositeTermsAgg x -> Right x
+        _ -> Left s
+
+compositeAggregationSourceAggregationCompositeDateHistogramAggPrism :: Prism' CompositeAggregationSourceAggregation DateHistogramAggregation
+compositeAggregationSourceAggregationCompositeDateHistogramAggPrism = prism CompositeDateHistogramAgg extract
+  where
+    extract s =
+      case s of
+        CompositeDateHistogramAgg x -> Right x
+        _ -> Left s
+
+instance ToJSON CompositeAggregationSourceAggregation where
+  toJSON x =
+    toJSON $
+      case x of
+        CompositeTermsAgg agg -> TermsAgg agg
+        CompositeDateHistogramAgg agg -> DateHistogramAgg agg
+
+data CompositeAggregationSource = CompositeAggregationSource
+  { compositeAggregationSourceKey :: Key,
+    compositeAggregationSourceAggregation :: CompositeAggregationSourceAggregation
+  }
+  deriving stock (Eq, Show)
+
+compositeAggregationSourceKeyLens :: Lens' CompositeAggregationSource Key
+compositeAggregationSourceKeyLens = lens compositeAggregationSourceKey (\x y -> x {compositeAggregationSourceKey = y})
+
+compositeAggregationSourceAggregationLens :: Lens' CompositeAggregationSource CompositeAggregationSourceAggregation
+compositeAggregationSourceAggregationLens = lens compositeAggregationSourceAggregation (\x y -> x {compositeAggregationSourceAggregation = y})
+
+instance ToJSON CompositeAggregationSource where
+  toJSON (CompositeAggregationSource k agg) =
+    object [k .= agg]
+
+data CompositeAggregation = CompositeAggregation
+  { compositeAggregationSize :: Maybe Int,
+    compositeAggregationSources :: [CompositeAggregationSource],
+    compositeAggregationAfter :: Maybe Value
+  }
+  deriving stock (Eq, Show)
+
+compositeAggregationSizeLens :: Lens' CompositeAggregation (Maybe Int)
+compositeAggregationSizeLens = lens compositeAggregationSize (\x y -> x {compositeAggregationSize = y})
+
+compositeAggregationSourcesLens :: Lens' CompositeAggregation [CompositeAggregationSource]
+compositeAggregationSourcesLens = lens compositeAggregationSources (\x y -> x {compositeAggregationSources = y})
+
+compositeAggregationAfterLens :: Lens' CompositeAggregation (Maybe Value)
+compositeAggregationAfterLens = lens compositeAggregationAfter (\x y -> x {compositeAggregationAfter = y})
+
+instance ToJSON CompositeAggregation where
+  toJSON (CompositeAggregation size sources after) =
+    omitNulls
+      [ "size" .= size,
+        "sources" .= sources,
+        "after" .= after
+      ]
+
+mkCompositeAggregation :: [CompositeAggregationSource] -> CompositeAggregation
+mkCompositeAggregation sources = CompositeAggregation Nothing sources Nothing
 
 type AggregationResults = M.Map Key Value
 

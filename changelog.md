@@ -10,6 +10,7 @@
   - fix: rename old `Missing` and `SortMissingValue`
   - feat: enhance `CardinalityAggregation` with `PrecisionThreshold` and `OnMissingValue` newtypes
   - feat: enhance `DateHistogramAggregation` with new fields (`calendar_interval`, `fixed_interval`, `time_zone`, `offset`, `keyed`, `missing`, `min_doc_count`, `extended_bounds`)
+  - feat: add `CompositeAggregation` support
 
 0.24.0.0
 ========
