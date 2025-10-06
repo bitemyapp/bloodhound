@@ -9,6 +9,7 @@
   - feat: add lenses for `MedianAbsoluteDeviationAggregation` and `AvgAggregation`
   - fix: rename old `Missing` and `SortMissingValue`
   - feat: enhance `CardinalityAggregation` with `PrecisionThreshold` and `OnMissingValue` newtypes
+  - feat: enhance `DateHistogramAggregation` with new fields (`calendar_interval`, `fixed_interval`, `time_zone`, `offset`, `keyed`, `missing`, `min_doc_count`, `extended_bounds`)
 
 0.24.0.0
 ========

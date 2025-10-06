@@ -172,6 +172,14 @@ instance ToJSON Aggregation where
             preOffset
             postOffset
             dateHistoAggs
+            calendarInterval
+            fixedInterval
+            timeZone
+            offset
+            keyed
+            missing
+            minDocCount
+            extendedBounds
           )
       ) =
       omitNulls
@@ -183,7 +191,15 @@ instance ToJSON Aggregation where
                 "pre_zone" .= preZone,
                 "post_zone" .= postZone,
                 "pre_offset" .= preOffset,
-                "post_offset" .= postOffset
+                "post_offset" .= postOffset,
+                "calendar_interval" .= calendarInterval,
+                "fixed_interval" .= fixedInterval,
+                "time_zone" .= timeZone,
+                "offset" .= offset,
+                "keyed" .= keyed,
+                "missing" .= missing,
+                "min_doc_count" .= minDocCount,
+                "extended_bounds" .= extendedBounds
               ],
           "aggs" .= dateHistoAggs
         ]
@@ -320,7 +336,15 @@ data DateHistogramAggregation = DateHistogramAggregation
     datePostZone :: Maybe Text,
     datePreOffset :: Maybe Text,
     datePostOffset :: Maybe Text,
-    dateAggs :: Maybe Aggregations
+    dateAggs :: Maybe Aggregations,
+    dateCalendarInterval :: Maybe Interval,
+    dateFixedInterval :: Maybe FixedInterval,
+    dateTimeZone :: Maybe TimeZoneOffset,
+    dateOffset :: Maybe TimeOffset,
+    dateKeyed :: Maybe Keyed,
+    dateMissing :: Maybe OnMissingValue,
+    dateMinDocCount :: Maybe Int,
+    dateExtendedBounds :: Maybe ExtendedBounds
   }
   deriving stock (Eq, Show)
 
@@ -347,6 +371,30 @@ dateHistogramAggregationPostOffsetLens = lens datePostOffset (\x y -> x {datePos
 
 dateHistogramAggregationAggsLens :: Lens' DateHistogramAggregation (Maybe Aggregations)
 dateHistogramAggregationAggsLens = lens dateAggs (\x y -> x {dateAggs = y})
+
+dateHistogramAggregationCalendarIntervalLens :: Lens' DateHistogramAggregation (Maybe Interval)
+dateHistogramAggregationCalendarIntervalLens = lens dateCalendarInterval (\x y -> x {dateCalendarInterval = y})
+
+dateHistogramAggregationFixedIntervalLens :: Lens' DateHistogramAggregation (Maybe FixedInterval)
+dateHistogramAggregationFixedIntervalLens = lens dateFixedInterval (\x y -> x {dateFixedInterval = y})
+
+dateHistogramAggregationTimeZoneLens :: Lens' DateHistogramAggregation (Maybe TimeZoneOffset)
+dateHistogramAggregationTimeZoneLens = lens dateTimeZone (\x y -> x {dateTimeZone = y})
+
+dateHistogramAggregationOffsetLens :: Lens' DateHistogramAggregation (Maybe TimeOffset)
+dateHistogramAggregationOffsetLens = lens dateOffset (\x y -> x {dateOffset = y})
+
+dateHistogramAggregationKeyedLens :: Lens' DateHistogramAggregation (Maybe Keyed)
+dateHistogramAggregationKeyedLens = lens dateKeyed (\x y -> x {dateKeyed = y})
+
+dateHistogramAggregationMissingLens :: Lens' DateHistogramAggregation (Maybe OnMissingValue)
+dateHistogramAggregationMissingLens = lens dateMissing (\x y -> x {dateMissing = y})
+
+dateHistogramAggregationMinDocCountLens :: Lens' DateHistogramAggregation (Maybe Int)
+dateHistogramAggregationMinDocCountLens = lens dateMinDocCount (\x y -> x {dateMinDocCount = y})
+
+dateHistogramAggregationExtendedBoundsLens :: Lens' DateHistogramAggregation (Maybe ExtendedBounds)
+dateHistogramAggregationExtendedBoundsLens = lens dateExtendedBounds (\x y -> x {dateExtendedBounds = y})
 
 data DateRangeAggregation = DateRangeAggregation
   { draField :: FieldName,
@@ -488,7 +536,7 @@ mkTermsScriptAggregation :: Text -> TermsAggregation
 mkTermsScriptAggregation t = TermsAggregation (Right t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 mkDateHistogram :: FieldName -> Interval -> DateHistogramAggregation
-mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
+mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 mkCardinalityAggregation :: FieldName -> CardinalityAggregation
 mkCardinalityAggregation t = CardinalityAggregation t Nothing Nothing

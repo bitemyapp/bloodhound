@@ -63,6 +63,7 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
     Missing (..),
     PrecisionThreshold (..),
     OnMissingValue (..),
+    Keyed (..),
   )
 where
 
@@ -422,4 +423,8 @@ newtype PrecisionThreshold
 
 newtype OnMissingValue
   = OnMissingValue Text
+  deriving newtype (Eq, Show, FromJSON, ToJSON)
+
+newtype Keyed
+  = Keyed Bool
   deriving newtype (Eq, Show, FromJSON, ToJSON)

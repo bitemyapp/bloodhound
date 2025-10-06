@@ -4,14 +4,28 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Units
   ( Bytes (..),
     Interval (..),
     TimeInterval (..),
+    FixedInterval (..),
+    TimeZoneOffset (..),
+    TimeOffset (..),
+    ExtendedBounds (..),
     gigabytes,
     kilobytes,
     megabytes,
     parseStringInterval,
+    fixedIntervalDurationLens,
+    fixedIntervalUnitLens,
+    timeZoneOffsetHoursLens,
+    timeZoneOffsetMinutesLens,
+    extendedBoundsMaxLens,
+    extendedBoundsMinLens,
   )
 where
 
+import Data.Int
+import qualified Data.Text as T
+import Data.Word
 import Database.Bloodhound.Internal.Utils.Imports
+import Text.Printf (printf)
 import Text.Read (Read (..))
 import qualified Text.Read as TR
 
@@ -98,3 +112,68 @@ parseStringInterval s = case span isNumber s of
     unitNDT Hours = 60 * 60
     unitNDT Days = 24 * 60 * 60
     unitNDT Weeks = 7 * 24 * 60 * 60
+
+data FixedInterval = FixedInterval
+  { fixedIntervalDuration :: Word32,
+    fixedIntervalUnit :: TimeInterval
+  }
+  deriving stock (Eq, Show)
+
+fixedIntervalDurationLens :: Lens' FixedInterval Word32
+fixedIntervalDurationLens = lens fixedIntervalDuration (\x y -> x {fixedIntervalDuration = y})
+
+fixedIntervalUnitLens :: Lens' FixedInterval TimeInterval
+fixedIntervalUnitLens = lens fixedIntervalUnit (\x y -> x {fixedIntervalUnit = y})
+
+instance ToJSON FixedInterval where
+  toJSON (FixedInterval duration unit) = String (showText duration <> T.pack (show unit))
+
+data TimeZoneOffset = TimeZoneOffset
+  { timeZoneOffsetHours :: Int8,
+    timeZoneOffsetMinutes :: Word8
+  }
+  deriving stock (Eq, Show)
+
+timeZoneOffsetHoursLens :: Lens' TimeZoneOffset Int8
+timeZoneOffsetHoursLens = lens timeZoneOffsetHours (\x y -> x {timeZoneOffsetHours = y})
+
+timeZoneOffsetMinutesLens :: Lens' TimeZoneOffset Word8
+timeZoneOffsetMinutesLens = lens timeZoneOffsetMinutes (\x y -> x {timeZoneOffsetMinutes = y})
+
+instance ToJSON TimeZoneOffset where
+  toJSON (TimeZoneOffset hours minutes) =
+    String $
+      (if hours >= 0 then "+" else "")
+        <> T.pack (printf "%02d" hours)
+        <> ":"
+        <> T.pack (printf "%02d" minutes)
+
+newtype TimeOffset = TimeOffset Int8
+  deriving stock (Eq, Show)
+  deriving newtype (FromJSON)
+
+instance ToJSON TimeOffset where
+  toJSON (TimeOffset offset) =
+    String $
+      (if offset >= 0 then "+" else "")
+        <> showText offset
+        <> "h"
+
+data ExtendedBounds = ExtendedBounds
+  { extendedBoundsMin :: Value,
+    extendedBoundsMax :: Value
+  }
+  deriving stock (Eq, Show)
+
+extendedBoundsMinLens :: Lens' ExtendedBounds Value
+extendedBoundsMinLens = lens extendedBoundsMin (\x y -> x {extendedBoundsMin = y})
+
+extendedBoundsMaxLens :: Lens' ExtendedBounds Value
+extendedBoundsMaxLens = lens extendedBoundsMax (\x y -> x {extendedBoundsMax = y})
+
+instance ToJSON ExtendedBounds where
+  toJSON (ExtendedBounds minVal maxVal) =
+    object
+      [ "min" .= minVal,
+        "max" .= maxVal
+      ]
