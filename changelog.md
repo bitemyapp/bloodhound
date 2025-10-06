@@ -1,4 +1,4 @@
-0.24.1.0
+0.25.0.0
 ========
 - @blackheaven
   - add `BHRequest.bhRequestQueryStrings`
@@ -7,6 +7,7 @@
   - feat: add `MedianAbsoluteDeviationAggregation` and `AvgAbsoluteDeviationAggregation`
   - feat: extract `Missing` newtype
   - feat: add lenses for `MedianAbsoluteDeviationAggregation` and `AvgAggregation`
+  - fix: rename old `Missing` and `SortMissingValue`
 
 0.24.0.0
 ========

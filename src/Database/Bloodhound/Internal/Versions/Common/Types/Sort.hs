@@ -83,7 +83,7 @@ data DefaultSort = DefaultSort
     -- default False
     ignoreUnmapped :: Maybe Text,
     sortMode :: Maybe SortMode,
-    missingSort :: Maybe Missing,
+    missingSort :: Maybe SortMissingValue,
     nestedFilter :: Maybe Filter
   }
   deriving stock (Eq, Show)
@@ -100,7 +100,7 @@ defaultSortIgnoreUnmappedLens = lens ignoreUnmapped (\x y -> x {ignoreUnmapped =
 defaultSortSortModeLens :: Lens' DefaultSort (Maybe SortMode)
 defaultSortSortModeLens = lens sortMode (\x y -> x {sortMode = y})
 
-defaultSortMissingSortLens :: Lens' DefaultSort (Maybe Missing)
+defaultSortMissingSortLens :: Lens' DefaultSort (Maybe SortMissingValue)
 defaultSortMissingSortLens = lens missingSort (\x y -> x {missingSort = y})
 
 defaultSortNestedFilterLens :: Lens' DefaultSort (Maybe Filter)
@@ -123,13 +123,13 @@ instance ToJSON SortOrder where
 --   sorted last, first, or using a custom value as a substitute.
 --
 -- <http://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-sort.html#_missing_values>
-data Missing
+data SortMissingValue
   = LastMissing
   | FirstMissing
   | CustomMissing Text
   deriving stock (Eq, Show)
 
-instance ToJSON Missing where
+instance ToJSON SortMissingValue where
   toJSON LastMissing = String "_last"
   toJSON FirstMissing = String "_first"
   toJSON (CustomMissing txt) = String txt
