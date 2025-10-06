@@ -152,12 +152,13 @@ instance ToJSON Aggregation where
       ]
     where
       toJSON' x = case x of Left y -> "field" .= y; Right y -> "script" .= y
-  toJSON (CardinalityAgg (CardinalityAggregation field precisionThreshold)) =
+  toJSON (CardinalityAgg (CardinalityAggregation field precisionThreshold missing)) =
     object
       [ "cardinality"
           .= omitNulls
             [ "field" .= field,
-              "precisionThreshold" .= precisionThreshold
+              "precision_threshold" .= precisionThreshold,
+              "missing" .= missing
             ]
       ]
   toJSON
@@ -296,15 +297,19 @@ termAggregationAggsLens = lens termAggs (\x y -> x {termAggs = y})
 
 data CardinalityAggregation = CardinalityAggregation
   { cardinalityField :: FieldName,
-    precisionThreshold :: Maybe Int
+    cardinalityPrecisionThreshold :: Maybe PrecisionThreshold,
+    cardinalityMissing :: Maybe OnMissingValue
   }
   deriving stock (Eq, Show)
 
 cardinalityAggregationFieldLens :: Lens' CardinalityAggregation FieldName
 cardinalityAggregationFieldLens = lens cardinalityField (\x y -> x {cardinalityField = y})
 
-cardinalityAggregationPrecisionThresholdLens :: Lens' CardinalityAggregation (Maybe Int)
-cardinalityAggregationPrecisionThresholdLens = lens precisionThreshold (\x y -> x {precisionThreshold = y})
+cardinalityAggregationPrecisionThresholdLens :: Lens' CardinalityAggregation (Maybe PrecisionThreshold)
+cardinalityAggregationPrecisionThresholdLens = lens cardinalityPrecisionThreshold (\x y -> x {cardinalityPrecisionThreshold = y})
+
+cardinalityAggregationMissingLens :: Lens' CardinalityAggregation (Maybe OnMissingValue)
+cardinalityAggregationMissingLens = lens cardinalityMissing (\x y -> x {cardinalityMissing = y})
 
 data DateHistogramAggregation = DateHistogramAggregation
   { dateField :: FieldName,
@@ -486,7 +491,7 @@ mkDateHistogram :: FieldName -> Interval -> DateHistogramAggregation
 mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing
 
 mkCardinalityAggregation :: FieldName -> CardinalityAggregation
-mkCardinalityAggregation t = CardinalityAggregation t Nothing
+mkCardinalityAggregation t = CardinalityAggregation t Nothing Nothing
 
 mkStatsAggregation :: FieldName -> StatisticsAggregation
 mkStatsAggregation = StatisticsAggregation Basic

@@ -8,6 +8,7 @@
   - feat: extract `Missing` newtype
   - feat: add lenses for `MedianAbsoluteDeviationAggregation` and `AvgAggregation`
   - fix: rename old `Missing` and `SortMissingValue`
+  - feat: enhance `CardinalityAggregation` with `PrecisionThreshold` and `OnMissingValue` newtypes
 
 0.24.0.0
 ========

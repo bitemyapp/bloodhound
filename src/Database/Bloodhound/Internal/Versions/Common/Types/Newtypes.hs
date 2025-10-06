@@ -61,6 +61,8 @@ module Database.Bloodhound.Internal.Versions.Common.Types.Newtypes
     TokenFilter (..),
     CharFilter (..),
     Missing (..),
+    PrecisionThreshold (..),
+    OnMissingValue (..),
   )
 where
 
@@ -412,4 +414,12 @@ newtype CharFilter
 
 newtype Missing
   = Missing Int
+  deriving newtype (Eq, Show, FromJSON, ToJSON)
+
+newtype PrecisionThreshold
+  = PrecisionThreshold Int
+  deriving newtype (Eq, Show, FromJSON, ToJSON)
+
+newtype OnMissingValue
+  = OnMissingValue Text
   deriving newtype (Eq, Show, FromJSON, ToJSON)
