@@ -1,3 +1,10 @@
+0.25.1.0
+========
+- @blackheaven
+  - breaking: change `DateHistogramAggregation.dateInterval` from `Interval` to `Maybe Interval`
+  - breaking: change `mkDateHistogram` signature from `FieldName -> Interval -> DateHistogramAggregation` to `FieldName -> DateHistogramAggregation`
+  - feat: add `IntervalFixed` constructor to `Interval` sum type
+
 0.25.0.0
 ========
 - @blackheaven

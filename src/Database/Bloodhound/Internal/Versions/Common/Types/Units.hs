@@ -87,17 +87,21 @@ data Interval
   | Hour
   | Minute
   | Second
+  | IntervalFixed FixedInterval
   deriving stock (Eq, Show)
 
 instance ToJSON Interval where
-  toJSON Year = "year"
-  toJSON Quarter = "quarter"
-  toJSON Month = "month"
-  toJSON Week = "week"
-  toJSON Day = "day"
-  toJSON Hour = "hour"
-  toJSON Minute = "minute"
-  toJSON Second = "second"
+  toJSON x =
+    case x of
+      Year -> "year"
+      Quarter -> "quarter"
+      Month -> "month"
+      Week -> "week"
+      Day -> "day"
+      Hour -> "hour"
+      Minute -> "minute"
+      Second -> "second"
+      IntervalFixed i -> toJSON i
 
 parseStringInterval :: (Monad m, MonadFail m) => String -> m NominalDiffTime
 parseStringInterval s = case span isNumber s of

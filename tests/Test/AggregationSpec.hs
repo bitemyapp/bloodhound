@@ -124,30 +124,31 @@ spec =
         let fromMonthT = UTCTime (fromGregorian 2015 2 14) 0
         let fromWeekT = UTCTime (fromGregorian 2015 3 7) 0
         liftIO $
-          buckets <$> bucks
-            `shouldBe` Right
-              [ DateRangeResult
-                  "2015-02-14T00:00:00.000Z-*"
-                  (Just fromMonthT)
-                  (Just "2015-02-14T00:00:00.000Z")
-                  Nothing
-                  Nothing
-                  2
-                  Nothing,
-                DateRangeResult
-                  "2015-03-07T00:00:00.000Z-*"
-                  (Just fromWeekT)
-                  (Just "2015-03-07T00:00:00.000Z")
-                  Nothing
-                  Nothing
-                  1
-                  Nothing
-              ]
+          buckets
+            <$> bucks
+              `shouldBe` Right
+                [ DateRangeResult
+                    "2015-02-14T00:00:00.000Z-*"
+                    (Just fromMonthT)
+                    (Just "2015-02-14T00:00:00.000Z")
+                    Nothing
+                    Nothing
+                    2
+                    Nothing,
+                  DateRangeResult
+                    "2015-03-07T00:00:00.000Z-*"
+                    (Just fromWeekT)
+                    (Just "2015-03-07T00:00:00.000Z")
+                    Nothing
+                    Nothing
+                    1
+                    Nothing
+                ]
 
     it "returns date histogram aggregation results" $
       withTestEnv $ do
         _ <- insertData
-        let histogram = DateHistogramAgg $ mkDateHistogram (FieldName "postDate") Minute
+        let histogram = DateHistogramAgg (mkDateHistogram (FieldName "postDate")) {dateInterval = Just Minute}
         let search = mkAggregateSearch Nothing (mkAggregations "byDate" histogram)
         searchExpectAggs search
         searchValidBucketAgg search "byDate" toDateHistogram

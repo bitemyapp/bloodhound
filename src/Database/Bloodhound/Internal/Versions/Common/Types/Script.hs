@@ -156,9 +156,9 @@ parseFunctionScoreFunction o =
   singleScript
     `taggedWith` "script_score"
     <|> singleRandom
-      `taggedWith` "random_score"
+    `taggedWith` "random_score"
     <|> singleFieldValueFactor
-      `taggedWith` "field_value_factor"
+    `taggedWith` "field_value_factor"
   where
     taggedWith parser k = parser =<< o .: k
     singleScript = pure . FunctionScoreFunctionScript

@@ -340,7 +340,7 @@ cardinalityAggregationMissingLens = lens cardinalityMissing (\x y -> x {cardinal
 
 data DateHistogramAggregation = DateHistogramAggregation
   { dateField :: FieldName,
-    dateInterval :: Interval,
+    dateInterval :: Maybe Interval,
     dateFormat :: Maybe Text,
     -- pre and post deprecated in 1.5
     datePreZone :: Maybe Text,
@@ -362,7 +362,7 @@ data DateHistogramAggregation = DateHistogramAggregation
 dateHistogramAggregationFieldLens :: Lens' DateHistogramAggregation FieldName
 dateHistogramAggregationFieldLens = lens dateField (\x y -> x {dateField = y})
 
-dateHistogramAggregationIntervalLens :: Lens' DateHistogramAggregation Interval
+dateHistogramAggregationIntervalLens :: Lens' DateHistogramAggregation (Maybe Interval)
 dateHistogramAggregationIntervalLens = lens dateInterval (\x y -> x {dateInterval = y})
 
 dateHistogramAggregationFormatLens :: Lens' DateHistogramAggregation (Maybe Text)
@@ -546,8 +546,8 @@ mkTermsAggregation t =
 mkTermsScriptAggregation :: Text -> TermsAggregation
 mkTermsScriptAggregation t = TermsAggregation (Right t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
-mkDateHistogram :: FieldName -> Interval -> DateHistogramAggregation
-mkDateHistogram t i = DateHistogramAggregation t i Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+mkDateHistogram :: FieldName -> DateHistogramAggregation
+mkDateHistogram t = DateHistogramAggregation t Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 mkCardinalityAggregation :: FieldName -> CardinalityAggregation
 mkCardinalityAggregation t = CardinalityAggregation t Nothing Nothing
