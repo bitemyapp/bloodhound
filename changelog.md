@@ -4,6 +4,7 @@
   - breaking: change `DateHistogramAggregation.dateInterval` from `Interval` to `Maybe Interval`
   - breaking: change `mkDateHistogram` signature from `FieldName -> Interval -> DateHistogramAggregation` to `FieldName -> DateHistogramAggregation`
   - feat: add `IntervalFixed` constructor to `Interval` sum type
+  - feat: add `bhResponseHook` to `BHEnv` for post-response debugging/processing
 
 0.25.0.0
 ========

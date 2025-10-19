@@ -50,7 +50,9 @@ data BHEnv = BHEnv
   { bhServer :: Server,
     bhManager :: HTTP.Manager,
     -- | Low-level hook that is run before every request is sent. Used to implement custom authentication strategies. Defaults to 'return' with 'mkBHEnv'.
-    bhRequestHook :: HTTP.Request -> IO HTTP.Request
+    bhRequestHook :: HTTP.Request -> IO HTTP.Request,
+    -- | Low-level hook that is run after every response is received. Used to debug. Defaults to 'return' with 'mkBHEnv'.
+    bhResponseHook :: HTTP.Response L.ByteString -> IO (HTTP.Response L.ByteString)
   }
 
 -- | All API calls to Elasticsearch operate within
@@ -86,7 +88,7 @@ type WithBackend (backend :: BackendType) (m :: Type -> Type) = WithBackendType 
 --
 -- >> (mkBHEnv myServer myManager) { bhRequestHook = customHook }
 mkBHEnv :: Server -> HTTP.Manager -> BHEnv
-mkBHEnv s m = BHEnv s m return
+mkBHEnv s m = BHEnv s m return return
 
 -- | Basic BH implementation
 newtype BH m a = BH
@@ -121,28 +123,26 @@ instance (Functor m, Applicative m, MonadIO m, MonadCatch m, MonadThrow m) => Mo
   type Backend (BH m) = 'Dynamic
   dispatch request = BH $ do
     env <- ask @BHEnv
-    let url = getEndpoint (bhServer env) (bhRequestEndpoint request)
-    initReq <- liftIO $ parseUrl' url
-    let reqHook = bhRequestHook env
-    let reqBody = HTTP.RequestBodyLBS $ fromMaybe emptyBody $ bhRequestBody request
-    let setQueryStrings =
-          case bhRequestQueryStrings request of
-            [] -> id
-            xs -> HTTP.setQueryString xs
-    req <-
-      liftIO $
-        reqHook $
+    liftIO $ do
+      initReq <- parseUrl' $ getEndpoint (bhServer env) (bhRequestEndpoint request)
+      let setQueryStrings =
+            case bhRequestQueryStrings request of
+              [] -> id
+              xs -> HTTP.setQueryString xs
+      req <-
+        bhRequestHook env $
           HTTP.setRequestIgnoreStatus $
             setQueryStrings $
               initReq
                 { HTTP.method = bhRequestMethod request,
                   HTTP.requestHeaders =
                     ("Content-Type", "application/json") : HTTP.requestHeaders initReq,
-                  HTTP.requestBody = reqBody
+                  HTTP.requestBody = HTTP.RequestBodyLBS $ fromMaybe emptyBody $ bhRequestBody request
                 }
 
-    let mgr = bhManager env
-    BHResponse <$> liftIO (HTTP.httpLbs req mgr)
+      let mgr = bhManager env
+      rawResp <- HTTP.httpLbs req mgr
+      BHResponse <$> bhResponseHook env rawResp
   tryEsError = try
   throwEsError = throwM
 
