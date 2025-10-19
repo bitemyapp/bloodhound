@@ -147,7 +147,7 @@ instance ToJSON Aggregation where
     omitNulls
       [ "terms"
           .= omitNulls
-            [ toJSON' term,
+            [ mkTarget term,
               "include" .= include,
               "exclude" .= exclude,
               "order" .= order,
@@ -160,7 +160,9 @@ instance ToJSON Aggregation where
         "aggs" .= termAggs
       ]
     where
-      toJSON' x = case x of Left y -> "field" .= y; Right y -> "script" .= y
+      mkTarget x = case x of
+        TermsAggregationTargetField fn -> "field" .= fn
+        TermsAggregationTargetScript scr -> "script" .= scr
   toJSON (CardinalityAgg (CardinalityAggregation field precisionThreshold missing)) =
     object
       [ "cardinality"
@@ -279,7 +281,7 @@ missingAggregationFieldLens :: Lens' MissingAggregation Text
 missingAggregationFieldLens = lens maField (\x y -> x {maField = y})
 
 data TermsAggregation = TermsAggregation
-  { term :: Either Text Text,
+  { term :: TermsAggregationTarget,
     termInclude :: Maybe TermInclusion,
     termExclude :: Maybe TermInclusion,
     termOrder :: Maybe TermOrder,
@@ -292,7 +294,7 @@ data TermsAggregation = TermsAggregation
   }
   deriving stock (Eq, Show)
 
-termAggregationTermLens :: Lens' TermsAggregation (Either Text Text)
+termAggregationTermLens :: Lens' TermsAggregation TermsAggregationTarget
 termAggregationTermLens = lens term (\x y -> x {term = y})
 
 termAggregationIncludeLens :: Lens' TermsAggregation (Maybe TermInclusion)
@@ -321,6 +323,27 @@ termAggregationExecutionHintLens = lens termExecutionHint (\x y -> x {termExecut
 
 termAggregationAggsLens :: Lens' TermsAggregation (Maybe Aggregations)
 termAggregationAggsLens = lens termAggs (\x y -> x {termAggs = y})
+
+data TermsAggregationTarget
+  = TermsAggregationTargetField FieldName
+  | TermsAggregationTargetScript Text
+  deriving stock (Eq, Show)
+
+termsAggregationTargetTermsAggregationTargetFieldPrism :: Prism' TermsAggregationTarget FieldName
+termsAggregationTargetTermsAggregationTargetFieldPrism = prism TermsAggregationTargetField extract
+  where
+    extract s =
+      case s of
+        TermsAggregationTargetField x -> Right x
+        _ -> Left s
+
+termsAggregationTargetTermsAggregationTargetScriptPrism :: Prism' TermsAggregationTarget Text
+termsAggregationTargetTermsAggregationTargetScriptPrism = prism TermsAggregationTargetScript extract
+  where
+    extract s =
+      case s of
+        TermsAggregationTargetScript x -> Right x
+        _ -> Left s
 
 data CardinalityAggregation = CardinalityAggregation
   { cardinalityField :: FieldName,
@@ -529,10 +552,10 @@ medianAbsoluteDeviationAggregationFieldLens = lens medianAbsoluteDeviationAggreg
 medianAbsoluteDeviationAggregationMissingLens :: Lens' MedianAbsoluteDeviationAggregation (Maybe Missing)
 medianAbsoluteDeviationAggregationMissingLens = lens medianAbsoluteDeviationAggregationMissing (\x y -> x {medianAbsoluteDeviationAggregationMissing = y})
 
-mkTermsAggregation :: Text -> TermsAggregation
+mkTermsAggregation :: FieldName -> TermsAggregation
 mkTermsAggregation t =
   TermsAggregation
-    (Left t)
+    (TermsAggregationTargetField t)
     Nothing
     Nothing
     Nothing
@@ -544,7 +567,7 @@ mkTermsAggregation t =
     Nothing
 
 mkTermsScriptAggregation :: Text -> TermsAggregation
-mkTermsScriptAggregation t = TermsAggregation (Right t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+mkTermsScriptAggregation t = TermsAggregation (TermsAggregationTargetScript t) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 mkDateHistogram :: FieldName -> DateHistogramAggregation
 mkDateHistogram t = DateHistogramAggregation t Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing

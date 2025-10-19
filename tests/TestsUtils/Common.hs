@@ -278,7 +278,7 @@ searchValidBucketAgg search aggKey extractor = do
 
 searchTermsAggHint :: [ExecutionHint] -> BH IO ()
 searchTermsAggHint hints = do
-  let terms hint = TermsAgg $ (mkTermsAggregation "user.keyword") {termExecutionHint = Just hint}
+  let terms hint = TermsAgg $ (mkTermsAggregation $ FieldName "user.keyword") {termExecutionHint = Just hint}
   let search hint = mkAggregateSearch Nothing $ mkAggregations "users" $ terms hint
   forM_ hints $ searchExpectAggs . search
 

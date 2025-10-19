@@ -3,8 +3,11 @@
 - @blackheaven
   - breaking: change `DateHistogramAggregation.dateInterval` from `Interval` to `Maybe Interval`
   - breaking: change `mkDateHistogram` signature from `FieldName -> Interval -> DateHistogramAggregation` to `FieldName -> DateHistogramAggregation`
+  - breaking: replace `TermsAggregation.term` from `Either Text Text` to `TermsAggregationTarget`
+  - breaking: change `mkTermsAggregation` signature from `Text -> TermsAggregation` to `FieldName -> TermsAggregation`
   - feat: add `IntervalFixed` constructor to `Interval` sum type
   - feat: add `bhResponseHook` to `BHEnv` for post-response debugging/processing
+  - feat: add `TermsAggregationTarget` sum type with `TermsAggregationTargetField` and `TermsAggregationTargetScript` constructors
 
 0.25.0.0
 ========

@@ -14,7 +14,7 @@ spec =
     it "returns term aggregation results" $
       withTestEnv $ do
         _ <- insertData
-        let terms = TermsAgg $ mkTermsAggregation "user"
+        let terms = TermsAgg $ mkTermsAggregation $ FieldName "user"
         let search = mkAggregateSearch Nothing $ mkAggregations "users" terms
         searchExpectAggs search
         searchValidBucketAgg search "users" toTerms
@@ -22,8 +22,8 @@ spec =
     it "return sub-aggregation results" $
       withTestEnv $ do
         _ <- insertData
-        let subaggs = mkAggregations "age_agg" . TermsAgg $ mkTermsAggregation "age"
-            agg = TermsAgg $ (mkTermsAggregation "user") {termAggs = Just subaggs}
+        let subaggs = mkAggregations "age_agg" . TermsAgg $ mkTermsAggregation $ FieldName "age"
+            agg = TermsAgg $ (mkTermsAggregation $ FieldName "user") {termAggs = Just subaggs}
             search = mkAggregateSearch Nothing $ mkAggregations "users" agg
         result <- performBHRequest $ searchByIndex @Tweet testIndex search
         let usersAggResults = aggregations result >>= toTerms "users"
@@ -67,7 +67,7 @@ spec =
     it "can give collection hint parameters to term aggregations" $
       withTestEnv $ do
         _ <- insertData
-        let terms = TermsAgg $ (mkTermsAggregation "user") {termCollectMode = Just BreadthFirst}
+        let terms = TermsAgg $ (mkTermsAggregation $ FieldName "user") {termCollectMode = Just BreadthFirst}
         let search = mkAggregateSearch Nothing $ mkAggregations "users" terms
         searchExpectAggs search
         searchValidBucketAgg search "users" toTerms
