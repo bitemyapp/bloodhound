@@ -270,7 +270,7 @@ topHitsAggregationSizeLens = lens taSize (\x y -> x {taSize = y})
 topHitsAggregationSortLens :: Lens' TopHitsAggregation (Maybe Sort)
 topHitsAggregationSortLens = lens taSort (\x y -> x {taSort = y})
 
-data MissingAggregation = MissingAggregation
+newtype MissingAggregation = MissingAggregation
   { maField :: Text
   }
   deriving stock (Eq, Show)
