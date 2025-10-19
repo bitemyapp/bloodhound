@@ -1,4 +1,4 @@
-0.25.1.0
+0.26.0.0
 ========
 - @blackheaven
   - breaking: change `DateHistogramAggregation.dateInterval` from `Interval` to `Maybe Interval`
